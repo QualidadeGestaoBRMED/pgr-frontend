@@ -61,6 +61,10 @@ export default function PgrEtapaPage({
     params.id,
     initialCompletedSteps
   );
+  const inputBaseClass =
+    "mt-2 h-[40px] w-full rounded-[8px] border border-border bg-muted px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary";
+  const selectBaseClass =
+    "h-[40px] w-full appearance-none rounded-[8px] border border-border bg-muted px-3 pr-10 text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
 
   const handleAdvance = () => {
     // TODO: temporário. Considera a etapa atual como concluída ao avançar.
@@ -85,173 +89,173 @@ export default function PgrEtapaPage({
       ) : step.id === "dados" ? (
         <>
           <section className="px-2">
-            <h1 className="text-[22px] font-medium text-[#1f3f52] sm:text-[24px]">
+            <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
               Dados cadastrais
             </h1>
-            <p className="mt-1 text-[14px] text-[#8c8c8c]">
+            <p className="mt-1 text-[14px] text-muted-foreground">
               Preencha os dados da empresa, estabelecimento e contratante
             </p>
           </section>
 
-          <section className="rounded-[14px] bg-white px-6 py-6">
-            <h2 className="text-[16px] font-medium text-[#1f3f52]">
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <h2 className="text-[16px] font-medium text-foreground">
               Identificação da Empresa:
             </h2>
             <div className="mt-6 grid gap-4 md:grid-cols-[2fr_1fr_1.2fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Razão Social:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Grupo:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CNPJ:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_1.2fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Empresa:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CNAE:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Endereço
                 </label>
                 <input
                   defaultValue="Avenida Armando Lombardi, 55"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CEP:
                 </label>
                 <input
                   defaultValue="20230-130"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Cidade:
                 </label>
                 <input
                   defaultValue="São José do Vale do Rio Preto"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Estado:
                 </label>
                 <input
                   defaultValue="Rio de Janeiro"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Grau de Risco:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Descrição de Atividade Principal:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
           </section>
 
-          <section className="rounded-[14px] bg-white px-6 py-6">
-            <h2 className="text-[16px] font-medium text-[#1f3f52]">
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <h2 className="text-[16px] font-medium text-foreground">
               Identificação da Estabelecimento:
             </h2>
             <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1.2fr_1fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Nome do Estabelecimento:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CNPJ:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Estabelecimento:
                 </label>
                 <div className="relative mt-2">
-                  <select className="h-[40px] w-full appearance-none rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 pr-10 text-[13px] text-[#1f3f52]">
+                  <select className={selectBaseClass}>
                     <option>Selecione:</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_1.2fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Razão Social:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CNAE:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Grau de Risco:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Descrição de Atividade Principal:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
 
             <div className="mt-6 flex justify-end">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-[10px] border border-[#007891] px-4 py-2 text-[14px] font-medium text-[#007891] transition hover:bg-[#eef7f8]"
+                className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
               >
                 <PlusCircle className="h-4 w-4" />
                 Adicionar Campo
@@ -259,133 +263,133 @@ export default function PgrEtapaPage({
             </div>
           </section>
 
-          <section className="rounded-[14px] bg-white px-6 py-6">
-            <h2 className="text-[16px] font-medium text-[#1f3f52]">
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <h2 className="text-[16px] font-medium text-foreground">
               Identificação da Contratante:
             </h2>
             <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1.6fr_1fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Nome Fantasia:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Razão social:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CNAE:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Endereço
                 </label>
                 <input
                   defaultValue="Avenida Armando Lombardi, 55"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CEP:
                 </label>
                 <input
                   defaultValue="20230-130"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Cidade:
                 </label>
                 <input
                   defaultValue="São José do Vale do Rio Preto"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Estado:
                 </label>
                 <input
                   defaultValue="Rio de Janeiro"
-                  className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]"
+                  className={inputBaseClass}
                 />
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Grau de Risco:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Descrição de Atividade Principal:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
           </section>
 
-          <section className="rounded-[14px] bg-white px-6 py-6">
-            <h2 className="text-[16px] font-medium text-[#1f3f52]">
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <h2 className="text-[16px] font-medium text-foreground">
               Responsável pelo PGR na Organização:
             </h2>
             <div className="mt-6 grid gap-4 md:grid-cols-[1.6fr_1.2fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Nome:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Função:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
             <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Telefone:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   Email:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
               <div>
-                <label className="text-[12px] font-medium text-[#1f3f52]">
+                <label className="text-[12px] font-medium text-foreground">
                   CPF:
                 </label>
-                <input className="mt-2 h-[40px] w-full rounded-[8px] border border-[#d6d6d6] bg-[#f6f6f6] px-3 text-[13px]" />
+                <input className={inputBaseClass} />
               </div>
             </div>
           </section>
         </>
       ) : (
-        <section className="rounded-[14px] bg-white px-6 py-6">
-          <h1 className="text-[22px] font-semibold text-[#1f3f52] sm:text-[24px]">
+        <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+          <h1 className="text-[22px] font-semibold text-foreground sm:text-[24px]">
             {step.title}
           </h1>
-          <p className="mt-1 text-[14px] text-[#8c8c8c]">{step.subtitle}</p>
-          <div className="mt-6 rounded-[10px] bg-[#f6f7f9] px-4 py-4 text-[14px] text-[#6b6b6b]">
+          <p className="mt-1 text-[14px] text-muted-foreground">{step.subtitle}</p>
+          <div className="mt-6 rounded-[10px] bg-muted px-4 py-4 text-[14px] text-muted-foreground">
             Conteúdo da etapa <strong>{step.title}</strong> será exibido aqui.
           </div>
         </section>
@@ -396,7 +400,7 @@ export default function PgrEtapaPage({
           <button
             type="button"
             onClick={() => router.push(`/pgr/${params.id}/${prevStep.id}`)}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#007891] px-5 py-2 text-[14px] font-medium text-[#007891] transition hover:bg-[#eef7f8]"
+            className="btn-outline"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar
@@ -405,7 +409,7 @@ export default function PgrEtapaPage({
           <button
             type="button"
             disabled
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#c9d3d8] px-5 py-2 text-[14px] font-medium text-[#9aa6ad]"
+            className="btn-disabled"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar
@@ -416,7 +420,7 @@ export default function PgrEtapaPage({
           <button
             type="button"
             onClick={handleAdvance}
-            className="inline-flex items-center gap-2 rounded-[8px] bg-[#007891] px-6 py-2 text-[14px] font-medium text-white transition hover:brightness-110"
+            className="btn-primary px-6"
           >
             Avançar
             <ArrowRight className="h-4 w-4" />
@@ -425,7 +429,7 @@ export default function PgrEtapaPage({
           <button
             type="button"
             disabled
-            className="inline-flex items-center gap-2 rounded-[8px] bg-[#c9d3d8] px-6 py-2 text-[14px] font-medium text-white"
+            className="btn-disabled border-0 px-6"
           >
             Avançar
             <ArrowRight className="h-4 w-4" />

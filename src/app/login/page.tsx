@@ -31,24 +31,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className={`min-h-screen w-full bg-white ${workSans.className}`}>
+    <div
+      className={`min-h-screen w-full bg-background ${workSans.className}`}
+    >
       <div className="min-h-screen w-full lg:grid lg:grid-cols-[49.75%_50.25%]">
-        <div className="flex min-h-screen w-full flex-col items-center justify-start px-6 pb-12 pt-16 text-[#193b4e] sm:px-10 lg:px-[96px] lg:pt-[120px]">
+        <div className="flex min-h-screen w-full flex-col items-center justify-start px-6 pb-12 pt-16 text-foreground sm:px-10 lg:px-[96px] lg:pt-[120px]">
           <div className="mt-4 w-full lg:max-w-[600px]">
             <img
               src={imgImage2}
               alt="BR MED"
-              className="w-[220px] h-auto max-w-full object-contain sm:w-[220px] lg:w-[220px]"
+              className="h-auto w-[220px] max-w-full object-contain sm:w-[220px] lg:w-[220px] dark:hidden"
+            />
+            <img
+              src="/logo_darkmode.png"
+              alt="BR MED"
+              className="hidden h-auto w-[220px] max-w-full object-contain sm:w-[220px] lg:w-[220px] dark:block"
             />
             <div className="mt-12">
-              <p className="text-[26px] font-semibold text-[#193b4e] tracking-[0.02em] sm:text-[28px]">
+              <p className="text-[26px] font-semibold text-foreground tracking-[0.02em] sm:text-[28px]">
                 Módulo PGR Web
               </p>
-              <p className="mt-1 text-[14px] font-medium text-[#6f7b84]">
+              <p className="mt-1 text-[14px] font-medium text-muted-foreground">
                 Gestão integrada de riscos ocupacionais
               </p>
             </div>
-            <p className="mt-8 text-[16px] font-normal">
+            <p className="mt-8 text-[16px] font-normal text-foreground">
               Entre com suas credenciais para acessar
             </p>
             <form className="mt-8 space-y-8" onSubmit={handleSubmit}>
@@ -57,7 +64,7 @@ export default function LoginPage() {
                   Usuário:
                 </label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-[12px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#aeadad]" />
+                  <Mail className="pointer-events-none absolute left-[12px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
                   <input
                     id="username"
                     name="username"
@@ -66,7 +73,7 @@ export default function LoginPage() {
                     autoComplete="username"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    className="h-[44px] w-full rounded-[7px] border-[0.5px] border-[#aeadad] bg-[#f3f3f5] pl-11 pr-3 text-[14px] text-[#193b4e] outline-none placeholder:text-[10px] placeholder:text-[#aeadad] focus:border-[#193b4e] focus:ring-1 focus:ring-[#193b4e]"
+                    className="h-[44px] w-full rounded-[7px] border-[0.5px] border-border bg-muted pl-11 pr-3 text-[14px] text-foreground outline-none placeholder:text-[10px] placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -76,7 +83,7 @@ export default function LoginPage() {
                   Senha:
                 </label>
                 <div className="relative">
-                  <LockIcon className="pointer-events-none absolute left-[12px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#aeadad]" />
+                  <LockIcon className="pointer-events-none absolute left-[12px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
                   <input
                     id="password"
                     name="password"
@@ -85,12 +92,12 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="h-[44px] w-full rounded-[7px] border-[0.5px] border-[#aeadad] bg-[#f3f3f5] pl-11 pr-12 text-[14px] text-[#193b4e] outline-none placeholder:text-[10px] placeholder:text-[#aeadad] focus:border-[#193b4e] focus:ring-1 focus:ring-[#193b4e]"
+                    className="h-[44px] w-full rounded-[7px] border-[0.5px] border-border bg-muted pl-11 pr-12 text-[14px] text-foreground outline-none placeholder:text-[10px] placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-[12px] top-1/2 -translate-y-1/2 text-[#aeadad] transition hover:text-[#193b4e]"
+                    className="absolute right-[12px] top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
                     aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   >
                     {showPassword ? (
@@ -103,7 +110,7 @@ export default function LoginPage() {
                 <div className="text-right">
                   <button
                     type="button"
-                    className="text-[12px] font-medium text-[#193b4e]"
+                    className="text-[12px] font-medium text-foreground"
                   >
                     Esqueceu sua senha?
                   </button>
@@ -112,12 +119,12 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="h-[46px] w-full rounded-[8px] bg-[#193b4e] text-[15px] font-semibold text-white transition hover:brightness-110"
+                className="btn-primary h-[46px] w-full rounded-[8px] bg-[#193b4e] text-[15px] font-semibold text-white hover:bg-[#193b4e]/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
               >
                 Entrar
               </button>
               {error && (
-                <p className="text-[12px] font-medium text-[#f64848]">
+                <p className="text-[12px] font-medium text-destructive">
                   {error}
                 </p>
               )}

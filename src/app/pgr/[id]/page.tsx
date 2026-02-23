@@ -79,7 +79,7 @@ export default function PgrHistoricoPage({
         <button
           type="button"
           onClick={() => router.push(`/pgr/${params.id}/inicio`)}
-          className="inline-flex items-center gap-2 rounded-[8px] border border-[#007891] px-5 py-2 text-[14px] font-medium text-[#007891] transition hover:bg-[#eef7f8]"
+          className="btn-outline"
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar
@@ -87,7 +87,7 @@ export default function PgrHistoricoPage({
         <button
           type="button"
           onClick={handleAdvance}
-          className="inline-flex items-center gap-2 rounded-[8px] bg-[#007891] px-6 py-2 text-[14px] font-medium text-white transition hover:brightness-110"
+          className="btn-primary px-6"
         >
           Avançar
           <ArrowRight className="h-4 w-4" />

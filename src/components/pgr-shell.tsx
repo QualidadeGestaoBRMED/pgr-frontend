@@ -25,8 +25,8 @@ export function PgrShell({
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">
-      <aside className="rounded-[14px] bg-white px-6 py-6">
-        <h2 className="text-[18px] font-semibold text-[#1f3f52]">Etapas</h2>
+      <aside className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+        <h2 className="text-[18px] font-semibold text-foreground">Etapas</h2>
 
         <ul className="mt-6 space-y-5">
           {pgrSteps.map((step, index) => {
@@ -34,10 +34,10 @@ export function PgrShell({
             const isDone = index < clampedCompleted;
             const isAlert = !isDone && step.tone === "alert";
             const circleClasses = isDone
-              ? "bg-[#dff5e8] text-[#1a7f4f]"
+              ? "bg-[#dff5e8] text-[#1a7f4f] dark:bg-[#1d3b2b] dark:text-[#8ae6b2]"
               : isAlert
-                ? "bg-[#ffe1e1] text-[#d14c4c]"
-                : "bg-[#eef0f4] text-[#8b96a5]";
+                ? "bg-[#ffe1e1] text-[#d14c4c] dark:bg-[#3d1b1b] dark:text-[#f39b9b]"
+                : "bg-muted text-muted-foreground";
 
             return (
               <li key={step.id} className="relative">
@@ -52,18 +52,18 @@ export function PgrShell({
                       {isDone ? <Check className="h-4 w-4" /> : index + 1}
                     </div>
                     {index < pgrSteps.length - 1 && (
-                      <span className="absolute left-1/2 top-8 h-10 w-px -translate-x-1/2 bg-[#d6d6d6]" />
+                      <span className="absolute left-1/2 top-8 h-10 w-px -translate-x-1/2 bg-border" />
                     )}
                   </div>
                   <div>
                     <span
                       className={`text-[15px] font-semibold ${
-                        isCurrent ? "text-[#193b4f]" : "text-[#1f3f52]"
+                        isCurrent ? "text-foreground" : "text-foreground/80"
                       }`}
                     >
                       {step.title}
                     </span>
-                    <p className="mt-1 text-[12px] text-[#9a9a9a]">
+                    <p className="mt-1 text-[12px] text-muted-foreground">
                       {step.subtitle}
                     </p>
                   </div>
@@ -75,16 +75,16 @@ export function PgrShell({
       </aside>
 
       <main className="space-y-6">
-        <div className="rounded-[12px] bg-white px-6 py-5">
-          <div className="flex items-center justify-between text-[13px] text-[#6f6f6f]">
+        <div className="rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+          <div className="flex items-center justify-between text-[13px] text-muted-foreground">
             <span>Progresso</span>
-            <span className="font-semibold text-[#2e2e2e]">
+            <span className="font-semibold text-foreground">
               {progressValue}%
             </span>
           </div>
-          <div className="mt-3 h-3 w-full rounded-full bg-[#e6e6e6]">
+          <div className="mt-3 h-3 w-full rounded-full bg-muted">
             <div
-              className="h-3 rounded-full bg-[#6bbf46]"
+              className="h-3 rounded-full bg-[#6bbf46] dark:bg-[#6fd35a]"
               style={{ width: `${progressValue}%` }}
             />
           </div>

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronDown, X } from "lucide-react";
+import { Bell, ChevronDown, Moon, Sun, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 
 const imgMarcaPrincipalCorSmall31 =
   "https://www.figma.com/api/mcp/asset/a7cc84dc-695b-4f12-96ad-9c2879c6ecb5";
@@ -27,6 +28,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const profileRef = useRef<HTMLDivElement | null>(null);
+  const { theme, toggleTheme } = useTheme();
   const [notificationItems, setNotificationItems] = useState<
     AppHeaderNotification[]
   >(() => {
@@ -77,13 +79,18 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
   const hasNotifications = notificationItems.length > 0;
 
   return (
-    <header className="flex items-center justify-between rounded-[10px] bg-white px-6 py-4">
+    <header className="flex items-center justify-between rounded-[10px] bg-card px-6 py-4 text-foreground">
       <div className="flex items-center gap-4">
         <Link href="/home" aria-label="Ir para Home">
           <img
             src={imgMarcaPrincipalCorSmall31}
             alt="BR MED"
-            className="h-[32px] w-[140px] object-contain"
+            className="h-[32px] w-[140px] object-contain dark:hidden"
+          />
+          <img
+            src="/logo_darkmode.png"
+            alt="BR MED"
+            className="hidden h-[32px] w-[140px] object-contain dark:block"
           />
         </Link>
       </div>
@@ -96,7 +103,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
               setNotificationsOpen((prev) => !prev);
               setProfileOpen(false);
             }}
-            className="relative text-[#193b4f]"
+            className="relative text-muted-foreground transition hover:text-foreground"
             aria-label="Notificações"
           >
             <Bell className="h-5 w-5" />
@@ -105,9 +112,11 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
             )}
           </button>
           {notificationsOpen && (
-            <div className="absolute right-0 z-10 mt-3 w-[260px] rounded-[10px] bg-white p-4 text-[13px] text-[#193b4f] shadow-[0px_8px_20px_rgba(25,59,79,0.15)]">
-              <p className="text-[13px] font-semibold">Notificações</p>
-              <div className="mt-3 space-y-3 text-[13px] text-[#5f6f76]">
+            <div className="absolute right-0 z-10 mt-3 w-[260px] rounded-[10px] bg-popover p-4 text-[13px] text-popover-foreground shadow-[0px_8px_20px_rgba(25,59,79,0.15)]">
+              <p className="text-[13px] font-semibold text-foreground">
+                Notificações
+              </p>
+              <div className="mt-3 space-y-3 text-[13px] text-muted-foreground">
                 {notificationItems.length === 0 ? (
                   <p>Nenhuma notificação</p>
                 ) : (
@@ -117,7 +126,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
                       className="flex items-start justify-between gap-2"
                     >
                       <div>
-                        <p className="font-medium text-[#193b4f]">
+                        <p className="font-medium text-foreground">
                           {item.title}
                         </p>
                         <p>{item.description}</p>
@@ -129,7 +138,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
                             prev.filter((_, idx) => idx !== index)
                           );
                         }}
-                        className="mt-0.5 text-[#9a9a9a] hover:text-[#193b4f]"
+                        className="mt-0.5 text-muted-foreground transition hover:text-foreground"
                         aria-label="Fechar notificação"
                       >
                         <X className="h-3 w-3" />
@@ -152,31 +161,43 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
             className="flex items-center gap-3"
             aria-label="Perfil do usuário"
           >
-            <div className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-[#d9d9d9] text-[12px] font-semibold text-[#193b4f]">
+            <div className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-muted text-[12px] font-semibold text-foreground">
               {user.initials}
             </div>
-            <span className="text-[12px] font-bold text-[#193b4f]">
+            <span className="text-[12px] font-bold text-foreground">
               {user.name}
             </span>
-            <ChevronDown className="h-4 w-4 text-[#193b4f]" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
           {profileOpen && (
-            <div className="absolute right-0 z-10 mt-3 w-[200px] rounded-[10px] bg-white p-3 text-[13px] text-[#193b4f] shadow-[0px_8px_20px_rgba(25,59,79,0.15)]">
+            <div className="absolute right-0 z-10 mt-3 w-[200px] rounded-[10px] bg-popover p-3 text-[13px] text-popover-foreground shadow-[0px_8px_20px_rgba(25,59,79,0.15)]">
               <button
                 type="button"
-                className="w-full rounded-[6px] px-3 py-2 text-left hover:bg-[#f0f0f0]"
+                className="w-full rounded-[6px] px-3 py-2 text-left transition hover:bg-muted"
               >
                 Meu perfil
               </button>
               <button
                 type="button"
-                className="w-full rounded-[6px] px-3 py-2 text-left hover:bg-[#f0f0f0]"
+                className="w-full rounded-[6px] px-3 py-2 text-left transition hover:bg-muted"
               >
                 Configurações
               </button>
               <button
                 type="button"
-                className="w-full rounded-[6px] px-3 py-2 text-left text-[#f64848] hover:bg-[#fff1f1]"
+                onClick={toggleTheme}
+                className="mt-1 flex w-full items-center justify-between rounded-[6px] px-3 py-2 text-left transition hover:bg-muted"
+              >
+                <span>{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
+                {theme === "dark" ? (
+                  <Sun className="h-4 w-4 text-[#f5b301]" />
+                ) : (
+                  <Moon className="h-4 w-4 text-primary" />
+                )}
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-[6px] px-3 py-2 text-left text-destructive transition hover:bg-destructive/10"
               >
                 Sair
               </button>
