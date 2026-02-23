@@ -24,7 +24,7 @@ export function PgrShell({
   const progressValue = Math.round((clampedCompleted / totalSteps) * 100);
 
   return (
-    <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]">
+    <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">
       <aside className="rounded-[14px] bg-white px-6 py-6">
         <h2 className="text-[18px] font-semibold text-[#1f3f52]">Etapas</h2>
 

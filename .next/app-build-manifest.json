@@ -23,21 +23,10 @@
       "static/css/app/home/page.css",
       "static/chunks/app/home/page.js"
     ],
-    "/adm/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/app/adm/page.css",
-      "static/chunks/app/adm/page.js"
-    ],
     "/pgr/[id]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/pgr/[id]/page.js"
-    ],
-    "/pgr/[id]/[etapa]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/pgr/[id]/[etapa]/page.js"
     ],
     "/pgr/[id]/layout": [
       "static/chunks/webpack.js",
@@ -45,10 +34,10 @@
       "static/css/app/pgr/[id]/layout.css",
       "static/chunks/app/pgr/[id]/layout.js"
     ],
-    "/_not-found/page": [
+    "/pgr/[id]/[etapa]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/chunks/app/pgr/[id]/[etapa]/page.js"
     ]
   }
 }
