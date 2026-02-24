@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
+import { Chrome, Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
 import { Work_Sans } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -107,19 +107,27 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
-                <div className="text-right">
-                  <button
-                    type="button"
-                    className="text-[12px] font-medium text-foreground"
-                  >
-                    Esqueceu sua senha?
-                  </button>
-                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[12px] font-medium text-foreground">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border bg-muted text-primary focus:ring-primary"
+                  />
+                  Lembrar-me
+                </label>
+                <button
+                  type="button"
+                  className="text-[12px] font-medium text-foreground"
+                >
+                  Esqueceu sua senha?
+                </button>
               </div>
 
               <button
                 type="submit"
-                className="btn-primary h-[46px] w-full rounded-[8px] bg-[#193b4e] text-[15px] font-semibold text-white hover:bg-[#193b4e]/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+                className="btn-primary h-[46px] w-full rounded-[8px] bg-[#193b4e] text-[15px] font-semibold text-white hover:bg-[#193b4e]/90 dark:bg-primary dark:text-white dark:hover:bg-primary/90"
               >
                 Entrar
               </button>
@@ -128,6 +136,16 @@ export default function LoginPage() {
                   {error}
                 </p>
               )}
+
+              <button
+                type="button"
+                disabled
+                className="btn-outline h-[46px] w-full rounded-[8px] text-[14px] opacity-60 cursor-not-allowed"
+                aria-disabled="true"
+              >
+                <Chrome className="h-4 w-4" />
+                Entrar com o Google
+              </button>
             </form>
           </div>
         </div>

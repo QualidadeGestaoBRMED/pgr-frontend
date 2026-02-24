@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ChevronDown, Moon, Sun, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  Moon,
+  Sparkles,
+  Sun,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
+import { useRouter } from "next/navigation";
 
 const imgMarcaPrincipalCorSmall31 =
   "https://www.figma.com/api/mcp/asset/a7cc84dc-695b-4f12-96ad-9c2879c6ecb5";
@@ -24,6 +32,7 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ user, notifications }: AppHeaderProps) {
+  const router = useRouter();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +105,20 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
       </div>
 
       <div className="flex items-center gap-6">
+        <div className="group relative">
+          <button
+            type="button"
+            aria-disabled="true"
+            className="ai-chip cursor-default opacity-90"
+          >
+            <Sparkles className="relative z-10 h-4 w-4" />
+            <span className="relative z-10">Assistente IA</span>
+          </button>
+          <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 hidden w-[260px] rounded-[10px] bg-popover p-3 text-[12px] text-popover-foreground shadow-[0px_8px_20px_rgba(25,59,79,0.15)] group-hover:block">
+            Em breve, você terá uma ajuda para elaborar seus PGRs de forma mais
+            rápida e segura. :)
+          </div>
+        </div>
         <div className="relative" ref={notificationsRef}>
           <button
             type="button"
@@ -197,7 +220,11 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
               </button>
               <button
                 type="button"
-                className="w-full rounded-[6px] px-3 py-2 text-left text-destructive transition hover:bg-destructive/10"
+                onClick={() => {
+                  setProfileOpen(false);
+                  router.push("/login");
+                }}
+                className="w-full rounded-[6px] px-3 py-2 text-left text-[#f64848] transition hover:bg-[#fff1f1] dark:text-[#ffb6b6] dark:hover:bg-[#5a2a2a]"
               >
                 Sair
               </button>

@@ -34,20 +34,23 @@ export function PgrShell({
             const isDone = index < clampedCompleted;
             const isAlert = !isDone && step.tone === "alert";
             const circleClasses = isDone
-              ? "bg-[#dff5e8] text-[#1a7f4f] dark:bg-[#1d3b2b] dark:text-[#8ae6b2]"
+              ? "bg-[#dff5e8] text-[#1a7f4f] dark:bg-[#2a5a3f] dark:text-[#c6f5de]"
               : isAlert
-                ? "bg-[#ffe1e1] text-[#d14c4c] dark:bg-[#3d1b1b] dark:text-[#f39b9b]"
+                ? "bg-[#ffe1e1] text-[#d14c4c] dark:bg-[#5a2a2a] dark:text-[#ffb6b6]"
                 : "bg-muted text-muted-foreground";
+            const rowClasses = isCurrent
+              ? "rounded-[10px] bg-primary/8 px-2 py-2 -mx-2 dark:bg-white/8"
+              : "px-2 py-2 -mx-2";
 
             return (
               <li key={step.id} className="relative">
                 <Link
                   href={`/pgr/${pgrId}/${step.id}`}
-                  className="flex w-full gap-4"
+                  className={`flex w-full gap-4 ${rowClasses}`}
                 >
                   <div className="relative flex h-8 w-8 items-center justify-center">
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold ${circleClasses}`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold ${circleClasses} ${isCurrent ? "ring-1 ring-primary/35 dark:ring-white/30" : ""}`}
                     >
                       {isDone ? <Check className="h-4 w-4" /> : index + 1}
                     </div>
@@ -57,8 +60,10 @@ export function PgrShell({
                   </div>
                   <div>
                     <span
-                      className={`text-[15px] font-semibold ${
-                        isCurrent ? "text-foreground" : "text-foreground/80"
+                      className={`inline-block text-[15px] font-semibold ${
+                        isCurrent
+                          ? "border-b border-[#e5e5e5] pb-0 text-foreground dark:border-white/25"
+                          : "text-foreground/80"
                       }`}
                     >
                       {step.title}
