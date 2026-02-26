@@ -44,11 +44,11 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
     if (notifications && notifications.length > 0) return notifications;
     return [
       {
-        title: "GHE - Manutenção II",
+        title: "PGR - Vale",
         description: "Atrasado 21h · Ontem, 17:00",
       },
       {
-        title: "Novo GHE atribuído",
+        title: "Novo PGR atribuído",
         description: "Atualizado há 2 minutos",
       },
     ];
@@ -110,9 +110,10 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
             type="button"
             aria-disabled="true"
             className="ai-chip cursor-default opacity-90"
+            data-aura="true"
           >
             <Sparkles className="relative z-10 h-4 w-4" />
-            <span className="relative z-10">Assistente IA</span>
+            <span className="relative z-10">Assistente de IA</span>
           </button>
           <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 hidden w-[260px] rounded-[10px] bg-popover p-3 text-[12px] text-popover-foreground shadow-[0px_8px_20px_rgba(25,59,79,0.15)] group-hover:block">
             Em breve, você terá uma ajuda para elaborar seus PGRs de forma mais

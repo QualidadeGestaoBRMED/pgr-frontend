@@ -107,23 +107,23 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
+                <div className="text-right">
+                  <button
+                    type="button"
+                    className="text-[12px] font-medium text-foreground"
+                  >
+                    Esqueceu sua senha?
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between text-[12px] font-medium text-foreground">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border bg-muted text-primary focus:ring-primary"
-                  />
-                  Lembrar-me
-                </label>
-                <button
-                  type="button"
-                  className="text-[12px] font-medium text-foreground"
-                >
-                  Esqueceu sua senha?
-                </button>
-              </div>
+              <label className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border bg-muted text-primary focus:ring-primary"
+                />
+                Lembrar-me
+              </label>
 
               <button
                 type="submit"
