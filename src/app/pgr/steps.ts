@@ -4,7 +4,6 @@ export type PgrStepId =
   | "dados"
   | "descricao"
   | "caracterizacao"
-  | "medidas"
   | "plano"
   | "anexos"
   | "revisao";
@@ -40,11 +39,6 @@ export const pgrSteps: Array<{
     title: "Caracterização de Risco",
     subtitle: "Identificação dos riscos",
     tone: "alert",
-  },
-  {
-    id: "medidas",
-    title: "Medidas de Prevenção",
-    subtitle: "Controles implementados",
   },
   {
     id: "plano",

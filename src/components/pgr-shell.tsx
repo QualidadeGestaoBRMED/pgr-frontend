@@ -17,11 +17,16 @@ export function PgrShell({
   children,
 }: PgrShellProps) {
   const totalSteps = pgrSteps.length;
+  const currentStepIndex = pgrSteps.findIndex((step) => step.id === currentStep);
   const clampedCompleted = Math.max(
     0,
     Math.min(completedSteps, totalSteps)
   );
-  const progressValue = Math.round((clampedCompleted / totalSteps) * 100);
+  const displayCompleted = Math.max(
+    clampedCompleted,
+    currentStepIndex >= 0 ? currentStepIndex + 1 : 0
+  );
+  const progressValue = Math.round((displayCompleted / totalSteps) * 100);
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">

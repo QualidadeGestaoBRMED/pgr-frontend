@@ -14,17 +14,29 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
+  Check,
+  Eye,
+  FileDown,
   FileSpreadsheet,
+  LoaderCircle,
   MinusCircle,
+  Pencil,
   PlusCircle,
   Save,
   Search,
+  TriangleAlert,
 } from "lucide-react";
 import { PgrShell } from "@/components/pgr-shell";
 import { PgrHistoricoPanel } from "@/components/pgr-historico-panel";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { notFound } from "next/navigation";
 import { usePgrProgress } from "@/app/pgr/use-pgr-progress";
+import { usePgrDraft } from "@/app/pgr/use-pgr-draft";
+import {
+  buildFakePgrPdfBlob,
+  buildFakePgrPreviewLines,
+  type FakePgrPdfInput,
+} from "@/app/pgr/fake-pdf";
 
 const mockPgrDetail = {
   completedSteps: 1,
@@ -103,6 +115,50 @@ const mockFunctions = [
   },
 ];
 
+type InicioDraft = {
+  syncedAt: string | null;
+  pipefyCardId: string;
+  documentTitle: string;
+  companyName: string;
+  unitName: string;
+  cnpj: string;
+  responsible: string;
+  email: string;
+  notes: string;
+};
+
+const initialInicioDraft: InicioDraft = {
+  syncedAt: null,
+  pipefyCardId: "",
+  documentTitle: "Programa de Gerenciamento de Riscos - PGR",
+  companyName: "",
+  unitName: "",
+  cnpj: "",
+  responsible: "",
+  email: "",
+  notes: "",
+};
+
+const pipefyMockDraft: Omit<InicioDraft, "syncedAt"> = {
+  pipefyCardId: "PIPE-9012",
+  documentTitle: "PGR 2026 - Unidade Fabril",
+  companyName: "Indústria Metalúrgica ABC Ltda",
+  unitName: "Filial 01 - Soldagem",
+  cnpj: "12.345.678/0001-90",
+  responsible: "João Silva",
+  email: "joao.silva@empresa.com.br",
+  notes:
+    "Dados simulados do Pipefy para validação de fluxo da elaboração do documento.",
+};
+
+const slugify = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
 export default function PgrEtapaPage({
   params,
 }: {
@@ -129,37 +185,48 @@ export default function PgrEtapaPage({
     params.id,
     initialCompletedSteps
   );
+  const [inicioDraft, setInicioDraft] = usePgrDraft<InicioDraft>(
+    params.id,
+    "inicio",
+    initialInicioDraft
+  );
+  const [isPipefySyncing, setIsPipefySyncing] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isGeneratingFakePdf, setIsGeneratingFakePdf] = useState(false);
+  const [lastFakePdfAt, setLastFakePdfAt] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] =
+    useState("");
   const [extraEstabelecimentoFields, setExtraEstabelecimentoFields] = useState<
     Array<{ id: string; title: string; value: string }>
   >([]);
-  const [preventionRows, setPreventionRows] = useState<
-    Array<{
-      id: string;
-      ghe: string;
-      agente: string;
-      medidas: string;
-      epc: string;
-      epi: string;
-    }>
+  const [planAction, setPlanAction] = useState({
+    nr: "NR-01",
+    vigencia: "",
+  });
+  const [isPlanActionModalOpen, setIsPlanActionModalOpen] = useState(false);
+  const [planActionScope, setPlanActionScope] = useState<
+    "all" | "ghe" | "risk"
+  >("risk");
+  const [planActionGheId, setPlanActionGheId] = useState("");
+  const [planActionRiskId, setPlanActionRiskId] = useState("");
+  const [planActionDescription, setPlanActionDescription] = useState("");
+  const [editingMedidasId, setEditingMedidasId] = useState<string | null>(null);
+  const [editingMedidasValue, setEditingMedidasValue] = useState("");
+  const [planTablePage, setPlanTablePage] = useState(1);
+  const planTablePageSize = 8;
+  const [anexos, setAnexos] = useState<
+    Array<{ id: string; title: string; files: Array<{ id: string; name: string }> }>
   >([
     {
-      id: "prev-1",
-      ghe: "GHE 01 - Setor de Soldagem",
-      agente: "Radiação não ionizante (ultravioleta)",
-      medidas: "Rodízio de atividades, pausas programadas",
-      epc: "Cortinas de proteção para soldagem",
-      epi: "Máscara de solda automática (CA 12345)",
-    },
-    {
-      id: "prev-2",
-      ghe: "GHE 01 - Setor de Soldagem",
-      agente: "Radiação não ionizante (ultravioleta)",
-      medidas: "Rodízio de atividades, pausas programadas",
-      epc: "Cortinas de proteção para soldagem",
-      epi: "Máscara de solda automática (CA 12345)",
+      id: "anexo-art",
+      title: "ART - Anotação de Responsabilidade Técnica",
+      files: [],
     },
   ]);
+  const [anexoDiretriz, setAnexoDiretriz] = useState("Diretriz 1");
+  const [draggedAnexoId, setDraggedAnexoId] = useState<string | null>(null);
+  const [dragOverAnexoId, setDragOverAnexoId] = useState<string | null>(null);
   const [selectedLeftIds, setSelectedLeftIds] = useState<string[]>([]);
   const [selectedRightIds, setSelectedRightIds] = useState<string[]>([]);
   const [gheGroups, setGheGroups] = useState<
@@ -186,6 +253,8 @@ export default function PgrEtapaPage({
     currentGheId: string;
     selectedLeftIds: string[];
     selectedRightIds: string[];
+    riskGheGroups: typeof riskGheGroups;
+    currentRiskGheId: string;
   };
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentGheId, setCurrentGheId] = useState("ghe-1");
@@ -195,6 +264,11 @@ export default function PgrEtapaPage({
   const [gheSearch, setGheSearch] = useState("");
   const [gheFilterId, setGheFilterId] = useState<"all" | string>("all");
   const [isGheListView, setIsGheListView] = useState(false);
+  const [openMultiSelect, setOpenMultiSelect] = useState<null | {
+    riskId: string;
+    field: "epc" | "epi";
+  }>(null);
+  const [multiSelectQuery, setMultiSelectQuery] = useState("");
   const [riskGheGroups, setRiskGheGroups] = useState<
     Array<{
       id: string;
@@ -211,6 +285,9 @@ export default function PgrEtapaPage({
         severidade: string;
         probabilidade: string;
         classificacao: string;
+        medidasControle: string;
+        epc: string[];
+        epi: string[];
       }>;
     }>
   >([
@@ -226,13 +303,16 @@ export default function PgrEtapaPage({
           meioPropagacao: "Ar",
           fontes: "Máquinas industriais",
           tipoAvaliacao: "Quantitativa",
-          intensidade: "85 dB",
-          severidade: "Alta",
-          probabilidade: "Média",
-          classificacao: "Crítico",
-        },
-      ],
-    },
+        intensidade: "85 dB",
+        severidade: "Alta",
+        probabilidade: "Média",
+        classificacao: "Crítico",
+        medidasControle: "Rodízio de atividades, pausas programadas",
+        epc: ["Cortinas de proteção"],
+        epi: ["Máscara de solda (CA 12345)"],
+      },
+    ],
+  },
     {
       id: "ghe-2",
       name: "GHE 2",
@@ -245,13 +325,16 @@ export default function PgrEtapaPage({
           meioPropagacao: "Ar",
           fontes: "Solventes",
           tipoAvaliacao: "Qualitativa",
-          intensidade: "Moderada",
-          severidade: "Média",
-          probabilidade: "Alta",
-          classificacao: "Elevado",
-        },
-      ],
-    },
+        intensidade: "Moderada",
+        severidade: "Média",
+        probabilidade: "Alta",
+        classificacao: "Elevado",
+        medidasControle: "Exaustão local e ventilação do ambiente",
+        epc: ["Sistema de exaustão"],
+        epi: ["Respirador (CA 67890)"],
+      },
+    ],
+  },
     {
       id: "ghe-3",
       name: "GHE 3",
@@ -277,6 +360,8 @@ export default function PgrEtapaPage({
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
   const cloneGheGroups = (value: typeof gheGroups) =>
     JSON.parse(JSON.stringify(value)) as typeof gheGroups;
+  const cloneRiskGheGroups = (value: typeof riskGheGroups) =>
+    JSON.parse(JSON.stringify(value)) as typeof riskGheGroups;
   const pushHistory = () => {
     setHistory((prev) => {
       const entry: HistoryEntry = {
@@ -284,6 +369,8 @@ export default function PgrEtapaPage({
         currentGheId,
         selectedLeftIds: [...selectedLeftIds],
         selectedRightIds: [...selectedRightIds],
+        riskGheGroups: cloneRiskGheGroups(riskGheGroups),
+        currentRiskGheId,
       };
       const next = [...prev, entry];
       return next.length > 30 ? next.slice(next.length - 30) : next;
@@ -335,6 +422,47 @@ export default function PgrEtapaPage({
       riskGheGroups[0],
     [riskGheGroups, currentRiskGheId]
   );
+  const epcOptions = [
+    "N/A",
+    "Sistema de exaustão",
+    "Cortinas de proteção",
+    "Ventilação local",
+    "Barreiras físicas",
+  ];
+  const epiOptions = [
+    "N/A",
+    "Respirador (CA 67890)",
+    "Máscara de solda (CA 12345)",
+    "Óculos de proteção (CA 55555)",
+    "Protetor auricular (CA 44444)",
+  ];
+  const tipoAgenteOptions = [
+    "Físico",
+    "Químico",
+    "Biológico",
+    "Ergonômico",
+    "Acidente",
+  ];
+  const descricaoAgenteOptions = [
+    "Ruído",
+    "Vibração",
+    "Calor",
+    "Frio",
+    "Vapores",
+    "Poeira",
+    "Fumos metálicos",
+    "Bactérias",
+    "Vírus",
+    "Postura",
+    "Movimentos repetitivos",
+  ];
+  const diretrizOptions = ["Diretriz 1", "Diretriz 2", "Diretriz 3"];
+  const estabelecimentoOptions = [
+    "Matriz",
+    "Filial 01",
+    "Filial 02",
+    "Filial 03",
+  ];
   const filteredRiskGheGroups = useMemo(() => {
     if (!normalizedRiskGheSearch) {
       return riskGheGroups;
@@ -447,6 +575,216 @@ export default function PgrEtapaPage({
       }))
       .filter((ghe) => ghe.items.length > 0);
   }, [gheGroups, gheFilterId, gheSearch, filteredFunctionIds]);
+  const assignGheOptions = useMemo(
+    () => [
+      { label: "Sem GHE", value: "none" },
+      ...gheGroups.map((ghe) => ({ label: ghe.name, value: ghe.id })),
+    ],
+    [gheGroups]
+  );
+  const planTableRows = useMemo(() => {
+    return riskGheGroups.flatMap((ghe) =>
+      ghe.risks.map((risk) => ({
+        id: `${ghe.id}-${risk.id}`,
+        gheId: ghe.id,
+        riskId: risk.id,
+        gheName: ghe.name,
+        descricaoAgente: risk.descricaoAgente || "Não informado",
+        classificacao: risk.classificacao || "Não informado",
+        medidasPrevencao: risk.medidasControle || "",
+      }))
+    );
+  }, [riskGheGroups]);
+  const planActionGheOptions = useMemo(
+    () =>
+      riskGheGroups.map((ghe) => ({
+        label: ghe.name,
+        value: ghe.id,
+      })),
+    [riskGheGroups]
+  );
+  const selectedPlanActionGhe =
+    riskGheGroups.find((ghe) => ghe.id === planActionGheId) ??
+    riskGheGroups[0];
+  const planActionRiskOptions = useMemo(() => {
+    if (!selectedPlanActionGhe) return [];
+    return selectedPlanActionGhe.risks.map((risk, index) => ({
+      label: `${risk.descricaoAgente || `Risco ${index + 1}`} · ${
+        risk.classificacao || "Sem classificação"
+      }`,
+      value: risk.id,
+    }));
+  }, [selectedPlanActionGhe]);
+  const planTableTotalPages = Math.max(
+    1,
+    Math.ceil(planTableRows.length / planTablePageSize)
+  );
+  const planTableCurrentPage = Math.min(planTablePage, planTableTotalPages);
+  const planTableStart = (planTableCurrentPage - 1) * planTablePageSize;
+  const planTableRowsPage = planTableRows.slice(
+    planTableStart,
+    planTableStart + planTablePageSize
+  );
+  const handleInicioDraftChange = (
+    field: keyof Omit<InicioDraft, "syncedAt">,
+    value: string
+  ) => {
+    setInicioDraft((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleLoadPipefyMock = () => {
+    setIsPipefySyncing(true);
+    window.setTimeout(() => {
+      setInicioDraft((prev) => ({
+        ...prev,
+        ...pipefyMockDraft,
+        syncedAt: new Date().toLocaleString("pt-BR"),
+      }));
+      setIsPipefySyncing(false);
+    }, 500);
+  };
+
+  const fakePdfInput = useMemo<FakePgrPdfInput>(
+    () => ({
+      pgrId: params.id,
+      generatedAt: new Date().toLocaleString("pt-BR"),
+      documentTitle: inicioDraft.documentTitle,
+      pipefyCardId: inicioDraft.pipefyCardId,
+      companyName: inicioDraft.companyName,
+      unitName: inicioDraft.unitName,
+      cnpj: inicioDraft.cnpj,
+      responsible: inicioDraft.responsible,
+      email: inicioDraft.email,
+      notes: inicioDraft.notes,
+      completedSteps,
+      totalSteps: pgrSteps.length,
+      gheCount: gheGroups.length,
+      riskCount: riskGheGroups.reduce((total, ghe) => total + ghe.risks.length, 0),
+      anexoCount: anexos.reduce((total, anexo) => total + anexo.files.length, 0),
+      diretriz: anexoDiretriz,
+      nr: planAction.nr,
+      vigencia: planAction.vigencia,
+    }),
+    [
+      anexoDiretriz,
+      anexos,
+      completedSteps,
+      gheGroups.length,
+      inicioDraft.cnpj,
+      inicioDraft.companyName,
+      inicioDraft.documentTitle,
+      inicioDraft.email,
+      inicioDraft.notes,
+      inicioDraft.pipefyCardId,
+      inicioDraft.responsible,
+      inicioDraft.unitName,
+      params.id,
+      planAction.nr,
+      planAction.vigencia,
+      riskGheGroups,
+    ]
+  );
+
+  const fakePreviewLines = useMemo(
+    () => buildFakePgrPreviewLines(fakePdfInput),
+    [fakePdfInput]
+  );
+
+  const handleGenerateFakePdf = useCallback(() => {
+    setIsGeneratingFakePdf(true);
+    const blob = buildFakePgrPdfBlob(fakePdfInput);
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fileBase =
+      slugify(inicioDraft.companyName) || `pgr-${slugify(params.id) || "documento"}`;
+    link.href = objectUrl;
+    link.download = `${fileBase}-fake.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setLastFakePdfAt(new Date().toLocaleString("pt-BR"));
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(objectUrl);
+      setIsGeneratingFakePdf(false);
+    }, 200);
+  }, [fakePdfInput, inicioDraft.companyName, params.id]);
+
+  useEffect(() => {
+    if (planTablePage > planTableTotalPages) {
+      setPlanTablePage(planTableTotalPages);
+    }
+  }, [planTablePage, planTableTotalPages]);
+
+  const handleOpenPlanActionModal = () => {
+    const firstGhe = riskGheGroups[0];
+    const firstRisk = firstGhe?.risks[0];
+    setPlanActionScope(firstRisk ? "risk" : firstGhe ? "ghe" : "all");
+    setPlanActionGheId(firstGhe?.id ?? "");
+    setPlanActionRiskId(firstRisk?.id ?? "");
+    setPlanActionDescription("");
+    setIsPlanActionModalOpen(true);
+  };
+
+  const handleChangePlanActionScope = (scope: "all" | "ghe" | "risk") => {
+    setPlanActionScope(scope);
+    if (scope === "all") return;
+    const currentGhe =
+      riskGheGroups.find((ghe) => ghe.id === planActionGheId) ??
+      riskGheGroups[0];
+    const gheId = currentGhe?.id ?? "";
+    setPlanActionGheId(gheId);
+    if (scope === "risk") {
+      setPlanActionRiskId(currentGhe?.risks[0]?.id ?? "");
+    }
+  };
+
+  const handlePlanActionGheChange = (value: string) => {
+    setPlanActionGheId(value);
+    if (planActionScope !== "risk") return;
+    const ghe = riskGheGroups.find((item) => item.id === value);
+    setPlanActionRiskId(ghe?.risks[0]?.id ?? "");
+  };
+
+  const handlePlanMedidasChange = (
+    gheId: string,
+    riskId: string,
+    value: string
+  ) => {
+    setRiskGheGroups((prev) =>
+      prev.map((ghe) => {
+        if (ghe.id !== gheId) return ghe;
+        return {
+          ...ghe,
+          risks: ghe.risks.map((risk) =>
+            risk.id === riskId ? { ...risk, medidasControle: value } : risk
+          ),
+        };
+      })
+    );
+  };
+
+  const handleEditMedidasStart = (rowId: string, value: string) => {
+    setEditingMedidasId(rowId);
+    setEditingMedidasValue(value);
+  };
+
+  const handleEditMedidasCancel = () => {
+    setEditingMedidasId(null);
+    setEditingMedidasValue("");
+  };
+
+  const handleEditMedidasSave = (gheId: string, riskId: string) => {
+    handlePlanMedidasChange(gheId, riskId, editingMedidasValue.trim());
+    setEditingMedidasId(null);
+    setEditingMedidasValue("");
+  };
+
+  const handleSavePlanActionModal = () => {
+    setIsPlanActionModalOpen(false);
+  };
 
   const handleAdvance = () => {
     // TODO: temporário. Considera a etapa atual como concluída ao avançar.
@@ -479,14 +817,133 @@ export default function PgrEtapaPage({
     );
   };
 
-  const handlePreventionChange = (
-    id: string,
-    field: "ghe" | "agente" | "medidas" | "epc" | "epi",
+  const maskDate = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    const parts = [];
+    if (digits.length >= 2) {
+      parts.push(digits.slice(0, 2));
+    } else if (digits.length > 0) {
+      parts.push(digits);
+    }
+    if (digits.length >= 4) {
+      parts.push(digits.slice(2, 4));
+    } else if (digits.length > 2) {
+      parts.push(digits.slice(2));
+    }
+    if (digits.length > 4) {
+      parts.push(digits.slice(4));
+    }
+    return parts.join("/");
+  };
+
+  const handleAnexoFiles = (anexoId: string, files: FileList | null) => {
+    if (!files) return;
+    const incoming = Array.from(files).map((file) => ({
+      id: `file-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      name: file.name.replace(/\.pdf$/i, ""),
+    }));
+    setAnexos((prev) =>
+      prev.map((anexo) =>
+        anexo.id === anexoId
+          ? { ...anexo, files: [...anexo.files, ...incoming] }
+          : anexo
+      )
+    );
+  };
+
+  const handleAnexoFileRename = (
+    anexoId: string,
+    fileId: string,
     value: string
   ) => {
-    setPreventionRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    setAnexos((prev) =>
+      prev.map((anexo) =>
+        anexo.id === anexoId
+          ? {
+              ...anexo,
+              files: anexo.files.map((file) =>
+                file.id === fileId ? { ...file, name: value } : file
+              ),
+            }
+          : anexo
+      )
     );
+  };
+
+  const handleAnexoFileRemove = (anexoId: string, fileId: string) => {
+    setAnexos((prev) =>
+      prev.map((anexo) =>
+        anexo.id === anexoId
+          ? { ...anexo, files: anexo.files.filter((f) => f.id !== fileId) }
+          : anexo
+      )
+    );
+  };
+
+  const handleAddAnexo = () => {
+    const nextIndex = anexos.length + 1;
+    setAnexos((prev) => [
+      ...prev,
+      {
+        id: `anexo-${Date.now()}-${nextIndex}`,
+        title: `Novo anexo ${nextIndex}`,
+        files: [],
+      },
+    ]);
+  };
+
+  const handleMoveAnexo = (anexoId: string, direction: "up" | "down") => {
+    setAnexos((prev) => {
+      const index = prev.findIndex((item) => item.id === anexoId);
+      if (index === -1) return prev;
+      const nextIndex = direction === "up" ? index - 1 : index + 1;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(index, 1);
+      copy.splice(nextIndex, 0, item);
+      return copy;
+    });
+  };
+
+  const handleRenameAnexoTitle = (anexoId: string, value: string) => {
+    setAnexos((prev) =>
+      prev.map((anexo) =>
+        anexo.id === anexoId ? { ...anexo, title: value } : anexo
+      )
+    );
+  };
+
+  const handleAnexoDragStart = (anexoId: string) => {
+    setDraggedAnexoId(anexoId);
+  };
+
+  const handleAnexoDragOver = (event: React.DragEvent, anexoId: string) => {
+    event.preventDefault();
+    if (anexoId !== dragOverAnexoId) {
+      setDragOverAnexoId(anexoId);
+    }
+  };
+
+  const handleAnexoDrop = (anexoId: string) => {
+    if (!draggedAnexoId || draggedAnexoId === anexoId) {
+      setDragOverAnexoId(null);
+      return;
+    }
+    setAnexos((prev) => {
+      const fromIndex = prev.findIndex((item) => item.id === draggedAnexoId);
+      const toIndex = prev.findIndex((item) => item.id === anexoId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(fromIndex, 1);
+      copy.splice(toIndex, 0, item);
+      return copy;
+    });
+    setDragOverAnexoId(null);
+  };
+
+  const handleAnexoDragEnd = () => {
+    setDraggedAnexoId(null);
+    setDragOverAnexoId(null);
   };
 
   const handleToggleLeftSelection = (id: string) => {
@@ -896,6 +1353,9 @@ export default function PgrEtapaPage({
       setCurrentGheId(last.currentGheId);
       setSelectedLeftIds(last.selectedLeftIds);
       setSelectedRightIds(last.selectedRightIds);
+      setRiskGheGroups(last.riskGheGroups);
+      setCurrentRiskGheId(last.currentRiskGheId);
+      setOpenMultiSelect(null);
       return prev.slice(0, -1);
     });
   };
@@ -904,6 +1364,7 @@ export default function PgrEtapaPage({
 
   const handleAddRisk = () => {
     if (!currentRiskGhe) return;
+    pushHistory();
     const newRisk = {
       id: createRiskId(),
       tipoAgente: "",
@@ -916,6 +1377,9 @@ export default function PgrEtapaPage({
       severidade: "",
       probabilidade: "",
       classificacao: "",
+      medidasControle: "",
+      epc: [],
+      epi: [],
     };
     setRiskGheGroups((prev) =>
       prev.map((ghe) =>
@@ -938,6 +1402,7 @@ export default function PgrEtapaPage({
     if (!currentRiskGhe) return;
     const risk = currentRiskGhe.risks.find((item) => item.id === riskId);
     if (!risk) return;
+    pushHistory();
     const clone = { ...risk, id: createRiskId() };
     setRiskGheGroups((prev) =>
       prev.map((ghe) =>
@@ -950,6 +1415,7 @@ export default function PgrEtapaPage({
 
   const handleRemoveRisk = (riskId: string) => {
     if (!currentRiskGhe) return;
+    pushHistory();
     setRiskGheGroups((prev) =>
       prev.map((ghe) =>
         ghe.id === currentRiskGhe.id
@@ -971,7 +1437,8 @@ export default function PgrEtapaPage({
       | "intensidade"
       | "severidade"
       | "probabilidade"
-      | "classificacao",
+      | "classificacao"
+      | "medidasControle",
     value: string
   ) => {
     if (!currentRiskGhe) return;
@@ -989,12 +1456,57 @@ export default function PgrEtapaPage({
     );
   };
 
+  const handleToggleRiskMultiSelect = (
+    riskId: string,
+    field: "epc" | "epi",
+    option: string
+  ) => {
+    if (!currentRiskGhe) return;
+    pushHistory();
+    setRiskGheGroups((prev) =>
+      prev.map((ghe) => {
+        if (ghe.id !== currentRiskGhe.id) return ghe;
+        return {
+          ...ghe,
+          risks: ghe.risks.map((risk) => {
+            if (risk.id !== riskId) return risk;
+            const current = risk[field] ?? [];
+            let next: string[] = [];
+            if (option === "N/A") {
+              next = current.includes("N/A") ? [] : ["N/A"];
+            } else {
+              const withoutNa = current.filter((item) => item !== "N/A");
+              if (withoutNa.includes(option)) {
+                next = withoutNa.filter((item) => item !== option);
+              } else {
+                next = [...withoutNa, option];
+              }
+            }
+            return { ...risk, [field]: next };
+          }),
+        };
+      })
+    );
+  };
+
+  const filterOptionsByQuery = (options: string[]) => {
+    const term = normalizeText(multiSelectQuery.trim());
+    if (!term) return options;
+    return options.filter((option) =>
+      normalizeText(option).includes(term)
+    );
+  };
+
   const handleCopyRiskStructure = (sourceGheId: string) => {
     if (!currentRiskGhe) return;
     const source = riskGheGroups.find((ghe) => ghe.id === sourceGheId);
     if (!source) return;
+    pushHistory();
     const clonedRisks = source.risks.map((risk) => ({
       ...risk,
+      medidasControle: risk.medidasControle ?? "",
+      epc: [...(risk.epc ?? [])],
+      epi: [...(risk.epi ?? [])],
       id: createRiskId(),
     }));
     setRiskGheGroups((prev) =>
@@ -1031,6 +1543,15 @@ export default function PgrEtapaPage({
                   severidade: idx % 2 === 0 ? "Alta" : "Média",
                   probabilidade: idx % 2 === 0 ? "Média" : "Alta",
                   classificacao: idx % 2 === 0 ? "Crítico" : "Elevado",
+                  medidasControle:
+                    idx % 2 === 0
+                      ? "Rodízio de atividades, pausas programadas"
+                      : "Exaustão local e ventilação do ambiente",
+                  epc: idx % 2 === 0 ? ["Cortinas de proteção"] : ["Sistema de exaustão"],
+                  epi:
+                    idx % 2 === 0
+                      ? ["Máscara de solda (CA 12345)"]
+                      : ["Respirador (CA 67890)"],
                 },
               ],
       };
@@ -1057,13 +1578,6 @@ export default function PgrEtapaPage({
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleDuplicateRisk(risk.id)}
-                  className="btn-outline px-3 py-1 text-[12px]"
-                >
-                  Duplicar risco
-                </button>
-                <button
-                  type="button"
                   onClick={() => handleRemoveRisk(risk.id)}
                   className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
                 >
@@ -1076,60 +1590,38 @@ export default function PgrEtapaPage({
                 <label className="text-[12px] font-medium text-foreground">
                   Tipo de Agente
                 </label>
-                <div className="relative mt-2">
-                  <select
-                    className={selectSmallClass}
+                <div className="mt-2">
+                  <SearchableSelect
                     value={risk.tipoAgente}
-                    onChange={(event) =>
-                      handleRiskChange(
-                        risk.id,
-                        "tipoAgente",
-                        event.target.value
-                      )
+                    onChange={(value) =>
+                      handleRiskChange(risk.id, "tipoAgente", value)
                     }
-                  >
-                    <option value="">Selecione</option>
-                    <option value="Físico">Físico</option>
-                    <option value="Químico">Químico</option>
-                    <option value="Biológico">Biológico</option>
-                    <option value="Ergonômico">Ergonômico</option>
-                    <option value="Acidente">Acidente</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    options={tipoAgenteOptions.map((option) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectSmallClass}
+                    searchPlaceholder="Filtrar agente"
+                  />
                 </div>
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
                   Descrição do Agente
                 </label>
-                <div className="relative mt-2">
-                  <select
-                    className={selectSmallClass}
+                <div className="mt-2">
+                  <SearchableSelect
                     value={risk.descricaoAgente}
-                    onChange={(event) =>
-                      handleRiskChange(
-                        risk.id,
-                        "descricaoAgente",
-                        event.target.value
-                      )
+                    onChange={(value) =>
+                      handleRiskChange(risk.id, "descricaoAgente", value)
                     }
-                  >
-                    <option value="">Selecione</option>
-                    <option value="Ruído">Ruído</option>
-                    <option value="Vibração">Vibração</option>
-                    <option value="Calor">Calor</option>
-                    <option value="Frio">Frio</option>
-                    <option value="Vapores">Vapores</option>
-                    <option value="Poeira">Poeira</option>
-                    <option value="Fumos metálicos">Fumos metálicos</option>
-                    <option value="Bactérias">Bactérias</option>
-                    <option value="Vírus">Vírus</option>
-                    <option value="Postura">Postura</option>
-                    <option value="Movimentos repetitivos">
-                      Movimentos repetitivos
-                    </option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    options={descricaoAgenteOptions.map((option) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectSmallClass}
+                    searchPlaceholder="Filtrar descrição"
+                  />
                 </div>
               </div>
               <div>
@@ -1257,6 +1749,155 @@ export default function PgrEtapaPage({
                 />
               </div>
             </div>
+            <div className="mt-8">
+              <p className="text-[13px] font-semibold text-foreground">
+                Medidas de prevenção
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Medidas de Controle Administrativas e/ou de Engenharia
+                  </label>
+                  <textarea
+                    className={`${textareaBaseClass} min-h-[80px]`}
+                    value={risk.medidasControle}
+                    onChange={(event) =>
+                      handleRiskChange(
+                        risk.id,
+                        "medidasControle",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    EPC
+                  </label>
+                  <div className="relative mt-2" data-multiselect>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMultiSelect((prev) =>
+                          prev?.riskId === risk.id && prev.field === "epc"
+                            ? null
+                            : { riskId: risk.id, field: "epc" }
+                        )
+                      }
+                      className={`${selectSmallClass} flex items-center justify-between text-left`}
+                    >
+                      <span className="truncate">
+                        {risk.epc.length ? risk.epc.join(", ") : "Selecione"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    {openMultiSelect?.riskId === risk.id &&
+                    openMultiSelect.field === "epc" ? (
+                      <div className="absolute z-10 mt-2 w-full rounded-[10px] border border-border/70 bg-card p-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                        <input
+                          className={`${inputInlineClass} h-[32px]`}
+                          value={multiSelectQuery}
+                          onChange={(event) =>
+                            setMultiSelectQuery(event.target.value)
+                          }
+                          placeholder="Filtrar..."
+                        />
+                        <div className="mt-2 max-h-[180px] space-y-1 overflow-auto pr-1">
+                          {filterOptionsByQuery(epcOptions).map((option) => (
+                            <label
+                              key={option}
+                              className="flex items-center gap-2 rounded-[8px] px-2 py-1 text-[12px] text-foreground hover:bg-muted/60"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={risk.epc.includes(option)}
+                                onChange={() =>
+                                  handleToggleRiskMultiSelect(
+                                    risk.id,
+                                    "epc",
+                                    option
+                                  )
+                                }
+                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                              />
+                              <span>{option}</span>
+                            </label>
+                          ))}
+                          {!filterOptionsByQuery(epcOptions).length ? (
+                            <div className="rounded-[8px] border border-dashed border-border/60 px-2 py-2 text-center text-[12px] text-muted-foreground">
+                              Nenhum resultado
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    EPI / C.A.
+                  </label>
+                  <div className="relative mt-2" data-multiselect>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenMultiSelect((prev) =>
+                          prev?.riskId === risk.id && prev.field === "epi"
+                            ? null
+                            : { riskId: risk.id, field: "epi" }
+                        )
+                      }
+                      className={`${selectSmallClass} flex items-center justify-between text-left`}
+                    >
+                      <span className="truncate">
+                        {risk.epi.length ? risk.epi.join(", ") : "Selecione"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    {openMultiSelect?.riskId === risk.id &&
+                    openMultiSelect.field === "epi" ? (
+                      <div className="absolute z-10 mt-2 w-full rounded-[10px] border border-border/70 bg-card p-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                        <input
+                          className={`${inputInlineClass} h-[32px]`}
+                          value={multiSelectQuery}
+                          onChange={(event) =>
+                            setMultiSelectQuery(event.target.value)
+                          }
+                          placeholder="Filtrar..."
+                        />
+                        <div className="mt-2 max-h-[180px] space-y-1 overflow-auto pr-1">
+                          {filterOptionsByQuery(epiOptions).map((option) => (
+                            <label
+                              key={option}
+                              className="flex items-center gap-2 rounded-[8px] px-2 py-1 text-[12px] text-foreground hover:bg-muted/60"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={risk.epi.includes(option)}
+                                onChange={() =>
+                                  handleToggleRiskMultiSelect(
+                                    risk.id,
+                                    "epi",
+                                    option
+                                  )
+                                }
+                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                              />
+                              <span>{option}</span>
+                            </label>
+                          ))}
+                          {!filterOptionsByQuery(epiOptions).length ? (
+                            <div className="rounded-[8px] border border-dashed border-border/60 px-2 py-2 text-center text-[12px] text-muted-foreground">
+                              Nenhum resultado
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         ))
       ) : (
@@ -1266,6 +1907,110 @@ export default function PgrEtapaPage({
       )}
     </div>
   );
+
+  type SelectOption = { label: string; value: string };
+  const SearchableSelect = ({
+    value,
+    options,
+    onChange,
+    placeholder = "Selecione",
+    buttonClassName = selectSmallClass,
+    menuClassName = "",
+    disabled = false,
+    searchPlaceholder = "Filtrar...",
+  }: {
+    value: string;
+    options: SelectOption[];
+    onChange: (value: string) => void;
+    placeholder?: string;
+    buttonClassName?: string;
+    menuClassName?: string;
+    disabled?: boolean;
+    searchPlaceholder?: string;
+  }) => {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const selectedLabel =
+      options.find((opt) => opt.value === value)?.label ?? "";
+    const filteredOptions = query
+      ? options.filter((opt) =>
+          normalizeText(opt.label).includes(normalizeText(query))
+        )
+      : options;
+
+    useEffect(() => {
+      if (!open) return;
+      const handleOutside = (event: MouseEvent) => {
+        const target = event.target as Node | null;
+        if (!containerRef.current || !target) return;
+        if (!containerRef.current.contains(target)) {
+          setOpen(false);
+        }
+      };
+      window.addEventListener("mousedown", handleOutside);
+      return () => window.removeEventListener("mousedown", handleOutside);
+    }, [open]);
+
+    useEffect(() => {
+      if (open) {
+        setQuery("");
+        setTimeout(() => inputRef.current?.focus(), 0);
+      }
+    }, [open]);
+
+    return (
+      <div ref={containerRef} className={`relative ${menuClassName}`}>
+        <button
+          type="button"
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          className={`${buttonClassName} flex items-center justify-between text-left ${
+            disabled ? "opacity-60" : ""
+          }`}
+        >
+          <span className="truncate">
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </button>
+        {open ? (
+          <div className="absolute z-10 mt-2 w-full rounded-[10px] border border-border/70 bg-card p-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+            <input
+              ref={inputRef}
+              className={`${inputInlineClass} h-[34px]`}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+            />
+            <div className="mt-2 max-h-[180px] space-y-1 overflow-auto pr-1">
+              {filteredOptions.length ? (
+                filteredOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-[8px] px-2 py-1 text-[12px] text-foreground hover:bg-muted/60 ${
+                      option.value === value ? "bg-muted/60" : ""
+                    }`}
+                  >
+                    <span>{option.label}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-[8px] border border-dashed border-border/60 px-2 py-2 text-center text-[12px] text-muted-foreground">
+                  Nenhum resultado
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1304,6 +2049,25 @@ export default function PgrEtapaPage({
     return () => window.removeEventListener("mousedown", handleOutsideClick);
   }, [isCopyMenuOpen]);
 
+  useEffect(() => {
+    if (!openMultiSelect) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-multiselect]")) {
+        return;
+      }
+      setOpenMultiSelect(null);
+    };
+    window.addEventListener("mousedown", handleOutsideClick);
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
+  }, [openMultiSelect]);
+
+  useEffect(() => {
+    if (openMultiSelect) {
+      setMultiSelectQuery("");
+    }
+  }, [openMultiSelect]);
+
   const getSelectionStyle = (side: "left" | "right") => {
     if (!selectionBox || selectionBox.side !== side) return null;
     const container = side === "left" ? leftListRef.current : rightListRef.current;
@@ -1331,7 +2095,152 @@ export default function PgrEtapaPage({
       currentStep={step.id as PgrStepId}
       completedSteps={completedSteps}
     >
-      {step.id === "historico" ? (
+      {step.id === "inicio" ? (
+        <>
+          <section className="px-2">
+            <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
+              Início da elaboração do PGR
+            </h1>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              Nesta etapa você inicia o documento com os dados-base que virão do
+              Pipefy.
+            </p>
+          </section>
+
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[14px] font-semibold text-foreground">
+                  Origem dos dados
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  {inicioDraft.syncedAt
+                    ? `Última sincronização mock: ${inicioDraft.syncedAt}`
+                    : "Sem sincronização ainda. Use o mock do Pipefy para preencher rapidamente."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadPipefyMock}
+                disabled={isPipefySyncing}
+                className={
+                  isPipefySyncing ? "btn-disabled px-4" : "btn-primary px-4"
+                }
+              >
+                {isPipefySyncing ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Carregar dados mock do Pipefy"
+                )}
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-[12px] font-medium text-foreground">
+                  Card do Pipefy
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.pipefyCardId}
+                  onChange={(event) =>
+                    handleInicioDraftChange("pipefyCardId", event.target.value)
+                  }
+                  placeholder="Ex: PIPE-9012"
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-foreground">
+                  Título do documento
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.documentTitle}
+                  onChange={(event) =>
+                    handleInicioDraftChange("documentTitle", event.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-foreground">
+                  Empresa
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.companyName}
+                  onChange={(event) =>
+                    handleInicioDraftChange("companyName", event.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-foreground">
+                  Unidade
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.unitName}
+                  onChange={(event) =>
+                    handleInicioDraftChange("unitName", event.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-foreground">
+                  CNPJ
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.cnpj}
+                  onChange={(event) =>
+                    handleInicioDraftChange("cnpj", event.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-foreground">
+                  Responsável
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.responsible}
+                  onChange={(event) =>
+                    handleInicioDraftChange("responsible", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[12px] font-medium text-foreground">
+                  E-mail de contato
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={inicioDraft.email}
+                  onChange={(event) =>
+                    handleInicioDraftChange("email", event.target.value)
+                  }
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[12px] font-medium text-foreground">
+                  Observações iniciais
+                </label>
+                <textarea
+                  className={textareaBaseClass}
+                  value={inicioDraft.notes}
+                  onChange={(event) =>
+                    handleInicioDraftChange("notes", event.target.value)
+                  }
+                  placeholder="Ex: contexto, unidade atendida, observações do card."
+                />
+              </div>
+            </div>
+          </section>
+        </>
+      ) : step.id === "historico" ? (
         <PgrHistoricoPanel
           title={mockPgrDetail.historico.title}
           subtitle={mockPgrDetail.historico.subtitle}
@@ -1464,11 +2373,18 @@ export default function PgrEtapaPage({
                 <label className="text-[12px] font-medium text-foreground">
                   Estabelecimento:
                 </label>
-                <div className="relative mt-2">
-                  <select className={selectBaseClass}>
-                    <option>Selecione:</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={estabelecimentoSelecionado}
+                    onChange={(value) => setEstabelecimentoSelecionado(value)}
+                    options={estabelecimentoOptions.map((option) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectBaseClass}
+                    placeholder="Selecione"
+                    searchPlaceholder="Filtrar estabelecimento"
+                  />
                 </div>
               </div>
             </div>
@@ -2185,23 +3101,15 @@ export default function PgrEtapaPage({
                                       : "Sem GHE"}
                                   </p>
                                 </div>
-                                <select
+                                <SearchableSelect
                                   value={assignedGheId ?? "none"}
-                                  onChange={(event) =>
-                                    handleAssignFunction(
-                                      funcao.id,
-                                      event.target.value
-                                    )
+                                  onChange={(value) =>
+                                    handleAssignFunction(funcao.id, value)
                                   }
-                                  className={`${selectBaseClass} w-[170px]`}
-                                >
-                                  <option value="none">Sem GHE</option>
-                                  {gheGroups.map((ghe) => (
-                                    <option key={ghe.id} value={ghe.id}>
-                                      {ghe.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                  options={assignGheOptions}
+                                  buttonClassName={`${selectBaseClass} w-[170px]`}
+                                  searchPlaceholder="Filtrar GHE"
+                                />
                               </div>
                             );
                           })}
@@ -2495,111 +3403,652 @@ export default function PgrEtapaPage({
             )}
           </section>
         </>
-      ) : step.id === "medidas" ? (
+      ) : step.id === "plano" ? (
         <>
           <section className="px-2">
             <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
-              Descrição das Medidas de Prevenção Implementadas
+              Plano de Ação
             </h1>
             <p className="mt-1 text-[14px] text-muted-foreground">
-              Descreva as medidas de controle e EPIs utilizados
+              Defina as ações para mitigação dos riscos identificados
             </p>
           </section>
 
           <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
-            <div className="grid gap-4 border-b border-border/60 pb-3 text-[12px] font-semibold text-muted-foreground md:grid-cols-[1.2fr_1.6fr_2fr_1.3fr_1.3fr]">
-              <span>GHE</span>
-              <span>Descrição do Agente de Risco</span>
-              <span>Medidas de Controle Administrativas e/ou de Engenharia</span>
-              <span>EPC</span>
-              <span>EPI / C.A.</span>
+            <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+              <div>
+                <p className="text-[12px] font-semibold text-muted-foreground">
+                  NRs
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    "NR-01",
+                    "NR-06",
+                    "NR-07",
+                    "NR-09",
+                    "NR-10",
+                    "NR-12",
+                    "NR-17",
+                    "NR-18",
+                    "NR-33",
+                    "NR-35",
+                  ].map((nr) => (
+                    <button
+                      key={nr}
+                      type="button"
+                      onClick={() =>
+                        setPlanAction((prev) => ({ ...prev, nr }))
+                      }
+                      className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${
+                        planAction.nr === nr
+                          ? "border-primary/60 bg-primary/10 text-primary"
+                          : "border-border/70 text-muted-foreground hover:bg-muted/60"
+                      }`}
+                    >
+                      {nr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-muted-foreground">
+                  Vigência (DD/MM/AAAA)
+                </label>
+                <input
+                  className={inputBaseClass}
+                  value={planAction.vigencia}
+                  onChange={(event) =>
+                    setPlanAction((prev) => ({
+                      ...prev,
+                      vigencia: maskDate(event.target.value),
+                    }))
+                  }
+                  placeholder="Ex: 10/03/2025"
+                />
+              </div>
             </div>
 
-            <div className="mt-4 space-y-4">
-              {preventionRows.map((row) => (
-                <div
-                  key={row.id}
-                  className="grid gap-4 border-b border-border/60 pb-4 md:grid-cols-[1.2fr_1.6fr_2fr_1.3fr_1.3fr]"
-                >
-                  <div>
-                    <div className="relative">
-                      <select
-                        className={selectSmallClass}
-                        value={row.ghe}
-                        onChange={(event) =>
-                          handlePreventionChange(
-                            row.id,
-                            "ghe",
-                            event.target.value
-                          )
-                        }
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-semibold text-foreground">
+                  Ações por risco
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  {planTableRows.length} registros gerados a partir da
+                  caracterização de risco
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenPlanActionModal}
+                className="btn-primary px-4 text-[12px]"
+              >
+                Criar ação
+              </button>
+            </div>
+
+            {planTableRows.length ? (
+              <div className="mt-4 space-y-3">
+                <div className="max-h-[420px] overflow-auto rounded-[12px] border border-border/60">
+                  <table className="min-w-[720px] w-full border-separate border-spacing-0 text-left text-[12px]">
+                  <thead className="bg-muted/60 text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">GHE</th>
+                      <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                        Descrição agente de risco
+                      </th>
+                      <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                        Classificação
+                      </th>
+                      <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                        Medidas de prevenção
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {planTableRowsPage.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="border-t border-border/60"
                       >
-                        {riskGheGroups.map((ghe) => (
-                          <option key={ghe.id} value={ghe.name}>
-                            {ghe.name}
-                          </option>
+                        <td className="px-4 py-3 text-foreground">
+                          {row.gheName}
+                        </td>
+                        <td className="border-l border-border/60 px-4 py-3 text-foreground">
+                          {row.descricaoAgente}
+                        </td>
+                        <td className="border-l border-border/60 px-4 py-3 text-foreground">
+                          {row.classificacao}
+                        </td>
+                        <td className="border-l border-border/60 px-4 py-3 text-foreground">
+                          {editingMedidasId === row.id ? (
+                            <div className="space-y-2">
+                              <textarea
+                                className={`${textareaBaseClass} min-h-[96px]`}
+                                value={editingMedidasValue}
+                                onChange={(event) =>
+                                  setEditingMedidasValue(event.target.value)
+                                }
+                                placeholder="Descreva as medidas de prevenção"
+                              />
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleEditMedidasSave(
+                                      row.gheId,
+                                      row.riskId
+                                    )
+                                  }
+                                  className="btn-primary px-3 py-1 text-[11px]"
+                                >
+                                  Salvar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleEditMedidasCancel}
+                                  className="btn-outline px-3 py-1 text-[11px]"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="group px-1 py-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <p
+                                  className={`text-[12px] leading-relaxed ${
+                                    row.medidasPrevencao
+                                      ? "text-foreground"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {row.medidasPrevencao
+                                    ? row.medidasPrevencao
+                                    : "Sem medidas cadastradas."}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleEditMedidasStart(
+                                      row.id,
+                                      row.medidasPrevencao
+                                    )
+                                  }
+                                  className="opacity-0 transition group-hover:opacity-100"
+                                  title="Editar medidas de prevenção"
+                                >
+                                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border/50 text-muted-foreground/70 hover:text-foreground hover:border-border">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-muted-foreground">
+                  <span>
+                    Página {planTableCurrentPage} de {planTableTotalPages} ·{" "}
+                    {planTableRows.length} registros
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPlanTablePage((prev) => Math.max(1, prev - 1))
+                      }
+                      disabled={planTableCurrentPage === 1}
+                      className={
+                        planTableCurrentPage === 1
+                          ? "btn-disabled px-3 py-1 text-[11px]"
+                          : "btn-outline px-3 py-1 text-[11px]"
+                      }
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPlanTablePage((prev) =>
+                          Math.min(planTableTotalPages, prev + 1)
+                        )
+                      }
+                      disabled={planTableCurrentPage === planTableTotalPages}
+                      className={
+                        planTableCurrentPage === planTableTotalPages
+                          ? "btn-disabled px-3 py-1 text-[11px]"
+                          : "btn-outline px-3 py-1 text-[11px]"
+                      }
+                    >
+                      Próxima
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-[12px] border border-dashed border-border/60 px-4 py-6 text-center text-[12px] text-muted-foreground">
+                Nenhum risco cadastrado para gerar o plano de ação.
+              </div>
+            )}
+          </section>
+
+          {isPlanActionModalOpen ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-3xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-[18px] font-semibold text-foreground">
+                        Criar ação
+                      </h3>
+                      <p className="mt-1 text-[13px] text-muted-foreground">
+                        Defina o escopo da ação a partir do inventário.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPlanActionModalOpen(false)}
+                      className="btn-outline px-3 py-1 text-[12px]"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+
+                  <div className="mt-6 space-y-5">
+                    <div>
+                      <p className="text-[12px] font-semibold text-muted-foreground">
+                        Escopo da ação
+                      </p>
+                      <div className="mt-3 grid gap-2 md:grid-cols-3">
+                        {[
+                          {
+                            value: "risk",
+                            label: "Risco específico",
+                            helper: "Direciona a um risco pontual.",
+                          },
+                          {
+                            value: "ghe",
+                            label: "GHE específico",
+                            helper: "Aplica a um GHE inteiro.",
+                          },
+                          {
+                            value: "all",
+                            label: "Todos os GHEs",
+                            helper: "Ação transversal.",
+                          },
+                        ].map((item) => (
+                          <button
+                            key={item.value}
+                            type="button"
+                            onClick={() =>
+                              handleChangePlanActionScope(
+                                item.value as "all" | "ghe" | "risk"
+                              )
+                            }
+                            className={`rounded-[12px] border px-4 py-3 text-left text-[12px] ${
+                              planActionScope === item.value
+                                ? "border-primary/50 bg-primary/5 text-foreground"
+                                : "border-border/70 bg-background/40 text-muted-foreground"
+                            }`}
+                          >
+                            <p className="font-semibold">{item.label}</p>
+                            <p className="mt-1 text-[11px]">{item.helper}</p>
+                          </button>
                         ))}
-                        {!riskGheGroups.length ? (
-                          <option value="GHE 01">GHE 01</option>
+                      </div>
+                    </div>
+
+                    {planActionScope !== "all" ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="text-[12px] font-semibold text-muted-foreground">
+                            GHE
+                          </label>
+                          <div className="mt-2">
+                            <SearchableSelect
+                              value={planActionGheId}
+                              onChange={handlePlanActionGheChange}
+                              options={planActionGheOptions}
+                              buttonClassName={selectBaseClass}
+                              searchPlaceholder="Filtrar GHE"
+                              disabled={!planActionGheOptions.length}
+                            />
+                          </div>
+                        </div>
+                        {planActionScope === "risk" ? (
+                          <div>
+                            <label className="text-[12px] font-semibold text-muted-foreground">
+                              Risco
+                            </label>
+                            <div className="mt-2">
+                              <SearchableSelect
+                                value={planActionRiskId}
+                                onChange={setPlanActionRiskId}
+                                options={planActionRiskOptions}
+                                buttonClassName={selectBaseClass}
+                                searchPlaceholder="Filtrar risco"
+                                disabled={!planActionRiskOptions.length}
+                              />
+                            </div>
+                          </div>
                         ) : null}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                    ) : null}
+
+                    <div>
+                      <label className="text-[12px] font-semibold text-muted-foreground">
+                        Descrição da ação
+                      </label>
+                      <textarea
+                        className={`${textareaBaseClass} min-h-[120px]`}
+                        value={planActionDescription}
+                        onChange={(event) =>
+                          setPlanActionDescription(event.target.value)
+                        }
+                        placeholder="Descreva a ação preventiva..."
+                      />
                     </div>
                   </div>
-                  <div>
+
+                  <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsPlanActionModalOpen(false)}
+                      className="btn-outline px-4"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePlanActionModal}
+                      className="btn-primary px-5"
+                    >
+                      Salvar ação
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : step.id === "anexos" ? (
+        <>
+          <section className="px-2">
+            <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
+              Inclusão de Anexos
+            </h1>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              Insira documentos
+            </p>
+          </section>
+
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <div className="grid gap-4 md:grid-cols-[1.2fr_1.4fr]">
+              <div>
+                <label className="text-[12px] font-semibold text-muted-foreground">
+                  Diretriz para geração de PDF
+                </label>
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={anexoDiretriz}
+                    onChange={(value) => setAnexoDiretriz(value)}
+                    options={diretrizOptions.map((option) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectBaseClass}
+                    searchPlaceholder="Filtrar diretriz"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-muted-foreground">
+                  ART - Anotação de Responsabilidade Técnica
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <label className="btn-outline px-3 py-2 text-[12px]">
+                    Escolher arquivos
                     <input
-                      className={inputBaseClass}
-                      value={row.agente}
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      className="hidden"
                       onChange={(event) =>
-                        handlePreventionChange(
-                          row.id,
-                          "agente",
-                          event.target.value
-                        )
+                        handleAnexoFiles("anexo-art", event.target.files)
                       }
                     />
+                  </label>
+                  <span className="text-[12px] text-muted-foreground">
+                    {anexos.find((item) => item.id === "anexo-art")?.files
+                      .length ?? 0}{" "}
+                    arquivos
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {anexos.map((anexo) => (
+                <div
+                  key={anexo.id}
+                  draggable
+                  onDragStart={() => handleAnexoDragStart(anexo.id)}
+                  onDragOver={(event) => handleAnexoDragOver(event, anexo.id)}
+                  onDrop={() => handleAnexoDrop(anexo.id)}
+                  onDragEnd={handleAnexoDragEnd}
+                  className={`rounded-[12px] border px-4 py-4 ${
+                    dragOverAnexoId === anexo.id
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border/60 bg-background/40"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <input
+                      className={`${inputInlineClass} max-w-[320px]`}
+                      value={anexo.title}
+                      onChange={(event) =>
+                        handleRenameAnexoTitle(anexo.id, event.target.value)
+                      }
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveAnexo(anexo.id, "up")}
+                        className="btn-outline px-3 py-1 text-[12px]"
+                      >
+                        Subir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveAnexo(anexo.id, "down")}
+                        className="btn-outline px-3 py-1 text-[12px]"
+                      >
+                        Descer
+                      </button>
+                      <label className="btn-outline px-3 py-1 text-[12px]">
+                        Adicionar PDF
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          multiple
+                          className="hidden"
+                          onChange={(event) =>
+                            handleAnexoFiles(anexo.id, event.target.files)
+                          }
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div>
-                    <textarea
-                      className={`${textareaBaseClass} min-h-[80px]`}
-                      value={row.medidas}
-                      onChange={(event) =>
-                        handlePreventionChange(
-                          row.id,
-                          "medidas",
-                          event.target.value
-                        )
-                      }
-                    />
-                  </div>
-                  <div>
-                    <textarea
-                      className={`${textareaBaseClass} min-h-[80px]`}
-                      value={row.epc}
-                      onChange={(event) =>
-                        handlePreventionChange(
-                          row.id,
-                          "epc",
-                          event.target.value
-                        )
-                      }
-                    />
-                  </div>
-                  <div>
-                    <textarea
-                      className={`${textareaBaseClass} min-h-[80px]`}
-                      value={row.epi}
-                      onChange={(event) =>
-                        handlePreventionChange(
-                          row.id,
-                          "epi",
-                          event.target.value
-                        )
-                      }
-                    />
+
+                  <div className="mt-4 space-y-2">
+                    {anexo.files.length ? (
+                      anexo.files.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border/60 bg-card px-3 py-2"
+                        >
+                          <input
+                            className={`${inputInlineClass} max-w-[320px]`}
+                            value={file.name}
+                            onChange={(event) =>
+                              handleAnexoFileRename(
+                                anexo.id,
+                                file.id,
+                                event.target.value
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleAnexoFileRemove(anexo.id, file.id)
+                            }
+                            className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground">
+                        Nenhum arquivo anexado.
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={handleAddAnexo}
+                className="btn-outline px-4 py-2"
+              >
+                Adicionar novo anexo
+              </button>
+            </div>
+          </section>
+        </>
+      ) : step.id === "revisao" ? (
+        <>
+          <section className="px-2">
+            <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
+              Revisão dos Campos
+            </h1>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              Revise todas as seções preenchidas antes de finalizar o documento
+            </p>
+          </section>
+
+          <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+            <div className="space-y-3">
+              {pgrSteps
+                .filter((item) => item.id !== "revisao" && item.id !== "inicio")
+                .map((item, index) => {
+                  const isDone = index < completedSteps;
+                  const statusLabel = isDone ? "Completo" : "Incompleto";
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border/60 bg-background/40 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                            isDone
+                              ? "border-emerald-300 bg-emerald-100 text-emerald-700"
+                              : "border-rose-300 bg-rose-50 text-rose-600"
+                          }`}
+                        >
+                          {isDone ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <TriangleAlert className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-semibold text-foreground">
+                            {item.title}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                            isDone
+                              ? "bg-emerald-500 text-white"
+                              : "bg-rose-500 text-white"
+                          }`}
+                        >
+                          {statusLabel}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/pgr/${params.id}/${item.id}`)}
+                          className="btn-outline px-2 py-1"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="mt-6 rounded-[12px] border border-border/60 bg-background/40 px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[14px] font-semibold text-foreground">
+                    Finalizar Documento
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Complete todas as seções para finalizar o documento.
+                  </p>
+                  {lastFakePdfAt ? (
+                    <p className="mt-1 text-[12px] text-muted-foreground">
+                      Último PDF fake gerado em {lastFakePdfAt}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewModalOpen(true)}
+                    className="btn-outline px-4"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Visualizar prévia
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGenerateFakePdf}
+                    disabled={isGeneratingFakePdf}
+                    className={
+                      isGeneratingFakePdf ? "btn-disabled px-5" : "btn-primary px-5"
+                    }
+                  >
+                    {isGeneratingFakePdf ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <FileDown className="h-4 w-4" />
+                        Gerar PDF fake
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         </>
@@ -2614,6 +4063,70 @@ export default function PgrEtapaPage({
           </div>
         </section>
       )}
+
+      {step.id === "revisao" && isPreviewModalOpen ? (
+        <div className="fixed -inset-6 z-50">
+          <div className="absolute inset-0 bg-black/65" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-5xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Prévia do documento
+                  </h3>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Visualização aproximada do PGR antes da geração do PDF fake.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="btn-outline px-3 py-1 text-[12px]"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="mt-6 max-h-[65vh] overflow-auto rounded-[12px] border border-border/60 bg-background/40 px-4 py-4">
+                <pre className="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-foreground">
+                  {fakePreviewLines.join("\n")}
+                </pre>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="btn-outline px-4"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateFakePdf}
+                  disabled={isGeneratingFakePdf}
+                  className={
+                    isGeneratingFakePdf ? "btn-disabled px-5" : "btn-primary px-5"
+                  }
+                >
+                  {isGeneratingFakePdf ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="h-4 w-4" />
+                      Gerar PDF fake
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {step.id === "descricao" ? (
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -2679,7 +4192,87 @@ export default function PgrEtapaPage({
             )}
           </div>
         </div>
-      ) : step.id === "medidas" ? (
+      ) : step.id === "plano" ? (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {prevStep ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/pgr/${params.id}/${prevStep.id}`)}
+              className="btn-outline"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+          ) : (
+            <button type="button" disabled className="btn-disabled">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-outline px-4">
+              <Save className="h-4 w-4" />
+              Salvar
+            </button>
+            {nextStep ? (
+              <button
+                type="button"
+                onClick={handleAdvance}
+                className="btn-primary px-6"
+              >
+                Avançar
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button type="button" disabled className="btn-disabled border-0 px-6">
+                Avançar
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : step.id === "anexos" ? (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {prevStep ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/pgr/${params.id}/${prevStep.id}`)}
+              className="btn-outline"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+          ) : (
+            <button type="button" disabled className="btn-disabled">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-outline px-4">
+              <Save className="h-4 w-4" />
+              Salvar
+            </button>
+            {nextStep ? (
+              <button
+                type="button"
+                onClick={handleAdvance}
+                className="btn-primary px-6"
+              >
+                Avançar
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button type="button" disabled className="btn-disabled border-0 px-6">
+                Avançar
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : step.id === "revisao" ? (
         <div className="flex flex-wrap items-center justify-between gap-4">
           {prevStep ? (
             <button
