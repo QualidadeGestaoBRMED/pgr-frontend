@@ -12,6 +12,11 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { useRouter } from "next/navigation";
+import {
+  apiGet,
+  apiPost,
+  FRONTEND_USERNAME_STORAGE_KEY,
+} from "@/lib/api";
 
 const imgMarcaPrincipalCorSmall31 =
   "https://www.figma.com/api/mcp/asset/a7cc84dc-695b-4f12-96ad-9c2879c6ecb5";
@@ -22,13 +27,21 @@ type AppHeaderUser = {
 };
 
 type AppHeaderNotification = {
+  id?: string;
   title: string;
   description: string;
+  createdAt?: string;
+  pgrId?: string;
 };
 
 type AppHeaderProps = {
   user: AppHeaderUser;
   notifications?: AppHeaderNotification[];
+};
+
+type FrontendNotificationsResponse = {
+  unreadCount: number;
+  notifications: AppHeaderNotification[];
 };
 
 export function AppHeader({ user, notifications }: AppHeaderProps) {
@@ -40,25 +53,42 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const [notificationItems, setNotificationItems] = useState<
     AppHeaderNotification[]
-  >(() => {
-    if (notifications && notifications.length > 0) return notifications;
-    return [
-      {
-        title: "PGR - Vale",
-        description: "Atrasado 21h · Ontem, 17:00",
-      },
-      {
-        title: "Novo PGR atribuído",
-        description: "Atualizado há 2 minutos",
-      },
-    ];
-  });
+  >(() => notifications || []);
+  const [unreadCount, setUnreadCount] = useState(
+    notifications?.length || 0
+  );
 
   useEffect(() => {
-    if (notifications && notifications.length > 0) {
+    if (notifications) {
       setNotificationItems(notifications);
+      setUnreadCount(notifications.length);
     }
   }, [notifications]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadNotifications = async () => {
+      try {
+        const payload = await apiGet<FrontendNotificationsResponse>(
+          "/api/frontend/notifications"
+        );
+        if (!active) return;
+        setNotificationItems(payload.notifications || []);
+        setUnreadCount(Number(payload.unreadCount) || 0);
+      } catch {
+        if (!active) return;
+      }
+    };
+
+    loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -85,7 +115,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
     };
   }, [notificationsOpen, profileOpen]);
 
-  const hasNotifications = notificationItems.length > 0;
+  const hasNotifications = unreadCount > 0;
 
   return (
     <header className="flex items-center justify-between rounded-[10px] bg-card px-6 py-4 text-foreground">
@@ -124,8 +154,18 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
           <button
             type="button"
             onClick={() => {
-              setNotificationsOpen((prev) => !prev);
+              const nextOpen = !notificationsOpen;
+              setNotificationsOpen(nextOpen);
               setProfileOpen(false);
+              if (nextOpen) {
+                apiPost<{ ok: boolean; unreadCount: number }>(
+                  "/api/frontend/notifications/mark-read"
+                )
+                  .then((result) => {
+                    setUnreadCount(Number(result.unreadCount) || 0);
+                  })
+                  .catch(() => null);
+              }
             }}
             className="relative text-muted-foreground transition hover:text-foreground"
             aria-label="Notificações"
@@ -146,7 +186,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
                 ) : (
                   notificationItems.map((item, index) => (
                     <div
-                      key={`${item.title}-${index}`}
+                      key={item.id || `${item.title}-${index}`}
                       className="flex items-start justify-between gap-2"
                     >
                       <div>
@@ -222,6 +262,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
               <button
                 type="button"
                 onClick={() => {
+                  window.localStorage.removeItem(FRONTEND_USERNAME_STORAGE_KEY);
                   setProfileOpen(false);
                   router.push("/login");
                 }}

@@ -5,120 +5,76 @@ import { Work_Sans } from "next/font/google";
 import { AppHeader } from "@/components/app-header";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { apiGet, apiPost } from "@/lib/api";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
 });
 
-const mockHomeData = {
+type AdmData = {
+  user: { name: string; initials: string };
+  title: string;
+  subtitle: string;
+  summaryCards: Array<{
+    title: string;
+    value: string;
+    note: string;
+    bg: string;
+    titleClass: string;
+    valueClass: string;
+    noteClass: string;
+  }>;
+  tableRows: Array<{
+    id: string;
+    ghe: string;
+    responsavel: string;
+    prioridade: { label: string; bg: string; dot: string };
+    status: { label: string; bg: string; dot: string };
+    vencimento: string;
+    vencimentoClass: string;
+    atraso: string | null;
+    isUrgent: boolean;
+    isLate: boolean;
+  }>;
+};
+
+const emptyHomeData: AdmData = {
   user: {
-    name: "Gabriel Rodrigues",
-    initials: "IA",
+    name: "Usuário",
+    initials: "US",
   },
   title: "GHE's em elaboração",
-  subtitle: "Atualizado há 2 minutos · Sincronizado com Pipefy",
-  summaryCards: [
-    {
-      title: "Hoje",
-      value: "12",
-      note: "3 vencendo nas próximas 4 horas",
-      bg: "bg-[#193b4e] dark:bg-primary",
-      titleClass: "text-white",
-      valueClass: "text-white",
-      noteClass: "text-[#ffd64d] dark:text-[#ffe28a]",
-    },
-    {
-      title: "Amanhã",
-      value: "23",
-      note: "+2 desde ontem",
-      bg: "bg-[#e3f0f2] dark:bg-card",
-      titleClass: "text-[#193b4f] dark:text-foreground",
-      valueClass: "text-[#193b4f] dark:text-foreground",
-      noteClass: "text-[#287a01] dark:text-[#8ae37a]",
-    },
-    {
-      title: "Próxima semana",
-      value: "36",
-      note: "Bem distribuídos",
-      bg: "bg-[#e3f0f2] dark:bg-card",
-      titleClass: "text-[#193b4f] dark:text-foreground",
-      valueClass: "text-[#193b4f] dark:text-foreground",
-      noteClass: "text-[#287a01] dark:text-[#8ae37a]",
-    },
-    {
-      title: "Total em Elaboração",
-      value: "90",
-      note: "+6% em relação a semana passada.",
-      bg: "bg-[#e3f0f2] dark:bg-card",
-      titleClass: "text-[#193b4f] dark:text-foreground",
-      valueClass: "text-[#193b4f] dark:text-foreground",
-      noteClass: "text-[#287a01] dark:text-[#8ae37a]",
-    },
-  ],
-  tableRows: [
-    {
-      id: "ghe-1",
-      ghe: "GHE - Manutenção II",
-      responsavel: "João silva",
-      prioridade: {
-        label: "Urgente",
-        bg: "bg-[#ffe1e1] dark:bg-[#3d1b1b]",
-        dot: "bg-[#f64848] dark:bg-[#ff6b6b]",
-      },
-      status: {
-        label: "Em elaboração",
-        bg: "bg-[#f2c977] dark:bg-[#4a3a12]",
-        dot: "bg-[#f2b233] dark:bg-[#f7d07e]",
-      },
-      vencimento: "Hoje, 18:00",
-      vencimentoClass: "text-[#f64848] dark:text-[#ff6b6b]",
-      atraso: null,
-      isUrgent: true,
-      isLate: false,
-    },
-    {
-      id: "ghe-2",
-      ghe: "GHE - Manutenção II",
-      responsavel: "João silva",
-      prioridade: {
-        label: "Alta",
-        bg: "bg-[#ffb413] dark:bg-[#5a3d05]",
-        dot: "bg-[#d97b00] dark:bg-[#ffb413]",
-      },
-      status: {
-        label: "Pendente",
-        bg: "bg-[#f29177] dark:bg-[#4c2a20]",
-        dot: "bg-[#c95a40] dark:bg-[#f2a38f]",
-      },
-      vencimento: "Ontem, 17:00",
-      vencimentoClass: "text-[#f64848] dark:text-[#ff6b6b]",
-      atraso: "Atrasado 21h",
-      isUrgent: false,
-      isLate: true,
-    },
-  ],
+  subtitle: "Atualizado automaticamente via API",
+  summaryCards: [],
+  tableRows: [],
 };
 
 export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [homeData, setHomeData] = useState<AdmData>(emptyHomeData);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [onlyUrgent, setOnlyUrgent] = useState(false);
   const [onlyLate, setOnlyLate] = useState(false);
   const filtersRef = useRef<HTMLDivElement | null>(null);
 
-  const handleNewGhe = () => {
-    router.push("/ghe/novo");
+  const handleNewGhe = async () => {
+    try {
+      const result = await apiPost<{ pgrId: string }>("/api/frontend/pgrs");
+      router.push(`/pgr/${result.pgrId}/inicio`);
+    } catch {
+      // Sem bloqueio visual em falha de criação.
+    }
   };
 
   const handleEdit = (id: string) => {
-    router.push(`/ghe/editar/${id}`);
+    router.push(`/pgr/${id}`);
   };
 
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return mockHomeData.tableRows.filter((row) => {
+    return homeData.tableRows.filter((row) => {
       if (onlyUrgent && !row.isUrgent) return false;
       if (onlyLate && !row.isLate) return false;
       if (!query) return true;
@@ -130,7 +86,28 @@ export default function HomePage() {
         row.vencimento.toLowerCase().includes(query)
       );
     });
-  }, [searchQuery, onlyUrgent, onlyLate]);
+  }, [searchQuery, onlyUrgent, onlyLate, homeData.tableRows]);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      try {
+        const data = await apiGet<AdmData>("/api/frontend/adm");
+        if (!active) return;
+        setHomeData(data);
+      } catch {
+        if (!active) return;
+        setHomeData(emptyHomeData);
+      }
+    };
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -153,15 +130,15 @@ export default function HomePage() {
   return (
     <div className={`min-h-screen bg-background ${workSans.className}`}>
       <div className="mx-auto w-full max-w-[1480px] px-0 pb-16 pt-8 sm:px-0 lg:px-1">
-        <AppHeader user={mockHomeData.user} />
+        <AppHeader user={homeData.user} />
 
         <div className="mt-12 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-[32px] font-semibold text-foreground sm:text-[40px]">
-              {mockHomeData.title}
+              {homeData.title}
             </h1>
             <p className="mt-3 text-[18px] text-muted-foreground sm:text-[25px]">
-              {mockHomeData.subtitle}
+              {homeData.subtitle}
             </p>
           </div>
           <button
@@ -177,7 +154,7 @@ export default function HomePage() {
         <div className="mt-10 h-px w-full bg-border" />
 
         <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {mockHomeData.summaryCards.map((card) => (
+          {homeData.summaryCards.map((card) => (
             <div
               key={card.title}
               className={`${card.bg} rounded-[8px] px-6 py-5`}

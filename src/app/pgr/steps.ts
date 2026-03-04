@@ -38,7 +38,6 @@ export const pgrSteps: Array<{
     id: "caracterizacao",
     title: "Caracterização de Risco",
     subtitle: "Identificação dos riscos",
-    tone: "alert",
   },
   {
     id: "plano",

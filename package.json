@@ -4,21 +4,27 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:api-local": "BACKEND_API_BASE_URL=http://127.0.0.1:8001 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "smoke:once": "node scripts/smoke-once.mjs"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.0.2",
+    "@xmldom/xmldom": "^0.8.11",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
     "next": "^14.2.0",
+    "pdfmake": "^0.2.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

@@ -1,3 +1,4 @@
 node_modules
 .next
+.next_*
 .next_limpo_*

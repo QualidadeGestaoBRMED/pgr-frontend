@@ -4,6 +4,7 @@ import { Chrome, Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
 import { Work_Sans } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FRONTEND_USERNAME_STORAGE_KEY } from "@/lib/api";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -24,6 +25,7 @@ export default function LoginPage() {
     event.preventDefault();
     if (username === "admin" && password === "admin") {
       setError("");
+      window.localStorage.setItem(FRONTEND_USERNAME_STORAGE_KEY, username);
       router.push("/home");
       return;
     }
