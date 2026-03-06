@@ -7,13 +7,17 @@ export type RuntimeTemplateId = "base_v1";
 export type RuntimeTemplate = {
   id: RuntimeTemplateId;
   label: string;
-  build: (snapshot: RuntimeSnapshot, visualAssets?: RuntimeVisualAssets) => any;
+  build: (
+    snapshot: RuntimeSnapshot,
+    visualAssets?: RuntimeVisualAssets,
+    layout?: { measureTextWidth?: (text: string) => number; pageSize?: { width: number; height: number }; pageMargins?: [number, number, number, number] },
+  ) => any;
 };
 
 const BASE_TEMPLATE: RuntimeTemplate = {
   id: "base_v1",
   label: "Template Base v1",
-  build: (snapshot, visualAssets) => buildRuntimeDocDefinition(snapshot, visualAssets),
+  build: (snapshot, visualAssets, layout) => buildRuntimeDocDefinition(snapshot, visualAssets, layout),
 };
 
 export function resolveRuntimeTemplate(payload: any): RuntimeTemplate {

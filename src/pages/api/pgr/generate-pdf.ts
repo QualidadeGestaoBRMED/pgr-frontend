@@ -7,6 +7,7 @@ import { ensureRuntimeVisualAssetsFromTemplate } from "@/lib/pgr-pdf-runtime/ass
 
 const TEMPLATE_FILE_NAME = "Modelo de PGR.docx";
 const PdfPrinter = require("pdfmake");
+const PdfKit = require("pdfkit");
 
 function sanitizeText(value: unknown) {
   return String(value ?? "")
@@ -61,8 +62,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ensureRuntimeVisualAssetsFromTemplate(templatePath),
     ]);
     const fontDefinitions = getRuntimeFontDefinitions(fontPaths);
+    const measureDoc = new PdfKit({ size: "A4", margin: 0 });
+    measureDoc.font(fontPaths.workSansMedium.normal).fontSize(10);
+    const measureTextWidth = (text: string) => measureDoc.widthOfString(String(text || ""));
     const runtimeTemplate = resolveRuntimeTemplate(payload);
-    const definition = runtimeTemplate.build(snapshot, visualAssets);
+    const definition = runtimeTemplate.build(snapshot, visualAssets, {
+      measureTextWidth,
+      pageSize: { width: 595.28, height: 841.89 },
+      pageMargins: [40, 96, 40, 36],
+    });
     const pdfBuffer = await buildPdfBuffer(definition, fontDefinitions);
     const filenameBase = buildFilename(snapshot.company.name || `pgr-${snapshot.meta.pgrId}`);
 
