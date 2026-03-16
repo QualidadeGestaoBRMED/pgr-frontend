@@ -194,22 +194,66 @@ function buildBlueBulletLines(items: string[]): Content[] {
   }));
 }
 
-function buildSection14Graphics(): Content[] {
+function escapeSvgText(value: string) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function buildVerticalLabelSvg(
+  label: string,
+  width: number,
+  height: number,
+  fontSize: number,
+  fontWeight: number,
+) {
+  const safe = escapeSvgText(label);
+  const cx = width / 2;
+  const cy = height / 2;
+  return `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${width}\" height=\"${height}\" viewBox=\"0 0 ${width} ${height}\">
+  <text x=\"${cx}\" y=\"${cy}\" fill=\"#FFFFFF\" font-family=\"WorkSansLight, Work Sans, Arial, sans-serif\" font-size=\"${fontSize}\" font-weight=\"${fontWeight}\" text-anchor=\"middle\" dominant-baseline=\"middle\" transform=\"rotate(-90 ${cx} ${cy})\">${safe}</text>
+</svg>`;
+}
+
+function buildSection14Graphics(visualAssets?: RuntimeVisualAssets): Content[] {
   const content: Content[] = [];
 
   SECTION_14_TABLES.forEach((table, index) => {
-    content.push(buildFixedRuntimeTable(table, index > 0));
+    content.push(buildFixedRuntimeTable(table, index > 0, visualAssets));
   });
 
   return content;
 }
 
-function buildSection15Tables(): Content[] {
+function buildSection15Tables(visualAssets?: RuntimeVisualAssets): Content[] {
   const content: Content[] = [];
   SECTION_15_TABLES.forEach((table, index) => {
-    content.push(buildFixedRuntimeTable(table, index > 0));
+    content.push(buildFixedRuntimeTable(table, index > 0, visualAssets));
   });
   return content;
+}
+
+function buildSection15TableAt(
+  index: number,
+  pageBreakBefore = false,
+  visualAssets?: RuntimeVisualAssets,
+): Content[] {
+  const table = SECTION_15_TABLES[index];
+  if (!table) return [];
+  return [buildFixedRuntimeTable(table, pageBreakBefore, visualAssets)];
+}
+
+function buildSection14TableAt(
+  index: number,
+  pageBreakBefore = false,
+  visualAssets?: RuntimeVisualAssets,
+): Content[] {
+  const table = SECTION_14_TABLES[index];
+  if (!table) return [];
+  return [buildFixedRuntimeTable(table, pageBreakBefore, visualAssets)];
 }
 
 function resolveFixedTableWidths(cols: number): Array<number | string> {
@@ -221,30 +265,86 @@ function resolveFixedTableWidths(cols: number): Array<number | string> {
   return new Array(cols).fill("*");
 }
 
-function buildFixedRuntimeTable(table: FixedRuntimeTable, pageBreakBefore = false): Content {
+function buildFixedRuntimeTable(
+  table: FixedRuntimeTable,
+  pageBreakBefore = false,
+  visualAssets?: RuntimeVisualAssets,
+): Content {
   const isMatrixTable = table.cols === 8 && table.rows[0]?.[0] === "Gradação do Risco";
+  const isSeverityMatrix = isMatrixTable && /Severidade/i.test(table.rows[1]?.[0] || "");
+  const isPriorityMatrix = isMatrixTable && /Gradação de Risco/i.test(table.rows[1]?.[0] || "");
+  const isIndexTable = table.cols === 2 && /Índice/i.test(table.rows[0]?.[0] || "");
+  const isActionsTable = table.cols === 2 && /Priorização da Ação/i.test(table.rows[0]?.[0] || "");
 
-  const resolveMatrixCellStyle = (value: string): string | null => {
+  const resolveMatrixCellStyle = (value: string, preferRegular = false): string | null => {
     const normalized = value
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
     if (!normalized) return null;
-    if (normalized.includes("irrelevante") || normalized.includes("nenhuma acao")) return "matrixCellIrrelevante";
-    if (normalized.includes("prioridade baixa") || normalized.includes("risco baixo")) return "matrixCellBaixo";
+    const suffix = preferRegular ? "Regular" : "";
+    if (normalized.includes("irrelevante") || normalized.includes("nenhuma acao")) return `matrixCellIrrelevante${suffix}`;
+    if (normalized.includes("prioridade baixa") || normalized.includes("risco baixo")) return `matrixCellBaixo${suffix}`;
     if (normalized.includes("prioridade media") || normalized.includes("risco moderado") || normalized.includes("moderado"))
-      return "matrixCellModerado";
+      return `matrixCellModerado${suffix}`;
     if (normalized.includes("prioridade alta") || normalized.includes("risco alto") || normalized.includes("alto"))
-      return "matrixCellAlto";
+      return `matrixCellAlto${suffix}`;
     if (normalized.includes("acoes imediatas") || normalized.includes("risco critico") || normalized.includes("critico"))
-      return "matrixCellCritico";
+      return `matrixCellCritico${suffix}`;
     return null;
+  };
+
+  const resolveRiskLabelStyle = (value: string, variant: "index" | "actions"): string | null => {
+    const normalized = value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (!normalized) return null;
+    if (normalized.includes("irrelevante")) return variant === "actions" ? "riskLabelActionIrrelevante" : "riskLabelIrrelevante";
+    if (normalized.includes("baixo")) return variant === "actions" ? "riskLabelActionBaixo" : "riskLabelBaixo";
+    if (normalized.includes("moderado")) return variant === "actions" ? "riskLabelActionModerado" : "riskLabelModerado";
+    if (normalized.includes("alto")) return variant === "actions" ? "riskLabelActionAlto" : "riskLabelAlto";
+    if (normalized.includes("critico")) return variant === "actions" ? "riskLabelActionCritico" : "riskLabelCritico";
+    return null;
+  };
+
+  const splitSemicolonLines = (value: string): string[] => {
+    const raw = sanitizeText(value);
+    if (!raw) return [];
+    const parts = raw.split(";").map((item) => item.trim()).filter(Boolean);
+    if (parts.length <= 1) return raw ? [raw] : [];
+    return parts.map((item, index) => {
+      if (index >= parts.length - 1) return item;
+      if (/[.!?)]$/.test(item)) return item;
+      return `${item};`;
+    });
   };
 
   const body: TableCell[][] = table.rows.map((row, rowIndex) => {
     const nonEmptyIndexes = row
       .map((cell, i) => ({ cell: sanitizeText(cell), i }))
       .filter((item) => item.cell.length > 0);
+
+    if (isMatrixTable) {
+      const hasOnlyMatrixLabel =
+        nonEmptyIndexes.length === 1 && nonEmptyIndexes[0].i === 3 && /Probabilidade|Número de Trabalhadores/i.test(nonEmptyIndexes[0].cell);
+      if (hasOnlyMatrixLabel) {
+        const axisStyle = /Probabilidade/i.test(nonEmptyIndexes[0].cell) ? "matrixAxisCellLarge" : "matrixAxisCell";
+        return [
+          { text: "", style: axisStyle },
+          { text: "", style: axisStyle },
+          { text: "", style: axisStyle },
+          {
+            text: nonEmptyIndexes[0].cell,
+            colSpan: 5,
+            style: axisStyle,
+            alignment: "center",
+            valign: "middle",
+          },
+          ...new Array(4).fill({ text: "" }),
+        ];
+      }
+    }
 
     if (nonEmptyIndexes.length === 1 && nonEmptyIndexes[0].i === 0) {
       return [
@@ -260,23 +360,92 @@ function buildFixedRuntimeTable(table: FixedRuntimeTable, pageBreakBefore = fals
     return row.map((cell, colIndex) => {
       const text = sanitizeText(cell);
       let style = rowIndex === 0 ? "fixedTableHeaderCell" : "fixedTableBodyCell";
+      if (rowIndex === 0 && (isPriorityMatrix || isIndexTable || isActionsTable)) {
+        style = "fixedTableHeaderCellRegular";
+      }
 
+      if (isMatrixTable && rowIndex >= 1 && rowIndex <= 5 && colIndex <= 2) {
+        style = isPriorityMatrix ? "matrixAxisCellRegular" : "matrixAxisCell";
+      }
+      if (isMatrixTable && rowIndex >= 6 && rowIndex <= 8 && colIndex >= 3) {
+        style = isPriorityMatrix ? "matrixAxisCellRegular" : "matrixAxisCell";
+      }
       if (isMatrixTable && rowIndex >= 1 && rowIndex <= 5 && colIndex >= 3 && colIndex <= 7) {
-        const matrixStyle = resolveMatrixCellStyle(text);
+        const matrixStyle = resolveMatrixCellStyle(text, isPriorityMatrix);
         if (matrixStyle) style = matrixStyle;
+      }
+      if ((isIndexTable || isActionsTable) && rowIndex >= 1 && colIndex === 0) {
+        const riskLabelStyle = resolveRiskLabelStyle(text, isIndexTable ? "index" : "actions");
+        if (riskLabelStyle) style = riskLabelStyle;
+      }
+
+      if (isSeverityMatrix && rowIndex === 1 && colIndex === 0) {
+        return {
+          rowSpan: 5,
+          svg: buildVerticalLabelSvg("Severidade", 42, 180, 14.8, 300),
+          style: "matrixAxisCell",
+          alignment: "center",
+          valign: "middle",
+        };
+      }
+      if (isPriorityMatrix && rowIndex === 1 && colIndex === 0) {
+        return {
+          rowSpan: 5,
+          svg: buildVerticalLabelSvg("Gradação de Risco", 42, 180, 15, 300),
+          style: "matrixAxisCellRegular",
+          alignment: "center",
+          valign: "middle",
+        };
+      }
+      if (isSeverityMatrix && rowIndex > 1 && rowIndex <= 5 && colIndex === 0) {
+        return { text: "" };
+      }
+      if (isPriorityMatrix && rowIndex > 1 && rowIndex <= 5 && colIndex === 0) {
+        return { text: "" };
+      }
+
+      if ((isIndexTable || isActionsTable) && rowIndex >= 1 && colIndex === 1) {
+        const lines = splitSemicolonLines(text);
+        if (isActionsTable) {
+          return {
+            stack: lines.map((line) => ({
+              columns: [
+                { width: 10, text: "•", style: "tableBulletGlyph" },
+                { width: "*", text: line, style: "actionsBulletText" },
+              ],
+              columnGap: 2,
+              margin: [0, 0, 0, 2],
+            })),
+            margin: [0, 0, 0, 0],
+          };
+        }
+        return {
+          stack: lines.map((line, index) => ({
+            text: line,
+            style: "fixedTableBodyCell",
+            margin: [0, 0, 0, index < lines.length - 1 ? 2 : 0],
+          })),
+        };
       }
 
       return { text, style };
     });
   });
 
+  const matrixWidths = isMatrixTable ? [42, 34, 70, 71, 61, 70, 66, 75] : undefined;
+  const indexWidths = isIndexTable ? [66, 412] : undefined;
+  const actionsWidths = isActionsTable ? [63, 415] : undefined;
+
+  const resolvedWidths = matrixWidths || indexWidths || actionsWidths || resolveFixedTableWidths(table.cols);
+  const layout = isMatrixTable || isIndexTable || isActionsTable ? MATRIX_TABLE_LAYOUT : THIN_TABLE_LAYOUT;
+
   return {
     table: {
       headerRows: 1,
-      widths: resolveFixedTableWidths(table.cols),
+      widths: resolvedWidths,
       body,
     },
-    layout: THIN_TABLE_LAYOUT,
+    layout,
     margin: [0, pageBreakBefore ? 8 : 2, 0, 10],
     pageBreak: pageBreakBefore ? "before" : undefined,
   };
@@ -287,10 +456,21 @@ const THIN_TABLE_LAYOUT = {
   vLineWidth: () => 0.5,
   hLineColor: () => COLORS.grid,
   vLineColor: () => COLORS.grid,
-  paddingLeft: () => 5,
-  paddingRight: () => 5,
-  paddingTop: () => 4,
-  paddingBottom: () => 4,
+  paddingLeft: () => 4,
+  paddingRight: () => 4,
+  paddingTop: () => 3,
+  paddingBottom: () => 3,
+};
+
+const MATRIX_TABLE_LAYOUT = {
+  hLineWidth: () => 0.5,
+  vLineWidth: () => 0.5,
+  hLineColor: () => COLORS.grid,
+  vLineColor: () => COLORS.grid,
+  paddingLeft: () => 2,
+  paddingRight: () => 2,
+  paddingTop: () => 2,
+  paddingBottom: () => 2,
 };
 
 const HEADER_TABLE_LAYOUT = {
@@ -486,8 +666,13 @@ function buildIdentificationAndProgramPages(snapshot: RuntimeSnapshot): Content[
   ];
 }
 
-function buildNarrativeCoreAndAnnexIndex(snapshot: RuntimeSnapshot): Content[] {
+function buildNarrativeCoreAndAnnexIndex(
+  snapshot: RuntimeSnapshot,
+  visualAssets?: RuntimeVisualAssets,
+): Content[] {
   const content: Content[] = [];
+  let insertedSection14Tables = false;
+  let insertedSection15Tables = false;
   const fixedSectionTocId: Record<string, string> = {
     "5 - Introdução": "sec_05",
     "6 - Objetivo": "sec_06",
@@ -533,6 +718,9 @@ function buildNarrativeCoreAndAnnexIndex(snapshot: RuntimeSnapshot): Content[] {
     if (isObjectiveSection) {
       content.push({ text: "", pageBreak: "before" });
     }
+    if (isSection15) {
+      content.push({ text: "", pageBreak: "before" });
+    }
     if (isSection14) {
       content.push({ text: "", pageBreak: "before" });
     }
@@ -568,13 +756,214 @@ function buildNarrativeCoreAndAnnexIndex(snapshot: RuntimeSnapshot): Content[] {
       if (bulletItems.length) {
         content.push(...buildBlueBulletLines(bulletItems));
       }
+    } else if (isSection14) {
+      const normalizedParagraphs = section.paragraphs
+        .map((paragraph) => normalizeFixedText(paragraph))
+        .filter(Boolean);
+
+      let severityInserted = false;
+      let probabilityInserted = false;
+      let footnoteInserted = false;
+
+      normalizedParagraphs.forEach((paragraph) => {
+        if (!paragraph) return;
+
+        if (isAlphaListItem(paragraph)) {
+          const alphaMatch = paragraph.match(/^([a-z]\))\s*(.+)$/i);
+          content.push({
+            text: alphaMatch
+              ? [
+                  { text: `${alphaMatch[1]} `, style: "bodyBulletAlphaPrefix" },
+                  { text: alphaMatch[2], style: "bodyBulletAlpha" },
+                ]
+              : paragraph,
+            style: alphaMatch ? undefined : "bodyBulletAlpha",
+            margin: [14, 0, 0, 6],
+          });
+          return;
+        }
+
+        if (isSubheadingLine(paragraph)) {
+          content.push({
+            text: paragraph,
+            style: "bodyCapsTitleBlue",
+            margin: [0, isWideSubtitleSpacing ? 12 : 10, 0, isWideSubtitleSpacing ? 10 : 8],
+          });
+          return;
+        }
+
+        const capsPrefix = paragraph.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 ()\/.\-]{4,}):\s*(.+)$/u);
+        const capsSentence = paragraph.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 ()\/.\-]{4,})\.\s+(.+)$/u);
+        const capsLoose = paragraph.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 ()\/.\-]{4,})\s+(.+)$/u);
+        const capsMatch = capsPrefix || capsSentence || capsLoose;
+        if (capsMatch) {
+          const titleText = capsPrefix
+            ? `${capsPrefix[1]}:`
+            : capsSentence
+              ? `${capsSentence[1]}.`
+              : `${capsLoose?.[1]}.`;
+          const bodyText = capsPrefix ? capsPrefix[2] : capsSentence ? capsSentence[2] : capsLoose?.[2] || "";
+
+          content.push({
+            text: titleText,
+            style: "bodyCapsTitleBlue",
+            margin: [0, 12, 0, 10],
+            keepWithNext: true,
+          });
+          if (bodyText) {
+            content.push({
+              text: bodyText,
+              style: "bodyParagraph",
+              margin: [0, 0, 0, 10],
+            });
+          }
+
+          if (!severityInserted && titleText.startsWith("SEVERIDADE") && SECTION_14_TABLES.length >= 1) {
+            content.push(...buildSection14TableAt(0, false, visualAssets));
+            severityInserted = true;
+          }
+          if (!probabilityInserted && titleText.startsWith("PROBABILIDADE") && SECTION_14_TABLES.length >= 6) {
+            for (let i = 1; i <= 5; i += 1) {
+              content.push(...buildSection14TableAt(i, false, visualAssets));
+            }
+            probabilityInserted = true;
+          }
+          return;
+        }
+
+        content.push({
+          text: paragraph,
+          style: isBulletLikeLine(paragraph) ? "bodyBulletBlue" : "bodyParagraph",
+        });
+
+        if (
+          !footnoteInserted &&
+          paragraph.startsWith("(*) Refere-se a avaliações") &&
+          SECTION_14_TABLES.length >= 7
+        ) {
+          content.push(...buildSection14TableAt(6, false, visualAssets));
+          footnoteInserted = true;
+        }
+      });
+
+      if (!severityInserted && SECTION_14_TABLES.length >= 1) {
+        content.push(...buildSection14TableAt(0, false, visualAssets));
+        severityInserted = true;
+      }
+      if (!probabilityInserted && SECTION_14_TABLES.length >= 6) {
+        for (let i = 1; i <= 5; i += 1) {
+          content.push(...buildSection14TableAt(i, false, visualAssets));
+        }
+        probabilityInserted = true;
+      }
+      if (!footnoteInserted && SECTION_14_TABLES.length >= 7) {
+        content.push(...buildSection14TableAt(6, false, visualAssets));
+        footnoteInserted = true;
+      }
+
+      insertedSection14Tables = severityInserted || probabilityInserted || footnoteInserted;
+    } else if (isSection15) {
+      const normalizedParagraphs = section.paragraphs
+        .map((paragraph) => normalizeFixedText(paragraph))
+        .filter(Boolean);
+
+      let matrixInserted = false;
+      let indexInserted = false;
+      let priorityInserted = false;
+      let actionsInserted = false;
+
+      normalizedParagraphs.forEach((paragraph) => {
+        if (!paragraph) return;
+
+        if (isSubheadingLine(paragraph)) {
+          content.push({
+            text: paragraph,
+            style: "bodyCapsTitleBlue",
+            margin: [0, 12, 0, 10],
+          });
+          return;
+        }
+
+        const capsPrefix = paragraph.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 ()\/.\-]{4,}):\s*(.+)$/u);
+        const capsSentence = paragraph.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 ()\/.\-]{4,})\.\s+(.+)$/u);
+        const capsLoose = paragraph.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9 ()\/.\-]{4,})\s+(.+)$/u);
+        const capsMatch = capsPrefix || capsSentence || capsLoose;
+        if (capsMatch) {
+          const titleText = capsPrefix
+            ? `${capsPrefix[1]}:`
+            : capsSentence
+              ? `${capsSentence[1]}.`
+              : `${capsLoose?.[1]}.`;
+          const bodyText = capsPrefix ? capsPrefix[2] : capsSentence ? capsSentence[2] : capsLoose?.[2] || "";
+
+          content.push({
+            text: titleText,
+            style: "bodyCapsTitleBlue",
+            margin: [0, 12, 0, 10],
+            keepWithNext: true,
+          });
+          if (bodyText) {
+            content.push({
+              text: bodyText,
+              style: "bodyParagraph",
+              margin: [0, 0, 0, 10],
+            });
+          }
+
+          if (
+            !priorityInserted &&
+            /ESTABELECIMENTO DE PRIORIDADES/i.test(titleText) &&
+            SECTION_15_TABLES.length >= 3
+          ) {
+            content.push(...buildSection15TableAt(2, false, visualAssets));
+            priorityInserted = true;
+            if (!actionsInserted && SECTION_15_TABLES.length >= 4) {
+              content.push(...buildSection15TableAt(3, false, visualAssets));
+              actionsInserted = true;
+            }
+          }
+          return;
+        }
+
+        content.push({
+          text: paragraph,
+          style: isBulletLikeLine(paragraph) ? "bodyBulletBlue" : "bodyParagraph",
+        });
+
+        if (!matrixInserted && paragraph.startsWith("Com o resultado das probabilidades") && SECTION_15_TABLES.length >= 1) {
+          content.push(...buildSection15TableAt(0, false, visualAssets));
+          matrixInserted = true;
+        }
+        if (!indexInserted && paragraph.startsWith("A combinação da severidade") && SECTION_15_TABLES.length >= 2) {
+          content.push(...buildSection15TableAt(1, false, visualAssets));
+          indexInserted = true;
+        }
+      });
+
+      if (!matrixInserted && SECTION_15_TABLES.length >= 1) {
+        content.push(...buildSection15TableAt(0, false, visualAssets));
+        matrixInserted = true;
+      }
+      if (!indexInserted && SECTION_15_TABLES.length >= 2) {
+        content.push(...buildSection15TableAt(1, false, visualAssets));
+        indexInserted = true;
+      }
+      if (!priorityInserted && SECTION_15_TABLES.length >= 3) {
+        content.push(...buildSection15TableAt(2, false, visualAssets));
+        priorityInserted = true;
+      }
+      if (!actionsInserted && SECTION_15_TABLES.length >= 4) {
+        content.push(...buildSection15TableAt(3, false, visualAssets));
+        actionsInserted = true;
+      }
+
+      insertedSection15Tables = matrixInserted || indexInserted || priorityInserted || actionsInserted;
     } else {
       let introBreakInserted = false;
-      section.paragraphs.forEach((paragraph, index) => {
+      section.paragraphs.forEach((paragraph) => {
         const normalized = normalizeFixedText(paragraph);
         if (!normalized) return;
 
-        // Seção 5: uma única quebra para equilibrar em 2 páginas sem encostar no rodapé.
         if (
           isIntroSection &&
           !introBreakInserted &&
@@ -721,24 +1110,27 @@ function buildNarrativeCoreAndAnnexIndex(snapshot: RuntimeSnapshot): Content[] {
       );
     }
 
-    if (isSection14) {
-      // garante que as tabelas da seção 14 sejam sempre renderizadas
-      content.push({ text: "", pageBreak: "before" });
-      content.push(...buildSection14Graphics());
-    }
-
-    if (isSection15) {
-      // garante que as tabelas da seção 15 sejam sempre renderizadas
-      content.push({ text: "", pageBreak: "before" });
-      content.push(...buildSection15Tables());
-    }
-
     if (isObjectiveSection) {
       content.push({ text: "", pageBreak: "after" });
     }
   });
 
+  if (!insertedSection14Tables) {
+    content.push(
+      sectionTitle("14 - Caracterização de Perigos e Critérios de Avaliação", "sec_14"),
+      ...buildSection14Graphics(visualAssets),
+    );
+  }
+
+  if (!insertedSection15Tables) {
+    content.push(
+      sectionTitle("15 - Gradação do Risco", "sec_15_grad"),
+      ...buildSection15Tables(visualAssets),
+    );
+  }
+
   content.push(
+    { text: "", pageBreak: "before" },
     sectionTitle("19 - Índice de Anexos", "sec_19"),
     {
       table: {
@@ -840,7 +1232,7 @@ function buildAnnexReconhecimentoTable(ghe: RuntimeGhe, index: number): Content 
 
   return {
     table: {
-      widths: [33, 38, 32, 36, 33, 40, 31, 36, 29, 28, 30, 33, 34],
+      widths: ["6%", "10%", "7%", "8%", "12%", "10%", "7%", "8%", "7%", "6%", "6%", "7%", "6%"],
       body: [
         [{ text: `GHE ${index + 1} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 13 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         [
@@ -947,10 +1339,15 @@ function buildAnnexPlanTable(ghe: RuntimeGhe, responsible: string, id?: string):
   };
 }
 
-function buildLandscapePage(content: Content, pageBreak: "before" | undefined): Content {
+function buildLandscapePage(
+  content: Content,
+  pageBreak: "before" | undefined,
+  pageSize?: "A3" | "A4",
+): Content {
   return {
     pageOrientation: "landscape",
     pageBreak,
+    pageSize,
     margin: [0, 0, 0, 0],
     stack: [content],
   };
@@ -963,9 +1360,9 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
   snapshot.ghes.forEach((ghe, index) => {
     const firstPageBreak = index === 0 ? undefined : "before";
     content.push(
-      buildLandscapePage(buildAnnexAmbienteTable(ghe, index), firstPageBreak),
-      buildLandscapePage(buildAnnexAtividadeTable(ghe, index), "before"),
-      buildLandscapePage(buildAnnexReconhecimentoTable(ghe, index), "before"),
+      buildLandscapePage(buildAnnexAmbienteTable(ghe, index), firstPageBreak, "A3"),
+      buildLandscapePage(buildAnnexAtividadeTable(ghe, index), "before", "A3"),
+      buildLandscapePage(buildAnnexReconhecimentoTable(ghe, index), "before", "A3"),
     );
   });
 
@@ -987,11 +1384,18 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
   snapshot.ghes.forEach((ghe, index) => {
     content.push(
       { text: "", pageBreak: index === 0 ? undefined : "before" },
-      buildAnnexPlanTable(
-        ghe,
-        snapshot.program.responsavelImplementacao,
-        index === 0 ? "annex_c_table" : undefined,
-      ),
+      {
+        pageOrientation: "landscape",
+        pageSize: "A3",
+        margin: [0, 0, 0, 0],
+        stack: [
+          buildAnnexPlanTable(
+            ghe,
+            snapshot.program.responsavelImplementacao,
+            index === 0 ? "annex_c_table" : undefined,
+          ),
+        ],
+      },
     );
   });
 
@@ -1010,6 +1414,28 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
           bodyCell(snapshot.annexes.hasArtAnexo ? "Incluído" : "Não incluído"),
         ],
       ],
+    },
+    layout: THIN_TABLE_LAYOUT,
+  });
+
+  const annexItems = snapshot.annexes.items || [];
+  const annexRows =
+    annexItems.length > 0
+      ? annexItems.map((item) => [
+          bodyCell(item.titulo || "-"),
+          bodyCell(item.arquivos.length ? item.arquivos.join("; ") : "-"),
+        ])
+      : [[bodyCell("-"), bodyCell("Nenhum anexo informado")]];
+
+  content.push({
+    text: "Anexos Inseridos",
+    style: "bodyCapsTitleBlue",
+    margin: [0, 16, 0, 8],
+  });
+  content.push({
+    table: {
+      widths: [180, "*"],
+      body: [[tealHeaderCell("Título"), tealHeaderCell("Arquivos")], ...annexRows],
     },
     layout: THIN_TABLE_LAYOUT,
   });
@@ -1111,14 +1537,14 @@ function buildStyles(): StyleDictionary {
       font: "WorkSansLight",
       color: COLORS.text,
       fontSize: 12,
-      lineHeight: 1.55,
+      lineHeight: 1.5,
     },
     bodyParagraphIntro: {
       font: "WorkSansLight",
       color: COLORS.text,
       fontSize: 12,
-      lineHeight: 1.55,
-      margin: [0, 0, 0, 7],
+      lineHeight: 1.48,
+      margin: [0, 0, 0, 5],
     },
     bodyParagraphLong: {
       font: "WorkSansLight",
@@ -1154,8 +1580,8 @@ function buildStyles(): StyleDictionary {
       font: "WorkSansLight",
       color: COLORS.text,
       fontSize: 12,
-      lineHeight: 1.45,
-      margin: [10, 0, 0, 5],
+      lineHeight: 1.4,
+      margin: [10, 0, 0, 4],
     },
     bulletGlyphBlue: {
       font: "WorkSansMedium",
@@ -1168,7 +1594,7 @@ function buildStyles(): StyleDictionary {
       font: "WorkSansLight",
       color: COLORS.text,
       fontSize: 12,
-      lineHeight: 1.45,
+      lineHeight: 1.4,
     },
     bodyBulletAlphaPrefix: {
       font: "WorkSansMedium",
@@ -1214,70 +1640,238 @@ function buildStyles(): StyleDictionary {
       font: "WorkSansMedium",
       color: COLORS.white,
       fillColor: COLORS.tealDark,
-      fontSize: 9,
-      alignment: "center",
-    },
-    matrixAxisCell: {
-      font: "WorkSansMedium",
-      color: COLORS.textStrong,
-      fillColor: "#E8EFF4",
-      fontSize: 9,
+      fontSize: 10,
       alignment: "center",
     },
     matrixCellIrrelevante: {
-      font: "WorkSansMedium",
-      color: "#1E4E2C",
-      fillColor: "#D9F2D9",
-      fontSize: 8.6,
+      font: "WorkSansSemiBold",
+      color: COLORS.white,
+      fillColor: "#AAD1B4",
+      fontSize: 10,
       alignment: "center",
+      valign: "middle",
     },
     matrixCellBaixo: {
-      font: "WorkSansMedium",
-      color: "#2F5C24",
-      fillColor: "#BEE8B3",
-      fontSize: 8.6,
+      font: "WorkSansSemiBold",
+      color: COLORS.white,
+      fillColor: "#2CAD6E",
+      fontSize: 10,
       alignment: "center",
+      valign: "middle",
     },
     matrixCellModerado: {
-      font: "WorkSansMedium",
-      color: "#6A4A00",
-      fillColor: "#FFE28A",
-      fontSize: 8.6,
+      font: "WorkSansSemiBold",
+      color: COLORS.white,
+      fillColor: "#D9BE53",
+      fontSize: 10,
       alignment: "center",
+      valign: "middle",
     },
     matrixCellAlto: {
-      font: "WorkSansMedium",
-      color: "#6B2E00",
-      fillColor: "#FFC18A",
-      fontSize: 8.6,
+      font: "WorkSansSemiBold",
+      color: COLORS.white,
+      fillColor: "#CC851E",
+      fontSize: 10,
       alignment: "center",
+      valign: "middle",
     },
     matrixCellCritico: {
-      font: "WorkSansMedium",
-      color: "#8B1C1C",
-      fillColor: "#F8A7A7",
-      fontSize: 8.6,
+      font: "WorkSansSemiBold",
+      color: COLORS.white,
+      fillColor: "#CC0000",
+      fontSize: 10,
       alignment: "center",
+      valign: "middle",
+    },
+    matrixCellIrrelevanteRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#AAD1B4",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixCellBaixoRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#2CAD6E",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixCellModeradoRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#D9BE53",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixCellAltoRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#CC851E",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixCellCriticoRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#CC0000",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixAxisCell: {
+      font: "WorkSansSemiBold",
+      color: COLORS.white,
+      fillColor: COLORS.teal,
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixAxisCellRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: COLORS.teal,
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixAxisCellLarge: {
+      font: "WorkSansMedium",
+      color: COLORS.white,
+      fillColor: COLORS.teal,
+      fontSize: 12,
+      alignment: "center",
+      valign: "middle",
+    },
+    matrixCaption: {
+      font: "WorkSansLight",
+      color: "#6E8090",
+      fontSize: 9.2,
+      lineHeight: 1.35,
+      margin: [0, 6, 0, 0],
     },
     fixedTableHeaderCell: {
       font: "WorkSansMedium",
       color: COLORS.white,
       fillColor: COLORS.teal,
-      fontSize: 8.7,
+      fontSize: 10,
+      alignment: "center",
+    },
+    fixedTableHeaderCellRegular: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: COLORS.teal,
+      fontSize: 10,
       alignment: "center",
     },
     fixedTableBandCell: {
       font: "WorkSansMedium",
       color: COLORS.textStrong,
       fillColor: "#E8EFF4",
-      fontSize: 8.7,
+      fontSize: 10,
       alignment: "center",
     },
     fixedTableBodyCell: {
       font: "WorkSansLight",
       color: COLORS.text,
-      fontSize: 8.5,
+      fontSize: 10,
       lineHeight: 1.25,
+    },
+    tableBulletGlyph: {
+      font: "WorkSansMedium",
+      color: COLORS.teal,
+      fontSize: 10,
+      alignment: "center",
+    },
+    actionsBulletText: {
+      font: "WorkSansLight",
+      color: COLORS.text,
+      fontSize: 10,
+      lineHeight: 1.25,
+    },
+    riskLabelIrrelevante: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#AAD1B4",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelBaixo: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#2CAD6E",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelModerado: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#D9BE53",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelAlto: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#CC851E",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelCritico: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#CC0000",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelActionIrrelevante: {
+      font: "WorkSansLight",
+      color: COLORS.textStrong,
+      fillColor: "#AAD1B4",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelActionBaixo: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#2CAD6E",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelActionModerado: {
+      font: "WorkSansLight",
+      color: COLORS.textStrong,
+      fillColor: "#D9BE53",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelActionAlto: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#CC851E",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
+    },
+    riskLabelActionCritico: {
+      font: "WorkSansLight",
+      color: COLORS.white,
+      fillColor: "#CC0000",
+      fontSize: 10,
+      alignment: "center",
+      valign: "middle",
     },
     annexBarCell: {
       font: "WorkSansMedium",
@@ -1301,15 +1895,15 @@ function buildStyles(): StyleDictionary {
       alignment: "left",
     },
     annexCoverTitle: {
-      font: "WorkSansMedium",
+      font: "WorkSansSemiBold",
       color: COLORS.teal,
-      fontSize: 52,
+      fontSize: 30,
     },
     annexCoverSubtitle: {
       font: "WorkSansLight",
       color: COLORS.teal,
-      fontSize: 56,
-      lineHeight: 1.15,
+      fontSize: 30,
+      lineHeight: 1.2,
     },
     headerLeftCell: {
       font: "WorkSansLight",
@@ -1380,7 +1974,7 @@ export function buildRuntimeDocDefinition(
     ...buildUpdatePage(snapshot),
     ...buildSummaryPage(layout),
     ...buildIdentificationAndProgramPages(snapshot),
-    ...buildNarrativeCoreAndAnnexIndex(snapshot),
+    ...buildNarrativeCoreAndAnnexIndex(snapshot, visualAssets),
     ...buildAnnexContent(snapshot),
     ...buildBackCoverPage(visualAssets),
   ];

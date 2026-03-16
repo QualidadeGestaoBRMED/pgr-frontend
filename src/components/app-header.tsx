@@ -18,8 +18,7 @@ import {
   FRONTEND_USERNAME_STORAGE_KEY,
 } from "@/lib/api";
 
-const imgMarcaPrincipalCorSmall31 =
-  "https://www.figma.com/api/mcp/asset/a7cc84dc-695b-4f12-96ad-9c2879c6ecb5";
+const imgMarcaPrincipalCorSmall31 = "/logo.png";
 
 type AppHeaderUser = {
   name: string;

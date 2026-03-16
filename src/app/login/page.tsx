@@ -11,8 +11,7 @@ const workSans = Work_Sans({
   weight: ["400", "500", "600"],
 });
 
-const imgRectangle2 =
-  "https://www.figma.com/api/mcp/asset/04ffb70e-401e-4996-bcd5-1819cbe54c80";
+const imgRectangle2 = "/login.png";
 const imgImage2 = "/logo.png";
 export default function LoginPage() {
   const router = useRouter();

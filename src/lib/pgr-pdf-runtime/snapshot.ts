@@ -71,6 +71,10 @@ export type RuntimeSnapshot = {
     hasMedidas: boolean;
     hasPlano: boolean;
     hasArtAnexo: boolean;
+    items: Array<{
+      titulo: string;
+      arquivos: string[];
+    }>;
   };
   ghes: RuntimeGhe[];
 };
@@ -334,6 +338,12 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       hasMedidas,
       hasPlano,
       hasArtAnexo,
+      items: anexoItems.map((item: any) => ({
+        titulo: sanitizeText(item?.titulo),
+        arquivos: Array.isArray(item?.arquivos)
+          ? item.arquivos.map((file: any) => sanitizeText(file?.nome)).filter(Boolean)
+          : [],
+      })),
     },
     ghes,
   };

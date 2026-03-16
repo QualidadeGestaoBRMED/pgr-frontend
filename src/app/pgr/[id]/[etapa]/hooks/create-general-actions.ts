@@ -399,6 +399,7 @@ export function createGeneralActions(ctx: any) {
             originalName: string;
             sizeBytes: number;
             uploadedAt: string;
+            url?: string;
           };
         }>(`/api/frontend/pgr/${params.id}/attachments/upload`, formData);
 

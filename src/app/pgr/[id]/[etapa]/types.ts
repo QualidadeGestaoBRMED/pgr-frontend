@@ -85,6 +85,7 @@ export type ParsedDescricaoImport = {
 export type AnexoFile = {
   id: string;
   name: string;
+  url?: string;
 };
 
 export type AnexoItem = {

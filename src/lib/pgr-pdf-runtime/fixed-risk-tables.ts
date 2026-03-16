@@ -90,7 +90,7 @@ export const SECTION_15_TABLES: FixedRuntimeTable[] = [
     cols: 8,
     rows: [
       ["Gradação do Risco", "", "", "", "", "", "", ""],
-      ["Severidade Severidade", "1", "Leve", "Risco Irrelevante", "Risco Irrelevante", "Risco Baixo", "Risco Baixo", "Risco Moderado"],
+      ["Severidade", "1", "Leve", "Risco Irrelevante", "Risco Irrelevante", "Risco Baixo", "Risco Baixo", "Risco Moderado"],
       ["", "2", "Baixo", "Risco Irrelevante", "Risco Baixo", "Risco Moderado", "Risco Moderado", "Risco Moderado"],
       ["", "3", "Moderado", "Risco Baixo", "Risco Moderado", "Risco Moderado", "Risco Alto", "Risco Alto"],
       ["", "4", "Alto", "Risco Baixo", "Risco Moderado", "Risco Alto", "Risco Alto", "Risco Crítico"],
@@ -115,7 +115,7 @@ export const SECTION_15_TABLES: FixedRuntimeTable[] = [
     cols: 8,
     rows: [
       ["Gradação do Risco", "", "", "", "", "", "", ""],
-      ["Gradação de Risco Gradação de Risco", "1", "Irrelevante", "Nenhuma ação adicional é necessária", "Nenhuma ação adicional é necessária", "Prioridade baixa", "Prioridade baixa", "Prioridade Média"],
+      ["Gradação de Risco", "1", "Irrelevante", "Nenhuma ação adicional é necessária", "Nenhuma ação adicional é necessária", "Prioridade baixa", "Prioridade baixa", "Prioridade Média"],
       ["", "2", "Baixo", "Nenhuma ação adicional é necessária", "Prioridade baixa", "Prioridade Média", "Prioridade Média", "Prioridade Média"],
       ["", "3", "Moderado", "Prioridade baixa", "Prioridade Média", "Prioridade Média", "Prioridade Alta", "Prioridade Alta"],
       ["", "4", "Alto", "Prioridade baixa", "Prioridade Média", "Prioridade Alta", "Prioridade Alta", "Ações Imediatas"],
@@ -132,7 +132,7 @@ export const SECTION_15_TABLES: FixedRuntimeTable[] = [
       ["Risco Irrelevante", "Nenhuma ação adicional é necessária."],
       ["Risco Baixo", "Manter as medidas de controle existentes; Manter o escopo de trabalho e procedimentos conforme normas técnicas aplicáveis; Considerações podem ser feitas para avaliar soluções mais efetivas e de menor custo ou ainda melhorias que não envolvem custo; Procedimentos e/ou objetivos e metas são opcionais; Registrar e informar aos trabalhadores."],
       ["Risco Moderado", "Ações consideradas no Plano de Ação; Esforços devem ser feitos para reduzir o risco, porém os custos de prevenção devem ser cuidadosamente estimados e definidos; Quando avaliadas e definidas como aplicáveis, as medidas a implementar devem ter definidos seus responsáveis e prazos de conclusão; Procedimentos de controle operacional e/ou planos de emergência são necessários."],
-      ["Risco Alto", "Ações consideradas no Plano de Ação; Considerações podem ser feitas para avaliar soluções mais efetivas e de menor custo ou ainda melhorias que não envolvem custo; Avaliações adicionais devem ser definidas, para estabelecer mais precisamente as medidas de controle a serem melhoradas; Procedimentos e/ou objetivos e metas são opcionais; Registrar e informar aos trabalhadores. Esforços devem ser feitos para reduzir o risco, porém os custos de prevenção devem ser cuidadosamente estimados e definidos; Quando avaliadas e definidas como aplicáveis, as medidas a implementar devem ter definidos seus responsáveis e prazos de conclusão; Avaliações adicionais devem ser definidas, para estabelecer mais precisamente as medidas de controle a serem melhoradas; Procedimentos de controle operacional e/ou planos de emergência são necessários."],
+      ["Risco Alto", "Ações consideradas no Plano de Ação; Considerações podem ser feitas para avaliar soluções mais efetivas e de menor custo ou ainda melhorias que não envolvem custo; Avaliações adicionais devem ser definidas, para estabelecer mais precisamente as medidas de controle a serem melhoradas; Procedimentos e/ou objetivos e metas são opcionais; Registrar e informar aos trabalhadores.; Esforços devem ser feitos para reduzir o risco, porém os custos de prevenção devem ser cuidadosamente estimados e definidos; Quando avaliadas e definidas como aplicáveis, as medidas a implementar devem ter definidos seus responsáveis e prazos de conclusão; Avaliações adicionais devem ser definidas, para estabelecer mais precisamente as medidas de controle a serem melhoradas; Procedimentos de controle operacional e/ou planos de emergência são necessários."],
       ["Risco Crítico", "Ações consideradas no Plano de Ação; O trabalho não deve ser iniciado até que o risco tenha sido reduzido para o nível Moderado; Provavelmente recursos consideráveis deverão ser alocados para reduzir o risco, o que implica em escalar o plano de ações a níveis mais elevados de responsabilidade; Quando o trabalho se encontrar em progresso, ação urgente deve ser adotada; Procedimentos de controle operacional, planos de emergência e objetivos e metas são mandatários."],
     ],
   },

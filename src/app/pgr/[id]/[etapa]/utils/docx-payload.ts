@@ -73,6 +73,7 @@ export type PgrDocxPayload = {
       arquivos: Array<{
         id: string;
         nome: string;
+        url?: string;
       }>;
     }>;
   };
@@ -184,6 +185,7 @@ export function buildPgrDocxPayload(input: {
         arquivos: anexo.files.map((file) => ({
           id: file.id,
           nome: file.name,
+          url: file.url,
         })),
       })),
     },
@@ -269,6 +271,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           ? item.arquivos.map((file: any, fileIndex: number) => ({
               id: file?.id || `file-${index + 1}-${fileIndex + 1}`,
               name: file?.nome || "",
+              url: file?.url,
             }))
           : [],
       }))
