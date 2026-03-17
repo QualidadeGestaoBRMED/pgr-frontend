@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   motion,
+  useInView,
   useMotionTemplate,
   useReducedMotion,
   useScroll,
@@ -199,6 +200,7 @@ function getCurrentDoneItem(items: RoadmapItem[]) {
 
 function TimelineDesktop({ items }: { items: RoadmapItem[] }) {
   const prefersReducedMotion = useReducedMotion();
+  const reducedMotion = prefersReducedMotion ?? false;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -615,6 +617,26 @@ function ProductCard({
 
 export function RoadmapView() {
   const items = roadmapItems;
+  const prefersReducedMotion = useReducedMotion();
+  const reducedMotion = prefersReducedMotion ?? false;
+  const [brainReady, setBrainReady] = useState(false);
+  const [brainQuality, setBrainQuality] = useState(0.7);
+  const brainDesktopRef = useRef<HTMLDivElement | null>(null);
+  const brainMobileRef = useRef<HTMLDivElement | null>(null);
+  const futureSectionRef = useRef<HTMLElement | null>(null);
+  const isDesktopBrainVisible = useInView(brainDesktopRef, {
+    amount: 0.2,
+    margin: "220px 0px",
+  });
+  const isMobileBrainVisible = useInView(brainMobileRef, {
+    amount: 0.2,
+    margin: "220px 0px",
+  });
+  const isBrainVisible = isDesktopBrainVisible || isMobileBrainVisible;
+  const isFutureVisible = useInView(futureSectionRef, {
+    amount: 0.18,
+    margin: "240px 0px",
+  });
   const sectionRef = useRef<HTMLElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -648,6 +670,30 @@ export function RoadmapView() {
     damping: 30,
     mass: 1.2,
   });
+  const beamActive = isFutureVisible && !reducedMotion;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
+    const cores = navigator.hardwareConcurrency ?? 4;
+    const isMobile = window.innerWidth < 768;
+    const lowEnd = memory <= 4 || cores <= 4;
+    const nextQuality = prefersReducedMotion ? 0.35 : lowEnd ? 0.52 : 0.78;
+    setBrainQuality(isMobile ? nextQuality * 0.8 : nextQuality);
+  }, [prefersReducedMotion]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("requestIdleCallback" in window)) {
+      setBrainReady(true);
+      return;
+    }
+    const id = window.requestIdleCallback(
+      () => setBrainReady(true),
+      { timeout: 1200 }
+    );
+    return () => window.cancelIdleCallback(id);
+  }, []);
   return (
     <main className="roadmap-shell min-h-screen overflow-x-clip text-slate-900">
       <section
@@ -944,6 +990,7 @@ export function RoadmapView() {
             <TimelineMobile items={items} />
 
             <motion.section
+              ref={futureSectionRef}
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.22 }}
@@ -993,12 +1040,16 @@ export function RoadmapView() {
                         strokeWidth="0.72"
                         strokeLinecap="round"
                         strokeDasharray="0.06 0.94"
-                        animate={{ strokeDashoffset: [1, 0], opacity: [0.03, 0.34, 0.03] }}
+                        animate={
+                          beamActive
+                            ? { strokeDashoffset: [1, 0], opacity: [0.03, 0.34, 0.03] }
+                            : { opacity: 0.12 }
+                        }
                         transition={{
-                          duration: 2.5,
-                          repeat: Infinity,
+                          duration: beamActive ? 2.5 : 0,
+                          repeat: beamActive ? Infinity : 0,
                           ease: "linear",
-                          delay: index * 0.26,
+                          delay: beamActive ? index * 0.26 : 0,
                         }}
                         filter="url(#beam-glow)"
                       />
@@ -1012,12 +1063,16 @@ export function RoadmapView() {
                         strokeWidth="0.38"
                         strokeLinecap="round"
                         strokeDasharray="0.06 0.94"
-                        animate={{ strokeDashoffset: [1, 0], opacity: [0.08, 0.96, 0.08] }}
+                        animate={
+                          beamActive
+                            ? { strokeDashoffset: [1, 0], opacity: [0.08, 0.96, 0.08] }
+                            : { opacity: 0.1 }
+                        }
                         transition={{
-                          duration: 2.5,
-                          repeat: Infinity,
+                          duration: beamActive ? 2.5 : 0,
+                          repeat: beamActive ? Infinity : 0,
                           ease: "linear",
-                          delay: index * 0.26,
+                          delay: beamActive ? index * 0.26 : 0,
                         }}
                         filter="url(#beam-glow)"
                       />
@@ -1029,34 +1084,42 @@ export function RoadmapView() {
                         r="1.02"
                         fill="rgba(255,255,255,0.96)"
                         filter="url(#beam-glow)"
-                        animate={{
-                          cx: [`${item.lineX}`, `${INTELLIGENCE_CENTER.x}`],
-                          cy: [`${item.lineY}`, `${INTELLIGENCE_CENTER.y}`],
-                          opacity: [0, 0.84, 0],
-                          scale: [0.9, 1.08, 0.9],
-                        }}
+                        animate={
+                          beamActive
+                            ? {
+                                cx: [`${item.lineX}`, `${INTELLIGENCE_CENTER.x}`],
+                                cy: [`${item.lineY}`, `${INTELLIGENCE_CENTER.y}`],
+                                opacity: [0, 0.84, 0],
+                                scale: [0.9, 1.08, 0.9],
+                              }
+                            : { opacity: 0 }
+                        }
                         transition={{
-                          duration: 2.6,
-                          repeat: Infinity,
+                          duration: beamActive ? 2.6 : 0,
+                          repeat: beamActive ? Infinity : 0,
                           ease: "easeInOut",
-                          delay: index * 0.26,
+                          delay: beamActive ? index * 0.26 : 0,
                         }}
                       />
                       <motion.circle
                         r="0.58"
                         fill="#7EBFCC"
                         filter="url(#beam-glow)"
-                        animate={{
-                          cx: [`${item.lineX}`, `${INTELLIGENCE_CENTER.x}`],
-                          cy: [`${item.lineY}`, `${INTELLIGENCE_CENTER.y}`],
-                          opacity: [0, 1, 0],
-                          scale: [0.92, 1.02, 0.92],
-                        }}
+                        animate={
+                          beamActive
+                            ? {
+                                cx: [`${item.lineX}`, `${INTELLIGENCE_CENTER.x}`],
+                                cy: [`${item.lineY}`, `${INTELLIGENCE_CENTER.y}`],
+                                opacity: [0, 1, 0],
+                                scale: [0.92, 1.02, 0.92],
+                              }
+                            : { opacity: 0 }
+                        }
                         transition={{
-                          duration: 2.6,
-                          repeat: Infinity,
+                          duration: beamActive ? 2.6 : 0,
+                          repeat: beamActive ? Infinity : 0,
                           ease: "easeInOut",
-                          delay: index * 0.26,
+                          delay: beamActive ? index * 0.26 : 0,
                         }}
                       />
                     </g>
@@ -1078,19 +1141,31 @@ export function RoadmapView() {
                 ))}
 
                 <div
+                  ref={brainDesktopRef}
                   className="absolute h-[12.5rem] w-[12.5rem] -translate-x-1/2 -translate-y-1/2"
                   style={{ left: `${INTELLIGENCE_CENTER.x}%`, top: `${INTELLIGENCE_CENTER.y}%` }}
                 >
                   <div className="absolute inset-0 overflow-hidden rounded-full">
-                    <BrainScene />
+                    {brainReady && isBrainVisible ? (
+                      <BrainScene quality={brainQuality} reducedMotion={reducedMotion} />
+                    ) : (
+                      <div className="h-full w-full rounded-full bg-[radial-gradient(circle_at_35%_35%,rgba(126,191,204,0.24),rgba(255,255,255,0)_62%)]" />
+                    )}
                   </div>
                   
                 </div>
               </div>
 
               <div className="mt-10 grid gap-3 lg:hidden">
-                <div className="mx-auto h-40 w-40 overflow-hidden rounded-full border border-cyan-200 shadow-[0_18px_44px_rgba(0,120,145,0.18)]">
-                  <BrainScene />
+                <div
+                  ref={brainMobileRef}
+                  className="mx-auto h-40 w-40 overflow-hidden rounded-full border border-cyan-200 shadow-[0_18px_44px_rgba(0,120,145,0.18)]"
+                >
+                  {brainReady && isBrainVisible ? (
+                    <BrainScene quality={brainQuality * 0.75} reducedMotion={reducedMotion} />
+                  ) : (
+                    <div className="h-full w-full rounded-full bg-[radial-gradient(circle_at_35%_35%,rgba(126,191,204,0.24),rgba(255,255,255,0)_62%)]" />
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {intelligenceNodes.map((item, index) => (

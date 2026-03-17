@@ -11,6 +11,11 @@ type BrainData = {
   accentLinePositions: Float32Array;
 };
 
+type BrainSceneProps = {
+  quality?: number;
+  reducedMotion?: boolean;
+};
+
 function randomInsideEllipsoid(rx: number, ry: number, rz: number) {
   const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
@@ -34,7 +39,7 @@ function randomOnSphere(radius: number) {
   );
 }
 
-function buildBrainData(nodeCount = 380): BrainData {
+function buildBrainData(nodeCount = 380, maxConnectionsPerNode = 5, maxDistance = 0.6): BrainData {
   const points: THREE.Vector3[] = [];
 
   for (let i = 0; i < nodeCount * 0.66; i++) {
@@ -60,9 +65,6 @@ function buildBrainData(nodeCount = 380): BrainData {
   const linePairs: number[] = [];
   const accentLinePairs: number[] = [];
   const connectionCount = new Array(points.length).fill(0);
-  const maxDistance = 0.6;
-  const maxConnectionsPerNode = 5;
-
   for (let i = 0; i < points.length; i++) {
     for (let j = i + 1; j < points.length; j++) {
       if (connectionCount[i] >= maxConnectionsPerNode || connectionCount[j] >= maxConnectionsPerNode) {
@@ -108,7 +110,7 @@ function buildBrainData(nodeCount = 380): BrainData {
   return { pointPositions, pointScales, linePositions, accentLinePositions };
 }
 
-function NeuralBrain() {
+function NeuralBrain({ quality = 0.7, reducedMotion = false }: BrainSceneProps) {
   const groupRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
   const shellRef = useRef<THREE.Group>(null);
@@ -116,7 +118,14 @@ function NeuralBrain() {
   const mainPointsRef = useRef<THREE.Points>(null);
   const mainLinesRef = useRef<THREE.LineSegments>(null);
   const accentLinesRef = useRef<THREE.LineSegments>(null);
-  const data = useMemo(() => buildBrainData(), []);
+  const clampedQuality = Math.min(1, Math.max(0.3, quality));
+  const nodeCount = Math.round(380 * clampedQuality);
+  const maxConnectionsPerNode = Math.round(3 + clampedQuality * 4);
+  const maxDistance = 0.54 + clampedQuality * 0.12;
+  const data = useMemo(
+    () => buildBrainData(nodeCount, maxConnectionsPerNode, maxDistance),
+    [nodeCount, maxConnectionsPerNode, maxDistance]
+  );
 
   const pointsGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry();
@@ -139,26 +148,29 @@ function NeuralBrain() {
   useFrame((state, delta) => {
     if (!groupRef.current || !coreRef.current || !shellRef.current) return;
 
-    const targetY = state.pointer.x * 0.46;
-    const targetX = -state.pointer.y * 0.22 + Math.sin(state.clock.elapsedTime * 0.45) * 0.03;
+    const motionScale = reducedMotion ? 0.35 : 1;
+    const targetY = state.pointer.x * 0.46 * motionScale;
+    const targetX =
+      -state.pointer.y * 0.22 * motionScale +
+      Math.sin(state.clock.elapsedTime * 0.45) * 0.03 * motionScale;
 
     groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetY, 4.2, delta);
     groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetX, 4.2, delta);
     groupRef.current.rotation.z = THREE.MathUtils.damp(
       groupRef.current.rotation.z,
-      Math.sin(state.clock.elapsedTime * 0.35) * 0.03,
+      Math.sin(state.clock.elapsedTime * 0.35) * 0.03 * motionScale,
       4,
       delta
     );
     groupRef.current.position.x = THREE.MathUtils.damp(groupRef.current.position.x, -0.16, 4.5, delta);
     groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, 0.2, 4.5, delta);
 
-    const pulse = 0.94 + Math.sin(state.clock.elapsedTime * 2.1) * 0.08;
+    const pulse = 0.94 + Math.sin(state.clock.elapsedTime * 2.1) * (reducedMotion ? 0.02 : 0.08);
     coreRef.current.scale.setScalar(pulse);
-    shellRef.current.rotation.y += delta * 0.06;
+    shellRef.current.rotation.y += delta * (reducedMotion ? 0.02 : 0.06);
 
-    const networkPulse = 0.8 + (Math.sin(state.clock.elapsedTime * 2.1) + 1) * 0.16;
-    const accentPulse = 0.58 + (Math.sin(state.clock.elapsedTime * 2.1 + 0.4) + 1) * 0.14;
+    const networkPulse = 0.8 + (Math.sin(state.clock.elapsedTime * 2.1) + 1) * (reducedMotion ? 0.06 : 0.16);
+    const accentPulse = 0.58 + (Math.sin(state.clock.elapsedTime * 2.1 + 0.4) + 1) * (reducedMotion ? 0.06 : 0.14);
 
     if (glowPointsRef.current?.material instanceof THREE.PointsMaterial) {
       glowPointsRef.current.material.opacity = 0.16 + (networkPulse - 0.8) * 0.34;
@@ -229,19 +241,22 @@ function NeuralBrain() {
   );
 }
 
-export function BrainScene() {
+export function BrainScene({ quality = 0.7, reducedMotion = false }: BrainSceneProps) {
+  const clampedQuality = Math.min(1, Math.max(0.3, quality));
+  const dprMax = reducedMotion ? 1.25 : clampedQuality > 0.7 ? 1.6 : 1.35;
+  const antialias = clampedQuality > 0.7 && !reducedMotion;
   return (
     <Canvas
-      dpr={[1, 1.75]}
+      dpr={[1, dprMax]}
       camera={{ position: [0, 0.05, 5.8], fov: 34 }}
-      gl={{ antialias: true, alpha: true }}
+      gl={{ antialias, alpha: true, powerPreference: "high-performance" }}
     >
       <ambientLight intensity={0.92} />
       <pointLight position={[0, 0, 4]} intensity={2.1} color="#e7fcff" />
       <pointLight position={[-3.8, 1.2, 3]} intensity={1.35} color="#00a7d4" />
       <pointLight position={[3.8, 1.2, 3]} intensity={1.35} color="#8be3f5" />
       <spotLight position={[0, 5, 6]} intensity={2.6} angle={0.42} penumbra={0.8} color="#d9fbff" />
-      <NeuralBrain />
+      <NeuralBrain quality={clampedQuality} reducedMotion={reducedMotion} />
     </Canvas>
   );
 }
