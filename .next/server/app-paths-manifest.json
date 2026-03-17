@@ -1,5 +1,11 @@
 {
-  "/page": "app/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/catalogs/risk/route": "app/api/catalogs/risk/route.js",
+  "/adm/page": "app/adm/page.js",
   "/login/page": "app/login/page.js",
-  "/roadmap/page": "app/roadmap/page.js"
+  "/home/page": "app/home/page.js",
+  "/page": "app/page.js",
+  "/roadmap/page": "app/roadmap/page.js",
+  "/pgr/[id]/[etapa]/page": "app/pgr/[id]/[etapa]/page.js",
+  "/pgr/[id]/page": "app/pgr/[id]/page.js"
 }
