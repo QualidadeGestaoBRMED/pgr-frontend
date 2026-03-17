@@ -2,6 +2,7 @@
 
 import { Chrome, Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
 import { Work_Sans } from "next/font/google";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FRONTEND_USERNAME_STORAGE_KEY } from "@/lib/api";
@@ -38,15 +39,23 @@ export default function LoginPage() {
       <div className="min-h-screen w-full lg:grid lg:grid-cols-[49.75%_50.25%]">
         <div className="flex min-h-screen w-full flex-col items-center justify-start px-6 pb-12 pt-16 text-foreground sm:px-10 lg:px-[96px] lg:pt-[120px]">
           <div className="mt-4 w-full lg:max-w-[600px]">
-            <img
+            <Image
               src={imgImage2}
               alt="BR MED"
+              width={220}
+              height={64}
+              sizes="220px"
               className="h-auto w-[220px] max-w-full object-contain sm:w-[220px] lg:w-[220px] dark:hidden"
+              priority
             />
-            <img
+            <Image
               src="/logo_darkmode.png"
               alt="BR MED"
+              width={220}
+              height={64}
+              sizes="220px"
               className="hidden h-auto w-[220px] max-w-full object-contain sm:w-[220px] lg:w-[220px] dark:block"
+              priority
             />
             <div className="mt-12">
               <p className="text-[26px] font-semibold text-foreground tracking-[0.02em] sm:text-[28px]">
@@ -152,10 +161,13 @@ export default function LoginPage() {
         </div>
 
         <div className="relative hidden min-h-screen lg:block">
-          <img
+          <Image
             src={imgRectangle2}
             alt=""
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
             className="absolute inset-0 h-full w-full rounded-bl-[10px] rounded-tl-[10px] object-cover"
+            priority
           />
         </div>
       </div>

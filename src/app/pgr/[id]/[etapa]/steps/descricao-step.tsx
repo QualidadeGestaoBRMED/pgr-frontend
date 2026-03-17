@@ -5,6 +5,22 @@ type DescricaoStepProps = {
   ctx: any;
 };
 
+type DescricaoGroup = {
+  setor: string;
+  items: any[];
+};
+
+type GheItem = {
+  functionId: string;
+  funcionarios?: string | number;
+};
+
+type GheGroup = {
+  id: string;
+  name: string;
+  items: GheItem[];
+};
+
 export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const {
     currentGheName,
@@ -227,13 +243,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     Arraste uma ou várias funções selecionadas para o GHE.
                   </p>
                   {groupedFunctions.length ? (
-                    groupedFunctions.map((group) => (
+                    groupedFunctions.map((group: DescricaoGroup) => (
                       <div key={group.setor} className="space-y-3">
                         <h3 className="text-[16px] font-semibold text-foreground">
                           {group.setor}
                         </h3>
                         <div className="space-y-2 text-[13px] text-foreground/80">
-                          {group.items.map((funcao) => (
+                          {group.items.map((funcao: any) => (
                             <label
                               key={funcao.id}
                               data-select-item
@@ -355,7 +371,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                 </div>
                 <div className="mt-3 space-y-2">
                   {currentItems.length ? (
-                    currentItems.map((item) => {
+                    currentItems.map((item: GheItem) => {
                       const data = functionMap.get(item.functionId);
                       if (!data) return null;
                       return (
@@ -472,13 +488,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         </p>
                         <p className="text-[12px] text-muted-foreground">
                           {gheGroups.reduce(
-                            (total, ghe) => total + ghe.items.length,
+                            (total: number, ghe: GheGroup) => total + ghe.items.length,
                             0
                           )}{" "}
                           funções associadas
                         </p>
                       </button>
-                      {gheGroups.map((ghe) => (
+                      {gheGroups.map((ghe: GheGroup) => (
                         <div
                           key={ghe.id}
                           role="button"
@@ -535,7 +551,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           {gheFilterId === "all"
                             ? "Visualizando todas as funções"
                             : `Filtro: ${gheGroups.find(
-                                (ghe) => ghe.id === gheFilterId
+                                (ghe: GheGroup) => ghe.id === gheFilterId
                               )?.name ?? "GHE"}`}
                           {normalizedGheSearch
                             ? ` · ${filteredAllFunctions.length} resultados`
@@ -543,7 +559,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         </p>
                         <button
                           type="button"
-                          onClick={() => setIsGheListView((prev) => !prev)}
+                          onClick={() => setIsGheListView((prev: boolean) => !prev)}
                           className="btn-outline px-3 py-1 text-[12px]"
                         >
                           {isGheListView
@@ -554,7 +570,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     {isGheListView ? (
                       <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto pr-2">
                         {filteredGheGroupsForList.length ? (
-                          filteredGheGroupsForList.map((ghe) => (
+                          filteredGheGroupsForList.map((ghe: GheGroup) => (
                           <div
                             key={ghe.id}
                             className="rounded-[10px] border border-border/60 bg-card px-3 py-3"
@@ -564,7 +580,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                             </p>
                             {ghe.items.length ? (
                               <ul className="mt-2 space-y-1 text-[12px] text-muted-foreground">
-                                {ghe.items.map((item) => {
+                                {ghe.items.map((item: GheItem) => {
                                   const data = functionMap.get(item.functionId);
                                   if (!data) return null;
                                   return (
@@ -589,12 +605,12 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       </div>
                     ) : (
                         <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-2">
-                          {filteredAllFunctions.map((funcao) => {
+                          {filteredAllFunctions.map((funcao: any) => {
                             const assignedGheId = functionAssignments.get(
                               funcao.id
                             );
                             const assignedGhe = gheGroups.find(
-                              (ghe) => ghe.id === assignedGheId
+                              (ghe: GheGroup) => ghe.id === assignedGheId
                             );
                             return (
                               <div

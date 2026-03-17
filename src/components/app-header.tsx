@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   Bell,
   ChevronDown,
@@ -120,15 +121,23 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
     <header className="flex items-center justify-between rounded-[10px] bg-card px-6 py-4 text-foreground">
       <div className="flex items-center gap-4">
         <Link href="/home" aria-label="Ir para Home">
-          <img
+          <Image
             src={imgMarcaPrincipalCorSmall31}
             alt="BR MED"
+            width={140}
+            height={32}
+            sizes="140px"
             className="h-[32px] w-[140px] object-contain dark:hidden"
+            priority
           />
-          <img
+          <Image
             src="/logo_darkmode.png"
             alt="BR MED"
+            width={140}
+            height={32}
+            sizes="140px"
             className="hidden h-[32px] w-[140px] object-contain dark:block"
+            priority
           />
         </Link>
       </div>

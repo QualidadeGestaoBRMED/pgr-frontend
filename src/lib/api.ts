@@ -13,12 +13,14 @@ function buildApiUrl(path: string) {
 }
 
 function getFrontendUsernameHeader() {
-  if (typeof window === "undefined") return {};
+  const headers: Record<string, string> = {};
+  if (typeof window === "undefined") return headers;
   const username = window.localStorage
     .getItem(FRONTEND_USERNAME_STORAGE_KEY)
     ?.trim();
-  if (!username) return {};
-  return { "X-Frontend-Username": username };
+  if (!username) return headers;
+  headers["X-Frontend-Username"] = username;
+  return headers;
 }
 
 async function request<T>(
@@ -31,14 +33,19 @@ async function request<T>(
   const isFormData =
     typeof FormData !== "undefined" && init?.body instanceof FormData;
   const shouldSetJsonHeader = hasBody && method !== "GET" && !isFormData;
+  const headers = new Headers(init?.headers);
+
+  Object.entries(getFrontendUsernameHeader()).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
+  if (shouldSetJsonHeader) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const response = await fetch(buildApiUrl(path), {
     ...init,
-    headers: {
-      ...getFrontendUsernameHeader(),
-      ...(shouldSetJsonHeader ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers || {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -85,12 +92,16 @@ export function apiDelete<T>(path: string) {
 }
 
 export async function apiBlob(path: string, body?: unknown) {
+  const headers = new Headers({
+    "Content-Type": "application/json",
+  });
+  Object.entries(getFrontendUsernameHeader()).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
   const response = await fetch(buildApiUrl(path), {
     method: "POST",
-    headers: {
-      ...getFrontendUsernameHeader(),
-      "Content-Type": "application/json",
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -103,11 +114,14 @@ export async function apiBlob(path: string, body?: unknown) {
 }
 
 export async function apiBlobGet(path: string) {
+  const headers = new Headers();
+  Object.entries(getFrontendUsernameHeader()).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
   const response = await fetch(buildApiUrl(path), {
     method: "GET",
-    headers: {
-      ...getFrontendUsernameHeader(),
-    },
+    headers,
   });
 
   if (!response.ok) {

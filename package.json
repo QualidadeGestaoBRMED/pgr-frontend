@@ -11,12 +11,15 @@
     "smoke:once": "node scripts/smoke-once.mjs"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.0.2",
+    "@react-three/drei": "^9.121.4",
+    "@react-three/fiber": "^8.17.10",
     "@xmldom/xmldom": "^0.8.11",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "@pdf-lib/fontkit": "^1.1.1",
+    "framer-motion": "^12.37.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
     "next": "^14.2.0",
@@ -27,6 +30,7 @@
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.183.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

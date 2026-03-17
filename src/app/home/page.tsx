@@ -6,7 +6,7 @@ import { AppHeader } from "@/components/app-header";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
-import { pgrSteps } from "@/app/pgr/steps";
+import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -120,7 +120,7 @@ const deriveProgressPercentFromState = (
   if (riskGheGroups.length > 0) {
     isCaracterizacaoComplete = riskGheGroups.every((ghe) => {
       const risks = Array.isArray(ghe?.risks) ? ghe.risks : [];
-      return risks.length > 0 && risks.every((risk) => isRiskFullyFilled(risk));
+      return risks.length > 0 && risks.every((risk: any) => isRiskFullyFilled(risk));
     });
   }
 
@@ -139,7 +139,7 @@ const deriveProgressPercentFromState = (
     plano: isPlanoComplete,
   };
 
-  const isAlertStep = (stepId: string) => {
+  const isAlertStep = (stepId: PgrStepId) => {
     const stepIndex = STEP_INDEX.get(stepId);
     if (stepIndex === undefined) return false;
     const isComplete = stepCompleteness[stepId];
