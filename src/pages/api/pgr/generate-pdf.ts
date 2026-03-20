@@ -22,7 +22,7 @@ const ANNEX_COVER_TITLE_GAP = 22;
 const ANNEX_COVER_MAX_WIDTH = A4_WIDTH - ANNEX_COVER_LEFT * 2;
 const HEADER_TEXT_COLOR = rgb(0.098, 0.231, 0.31);
 const HEADER_VALUE_COLOR = rgb(0.098, 0.231, 0.31);
-const HEADER_BORDER_COLOR = rgb(0.953, 0.953, 0.953);
+const HEADER_BORDER_COLOR = rgb(0.839, 0.867, 0.89);
 const FOOTER_TEXT_COLOR = rgb(0.55, 0.55, 0.55);
 const GRID_COLOR = rgb(0.84, 0.87, 0.89);
 const TEXT_STRONG = rgb(0.098, 0.231, 0.31);
@@ -37,15 +37,37 @@ const RUNTIME_COLORS = {
   grid: "#F3F3F3",
 };
 
-const HEADER_SHELL_WIDTH = A4_WIDTH - 80;
-const HEADER_SHELL_HEIGHT = 38;
-const HEADER_SHELL_LEFT_WIDTH = HEADER_SHELL_WIDTH * 0.67;
-const HEADER_SHELL_RIGHT_X = 40 + HEADER_SHELL_LEFT_WIDTH + 5;
-
 function sanitizeText(value: unknown) {
   return String(value ?? "")
     .replace(/[\r\n\t]+/g, " ")
     .trim();
+}
+
+function truncateText(value: unknown, maxLength: number) {
+  const text = sanitizeText(value);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function fitTextByWidth(options: {
+  text: string;
+  font: PDFFont;
+  size: number;
+  maxWidth: number;
+}) {
+  const { font, size, maxWidth } = options;
+  let text = sanitizeText(options.text);
+  if (!text) return "";
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+
+  while (text.length > 1) {
+    text = text.slice(0, -1).trimEnd();
+    const candidate = `${text}...`;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      return candidate;
+    }
+  }
+  return "...";
 }
 
 function resolveBackendBaseUrl() {
@@ -169,7 +191,13 @@ async function drawAnnexHeaderFooter(page: PDFPage, options: AnnexHeaderFooterOp
     color: HEADER_TEXT_COLOR,
   });
   const companyLabelWidth = options.fontMedium.widthOfTextAtSize(companyLabel, fontSize);
-  page.drawText(options.companyName, {
+  const companyValue = fitTextByWidth({
+    text: options.companyName,
+    font: options.fontLight,
+    size: fontSize,
+    maxWidth: leftColWidth - (cellPaddingX * 2) - companyLabelWidth,
+  });
+  page.drawText(companyValue, {
     x: headerLeftX + cellPaddingX + companyLabelWidth,
     y: row1Y,
     size: fontSize,
@@ -199,7 +227,13 @@ async function drawAnnexHeaderFooter(page: PDFPage, options: AnnexHeaderFooterOp
     color: HEADER_TEXT_COLOR,
   });
   const establishmentLabelWidth = options.fontMedium.widthOfTextAtSize(establishmentLabel, fontSize);
-  page.drawText(options.establishmentName, {
+  const establishmentValue = fitTextByWidth({
+    text: options.establishmentName,
+    font: options.fontLight,
+    size: fontSize,
+    maxWidth: leftColWidth - (cellPaddingX * 2) - establishmentLabelWidth,
+  });
+  page.drawText(establishmentValue, {
     x: headerLeftX + cellPaddingX + establishmentLabelWidth,
     y: row2Y,
     size: fontSize,
@@ -365,90 +399,8 @@ function buildAnnexShellDefinition(options: {
         fontSize: 10,
       },
     },
-    header: [
-      {
-        absolutePosition: { x: 40, y: 46 },
-        canvas: [
-          {
-            type: "rect",
-            x: 0,
-            y: 0,
-            w: HEADER_SHELL_WIDTH,
-            h: HEADER_SHELL_HEIGHT,
-            lineColor: RUNTIME_COLORS.grid,
-            lineWidth: 0.5,
-          },
-          {
-            type: "line",
-            x1: HEADER_SHELL_LEFT_WIDTH,
-            y1: 0,
-            x2: HEADER_SHELL_LEFT_WIDTH,
-            y2: HEADER_SHELL_HEIGHT,
-            lineColor: RUNTIME_COLORS.grid,
-            lineWidth: 0.5,
-          },
-          {
-            type: "line",
-            x1: 0,
-            y1: HEADER_SHELL_HEIGHT / 2,
-            x2: HEADER_SHELL_WIDTH,
-            y2: HEADER_SHELL_HEIGHT / 2,
-            lineColor: RUNTIME_COLORS.grid,
-            lineWidth: 0.5,
-          },
-        ],
-      },
-      {
-        absolutePosition: { x: 45, y: 51 },
-        text: [
-          { text: "Empresa: ", style: "headerLabelRun" },
-          { text: options.companyName, style: "headerValueRun" },
-        ],
-        style: "headerLeftCell",
-      },
-      {
-        absolutePosition: { x: HEADER_SHELL_RIGHT_X, y: 51 },
-        text: [
-          { text: "ANL: ", style: "headerLabelRun" },
-          { text: options.anl || "01", style: "headerValueRun" },
-        ],
-        style: "headerRightCell",
-      },
-      {
-        absolutePosition: { x: 45, y: 70 },
-        text: [
-          { text: "Estabelecimento: ", style: "headerLabelRun" },
-          { text: options.establishmentName, style: "headerValueRun" },
-        ],
-        style: "headerLeftCell",
-      },
-    ],
-    footer: {
-      margin: [40, 0, 40, 22],
-      columns: [
-        { width: "*", text: "" },
-        options.brandLogo
-          ? {
-              image: options.brandLogo,
-              width: 110,
-              alignment: "center",
-              relativePosition: { x: 0, y: -4 },
-            }
-          : {
-              width: "auto",
-              text: "BR MED",
-              style: "footerPageNumber",
-              alignment: "center",
-              relativePosition: { x: 0, y: -4 },
-            },
-        {
-          width: "*",
-          text: String(options.pageNumber),
-          style: "footerPageNumber",
-          alignment: "right",
-        },
-      ],
-    },
+    header: undefined,
+    footer: undefined,
   };
 }
 
@@ -491,6 +443,18 @@ async function mergeWithAnnexes(options: {
 
   const baseDoc = await PDFDocument.load(options.basePdf);
   baseDoc.registerFontkit(fontkit);
+  const fontLightPath = options.fontDefinitions?.WorkSansLight?.normal;
+  const fontMediumPath = options.fontDefinitions?.WorkSansMedium?.normal;
+  if (!fontLightPath || !fontMediumPath) {
+    throw new Error("Fontes WorkSansLight/WorkSansMedium indisponíveis para renderizar anexos.");
+  }
+  const [fontLightBytes, fontMediumBytes] = await Promise.all([
+    fs.readFile(fontLightPath),
+    fs.readFile(fontMediumPath),
+  ]);
+  const fontLight = await baseDoc.embedFont(fontLightBytes);
+  const fontMedium = await baseDoc.embedFont(fontMediumBytes);
+
   const lastIndex = baseDoc.getPageCount() - 1;
   let insertIndex = lastIndex > 0 ? lastIndex : baseDoc.getPageCount();
 
@@ -521,7 +485,17 @@ async function mergeWithAnnexes(options: {
       });
       const shellDoc = await PDFDocument.load(shellBuffer);
       const [shellPage] = await baseDoc.copyPages(shellDoc, [0]);
-      baseDoc.insertPage(insertIndex, shellPage);
+      const titlePage = baseDoc.insertPage(insertIndex, shellPage);
+      await drawAnnexHeaderFooter(titlePage, {
+        pdfDoc: baseDoc,
+        companyName: options.companyName,
+        establishmentName: options.establishmentName,
+        anl: options.anl,
+        brandLogo: options.brandLogo,
+        fontLight,
+        fontMedium,
+        pageNumber,
+      });
       insertIndex += 1;
     }
 
@@ -562,6 +536,16 @@ async function mergeWithAnnexes(options: {
         const y = 70 + (maxHeight - drawHeight) / 2;
 
         page.drawPage(embedded, { x, y, width: drawWidth, height: drawHeight });
+        await drawAnnexHeaderFooter(page, {
+          pdfDoc: baseDoc,
+          companyName: options.companyName,
+          establishmentName: options.establishmentName,
+          anl: options.anl,
+          brandLogo: options.brandLogo,
+          fontLight,
+          fontMedium,
+          pageNumber,
+        });
         insertIndex += 1;
       }
     }

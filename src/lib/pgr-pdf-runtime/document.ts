@@ -22,10 +22,50 @@ function sanitizeText(value: unknown) {
     .trim();
 }
 
+function estimateWrappedLineCount(text: string, maxCharsPerLine: number) {
+  const normalized = sanitizeText(text);
+  if (!normalized) return 1;
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  let lineCount = 1;
+  let currentLength = 0;
+
+  for (const word of words) {
+    const wordLength = word.length;
+    if (wordLength >= maxCharsPerLine) {
+      if (currentLength > 0) {
+        lineCount += 1;
+      }
+      lineCount += Math.ceil(wordLength / maxCharsPerLine) - 1;
+      currentLength = wordLength % maxCharsPerLine;
+      continue;
+    }
+
+    if (currentLength === 0) {
+      currentLength = wordLength;
+      continue;
+    }
+
+    if (currentLength + 1 + wordLength <= maxCharsPerLine) {
+      currentLength += 1 + wordLength;
+      continue;
+    }
+
+    lineCount += 1;
+    currentLength = wordLength;
+  }
+
+  return Math.max(1, lineCount);
+}
+
 function truncateText(value: unknown, maxLength = 260) {
   const text = sanitizeText(value);
   if (text.length <= maxLength) return text;
   return `${text.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function truncateHeaderField(value: unknown, maxLength: number) {
+  return truncateText(value, maxLength);
 }
 
 function toUpper(value: unknown) {
@@ -493,34 +533,56 @@ const ANNEX_TABLE_LAYOUT = {
 };
 
 function buildCoverPage(snapshot: RuntimeSnapshot): Content[] {
+  const companyName = sanitizeText(snapshot.company.razaoSocial || snapshot.company.name);
+  const establishmentName = sanitizeText(snapshot.establishment.name);
+  const vigencia = sanitizeText(snapshot.program.vigencia || snapshot.meta.generatedDate);
+
+  // Ajuste adaptativo da capa:
+  // quando empresa/estabelecimento quebram em muitas linhas, subimos o bloco
+  // textual (sem alterar logo/background), evitando empurrar "Vigência" para baixo.
+  const companyLineCount = estimateWrappedLineCount(companyName, 56);
+  const establishmentLineCount = estimateWrappedLineCount(establishmentName, 50);
+  const extraLines = Math.max(0, companyLineCount - 1) + Math.max(0, establishmentLineCount - 1);
+  const coverShiftUp = Math.min(96, extraLines * 18);
+
+  const dynamicTopMargin = Math.max(176, 272 - coverShiftUp);
+  const dynamicGapAfterProgram = Math.max(18, 34 - Math.floor(coverShiftUp / 8));
+  const dynamicGapAfterMainTitle = Math.max(20, 34 - Math.floor(coverShiftUp / 8));
+  const dynamicGapAfterSubtitle = Math.max(18, 34 - Math.floor(coverShiftUp / 10));
+  const dynamicGapBeforeVigencia = Math.max(10, 30 - Math.floor(coverShiftUp / 8));
+
   return [
     {
       stack: [
         {
           text: "Programa de\nGerenciamento\nde Riscos",
           style: "coverProgramName",
-          margin: [0, 272, 0, 34],
+          margin: [0, dynamicTopMargin, 0, dynamicGapAfterProgram],
         },
-        { text: "PGR - NR 01", style: "coverMainTitle", margin: [0, 0, 0, 34] },
+        {
+          text: "PGR - NR 01",
+          style: "coverMainTitle",
+          margin: [0, 0, 0, dynamicGapAfterMainTitle],
+        },
         {
           text: "Portaria nº 1.419, de 24 de Agosto de 2024\nInventário de Riscos e Plano de Ação",
           style: "coverSubtitle",
-          margin: [0, 0, 0, 34],
+          margin: [0, 0, 0, dynamicGapAfterSubtitle],
         },
         {
           text: [
             { text: "Nome da Empresa: ", style: "coverMetaLabel" },
-            { text: sanitizeText(snapshot.company.razaoSocial || snapshot.company.name), style: "coverMetaValue" },
+            { text: companyName, style: "coverMetaValue" },
             { text: "\n" },
             { text: "Estabelecimento: ", style: "coverMetaLabel" },
-            { text: sanitizeText(snapshot.establishment.name), style: "coverMetaValue" },
+            { text: establishmentName, style: "coverMetaValue" },
           ],
-          margin: [0, 0, 0, 30],
+          margin: [0, 0, 0, dynamicGapBeforeVigencia],
         },
         {
           text: [
             { text: "Vigência: ", style: "coverMetaLabel" },
-            { text: sanitizeText(snapshot.program.vigencia || snapshot.meta.generatedDate), style: "coverMetaValue" },
+            { text: vigencia, style: "coverMetaValue" },
           ],
         },
       ],
@@ -2023,32 +2085,44 @@ export function buildRuntimeDocDefinition(
     header: (currentPage: number, pageCount: number) => {
       if (currentPage === 1 || currentPage === pageCount) return null;
 
+      const headerCompanyName = truncateHeaderField(snapshot.company.name, 52);
+      const headerEstablishmentName = truncateHeaderField(snapshot.establishment.name, 50);
+
       return {
         margin: [40, 46, 40, 6],
         table: {
           widths: ["67%", "33%"],
           body: [
-            [
-              {
-                text: [
-                  { text: "Empresa: ", style: "headerLabelRun" },
-                  { text: snapshot.company.name, style: "headerValueRun" },
+                [
+                  {
+                    text: [
+                      { text: "Empresa: ", style: "headerLabelRun" },
+                      { text: headerCompanyName, style: "headerValueRun" },
+                    ],
+                    style: "headerLeftCell",
+                    noWrap: true,
+                  },
+                  {
+                    text: [
+                      { text: "ANL: ", style: "headerLabelRun" },
+                      { text: snapshot.meta.anl || "01", style: "headerValueRun" },
+                    ],
+                    style: "headerRightCell",
+                    noWrap: true,
+                  },
                 ],
-                style: "headerLeftCell",
-              },
-              { text: `ANL: ${snapshot.meta.anl || "01"}`, style: "headerRightCell" },
-            ],
-            [
-              {
-                text: [
-                  { text: "Estabelecimento: ", style: "headerLabelRun" },
-                  { text: snapshot.establishment.name, style: "headerValueRun" },
+                [
+                  {
+                    text: [
+                      { text: "Estabelecimento: ", style: "headerLabelRun" },
+                      { text: headerEstablishmentName, style: "headerValueRun" },
+                    ],
+                    style: "headerLeftCell",
+                    noWrap: true,
+                  },
+                  { text: "", style: "headerRightCell" },
                 ],
-                style: "headerLeftCell",
-              },
-              { text: "", style: "headerRightCell" },
-            ],
-          ],
+              ],
         },
         layout: HEADER_TABLE_LAYOUT,
       };
