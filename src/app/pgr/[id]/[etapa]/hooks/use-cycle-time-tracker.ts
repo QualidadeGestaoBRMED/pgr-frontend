@@ -42,7 +42,7 @@ export function useCycleTimeTracker({
         ...historicoRef.current,
         cycleTime,
       };
-      void apiPut(`/api/frontend/pgr/${pgrId}/state`, { historico: mergedHistorico }).catch(
+      void apiPut(`/api/v1/frontend/pgr/${pgrId}/state`, { historico: mergedHistorico }).catch(
         () => {
           // Sem bloqueio de navegação caso a persistência imediata falhe.
         }

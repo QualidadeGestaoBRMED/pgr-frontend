@@ -118,6 +118,7 @@ function NeuralBrain({ quality = 0.7, reducedMotion = false }: BrainSceneProps) 
   const mainPointsRef = useRef<THREE.Points>(null);
   const mainLinesRef = useRef<THREE.LineSegments>(null);
   const accentLinesRef = useRef<THREE.LineSegments>(null);
+  const frameAccumulatorRef = useRef(0);
   const clampedQuality = Math.min(1, Math.max(0.3, quality));
   const nodeCount = Math.round(380 * clampedQuality);
   const maxConnectionsPerNode = Math.round(3 + clampedQuality * 4);
@@ -148,26 +149,32 @@ function NeuralBrain({ quality = 0.7, reducedMotion = false }: BrainSceneProps) 
   useFrame((state, delta) => {
     if (!groupRef.current || !coreRef.current || !shellRef.current) return;
 
+    const minFrame = reducedMotion ? 1 / 20 : 1 / 30;
+    frameAccumulatorRef.current += delta;
+    if (frameAccumulatorRef.current < minFrame) return;
+    const step = Math.min(frameAccumulatorRef.current, 0.05);
+    frameAccumulatorRef.current = 0;
+
     const motionScale = reducedMotion ? 0.35 : 1;
     const targetY = state.pointer.x * 0.46 * motionScale;
     const targetX =
       -state.pointer.y * 0.22 * motionScale +
       Math.sin(state.clock.elapsedTime * 0.45) * 0.03 * motionScale;
 
-    groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetY, 4.2, delta);
-    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetX, 4.2, delta);
+    groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, targetY, 4.2, step);
+    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetX, 4.2, step);
     groupRef.current.rotation.z = THREE.MathUtils.damp(
       groupRef.current.rotation.z,
       Math.sin(state.clock.elapsedTime * 0.35) * 0.03 * motionScale,
       4,
-      delta
+      step
     );
-    groupRef.current.position.x = THREE.MathUtils.damp(groupRef.current.position.x, -0.16, 4.5, delta);
-    groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, 0.2, 4.5, delta);
+    groupRef.current.position.x = THREE.MathUtils.damp(groupRef.current.position.x, -0.16, 4.5, step);
+    groupRef.current.position.y = THREE.MathUtils.damp(groupRef.current.position.y, 0.2, 4.5, step);
 
     const pulse = 0.94 + Math.sin(state.clock.elapsedTime * 2.1) * (reducedMotion ? 0.02 : 0.08);
     coreRef.current.scale.setScalar(pulse);
-    shellRef.current.rotation.y += delta * (reducedMotion ? 0.02 : 0.06);
+    shellRef.current.rotation.y += step * (reducedMotion ? 0.02 : 0.06);
 
     const networkPulse = 0.8 + (Math.sin(state.clock.elapsedTime * 2.1) + 1) * (reducedMotion ? 0.06 : 0.16);
     const accentPulse = 0.58 + (Math.sin(state.clock.elapsedTime * 2.1 + 0.4) + 1) * (reducedMotion ? 0.06 : 0.14);

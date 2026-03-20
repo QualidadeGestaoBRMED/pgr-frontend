@@ -621,6 +621,10 @@ export function RoadmapView() {
   const reducedMotion = prefersReducedMotion ?? false;
   const [brainReady, setBrainReady] = useState(false);
   const [brainQuality, setBrainQuality] = useState(0.7);
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.matchMedia("(min-width: 768px)").matches;
+  });
   const brainDesktopRef = useRef<HTMLDivElement | null>(null);
   const brainMobileRef = useRef<HTMLDivElement | null>(null);
   const futureSectionRef = useRef<HTMLElement | null>(null);
@@ -671,6 +675,21 @@ export function RoadmapView() {
     mass: 1.2,
   });
   const beamActive = isFutureVisible && !reducedMotion;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(min-width: 768px)");
+    const handler = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsDesktop("matches" in event ? event.matches : query.matches);
+    };
+    handler(query);
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", handler);
+      return () => query.removeEventListener("change", handler);
+    }
+    query.addListener(handler);
+    return () => query.removeListener(handler);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -986,8 +1005,7 @@ export function RoadmapView() {
               </p>
             </div>
 
-            <TimelineDesktop items={items} />
-            <TimelineMobile items={items} />
+            {isDesktop ? <TimelineDesktop items={items} /> : <TimelineMobile items={items} />}
 
             <motion.section
               ref={futureSectionRef}

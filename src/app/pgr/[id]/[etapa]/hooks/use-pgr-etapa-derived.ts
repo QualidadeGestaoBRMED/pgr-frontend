@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
-import { hasMeaningfulSelections, useRiskCatalogHelpers } from "./use-risk-catalog-helpers";
-import type { GheGroup, GheRisk, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
+import { useRiskCatalogHelpers } from "./use-risk-catalog-helpers";
+import {
+  isDadosCadastraisComplete,
+  isGheInfoComplete as isGheInfoCompleteBySchema,
+  isInicioDraftComplete,
+  isRiskComplete,
+} from "../validation/step-schemas";
+import type { GheGroup, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, HistoricoData } from "../types";
 
@@ -133,11 +139,7 @@ export function usePgrEtapaDerived({
 
   const isGheInfoComplete = (ghe?: GheGroup) => {
     if (!ghe) return false;
-    return (
-      ghe.info.processo.trim().length > 0 &&
-      ghe.info.observacoes.trim().length > 0 &&
-      ghe.info.ambiente.trim().length > 0
-    );
+    return isGheInfoCompleteBySchema(ghe.info) && ghe.items.length > 0;
   };
 
   const describedGheCount = useMemo(
@@ -245,25 +247,8 @@ export function usePgrEtapaDerived({
     ];
   }, [rawPlanTableRows]);
 
-  const isInicioComplete =
-    inicioDraft.documentTitle.trim().length > 0 &&
-    inicioDraft.companyName.trim().length > 0 &&
-    inicioDraft.cnpj.trim().length > 0 &&
-    inicioDraft.responsible.trim().length > 0 &&
-    inicioDraft.email.trim().length > 0;
-
-  const isDadosComplete =
-    dadosCadastrais.empresaRazaoSocial.trim().length > 0 &&
-    dadosCadastrais.empresaCnpj.trim().length > 0 &&
-    dadosCadastrais.empresaCnae.trim().length > 0 &&
-    dadosCadastrais.empresaEndereco.trim().length > 0 &&
-    dadosCadastrais.empresaCidade.trim().length > 0 &&
-    dadosCadastrais.empresaEstado.trim().length > 0 &&
-    dadosCadastrais.responsavelPgrNome.trim().length > 0 &&
-    dadosCadastrais.responsavelPgrFuncao.trim().length > 0 &&
-    dadosCadastrais.responsavelPgrTelefone.trim().length > 0 &&
-    dadosCadastrais.responsavelPgrEmail.trim().length > 0 &&
-    dadosCadastrais.responsavelPgrCpf.trim().length > 0;
+  const isInicioComplete = isInicioDraftComplete(inicioDraft);
+  const isDadosComplete = isDadosCadastraisComplete(dadosCadastrais);
 
   const isDescricaoComplete =
     allGhesDescribed &&
@@ -272,27 +257,12 @@ export function usePgrEtapaDerived({
     gheGroups.every((ghe) => ghe.items.length > 0);
 
   const isCaracterizacaoComplete = useMemo(() => {
-    const isRiskFullyFilled = (risk: GheRisk) =>
-      risk.tipoAgente.trim().length > 0 &&
-      risk.descricaoAgente.trim().length > 0 &&
-      risk.perigo.trim().length > 0 &&
-      risk.meioPropagacao.trim().length > 0 &&
-      risk.fontes.trim().length > 0 &&
-      risk.tipoAvaliacao.trim().length > 0 &&
-      risk.intensidade.trim().length > 0 &&
-      risk.severidade.trim().length > 0 &&
-      risk.probabilidade.trim().length > 0 &&
-      risk.classificacao.trim().length > 0 &&
-      risk.medidasControle.trim().length > 0 &&
-      hasMeaningfulSelections(risk.epc) &&
-      hasMeaningfulSelections(risk.epi);
-
     if (!riskGheGroups.length) return false;
     let hasAnyRisk = false;
     for (const ghe of riskGheGroups) {
       if (!ghe.risks.length) return false;
       hasAnyRisk = true;
-      if (!ghe.risks.every((risk) => isRiskFullyFilled(risk))) return false;
+      if (!ghe.risks.every((risk) => isRiskComplete(risk))) return false;
     }
     return hasAnyRisk;
   }, [riskGheGroups]);

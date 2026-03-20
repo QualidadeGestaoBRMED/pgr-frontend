@@ -62,6 +62,15 @@ export type RiskGheGroup = {
   risks: GheRisk[];
 };
 
+export type HistoryEntry = {
+  gheGroups: GheGroup[];
+  currentGheId: string;
+  selectedLeftIds: string[];
+  selectedRightIds: string[];
+  riskGheGroups: RiskGheGroup[];
+  currentRiskGheId: string;
+};
+
 export type RiskCatalogItem = {
   name: string;
   agent: number;
@@ -86,6 +95,9 @@ export type AnexoFile = {
   id: string;
   name: string;
   url?: string;
+  originalName?: string;
+  sizeBytes?: number;
+  uploadedAt?: string;
 };
 
 export type AnexoItem = {

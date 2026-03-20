@@ -4,6 +4,7 @@ type StepFooterActionsProps = {
   stepId: string;
   prevStepId: string | null;
   nextStepId: string | null;
+  workflowIsLocked?: boolean;
   onNavigateStep: (stepId: string) => void;
   onAdvance: () => void;
   onCreateNextGhe: () => void;
@@ -40,13 +41,15 @@ const BackButton = ({
 const AdvanceButton = ({
   nextStepId,
   onAdvance,
+  disabled = false,
   className = "btn-primary px-6",
 }: {
   nextStepId: string | null;
   onAdvance: () => void;
+  disabled?: boolean;
   className?: string;
 }) =>
-  nextStepId ? (
+  nextStepId && !disabled ? (
     <button type="button" onClick={onAdvance} className={className}>
       Avançar
       <ArrowRight className="h-4 w-4" />
@@ -62,6 +65,7 @@ export function StepFooterActions({
   stepId,
   prevStepId,
   nextStepId,
+  workflowIsLocked = false,
   onNavigateStep,
   onAdvance,
   onCreateNextGhe,
@@ -130,7 +134,11 @@ export function StepFooterActions({
             <Save className="h-4 w-4" />
             Salvar
           </button>
-          <AdvanceButton nextStepId={nextStepId} onAdvance={onAdvance} />
+          <AdvanceButton
+            nextStepId={nextStepId}
+            onAdvance={onAdvance}
+            disabled={workflowIsLocked}
+          />
         </div>
       </div>
     );
@@ -142,7 +150,11 @@ export function StepFooterActions({
         prevStepId={prevStepId}
         onNavigateStep={onNavigateStep}
       />
-      <AdvanceButton nextStepId={nextStepId} onAdvance={onAdvance} />
+      <AdvanceButton
+        nextStepId={nextStepId}
+        onAdvance={onAdvance}
+        disabled={workflowIsLocked}
+      />
     </div>
   );
 }

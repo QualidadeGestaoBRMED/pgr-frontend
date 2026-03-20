@@ -3,10 +3,9 @@
 import { Search } from "lucide-react";
 import { Work_Sans } from "next/font/google";
 import { AppHeader } from "@/components/app-header";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
-import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -37,125 +36,6 @@ const emptyData: HomeData = {
   cards: [],
 };
 
-const TOTAL_PGR_STEPS = pgrSteps.length;
-
-const STEP_INDEX = new Map(pgrSteps.map((step, index) => [step.id, index]));
-
-const hasText = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
-
-const hasMeaningfulSelections = (values: unknown) =>
-  Array.isArray(values) && values.some((item) => hasText(item));
-
-const deriveProgressPercentFromState = (
-  state: Record<string, any>,
-  fallbackProgress: number
-) => {
-  const rawCompleted = Number(state.completedSteps);
-  if (!Number.isFinite(rawCompleted)) return fallbackProgress;
-  const completedSteps = Math.max(0, Math.min(rawCompleted, TOTAL_PGR_STEPS));
-
-  const inicioDraft = (state.inicioDraft || {}) as Record<string, unknown>;
-  const dados = (state.dadosCadastrais || {}) as Record<string, unknown>;
-  const gheGroups = Array.isArray(state.gheGroups) ? state.gheGroups : [];
-  const functions = Array.isArray(state.functions) ? state.functions : [];
-  const riskGheGroups = Array.isArray(state.riskGheGroups)
-    ? state.riskGheGroups
-    : [];
-
-  const isInicioComplete =
-    hasText(inicioDraft.documentTitle) &&
-    hasText(inicioDraft.companyName) &&
-    hasText(inicioDraft.cnpj) &&
-    hasText(inicioDraft.responsible) &&
-    hasText(inicioDraft.email);
-
-  const isDadosComplete =
-    hasText(dados.empresaRazaoSocial) &&
-    hasText(dados.empresaCnpj) &&
-    hasText(dados.empresaCnae) &&
-    hasText(dados.empresaEndereco) &&
-    hasText(dados.empresaCidade) &&
-    hasText(dados.empresaEstado);
-
-  const assignedFunctionIds = new Set<string>();
-  for (const ghe of gheGroups) {
-    const items = Array.isArray(ghe?.items) ? ghe.items : [];
-    for (const item of items) {
-      if (typeof item?.functionId === "string" && item.functionId) {
-        assignedFunctionIds.add(item.functionId);
-      }
-    }
-  }
-  const remainingCount = Math.max(functions.length - assignedFunctionIds.size, 0);
-
-  const isGheInfoComplete = (ghe: any) =>
-    hasText(ghe?.info?.processo) &&
-    hasText(ghe?.info?.observacoes) &&
-    hasText(ghe?.info?.ambiente);
-  const describedGheCount = gheGroups.filter((ghe) => isGheInfoComplete(ghe)).length;
-  const allGhesDescribed = gheGroups.length > 0 && describedGheCount === gheGroups.length;
-  const isDescricaoComplete =
-    allGhesDescribed &&
-    remainingCount === 0 &&
-    gheGroups.length > 0 &&
-    gheGroups.every((ghe) => Array.isArray(ghe?.items) && ghe.items.length > 0);
-
-  const isRiskFullyFilled = (risk: any) =>
-    hasText(risk?.tipoAgente) &&
-    hasText(risk?.descricaoAgente) &&
-    hasText(risk?.perigo) &&
-    hasText(risk?.meioPropagacao) &&
-    hasText(risk?.fontes) &&
-    hasText(risk?.tipoAvaliacao) &&
-    hasText(risk?.intensidade) &&
-    hasText(risk?.severidade) &&
-    hasText(risk?.probabilidade) &&
-    hasText(risk?.classificacao) &&
-    hasText(risk?.medidasControle) &&
-    hasMeaningfulSelections(risk?.epc) &&
-    hasMeaningfulSelections(risk?.epi);
-
-  let isCaracterizacaoComplete = false;
-  if (riskGheGroups.length > 0) {
-    isCaracterizacaoComplete = riskGheGroups.every((ghe) => {
-      const risks = Array.isArray(ghe?.risks) ? ghe.risks : [];
-      return risks.length > 0 && risks.every((risk: any) => isRiskFullyFilled(risk));
-    });
-  }
-
-  const planRows = riskGheGroups.flatMap((ghe) =>
-    Array.isArray(ghe?.risks) ? ghe.risks : []
-  );
-  const isPlanoComplete =
-    planRows.length > 0 &&
-    planRows.every((risk: any) => hasText(risk?.medidasControle));
-
-  const stepCompleteness: Partial<Record<string, boolean>> = {
-    inicio: isInicioComplete,
-    dados: isDadosComplete,
-    descricao: isDescricaoComplete,
-    caracterizacao: isCaracterizacaoComplete,
-    plano: isPlanoComplete,
-  };
-
-  const isAlertStep = (stepId: PgrStepId) => {
-    const stepIndex = STEP_INDEX.get(stepId);
-    if (stepIndex === undefined) return false;
-    const isComplete = stepCompleteness[stepId];
-    if (typeof isComplete !== "boolean") return false;
-    return completedSteps > stepIndex && !isComplete;
-  };
-
-  const doneStepsCount = pgrSteps.reduce((count, step, index) => {
-    if (index >= completedSteps) return count;
-    if (isAlertStep(step.id)) return count;
-    return count + 1;
-  }, 0);
-
-  return Math.round((doneStepsCount / TOTAL_PGR_STEPS) * 100);
-};
-
 export default function PgrsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -163,55 +43,64 @@ export default function PgrsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const loadHomeData = useCallback(async () => {
+    try {
+      const data = await apiGet<HomeData>("/api/v1/frontend/home");
+      setHomeData(data);
+      setLoadError(null);
+    } catch (error) {
+      setHomeData(emptyData);
+      setLoadError(
+        error instanceof Error
+          ? `Falha ao carregar dados da API: ${error.message}`
+          : "Falha ao carregar dados da API."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
 
-    const load = async () => {
-      try {
-        const data = await apiGet<HomeData>("/api/frontend/home");
-        if (!active) return;
-        setHomeData(data);
-        setLoadError(null);
-
-        if (!data.cards.length) return;
-
-        const stateProgress = await Promise.allSettled(
-          data.cards.map((card) =>
-            apiGet<Record<string, any>>(`/api/frontend/pgr/${card.id}/state`)
-          )
-        );
-        if (!active) return;
-
-        const mergedCards = data.cards.map((card, index) => {
-          const result = stateProgress[index];
-          if (result?.status !== "fulfilled") return card;
-          const derivedProgress = deriveProgressPercentFromState(
-            result.value,
-            card.progress
-          );
-          return { ...card, progress: derivedProgress };
-        });
-
-        setHomeData((prev) => ({ ...prev, cards: mergedCards }));
-      } catch (error) {
-        if (!active) return;
-        setHomeData(emptyData);
-        setLoadError(
-          error instanceof Error
-            ? `Falha ao carregar dados da API: ${error.message}`
-            : "Falha ao carregar dados da API."
-        );
-      } finally {
-        if (active) setLoading(false);
-      }
+    const safeLoad = async () => {
+      if (!active) return;
+      await loadHomeData();
     };
 
-    load();
+    safeLoad();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void safeLoad();
+      }
+    };
+    const onWindowFocus = () => {
+      void safeLoad();
+    };
+    const onPageShow = () => {
+      void safeLoad();
+    };
+
+    // fallback para refletir mudanças em segundo plano sem navegação manual
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void safeLoad();
+      }
+    }, 15000);
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onWindowFocus);
+    window.addEventListener("pageshow", onPageShow);
 
     return () => {
       active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onWindowFocus);
+      window.removeEventListener("pageshow", onPageShow);
     };
-  }, []);
+  }, [loadHomeData]);
 
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

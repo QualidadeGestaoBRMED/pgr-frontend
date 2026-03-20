@@ -25,7 +25,7 @@ export default function PgrLayout({
     const loadUser = async () => {
       try {
         const summary = await apiGet<{ user: { name: string; initials: string } }>(
-          `/api/frontend/pgr/${params.id}/summary`
+          `/api/v1/frontend/pgr/${params.id}/summary`
         );
         if (!active) return;
         setUser(summary.user);

@@ -16,7 +16,6 @@ import { useRouter } from "next/navigation";
 import {
   apiGet,
   apiPost,
-  FRONTEND_USERNAME_STORAGE_KEY,
 } from "@/lib/api";
 
 const imgMarcaPrincipalCorSmall31 = "/logo.png";
@@ -71,7 +70,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
     const loadNotifications = async () => {
       try {
         const payload = await apiGet<FrontendNotificationsResponse>(
-          "/api/frontend/notifications"
+          "/api/v1/frontend/notifications"
         );
         if (!active) return;
         setNotificationItems(payload.notifications || []);
@@ -167,7 +166,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
               setProfileOpen(false);
               if (nextOpen) {
                 apiPost<{ ok: boolean; unreadCount: number }>(
-                  "/api/frontend/notifications/mark-read"
+                  "/api/v1/frontend/notifications/mark-read"
                 )
                   .then((result) => {
                     setUnreadCount(Number(result.unreadCount) || 0);
@@ -270,7 +269,7 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
               <button
                 type="button"
                 onClick={() => {
-                  window.localStorage.removeItem(FRONTEND_USERNAME_STORAGE_KEY);
+                  apiPost("/api/v1/frontend/auth/logout").catch(() => null);
                   setProfileOpen(false);
                   router.push("/login");
                 }}

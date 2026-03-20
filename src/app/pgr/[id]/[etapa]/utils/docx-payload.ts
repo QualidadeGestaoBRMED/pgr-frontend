@@ -1,5 +1,95 @@
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, GheGroup, HistoricoData, PgrFunction, RiskGheGroup } from "../types";
+import { defaultHistorico, initialDadosCadastrais, initialInicioDraft } from "../defaults";
+
+type BackendDescricaoFunction = {
+  setor?: string;
+  funcao?: string;
+  descricaoAtividades?: string;
+  numeroFuncionarios?: string | number;
+};
+
+type BackendDescricaoGhe = {
+  id?: string;
+  nome?: string;
+  processo?: string;
+  observacoes?: string;
+  ambiente?: string;
+  funcoes?: BackendDescricaoFunction[];
+};
+
+type BackendCaracterizacaoRisk = {
+  id?: string;
+  tipoAgente?: string;
+  descricaoAgente?: string;
+  perigo?: string;
+  meioPropagacao?: string;
+  fontes?: string;
+  tipoAvaliacao?: string;
+  intensidade?: string;
+  severidade?: string;
+  probabilidade?: string;
+  classificacao?: string;
+  medidasControle?: string;
+  epc?: string[];
+  epi?: string[];
+};
+
+type BackendCaracterizacaoGhe = {
+  id?: string;
+  nome?: string;
+  riscos?: BackendCaracterizacaoRisk[];
+};
+
+type BackendNestedAnexoFile = {
+  id?: string;
+  nome?: string;
+  url?: string;
+};
+
+type BackendNestedAnexoItem = {
+  id?: string;
+  titulo?: string;
+  arquivos?: BackendNestedAnexoFile[];
+};
+
+type BackendStateShape = {
+  completedSteps?: number | string;
+  meta?: {
+    completedSteps?: number | string;
+    stepStatusById?: Partial<Record<string, boolean>>;
+  };
+  stepStatusById?: Partial<Record<string, boolean>>;
+  inicioDraft?: Partial<InicioDraft>;
+  inicio?: Partial<InicioDraft>;
+  dadosCadastrais?: Partial<DadosCadastraisDraft>;
+  historico?: Partial<HistoricoData>;
+  historicoData?: Partial<HistoricoData>;
+  descricao?: {
+    ghes?: BackendDescricaoGhe[];
+  };
+  caracterizacao?: {
+    ghes?: BackendCaracterizacaoGhe[];
+  };
+  gheGroups?: GheGroup[];
+  riskGheGroups?: RiskGheGroup[];
+  functions?: PgrFunction[];
+  planAction?: {
+    nr?: string;
+    vigencia?: string;
+  };
+  planoAcao?: {
+    nr?: string;
+    vigencia?: string;
+  };
+  anexos?:
+    | AnexoItem[]
+    | {
+        diretriz?: string;
+        itens?: BackendNestedAnexoItem[];
+      };
+  anexoDiretriz?: string;
+};
 
 export type PgrDocxPayload = {
   meta: {
@@ -196,9 +286,12 @@ export function buildPgrDocxPayloadFromBackendState(input: {
   pgrId: string;
   generatedAt: string;
   totalSteps: number;
-  backendState: any;
+  backendState: unknown;
 }): PgrDocxPayload {
-  const state = input.backendState || {};
+  const state =
+    input.backendState && typeof input.backendState === "object"
+      ? (input.backendState as BackendStateShape)
+      : ({} as BackendStateShape);
   const descricaoGhes = Array.isArray(state.descricao?.ghes) ? state.descricao.ghes : [];
   const caracterizacaoGhes = Array.isArray(state.caracterizacao?.ghes)
     ? state.caracterizacao.ghes
@@ -207,9 +300,9 @@ export function buildPgrDocxPayloadFromBackendState(input: {
   const fallbackFunctions: PgrFunction[] = [];
   const fallbackFunctionMap = new Map<string, string>();
 
-  const fallbackGheGroups: GheGroup[] = descricaoGhes.map((ghe: any, gheIndex: number) => {
+  const fallbackGheGroups: GheGroup[] = descricaoGhes.map((ghe, gheIndex: number) => {
     const rawItems = Array.isArray(ghe?.funcoes) ? ghe.funcoes : [];
-    const items = rawItems.map((fn: any, fnIndex: number) => {
+    const items = rawItems.map((fn, fnIndex: number) => {
       const key = `${fn?.setor || ""}__${fn?.funcao || ""}__${fn?.descricaoAtividades || ""}`;
       let functionId = fallbackFunctionMap.get(key);
       if (!functionId) {
@@ -240,11 +333,11 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     };
   });
 
-  const fallbackRiskGheGroups: RiskGheGroup[] = caracterizacaoGhes.map((ghe: any, gheIndex: number) => ({
+  const fallbackRiskGheGroups: RiskGheGroup[] = caracterizacaoGhes.map((ghe, gheIndex: number) => ({
     id: ghe?.id || `ghe-${gheIndex + 1}`,
     name: ghe?.nome || `GHE ${gheIndex + 1}`,
     risks: Array.isArray(ghe?.riscos)
-      ? ghe.riscos.map((risk: any, riskIndex: number) => ({
+      ? ghe.riscos.map((risk, riskIndex: number) => ({
           id: risk?.id || `risk-${gheIndex + 1}-${riskIndex + 1}`,
           tipoAgente: risk?.tipoAgente || "",
           descricaoAgente: risk?.descricaoAgente || "",
@@ -263,12 +356,13 @@ export function buildPgrDocxPayloadFromBackendState(input: {
       : [],
   }));
 
-  const fallbackAnexos: AnexoItem[] = Array.isArray(state.anexos?.itens)
-    ? state.anexos.itens.map((item: any, index: number) => ({
+  const nestedAnexos = !Array.isArray(state.anexos) ? state.anexos : undefined;
+  const fallbackAnexos: AnexoItem[] = Array.isArray(nestedAnexos?.itens)
+    ? nestedAnexos.itens.map((item, index: number) => ({
         id: item?.id || `anexo-${index + 1}`,
         title: item?.titulo || "",
         files: Array.isArray(item?.arquivos)
-          ? item.arquivos.map((file: any, fileIndex: number) => ({
+          ? item.arquivos.map((file, fileIndex: number) => ({
               id: file?.id || `file-${index + 1}-${fileIndex + 1}`,
               name: file?.nome || "",
               url: file?.url,
@@ -276,6 +370,18 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           : [],
       }))
     : [];
+  const inicioDraft: InicioDraft = {
+    ...initialInicioDraft,
+    ...(state.inicioDraft || state.inicio || {}),
+  };
+  const dadosCadastrais: DadosCadastraisDraft = {
+    ...initialDadosCadastrais,
+    ...(state.dadosCadastrais || {}),
+  };
+  const historicoData: HistoricoData = {
+    ...defaultHistorico,
+    ...(state.historico || state.historicoData || {}),
+  };
 
   return buildPgrDocxPayload({
     pgrId: input.pgrId,
@@ -285,9 +391,9 @@ export function buildPgrDocxPayloadFromBackendState(input: {
       : 0,
     totalSteps: input.totalSteps,
     stepStatusById: state.stepStatusById || state.meta?.stepStatusById || undefined,
-    inicioDraft: (state.inicioDraft || state.inicio || {}) as InicioDraft,
-    dadosCadastrais: state.dadosCadastrais || ({} as DadosCadastraisDraft),
-    historicoData: (state.historico || state.historicoData || {}) as HistoricoData,
+    inicioDraft,
+    dadosCadastrais,
+    historicoData,
     gheGroups: Array.isArray(state.gheGroups) ? state.gheGroups : fallbackGheGroups,
     riskGheGroups: Array.isArray(state.riskGheGroups)
       ? state.riskGheGroups
@@ -298,6 +404,6 @@ export function buildPgrDocxPayloadFromBackendState(input: {
       vigencia: state.planAction?.vigencia || state.planoAcao?.vigencia || "",
     },
     anexos: Array.isArray(state.anexos) ? state.anexos : fallbackAnexos,
-    anexoDiretriz: state.anexoDiretriz || state.anexos?.diretriz || "Diretriz 1",
+    anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Diretriz 1",
   });
 }

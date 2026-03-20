@@ -6,5 +6,9 @@ export const renderHistoricoStep: StepRenderer = (ctx) => (
     title={ctx.historicoData.title}
     subtitle={ctx.historicoData.subtitle}
     changes={ctx.historicoData.changes}
+    workflow={ctx.workflow}
+    isGeneratingFakePdf={ctx.isGeneratingFakePdf}
+    onDownloadPdf={ctx.handleGenerateFakePdf}
+    onStartNewVersion={ctx.handleStartNewVersion}
   />
 );

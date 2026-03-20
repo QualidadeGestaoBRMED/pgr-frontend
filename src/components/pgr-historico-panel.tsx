@@ -1,4 +1,4 @@
-import { Download, PencilLine } from "lucide-react";
+import { Download, LoaderCircle, PencilLine } from "lucide-react";
 
 type PgrHistoricoPanelProps = {
   title: string;
@@ -11,13 +11,32 @@ type PgrHistoricoPanelProps = {
     reason: string;
     date: string;
   }>;
+  workflow: {
+    isLocked: boolean;
+    version: number;
+    finalizedAt: string | null;
+    finalizedBy: string | null;
+    finalizedById: number | null;
+  };
+  isGeneratingFakePdf: boolean;
+  onDownloadPdf: () => void;
+  onStartNewVersion: () => void;
 };
 
 export function PgrHistoricoPanel({
   title,
   subtitle,
   changes,
+  workflow,
+  isGeneratingFakePdf,
+  onDownloadPdf,
+  onStartNewVersion,
 }: PgrHistoricoPanelProps) {
+  const finalizedInfo =
+    workflow.isLocked && workflow.finalizedAt
+      ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
+      : null;
+
   return (
     <>
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
@@ -27,21 +46,44 @@ export function PgrHistoricoPanel({
               {title}
             </h1>
             <p className="mt-1 text-[14px] text-muted-foreground">{subtitle}</p>
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Versão atual: v{workflow.version}
+              {workflow.isLocked ? " • Documento finalizado" : " • Em edição"}
+            </p>
+            {finalizedInfo ? (
+              <p className="text-[12px] text-muted-foreground">
+                Finalizado em {finalizedInfo}
+                {workflow.finalizedBy ? ` por ${workflow.finalizedBy}` : ""}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className="btn-primary px-4 py-2 text-[14px]"
+              onClick={onStartNewVersion}
+              disabled={!workflow.isLocked}
+              className={!workflow.isLocked ? "btn-disabled px-4 py-2 text-[14px]" : "btn-primary px-4 py-2 text-[14px]"}
             >
               <PencilLine className="h-4 w-4" />
-              Editar último documento
+              Iniciar nova versão
             </button>
             <button
               type="button"
-              className="btn-primary px-4 py-2 text-[14px]"
+              onClick={onDownloadPdf}
+              disabled={isGeneratingFakePdf}
+              className={isGeneratingFakePdf ? "btn-disabled px-4 py-2 text-[14px]" : "btn-primary px-4 py-2 text-[14px]"}
             >
-              <Download className="h-4 w-4" />
-              Baixar PDF
+              {isGeneratingFakePdf ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Baixar PDF
+                </>
+              )}
             </button>
           </div>
         </div>

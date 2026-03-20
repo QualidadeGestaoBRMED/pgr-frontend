@@ -2,9 +2,10 @@ import { ChevronDown, PlusCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { GheRisk, RiskGheGroup } from "../types";
+import type { CaracterizacaoStepCtx } from "./renderers/caracterizacao-renderer";
 
 type CaracterizacaoStepProps = {
-  ctx: any;
+  ctx: CaracterizacaoStepCtx;
 };
 
 const EPC_OPTIONS = [

@@ -1,11 +1,84 @@
 import { apiBlobGet, apiDelete, apiPost, apiPostForm } from "@/lib/api";
 import { parseDescricaoExcel } from "../utils/descricao-import";
+import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
+import type {
+  AnexoFile,
+  AnexoItem,
+  GheRisk,
+  HistoryEntry,
+  ParsedDescricaoImport,
+  PgrFunction,
+  RiskGheGroup,
+} from "../types";
+import type { PersistedPgrState } from "../state/runtime-cache";
 
-export function createGeneralActions(ctx: any) {
+type CardMeta = PersistedPgrState["cardMeta"];
+type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
+
+type GeneralActionsContext = {
+  params: { id: string };
+  initialDadosCadastrais: DadosCadastraisDraft;
+  setters: {
+    setInicioDraft: React.Dispatch<React.SetStateAction<InicioDraft>>;
+    setDadosCadastrais: React.Dispatch<React.SetStateAction<DadosCadastraisDraft>>;
+    setCardMeta: React.Dispatch<React.SetStateAction<CardMeta>>;
+    setIsPipefySyncing: React.Dispatch<React.SetStateAction<boolean>>;
+    setPlanActionScope: React.Dispatch<React.SetStateAction<"all" | "ghe" | "risk">>;
+    setPlanActionGheId: React.Dispatch<React.SetStateAction<string>>;
+    setPlanActionRiskId: React.Dispatch<React.SetStateAction<string>>;
+    setPlanActionDescription: React.Dispatch<React.SetStateAction<string>>;
+    setIsPlanActionModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
+    setEditingMedidasId: React.Dispatch<React.SetStateAction<string | null>>;
+    setEditingMedidasValue: React.Dispatch<React.SetStateAction<string>>;
+    setCompletedSteps: React.Dispatch<React.SetStateAction<number>>;
+    setExtraEstabelecimentoFields: React.Dispatch<React.SetStateAction<ExtraField[]>>;
+    setFunctionsData: React.Dispatch<React.SetStateAction<PgrFunction[]>>;
+    setGheGroups: React.Dispatch<React.SetStateAction<PersistedPgrState["gheGroups"]>>;
+    setCurrentGheId: React.Dispatch<React.SetStateAction<string>>;
+    setCurrentRiskGheId: React.Dispatch<React.SetStateAction<string>>;
+    setSelectedLeftIds: React.Dispatch<React.SetStateAction<string[]>>;
+    setSelectedRightIds: React.Dispatch<React.SetStateAction<string[]>>;
+    setGheSearch: React.Dispatch<React.SetStateAction<string>>;
+    setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
+    setGheFilterId: React.Dispatch<React.SetStateAction<"all" | string>>;
+    setHistory: React.Dispatch<React.SetStateAction<HistoryEntry[]>>;
+    setLastGheNotice: React.Dispatch<React.SetStateAction<{ from: string; to: string } | null>>;
+    setExcelImportFeedback: React.Dispatch<
+      React.SetStateAction<null | { type: "success" | "error"; message: string }>
+    >;
+    setIsImportingExcel: React.Dispatch<React.SetStateAction<boolean>>;
+    setAnexos: React.Dispatch<React.SetStateAction<AnexoItem[]>>;
+    setDraggedAnexoId: React.Dispatch<React.SetStateAction<string | null>>;
+    setDragOverAnexoId: React.Dispatch<React.SetStateAction<string | null>>;
+  };
+  current: {
+    lastCepLookupRef: React.MutableRefObject<{ empresa: string; contratante: string }>;
+    planActionScope: "all" | "ghe" | "risk";
+    riskGheGroups: RiskGheGroup[];
+    planActionGheId: string;
+    planActionRiskId: string;
+    planActionDescription: string;
+    completedSteps: number;
+    currentIndex: number;
+    nextStep: { id: string } | null;
+    router: { push: (href: string) => void };
+    anexos: AnexoItem[];
+    dragOverAnexoId: string | null;
+    draggedAnexoId: string | null;
+    editingMedidasValue: string;
+    stepId: string;
+    allGhesDescribed: boolean;
+  };
+  helpers: {
+    handleAdvanceApiSync: (nextCompleted: number) => void;
+  };
+};
+
+export function createGeneralActions(ctx: GeneralActionsContext) {
   const {
     params,
     initialDadosCadastrais,
-    apiState,
     setters,
     current,
     helpers,
@@ -62,15 +135,18 @@ export function createGeneralActions(ctx: any) {
 
   const { handleAdvanceApiSync } = helpers;
 
-  const handleInicioDraftChange = (field: string, value: string) => {
-    setInicioDraft((prev: any) => ({
+  const handleInicioDraftChange = (field: keyof InicioDraft, value: string) => {
+    setInicioDraft((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  const handleDadosCadastraisChange = (field: string, value: string) => {
-    setDadosCadastrais((prev: any) => ({
+  const handleDadosCadastraisChange = (
+    field: keyof DadosCadastraisDraft,
+    value: string
+  ) => {
+    setDadosCadastrais((prev) => ({
       ...prev,
       [field]: value,
     }));
@@ -97,12 +173,12 @@ export function createGeneralActions(ctx: any) {
           localidade?: string;
           uf?: string;
         };
-      }>("/api/frontend/lookup/cep", { cep });
+      }>("/api/v1/frontend/lookup/cep", { cep });
 
       if (!response.found || !response.data) return;
       const payload = response.data;
 
-      setDadosCadastrais((prev: any) => {
+      setDadosCadastrais((prev) => {
         if (scope === "empresa") {
           return {
             ...prev,
@@ -130,8 +206,8 @@ export function createGeneralActions(ctx: any) {
     setIsPipefySyncing(true);
     try {
       const response = await apiPost<{
-        inicioDraft: any;
-        dadosCadastrais: any;
+        inicioDraft: Partial<InicioDraft>;
+        dadosCadastrais: Partial<DadosCadastraisDraft>;
         cardMeta: {
           pipefyCardId: string;
           cardName: string;
@@ -139,8 +215,8 @@ export function createGeneralActions(ctx: any) {
           companyId: number | null;
           responsibleId: number | null;
         };
-      }>(`/api/frontend/pgr/${params.id}/sync-pipefy`);
-      setInicioDraft((prev: any) => ({
+      }>(`/api/v1/frontend/pgr/${params.id}/sync-pipefy`);
+      setInicioDraft((prev) => ({
         ...prev,
         ...(response.inicioDraft || {}),
       }));
@@ -176,7 +252,7 @@ export function createGeneralActions(ctx: any) {
     setPlanActionScope(scope);
     if (scope === "all") return;
     const currentGhe =
-      riskGheGroups.find((ghe: any) => ghe.id === planActionGheId) ??
+      riskGheGroups.find((ghe) => ghe.id === planActionGheId) ??
       riskGheGroups[0];
     const gheId = currentGhe?.id ?? "";
     setPlanActionGheId(gheId);
@@ -188,17 +264,17 @@ export function createGeneralActions(ctx: any) {
   const handlePlanActionGheChange = (value: string) => {
     setPlanActionGheId(value);
     if (planActionScope !== "risk") return;
-    const ghe = riskGheGroups.find((item: any) => item.id === value);
+    const ghe = riskGheGroups.find((item) => item.id === value);
     setPlanActionRiskId(ghe?.risks[0]?.id ?? "");
   };
 
   const handlePlanMedidasChange = (gheId: string, riskId: string, value: string) => {
-    setRiskGheGroups((prev: any[]) =>
+    setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         if (ghe.id !== gheId) return ghe;
         return {
           ...ghe,
-          risks: ghe.risks.map((risk: any) =>
+          risks: ghe.risks.map((risk) =>
             risk.id === riskId ? { ...risk, medidasControle: value } : risk
           ),
         };
@@ -224,10 +300,10 @@ export function createGeneralActions(ctx: any) {
     const nextValue = ctx.current.editingMedidasValue.trim();
     if (Array.isArray(groupTargets) && groupTargets.length) {
       const targetKeys = new Set(groupTargets.map((target) => `${target.gheId}::${target.riskId}`));
-      setRiskGheGroups((prev: any[]) =>
+      setRiskGheGroups((prev) =>
         prev.map((ghe) => ({
           ...ghe,
-          risks: ghe.risks.map((risk: any) =>
+          risks: ghe.risks.map((risk) =>
             targetKeys.has(`${ghe.id}::${risk.id}`)
               ? { ...risk, medidasControle: nextValue }
               : risk
@@ -256,12 +332,12 @@ export function createGeneralActions(ctx: any) {
       return `${currentValue}\n${nextValue}`;
     };
 
-    setRiskGheGroups((prev: any[]) =>
+    setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         const applyForGhe = planActionScope === "all" || ghe.id === planActionGheId;
         if (!applyForGhe) return ghe;
 
-        const risks = ghe.risks.map((risk: any) => {
+        const risks = ghe.risks.map((risk) => {
           const applyForRisk =
             planActionScope !== "risk" || risk.id === planActionRiskId;
           if (!applyForRisk) return risk;
@@ -293,7 +369,7 @@ export function createGeneralActions(ctx: any) {
   const handleAddExtraField = (
     scope: "empresa" | "estabelecimento" | "contratante"
   ) => {
-    setExtraEstabelecimentoFields((prev: any[]) => [
+    setExtraEstabelecimentoFields((prev) => [
       ...prev,
       {
         id: `${scope}-field-${Date.now()}-${prev.length + 1}`,
@@ -309,13 +385,13 @@ export function createGeneralActions(ctx: any) {
     field: "title" | "value",
     value: string
   ) => {
-    setExtraEstabelecimentoFields((prev: any[]) =>
+    setExtraEstabelecimentoFields((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
   const handleRemoveExtraField = (id: string) => {
-    setExtraEstabelecimentoFields((prev: any[]) =>
+    setExtraEstabelecimentoFields((prev) =>
       prev.filter((item) => item.id !== id)
     );
   };
@@ -328,7 +404,7 @@ export function createGeneralActions(ctx: any) {
     setExcelImportFeedback(null);
     setIsImportingExcel(true);
     try {
-      const imported = await parseDescricaoExcel(file);
+      const imported: ParsedDescricaoImport = await parseDescricaoExcel(file);
       setFunctionsData(imported.functions);
       setGheGroups(imported.gheGroups);
       setCurrentGheId(imported.gheGroups[0]?.id ?? "ghe-1");
@@ -401,14 +477,18 @@ export function createGeneralActions(ctx: any) {
             uploadedAt: string;
             url?: string;
           };
-        }>(`/api/frontend/pgr/${params.id}/attachments/upload`, formData);
+        }>(`/api/v1/frontend/pgr/${params.id}/attachments/upload`, formData);
 
         if (!response?.ok || !response.file) return;
 
-        setAnexos((prev: any[]) =>
+        const uploadedFile: AnexoFile = {
+          ...response.file,
+          name: response.file.name,
+        };
+        setAnexos((prev) =>
           prev.map((anexo) =>
             anexo.id === anexoId
-              ? { ...anexo, files: [...anexo.files, response.file] }
+              ? { ...anexo, files: [...anexo.files, uploadedFile] }
               : anexo
           )
         );
@@ -419,12 +499,12 @@ export function createGeneralActions(ctx: any) {
   };
 
   const handleAnexoFileRename = (anexoId: string, fileId: string, value: string) => {
-    setAnexos((prev: any[]) =>
+    setAnexos((prev) =>
       prev.map((anexo) =>
         anexo.id === anexoId
           ? {
               ...anexo,
-              files: anexo.files.map((file: any) =>
+              files: anexo.files.map((file) =>
                 file.id === fileId ? { ...file, name: value } : file
               ),
             }
@@ -434,13 +514,13 @@ export function createGeneralActions(ctx: any) {
   };
 
   const handleAnexoFileRemove = (anexoId: string, fileId: string) => {
-    void apiDelete<{ ok: boolean }>(`/api/frontend/pgr/${params.id}/attachments/${fileId}`)
+    void apiDelete<{ ok: boolean }>(`/api/v1/frontend/pgr/${params.id}/attachments/${fileId}`)
       .catch(() => ({ ok: false }))
       .finally(() => {
-        setAnexos((prev: any[]) =>
+        setAnexos((prev) =>
           prev.map((anexo) =>
             anexo.id === anexoId
-              ? { ...anexo, files: anexo.files.filter((f: any) => f.id !== fileId) }
+              ? { ...anexo, files: anexo.files.filter((f) => f.id !== fileId) }
               : anexo
           )
         );
@@ -448,7 +528,7 @@ export function createGeneralActions(ctx: any) {
   };
 
   const handleAnexoFileDownload = (fileId: string, fileName: string) => {
-    void apiBlobGet(`/api/frontend/pgr/${params.id}/attachments/${fileId}/download`)
+    void apiBlobGet(`/api/v1/frontend/pgr/${params.id}/attachments/${fileId}/download`)
       .then((blob) => {
         const objectUrl = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -468,7 +548,7 @@ export function createGeneralActions(ctx: any) {
 
   const handleAddAnexo = () => {
     const nextIndex = anexos.length + 1;
-    setAnexos((prev: any[]) => [
+    setAnexos((prev) => [
       ...prev,
       {
         id: `anexo-${Date.now()}-${nextIndex}`,
@@ -479,7 +559,7 @@ export function createGeneralActions(ctx: any) {
   };
 
   const handleMoveAnexo = (anexoId: string, direction: "up" | "down") => {
-    setAnexos((prev: any[]) => {
+    setAnexos((prev) => {
       const index = prev.findIndex((item) => item.id === anexoId);
       if (index === -1) return prev;
       const nextIndex = direction === "up" ? index - 1 : index + 1;
@@ -492,7 +572,7 @@ export function createGeneralActions(ctx: any) {
   };
 
   const handleRenameAnexoTitle = (anexoId: string, value: string) => {
-    setAnexos((prev: any[]) =>
+    setAnexos((prev) =>
       prev.map((anexo) => (anexo.id === anexoId ? { ...anexo, title: value } : anexo))
     );
   };
@@ -513,7 +593,7 @@ export function createGeneralActions(ctx: any) {
       setDragOverAnexoId(null);
       return;
     }
-    setAnexos((prev: any[]) => {
+    setAnexos((prev) => {
       const fromIndex = prev.findIndex((item) => item.id === draggedAnexoId);
       const toIndex = prev.findIndex((item) => item.id === anexoId);
       if (fromIndex === -1 || toIndex === -1) return prev;

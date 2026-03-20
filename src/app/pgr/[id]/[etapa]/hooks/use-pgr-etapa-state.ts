@@ -9,17 +9,15 @@ import {
   initialDadosCadastrais,
   initialInicioDraft,
 } from "../defaults";
-import type { AnexoItem, GheGroup, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
+import type {
+  AnexoItem,
+  GheGroup,
+  HistoryEntry,
+  PgrFunction,
+  RiskCatalogPayload,
+  RiskGheGroup,
+} from "../types";
 import { getRuntimeCachedState } from "../state/runtime-cache";
-
-export type HistoryEntry = {
-  gheGroups: GheGroup[];
-  currentGheId: string;
-  selectedLeftIds: string[];
-  selectedRightIds: string[];
-  riskGheGroups: RiskGheGroup[];
-  currentRiskGheId: string;
-};
 
 export function usePgrEtapaState({
   paramsId,
@@ -39,6 +37,11 @@ export function usePgrEtapaState({
 
   const [completedSteps, setCompletedSteps] = useState(
     serverSyncedCachedState?.completedSteps ?? currentIndex
+  );
+  const [progressPercent, setProgressPercent] = useState(
+    typeof serverSyncedCachedState?.progressPercent === "number"
+      ? serverSyncedCachedState.progressPercent
+      : Math.round((Math.max(0, currentIndex) / 8) * 100)
   );
   const [inicioDraft, setInicioDraft] = useState<InicioDraft>(
     serverSyncedCachedState?.inicioDraft ?? initialInicioDraft
@@ -138,6 +141,15 @@ export function usePgrEtapaState({
   const [currentRiskGheId, setCurrentRiskGheId] = useState(
     serverSyncedCachedState?.currentRiskGheId ?? "ghe-1"
   );
+  const [workflow, setWorkflow] = useState(
+    serverSyncedCachedState?.workflow ?? {
+      isLocked: false,
+      version: 1,
+      finalizedAt: null as string | null,
+      finalizedBy: null as string | null,
+      finalizedById: null as number | null,
+    }
+  );
   const [lastGheNotice, setLastGheNotice] = useState<null | { from: string; to: string }>(
     null
   );
@@ -185,6 +197,7 @@ export function usePgrEtapaState({
     shouldHydrateFromApi,
     state: {
       completedSteps,
+      progressPercent,
       inicioDraft,
       dadosCadastrais,
       cardMeta,
@@ -229,10 +242,12 @@ export function usePgrEtapaState({
       isGheListView,
       riskGheGroups,
       currentRiskGheId,
+      workflow,
       lastGheNotice,
     },
     setters: {
       setCompletedSteps,
+      setProgressPercent,
       setInicioDraft,
       setDadosCadastrais,
       setCardMeta,
@@ -276,6 +291,7 @@ export function usePgrEtapaState({
       setIsGheListView,
       setRiskGheGroups,
       setCurrentRiskGheId,
+      setWorkflow,
       setLastGheNotice,
     },
     refs: {

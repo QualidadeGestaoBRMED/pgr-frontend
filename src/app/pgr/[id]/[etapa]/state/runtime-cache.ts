@@ -6,6 +6,7 @@ export type PersistedPgrState = {
   serverSynced?: boolean;
   syncedAt?: number;
   completedSteps: number;
+  progressPercent?: number;
   inicioDraft: InicioDraft;
   dadosCadastrais: DadosCadastraisDraft;
   cardMeta: {
@@ -31,6 +32,13 @@ export type PersistedPgrState = {
   currentGheId: string;
   riskGheGroups: RiskGheGroup[];
   currentRiskGheId: string;
+  workflow: {
+    isLocked: boolean;
+    version: number;
+    finalizedAt: string | null;
+    finalizedBy: string | null;
+    finalizedById: number | null;
+  };
 };
 
 const pgrRuntimeStateCache = new Map<string, PersistedPgrState>();

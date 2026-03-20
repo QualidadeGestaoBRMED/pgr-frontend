@@ -5,6 +5,13 @@ type RevisaoStepProps = {
   pgrId: string;
   completedSteps: number;
   stepStatusById?: Partial<Record<string, boolean>>;
+  workflow: {
+    isLocked: boolean;
+    version: number;
+    finalizedAt: string | null;
+    finalizedBy: string | null;
+    finalizedById: number | null;
+  };
   lastFakePdfAt: string | null;
   isGeneratingFakePdf: boolean;
   onEditStep: (stepId: string) => void;
@@ -16,6 +23,7 @@ export function RevisaoStep({
   pgrId,
   completedSteps,
   stepStatusById,
+  workflow,
   lastFakePdfAt,
   isGeneratingFakePdf,
   onEditStep,
@@ -80,6 +88,7 @@ export function RevisaoStep({
                     <button
                       type="button"
                       onClick={() => onEditStep(item.id)}
+                      disabled={workflow.isLocked}
                       className="btn-outline px-2 py-1"
                     >
                       <Pencil className="h-4 w-4" />
@@ -97,7 +106,9 @@ export function RevisaoStep({
                 Finalizar Documento
               </p>
               <p className="text-[12px] text-muted-foreground">
-                Gere o PDF final no template base do PGR.
+                {workflow.isLocked
+                  ? "Documento finalizado. Para editar novamente, inicie uma nova versão no Histórico."
+                  : "Gere o PDF final no template base do PGR."}
               </p>
               {lastFakePdfAt ? (
                 <p className="mt-1 text-[12px] text-muted-foreground">

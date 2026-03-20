@@ -5,7 +5,7 @@ import { Work_Sans } from "next/font/google";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FRONTEND_USERNAME_STORAGE_KEY } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -20,16 +20,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (username === "admin" && password === "admin") {
+    setIsSubmitting(true);
+    try {
+      await apiPost("/api/v1/frontend/auth/login", {
+        username: username.trim(),
+        password,
+      });
       setError("");
-      window.localStorage.setItem(FRONTEND_USERNAME_STORAGE_KEY, username);
       router.push("/home");
-      return;
+    } catch {
+      setError("Usuário ou senha inválidos");
+    } finally {
+      setIsSubmitting(false);
     }
-    setError("Usuário ou senha inválidos");
   };
 
   return (
@@ -137,9 +144,10 @@ export default function LoginPage() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="btn-primary h-[46px] w-full rounded-[8px] bg-[#193b4e] text-[15px] font-semibold text-white hover:bg-[#193b4e]/90 dark:bg-primary dark:text-white dark:hover:bg-primary/90"
               >
-                Entrar
+                {isSubmitting ? "Entrando..." : "Entrar"}
               </button>
               {error && (
                 <p className="text-[12px] font-medium text-destructive">

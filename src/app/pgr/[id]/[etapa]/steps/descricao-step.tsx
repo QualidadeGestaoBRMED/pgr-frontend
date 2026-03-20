@@ -1,13 +1,15 @@
 import { ArrowLeft, ArrowRight, FileSpreadsheet, MinusCircle, Search } from "lucide-react";
 import { SearchableSelect } from "./searchable-select";
+import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
+import type { PgrFunction } from "../types";
 
 type DescricaoStepProps = {
-  ctx: any;
+  ctx: DescricaoStepCtx;
 };
 
 type DescricaoGroup = {
   setor: string;
-  items: any[];
+  items: PgrFunction[];
 };
 
 type GheItem = {
@@ -249,7 +251,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           {group.setor}
                         </h3>
                         <div className="space-y-2 text-[13px] text-foreground/80">
-                          {group.items.map((funcao: any) => (
+                          {group.items.map((funcao: PgrFunction) => (
                             <label
                               key={funcao.id}
                               data-select-item
@@ -605,7 +607,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       </div>
                     ) : (
                         <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-2">
-                          {filteredAllFunctions.map((funcao: any) => {
+                          {filteredAllFunctions.map((funcao: PgrFunction) => {
                             const assignedGheId = functionAssignments.get(
                               funcao.id
                             );

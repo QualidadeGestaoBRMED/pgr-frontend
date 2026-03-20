@@ -2,3 +2,8 @@ node_modules
 .next
 .next_*
 .next_limpo_*
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+QUESTIONS.md
+resumo.md
+steps.md

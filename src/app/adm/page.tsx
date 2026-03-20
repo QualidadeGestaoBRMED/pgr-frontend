@@ -61,7 +61,7 @@ export default function HomePage() {
 
   const handleNewGhe = async () => {
     try {
-      const result = await apiPost<{ pgrId: string }>("/api/frontend/pgrs");
+      const result = await apiPost<{ pgrId: string }>("/api/v1/frontend/pgrs");
       router.push(`/pgr/${result.pgrId}/inicio`);
     } catch {
       // Sem bloqueio visual em falha de criação.
@@ -93,7 +93,7 @@ export default function HomePage() {
 
     const load = async () => {
       try {
-        const data = await apiGet<AdmData>("/api/frontend/adm");
+        const data = await apiGet<AdmData>("/api/v1/frontend/adm");
         if (!active) return;
         setHomeData(data);
       } catch {

@@ -1,12 +1,13 @@
 import { useCallback, useEffect } from "react";
+import type { GheGroup, HistoryEntry, RiskGheGroup } from "../types";
 
 type UseHistoryUndoArgs = {
-  setHistory: React.Dispatch<React.SetStateAction<any[]>>;
-  setGheGroups: React.Dispatch<React.SetStateAction<any[]>>;
+  setHistory: React.Dispatch<React.SetStateAction<HistoryEntry[]>>;
+  setGheGroups: React.Dispatch<React.SetStateAction<GheGroup[]>>;
   setCurrentGheId: React.Dispatch<React.SetStateAction<string>>;
   setSelectedLeftIds: React.Dispatch<React.SetStateAction<string[]>>;
   setSelectedRightIds: React.Dispatch<React.SetStateAction<string[]>>;
-  setRiskGheGroups: React.Dispatch<React.SetStateAction<any[]>>;
+  setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
   setCurrentRiskGheId: React.Dispatch<React.SetStateAction<string>>;
 };
 

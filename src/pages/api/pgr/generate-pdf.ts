@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import fs from "fs/promises";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, rgb } from "pdf-lib";
+import { PDFDocument, rgb, type PDFPage, type PDFFont } from "pdf-lib";
 import { ensureRuntimeFontsFromTemplate, getRuntimeFontDefinitions } from "@/lib/pgr-pdf-runtime/fonts";
 import { buildRuntimeSnapshot } from "@/lib/pgr-pdf-runtime/snapshot";
 import { resolveRuntimeTemplate } from "@/lib/pgr-pdf-runtime/template-registry";
@@ -85,19 +85,19 @@ type AnnexHeaderFooterOptions = {
   establishmentName: string;
   anl: string;
   brandLogo?: string;
-  fontLight: any;
-  fontMedium: any;
+  fontLight: PDFFont;
+  fontMedium: PDFFont;
   pageNumber?: number;
 };
 
 type AnnexCoverOptions = {
   label: string;
   title: string;
-  fontLight: any;
-  fontSemiBold: any;
+  fontLight: PDFFont;
+  fontSemiBold: PDFFont;
 };
 
-function drawAnnexCover(page: any, options: AnnexCoverOptions) {
+function drawAnnexCover(page: PDFPage, options: AnnexCoverOptions) {
   const labelY = A4_HEIGHT - ANNEX_COVER_TOP - ANNEX_COVER_FONT_SIZE;
   const titleY = labelY - ANNEX_COVER_TITLE_GAP - ANNEX_COVER_FONT_SIZE;
 
@@ -119,7 +119,7 @@ function drawAnnexCover(page: any, options: AnnexCoverOptions) {
   });
 }
 
-async function drawAnnexHeaderFooter(page: any, options: AnnexHeaderFooterOptions) {
+async function drawAnnexHeaderFooter(page: PDFPage, options: AnnexHeaderFooterOptions) {
   const headerLeftX = 40;
   const headerTop = A4_HEIGHT - 46;
   const footerY = 34;
@@ -453,7 +453,7 @@ function buildAnnexShellDefinition(options: {
 }
 
 async function buildAnnexShellPageBuffer(options: {
-  fontDefinitions: any;
+  fontDefinitions: Record<string, { normal: string; bold?: string; italics?: string; bolditalics?: string }>;
   companyName: string;
   establishmentName: string;
   anl: string;
@@ -478,7 +478,7 @@ async function buildAnnexShellPageBuffer(options: {
 
 async function mergeWithAnnexes(options: {
   basePdf: Buffer;
-  fontDefinitions: any;
+  fontDefinitions: Record<string, { normal: string; bold?: string; italics?: string; bolditalics?: string }>;
   annexItems: AnnexItem[];
   requestHeaders: NextApiRequest["headers"];
   pgrId: string;
@@ -496,7 +496,6 @@ async function mergeWithAnnexes(options: {
 
   const backendBase = resolveBackendBaseUrl();
   const headerCookie = options.requestHeaders.cookie;
-  const frontendUsername = options.requestHeaders["x-frontend-username"];
 
   const { artItems, otherItems } = sortAnnexItems(options.annexItems);
   const orderedItems = [...artItems, ...otherItems].filter((item) => item.arquivos.length);
@@ -527,11 +526,10 @@ async function mergeWithAnnexes(options: {
     }
 
     for (const file of item.arquivos) {
-      const url = `${backendBase}/api/frontend/pgr/${options.pgrId}/attachments/${file.id}/download`;
+      const url = `${backendBase}/api/v1/frontend/pgr/${options.pgrId}/attachments/${file.id}/download`;
       const response = await fetch(url, {
         headers: {
           ...(headerCookie ? { cookie: headerCookie } : {}),
-          ...(frontendUsername ? { "X-Frontend-Username": String(frontendUsername) } : {}),
         },
       });
       if (!response.ok) {
@@ -584,7 +582,10 @@ function buildFilename(baseName: string) {
   return cleaned || "pgr";
 }
 
-async function buildPdfBuffer(definition: any, fonts: any): Promise<Buffer> {
+async function buildPdfBuffer(
+  definition: Record<string, unknown>,
+  fonts: Record<string, { normal: string; bold?: string; italics?: string; bolditalics?: string }>
+): Promise<Buffer> {
   const printer = new PdfPrinter(fonts);
   const pdfDoc = printer.createPdfKitDocument(definition);
 
@@ -611,7 +612,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const payload = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) as Record<string, unknown>;
     const snapshot = buildRuntimeSnapshot(payload);
     const templatePath = path.join(process.cwd(), TEMPLATE_FILE_NAME);
     const [fontPaths, visualAssets] = await Promise.all([
@@ -627,18 +628,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       measureTextWidth,
       pageSize: { width: 595.28, height: 841.89 },
       pageMargins: [40, 96, 40, 36],
-    });
+    }) as Record<string, unknown>;
     const pdfBuffer = await buildPdfBuffer(definition, fontDefinitions);
-    const annexItems: AnnexItem[] = Array.isArray(payload?.anexos?.itens)
-      ? payload.anexos.itens.map((item: any) => ({
-          id: String(item?.id || ""),
-          titulo: sanitizeText(item?.titulo),
-          arquivos: Array.isArray(item?.arquivos)
-            ? item.arquivos
-                .map((file: any) => ({ id: String(file?.id || ""), nome: sanitizeText(file?.nome) }))
-                .filter((file: AnnexFile) => file.id)
-            : [],
-        }))
+    const rawAnexos = payload.anexos as { itens?: unknown[] } | undefined;
+    const annexItems: AnnexItem[] = Array.isArray(rawAnexos?.itens)
+      ? rawAnexos.itens.map((item) => {
+          const parsedItem = item as { id?: unknown; titulo?: unknown; arquivos?: unknown[] };
+          return {
+            id: String(parsedItem.id || ""),
+            titulo: sanitizeText(parsedItem.titulo),
+            arquivos: Array.isArray(parsedItem.arquivos)
+              ? parsedItem.arquivos
+                  .map((file) => {
+                    const parsedFile = file as { id?: unknown; nome?: unknown };
+                    return { id: String(parsedFile?.id || ""), nome: sanitizeText(parsedFile?.nome) };
+                  })
+                  .filter((file: AnnexFile) => file.id)
+              : [],
+          };
+        })
       : [];
     const mergedPdf = await mergeWithAnnexes({
       basePdf: pdfBuffer,

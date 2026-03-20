@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useRouter, notFound } from "next/navigation";
-import { apiBlob, apiGet, apiPut } from "@/lib/api";
+import { apiBlob, apiGet, apiPost, apiPut } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { defaultAnexos, defaultHistorico, initialDadosCadastrais, initialInicioDraft } from "../defaults";
+import type { HistoricoData } from "../types";
+import type { PersistedPgrState } from "../state/runtime-cache";
 import { slugify, truncatePreview } from "../utils/text";
 import { buildPgrDocxPayload, buildPgrDocxPayloadFromBackendState } from "../utils/docx-payload";
+import { computeWeightedProgressPercent } from "../utils/progress";
 import { createGeneralActions } from "./create-general-actions";
 import { useDescricaoInteractions } from "./use-descricao-interactions";
 import { useHistoryUndo } from "./use-history-undo";
@@ -60,6 +63,16 @@ export function usePgrEtapaController({
     currentStepId: step.id,
   });
 
+  const weightedProgressPercent = useMemo(
+    () =>
+      computeWeightedProgressPercent({
+        stepStatusById: derived.stepStatusById,
+        gheGroups: state.gheGroups,
+        isLocked: state.workflow.isLocked,
+      }),
+    [derived.stepStatusById, state.gheGroups, state.workflow.isLocked]
+  );
+
   usePgrPersistence({
     params,
     shouldHydrateFromApi,
@@ -73,6 +86,7 @@ export function usePgrEtapaController({
     setRiskCatalogs: setters.setRiskCatalogs,
     setters: {
       setCompletedSteps: setters.setCompletedSteps,
+      setProgressPercent: setters.setProgressPercent,
       setInicioDraft: setters.setInicioDraft,
       setDadosCadastrais: setters.setDadosCadastrais,
       setCardMeta: setters.setCardMeta,
@@ -87,10 +101,12 @@ export function usePgrEtapaController({
       setCurrentGheId: setters.setCurrentGheId,
       setRiskGheGroups: setters.setRiskGheGroups,
       setCurrentRiskGheId: setters.setCurrentRiskGheId,
+      setWorkflow: setters.setWorkflow,
       setIsStateLoading: setters.setIsStateLoading,
     },
     state: {
       completedSteps: state.completedSteps,
+      progressPercent: state.progressPercent,
       inicioDraft: state.inicioDraft,
       dadosCadastrais: state.dadosCadastrais,
       cardMeta: state.cardMeta,
@@ -105,6 +121,7 @@ export function usePgrEtapaController({
       currentGheId: state.currentGheId,
       riskGheGroups: state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
+      workflow: state.workflow,
       isStateLoading: state.isStateLoading,
     },
     refs: {
@@ -122,13 +139,17 @@ export function usePgrEtapaController({
     setHistoricoData: setters.setHistoricoData,
   });
 
-  const handleAdvanceApiSync = (nextCompleted: number) => {
-    void apiPut(`/api/frontend/pgr/${params.id}/state`, {
+  const handleAdvanceApiSync = useCallback((nextCompleted: number) => {
+    void apiPut(`/api/v1/frontend/pgr/${params.id}/state`, {
       completedSteps: nextCompleted,
+      meta: {
+        pgrId: params.id,
+        progressPercent: weightedProgressPercent,
+      },
     }).catch(() => {
       // Sem bloqueio de navegação em caso de falha de rede.
     });
-  };
+  }, [params.id, weightedProgressPercent]);
 
   const docxPayload = useMemo(
     () =>
@@ -175,6 +196,10 @@ export function usePgrEtapaController({
       const generatedAt = new Date().toLocaleString("pt-BR");
       const statePayload = {
         completedSteps: state.completedSteps,
+        meta: {
+          pgrId: params.id,
+          progressPercent: weightedProgressPercent,
+        },
         inicioDraft: state.inicioDraft,
         dadosCadastrais: state.dadosCadastrais,
         cardMeta: state.cardMeta,
@@ -191,11 +216,11 @@ export function usePgrEtapaController({
         currentRiskGheId: state.currentRiskGheId,
       };
 
-      await apiPut(`/api/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
+      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
         // segue com payload local se a persistência imediata falhar
       });
 
-      const backendState = await apiGet<any>(`/api/frontend/pgr/${params.id}/state`).catch(
+      const backendState = await apiGet<unknown>(`/api/v1/frontend/pgr/${params.id}/state`).catch(
         () => statePayload
       );
 
@@ -206,7 +231,6 @@ export function usePgrEtapaController({
         backendState,
       });
 
-      console.info("[PGR][PDF_PAYLOAD_FROM_BACKEND]", payloadFromBackend);
       const blob = await apiBlob(`/api/pgr/generate-pdf`, payloadFromBackend);
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -218,9 +242,37 @@ export function usePgrEtapaController({
       link.click();
       link.remove();
       setters.setLastFakePdfAt(new Date().toLocaleString("pt-BR"));
+      const finalizedState = await apiPost<{
+        completedSteps: number;
+        historico: HistoricoData;
+        workflow: PersistedPgrState["workflow"];
+        meta?: { progressPercent?: number };
+      }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
+      if (finalizedState?.workflow) {
+        setters.setWorkflow(finalizedState.workflow);
+      }
+      if (typeof finalizedState?.completedSteps === "number") {
+        setters.setCompletedSteps(finalizedState.completedSteps);
+      }
+      if (typeof finalizedState?.meta?.progressPercent === "number") {
+        setters.setProgressPercent(finalizedState.meta.progressPercent);
+      } else if (finalizedState?.workflow?.isLocked) {
+        setters.setProgressPercent(100);
+      }
+      if (finalizedState?.historico) {
+        setters.setHistoricoData(finalizedState.historico);
+      }
       window.setTimeout(() => {
         window.URL.revokeObjectURL(objectUrl);
       }, 200);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível finalizar/baixar o PDF agora.";
+      if (typeof window !== "undefined") {
+        window.alert(message);
+      }
     } finally {
       setters.setIsGeneratingFakePdf(false);
     }
@@ -231,6 +283,7 @@ export function usePgrEtapaController({
     state.anexos,
     state.cardMeta,
     state.completedSteps,
+    weightedProgressPercent,
     state.currentGheId,
     state.currentRiskGheId,
     state.dadosCadastrais,
@@ -244,6 +297,55 @@ export function usePgrEtapaController({
     state.riskGheGroups,
   ]);
 
+  const handleStartNewVersion = useCallback(async () => {
+    const updated = await apiPost<{
+      completedSteps: number;
+      historico: HistoricoData;
+      workflow: PersistedPgrState["workflow"];
+      meta?: { progressPercent?: number };
+    }>(`/api/v1/frontend/pgr/${params.id}/new-version`);
+    if (updated.workflow) {
+      setters.setWorkflow(updated.workflow);
+    }
+    if (typeof updated.completedSteps === "number") {
+      setters.setCompletedSteps(updated.completedSteps);
+    }
+    if (typeof updated.meta?.progressPercent === "number") {
+      setters.setProgressPercent(updated.meta.progressPercent);
+    } else {
+      setters.setProgressPercent(weightedProgressPercent);
+    }
+    if (updated.historico) {
+      setters.setHistoricoData(updated.historico);
+    }
+    router.push(`/pgr/${params.id}/inicio`);
+  }, [params.id, router, setters, weightedProgressPercent]);
+
+  useEffect(() => {
+    if (!state.workflow.isLocked) return;
+    if (step.id === "historico" || step.id === "revisao") return;
+    router.push(`/pgr/${params.id}/historico`);
+  }, [params.id, router, state.workflow.isLocked, step.id]);
+
+  useEffect(() => {
+    if (state.progressPercent !== weightedProgressPercent) {
+      setters.setProgressPercent(weightedProgressPercent);
+    }
+  }, [setters, state.progressPercent, weightedProgressPercent]);
+
+  useEffect(() => {
+    const orderedSteps = pgrSteps.map((item) => item.id);
+    let contiguousDone = 0;
+    for (const stepId of orderedSteps) {
+      if (!derived.stepStatusById[stepId]) break;
+      contiguousDone += 1;
+    }
+    if (contiguousDone > state.completedSteps) {
+      setters.setCompletedSteps(contiguousDone);
+      handleAdvanceApiSync(contiguousDone);
+    }
+  }, [derived.stepStatusById, handleAdvanceApiSync, setters, state.completedSteps]);
+
   useEffect(() => {
     if (state.planTablePage > derived.planTableTotalPages) {
       setters.setPlanTablePage(derived.planTableTotalPages);
@@ -253,7 +355,6 @@ export function usePgrEtapaController({
   const generalActions = createGeneralActions({
     params,
     initialDadosCadastrais,
-    apiState: {},
     setters: {
       setInicioDraft: setters.setInicioDraft,
       setDadosCadastrais: setters.setDadosCadastrais,
@@ -355,6 +456,7 @@ export function usePgrEtapaController({
       pgrId: params.id,
       currentStep: step.id as PgrStepId,
       completedSteps: state.completedSteps,
+      progressPercent: state.progressPercent,
       alertSteps: derived.alertSteps,
       stepStatusById: derived.stepStatusById,
       cycleTimeMs: cycleTime.cycleTotalMs,
@@ -414,6 +516,7 @@ export function usePgrEtapaController({
       currentGhe: derived.currentGhe,
       infoModalError: state.infoModalError,
       infoModalMode: state.infoModalMode,
+      workflow: state.workflow,
       riskGheGroups: state.riskGheGroups,
       setRiskGheGroups: setters.setRiskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
@@ -455,6 +558,7 @@ export function usePgrEtapaController({
       setIsPreviewModalOpen: setters.setIsPreviewModalOpen,
       fakePreviewLines,
       handleGenerateFakePdf,
+      handleStartNewVersion,
       generalActions,
       descricaoInteractions,
     },
@@ -462,6 +566,7 @@ export function usePgrEtapaController({
       stepId: step.id,
       prevStepId: prevStep?.id ?? null,
       nextStepId: nextStep?.id ?? null,
+      workflowIsLocked: state.workflow.isLocked,
       onNavigateStep: (stepId: string) => router.push(`/pgr/${params.id}/${stepId}`),
       onAdvance: generalActions.handleAdvance,
       onCreateNextGhe: descricaoInteractions.handleCreateNextGhe,

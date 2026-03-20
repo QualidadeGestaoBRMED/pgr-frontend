@@ -7,6 +7,7 @@ type PgrShellProps = {
   pgrId: string;
   currentStep: PgrStepId;
   completedSteps: number;
+  progressPercent?: number;
   stepStatusById?: Partial<Record<PgrStepId, boolean>>;
   alertSteps?: Partial<Record<PgrStepId, boolean>>;
   cycleTimeMs?: number;
@@ -62,6 +63,7 @@ export function PgrShell({
   pgrId,
   currentStep,
   completedSteps,
+  progressPercent,
   stepStatusById,
   alertSteps,
   cycleTimeMs = 0,
@@ -73,13 +75,11 @@ export function PgrShell({
     0,
     Math.min(completedSteps, totalSteps)
   );
-  const doneStepsCount = pgrSteps.reduce((count, step, index) => {
-    if (alertSteps?.[step.id]) return count;
-    if (stepStatusById?.[step.id]) return count + 1;
-    if (index >= clampedCompleted) return count;
-    return count + 1;
-  }, 0);
-  const progressValue = Math.round((doneStepsCount / totalSteps) * 100);
+  const progressByCompletedSteps = Math.round((clampedCompleted / totalSteps) * 100);
+  const progressValue =
+    typeof progressPercent === "number"
+      ? Math.max(0, Math.min(100, Math.round(progressPercent)))
+      : progressByCompletedSteps;
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr] lg:items-start">

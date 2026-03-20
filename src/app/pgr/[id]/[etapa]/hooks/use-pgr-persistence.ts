@@ -1,10 +1,122 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { apiGet, apiPut } from "@/lib/api";
 import { pgrSteps } from "@/app/pgr/steps";
+import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
+import type { AnexoItem, GheGroup, GheRisk, HistoricoData, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
+import type { PersistedPgrState } from "../state/runtime-cache";
 
-let riskCatalogsRuntimeCache: any | null | undefined;
+type CardMeta = PersistedPgrState["cardMeta"];
+type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
+type PlanAction = PersistedPgrState["planAction"];
+type Workflow = PersistedPgrState["workflow"];
 
-export function usePgrPersistence(ctx: any) {
+type PersistPayload = {
+  completedSteps: number;
+  meta: {
+    pgrId: string;
+    progressPercent: number;
+  };
+  inicioDraft: InicioDraft;
+  dadosCadastrais: DadosCadastraisDraft;
+  cardMeta: CardMeta;
+  historico: HistoricoData;
+  functions: PgrFunction[];
+  extraEstabelecimentoFields: ExtraField[];
+  estabelecimentoSelecionado: string;
+  planAction: PlanAction;
+  anexos: AnexoItem[];
+  anexoDiretriz: string;
+  gheGroups: GheGroup[];
+  currentGheId: string;
+  riskGheGroups: RiskGheGroup[];
+  currentRiskGheId: string;
+  workflow: Workflow;
+};
+
+type BackendStateResponse = Partial<{
+  completedSteps: number;
+  meta: Partial<{
+    pgrId: string;
+    progressPercent: number;
+  }>;
+  inicioDraft: Partial<InicioDraft>;
+  dadosCadastrais: Partial<DadosCadastraisDraft>;
+  cardMeta: Partial<CardMeta> & { companyPipefyId?: string; responsiblePipefyId?: string };
+  historico: Partial<HistoricoData> & { changes?: HistoricoData["changes"] };
+  functions: PgrFunction[];
+  extraEstabelecimentoFields: Array<Partial<ExtraField>>;
+  estabelecimentoSelecionado: string;
+  planAction: Partial<PlanAction>;
+  anexos: AnexoItem[];
+  anexoDiretriz: string;
+  gheGroups: GheGroup[];
+  currentGheId: string;
+  riskGheGroups: Array<Omit<RiskGheGroup, "risks"> & { risks?: GheRisk[] }>;
+  currentRiskGheId: string;
+  workflow: Partial<Workflow>;
+}>;
+
+type UsePgrPersistenceContext = {
+  params: { id: string };
+  shouldHydrateFromApi: boolean;
+  defaultHistorico: HistoricoData;
+  initialInicioDraft: InicioDraft;
+  initialDadosCadastrais: DadosCadastraisDraft;
+  defaultAnexos: AnexoItem[];
+  applyMissingRiskDefaults: (risk: GheRisk) => GheRisk;
+  areStringArraysEqual: (a: string[], b: string[]) => boolean;
+  riskCatalogs: RiskCatalogPayload | null;
+  setRiskCatalogs: Dispatch<SetStateAction<RiskCatalogPayload | null>>;
+  setters: {
+    setCompletedSteps: Dispatch<SetStateAction<number>>;
+    setProgressPercent: Dispatch<SetStateAction<number>>;
+    setInicioDraft: Dispatch<SetStateAction<InicioDraft>>;
+    setDadosCadastrais: Dispatch<SetStateAction<DadosCadastraisDraft>>;
+    setCardMeta: Dispatch<SetStateAction<CardMeta>>;
+    setHistoricoData: Dispatch<SetStateAction<HistoricoData>>;
+    setFunctionsData: Dispatch<SetStateAction<PgrFunction[]>>;
+    setExtraEstabelecimentoFields: Dispatch<SetStateAction<ExtraField[]>>;
+    setEstabelecimentoSelecionado: Dispatch<SetStateAction<string>>;
+    setPlanAction: Dispatch<SetStateAction<PlanAction>>;
+    setAnexos: Dispatch<SetStateAction<AnexoItem[]>>;
+    setAnexoDiretriz: Dispatch<SetStateAction<string>>;
+    setGheGroups: Dispatch<SetStateAction<GheGroup[]>>;
+    setCurrentGheId: Dispatch<SetStateAction<string>>;
+    setRiskGheGroups: Dispatch<SetStateAction<RiskGheGroup[]>>;
+    setCurrentRiskGheId: Dispatch<SetStateAction<string>>;
+    setWorkflow: Dispatch<SetStateAction<Workflow>>;
+    setIsStateLoading: Dispatch<SetStateAction<boolean>>;
+  };
+  state: {
+    completedSteps: number;
+    progressPercent: number;
+    inicioDraft: InicioDraft;
+    dadosCadastrais: DadosCadastraisDraft;
+    cardMeta: CardMeta;
+    historicoData: HistoricoData;
+    functionsData: PgrFunction[];
+    extraEstabelecimentoFields: ExtraField[];
+    estabelecimentoSelecionado: string;
+    planAction: PlanAction;
+    anexos: AnexoItem[];
+    anexoDiretriz: string;
+    gheGroups: GheGroup[];
+    currentGheId: string;
+    riskGheGroups: RiskGheGroup[];
+    currentRiskGheId: string;
+    workflow: Workflow;
+    isStateLoading: boolean;
+  };
+  refs: {
+    saveTimerRef: MutableRefObject<number | null>;
+    lastCompletedSyncRef: MutableRefObject<number | null>;
+  };
+  setRuntimeCachedStateFn: (pgrId: string, state: PersistedPgrState) => void;
+};
+
+let riskCatalogsRuntimeCache: RiskCatalogPayload | null | undefined;
+
+export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const {
     params,
     shouldHydrateFromApi,
@@ -24,6 +136,7 @@ export function usePgrPersistence(ctx: any) {
 
   const {
     setCompletedSteps,
+    setProgressPercent,
     setInicioDraft,
     setDadosCadastrais,
     setCardMeta,
@@ -38,11 +151,13 @@ export function usePgrPersistence(ctx: any) {
     setCurrentGheId,
     setRiskGheGroups,
     setCurrentRiskGheId,
+    setWorkflow,
     setIsStateLoading,
   } = setters;
 
   const {
     completedSteps,
+    progressPercent,
     inicioDraft,
     dadosCadastrais,
     cardMeta,
@@ -57,15 +172,17 @@ export function usePgrPersistence(ctx: any) {
     currentGheId,
     riskGheGroups,
     currentRiskGheId,
+    workflow,
     isStateLoading,
   } = state;
 
   const { saveTimerRef } = refs;
   const skipInitialPersistRef = useRef(true);
-  const pendingPersistPayloadRef = useRef<any | null>(null);
+  const pendingPersistPayloadRef = useRef<PersistPayload | null>(null);
 
   const buildRuntimeCacheState = ({
     completed,
+    progress,
     inicio,
     dados,
     card,
@@ -80,26 +197,30 @@ export function usePgrPersistence(ctx: any) {
     gheId,
     riskGhes,
     riskGheId,
+    workflowState,
   }: {
     completed: number;
-    inicio: any;
-    dados: any;
-    card: any;
-    historico: any;
-    functions: any[];
-    extraFields: any[];
+    progress: number;
+    inicio: InicioDraft;
+    dados: DadosCadastraisDraft;
+    card: CardMeta;
+    historico: HistoricoData;
+    functions: PgrFunction[];
+    extraFields: ExtraField[];
     estabelecimento: string;
-    plan: any;
-    anexosState: any[];
+    plan: PlanAction;
+    anexosState: AnexoItem[];
     diretriz: string;
-    ghes: any[];
+    ghes: GheGroup[];
     gheId: string;
-    riskGhes: any[];
+    riskGhes: RiskGheGroup[];
     riskGheId: string;
+    workflowState: Workflow;
   }) => ({
     serverSynced: true,
     syncedAt: Date.now(),
     completedSteps: completed,
+    progressPercent: progress,
     inicioDraft: inicio,
     dadosCadastrais: dados,
     cardMeta: card,
@@ -114,17 +235,19 @@ export function usePgrPersistence(ctx: any) {
     currentGheId: gheId,
     riskGheGroups: riskGhes,
     currentRiskGheId: riskGheId,
+    workflow: workflowState,
   });
 
   const persistPayload = useCallback(
-    (payload: any) => {
+    (payload: PersistPayload) => {
       pendingPersistPayloadRef.current = payload;
-      return apiPut(`/api/frontend/pgr/${params.id}/state`, payload)
+      return apiPut(`/api/v1/frontend/pgr/${params.id}/state`, payload)
         .then(() => {
           setRuntimeCachedStateFn(
             params.id,
             buildRuntimeCacheState({
               completed: payload.completedSteps,
+              progress: payload.meta.progressPercent,
               inicio: payload.inicioDraft,
               dados: payload.dadosCadastrais,
               card: payload.cardMeta,
@@ -139,6 +262,7 @@ export function usePgrPersistence(ctx: any) {
               gheId: payload.currentGheId,
               riskGhes: payload.riskGheGroups,
               riskGheId: payload.currentRiskGheId,
+              workflowState: payload.workflow,
             })
           );
         })
@@ -161,7 +285,7 @@ export function usePgrPersistence(ctx: any) {
     let active = true;
     const loadRiskCatalogs = async () => {
       try {
-        const data = await apiGet("/api/catalogs/risk");
+        const data = await apiGet<RiskCatalogPayload>("/api/catalogs/risk");
         if (!active) return;
         riskCatalogsRuntimeCache = data;
         setRiskCatalogs(data);
@@ -179,10 +303,10 @@ export function usePgrPersistence(ctx: any) {
 
   useEffect(() => {
     if (!riskCatalogs) return;
-    setRiskGheGroups((prev: any[]) => {
+    setRiskGheGroups((prev: RiskGheGroup[]) => {
       let changed = false;
       const next = prev.map((ghe) => {
-        const risks = ghe.risks.map((risk: any) => {
+        const risks = ghe.risks.map((risk) => {
           const normalized = applyMissingRiskDefaults(risk);
           const same =
             normalized.perigo === risk.perigo &&
@@ -199,7 +323,7 @@ export function usePgrPersistence(ctx: any) {
           if (!same) changed = true;
           return same ? risk : normalized;
         });
-        const sameRisks = risks.every((risk: any, index: number) => risk === ghe.risks[index]);
+        const sameRisks = risks.every((risk, index: number) => risk === ghe.risks[index]);
         return sameRisks ? ghe : { ...ghe, risks };
       });
       return changed ? next : prev;
@@ -219,13 +343,17 @@ export function usePgrPersistence(ctx: any) {
 
     const loadState = async () => {
       try {
-        const state = await apiGet<any>(`/api/frontend/pgr/${params.id}/state`);
+        const state = await apiGet<BackendStateResponse>(`/api/v1/frontend/pgr/${params.id}/state`);
         if (!active) return;
 
         const rawCompleted = Number(state.completedSteps);
         const normalizedCompleted = Number.isFinite(rawCompleted)
           ? Math.max(0, Math.min(rawCompleted, pgrSteps.length))
           : 0;
+        const rawProgress = Number(state.meta?.progressPercent);
+        const normalizedProgress = Number.isFinite(rawProgress)
+          ? Math.max(0, Math.min(100, Math.round(rawProgress)))
+          : Math.round((normalizedCompleted / Math.max(1, pgrSteps.length)) * 100);
         const loadedInicioDraft = { ...initialInicioDraft, ...(state.inicioDraft || {}) };
         const loadedDadosCadastrais = {
           ...initialDadosCadastrais,
@@ -249,7 +377,7 @@ export function usePgrPersistence(ctx: any) {
         };
         const loadedFunctions = state.functions?.length ? state.functions : [];
         const loadedExtraFields = Array.isArray(state.extraEstabelecimentoFields)
-          ? state.extraEstabelecimentoFields.map((field: any) => ({
+          ? state.extraEstabelecimentoFields.map((field) => ({
               id: field.id || `est-field-${Date.now()}-${Math.random()}`,
               title: field.title || "",
               value: field.value || "",
@@ -263,15 +391,32 @@ export function usePgrPersistence(ctx: any) {
         const loadedGheGroups = state.gheGroups?.length ? state.gheGroups : gheGroups;
         const loadedCurrentGheId = state.currentGheId || loadedGheGroups[0]?.id || currentGheId;
         const loadedRiskGheGroups = state.riskGheGroups?.length
-          ? state.riskGheGroups.map((ghe: any) => ({
+          ? state.riskGheGroups.map((ghe) => ({
               ...ghe,
-              risks: (ghe.risks || []).map((risk: any) => applyMissingRiskDefaults(risk)),
+              risks: (ghe.risks || []).map((risk) => applyMissingRiskDefaults(risk)),
             }))
           : riskGheGroups;
         const loadedCurrentRiskGheId =
           state.currentRiskGheId || loadedRiskGheGroups[0]?.id || currentRiskGheId;
+        const loadedWorkflow: Workflow = {
+          isLocked: Boolean(state.workflow?.isLocked),
+          version: Math.max(1, Number(state.workflow?.version || 1)),
+          finalizedAt:
+            typeof state.workflow?.finalizedAt === "string"
+              ? state.workflow.finalizedAt
+              : null,
+          finalizedBy:
+            typeof state.workflow?.finalizedBy === "string"
+              ? state.workflow.finalizedBy
+              : null,
+          finalizedById:
+            typeof state.workflow?.finalizedById === "number"
+              ? state.workflow.finalizedById
+              : null,
+        };
 
         setCompletedSteps(normalizedCompleted);
+        setProgressPercent(normalizedProgress);
         setInicioDraft(loadedInicioDraft);
         setDadosCadastrais(loadedDadosCadastrais);
         setCardMeta(loadedCardMeta);
@@ -287,11 +432,13 @@ export function usePgrPersistence(ctx: any) {
         setCurrentGheId(loadedCurrentGheId);
         setRiskGheGroups(loadedRiskGheGroups);
         setCurrentRiskGheId(loadedCurrentRiskGheId);
+        setWorkflow(loadedWorkflow);
 
         setRuntimeCachedStateFn(
           params.id,
           buildRuntimeCacheState({
             completed: normalizedCompleted,
+            progress: normalizedProgress,
             inicio: loadedInicioDraft,
             dados: loadedDadosCadastrais,
             card: loadedCardMeta,
@@ -306,6 +453,7 @@ export function usePgrPersistence(ctx: any) {
             gheId: loadedCurrentGheId,
             riskGhes: loadedRiskGheGroups,
             riskGheId: loadedCurrentRiskGheId,
+            workflowState: loadedWorkflow,
           })
         );
       } catch {
@@ -325,9 +473,9 @@ export function usePgrPersistence(ctx: any) {
   }, [params.id, shouldHydrateFromApi]);
 
   useEffect(() => {
-    setRiskGheGroups((prev: any[]) => {
+    setRiskGheGroups((prev: RiskGheGroup[]) => {
       const prevById = new Map(prev.map((group) => [group.id, group]));
-      const next = gheGroups.map((ghe: any) => ({
+      const next = gheGroups.map((ghe) => ({
         id: ghe.id,
         name: ghe.name,
         risks: prevById.get(ghe.id)?.risks || [],
@@ -335,7 +483,7 @@ export function usePgrPersistence(ctx: any) {
       const unchanged =
         next.length === prev.length &&
         next.every(
-          (item: any, index: number) =>
+          (item, index: number) =>
             item.id === prev[index]?.id &&
             item.name === prev[index]?.name &&
             item.risks === prev[index]?.risks
@@ -346,13 +494,14 @@ export function usePgrPersistence(ctx: any) {
 
   useEffect(() => {
     if (!riskGheGroups.length) return;
-    if (!riskGheGroups.some((ghe: any) => ghe.id === currentRiskGheId)) {
+    if (!riskGheGroups.some((ghe) => ghe.id === currentRiskGheId)) {
       setCurrentRiskGheId(riskGheGroups[0].id);
     }
   }, [riskGheGroups, currentRiskGheId, setCurrentRiskGheId]);
 
   useEffect(() => {
     if (isStateLoading) return;
+    if (workflow.isLocked) return;
     if (skipInitialPersistRef.current) {
       skipInitialPersistRef.current = false;
       return;
@@ -364,6 +513,10 @@ export function usePgrPersistence(ctx: any) {
 
     const payload = {
       completedSteps,
+      meta: {
+        pgrId: params.id,
+        progressPercent,
+      },
       inicioDraft,
       dadosCadastrais,
       cardMeta,
@@ -378,13 +531,11 @@ export function usePgrPersistence(ctx: any) {
       currentGheId,
       riskGheGroups,
       currentRiskGheId,
+      workflow,
     };
 
     pendingPersistPayloadRef.current = payload;
     saveTimerRef.current = window.setTimeout(() => {
-      if (typeof window !== "undefined") {
-        console.info("[PGR][STATE->BACKEND]", payload);
-      }
       void persistPayload(payload);
       saveTimerRef.current = null;
     }, 600);
@@ -400,6 +551,7 @@ export function usePgrPersistence(ctx: any) {
     anexos,
     cardMeta,
     completedSteps,
+    progressPercent,
     currentGheId,
     currentRiskGheId,
     dadosCadastrais,
@@ -416,6 +568,7 @@ export function usePgrPersistence(ctx: any) {
     riskGheGroups,
     saveTimerRef,
     setRuntimeCachedStateFn,
+    workflow,
   ]);
 
   useEffect(() => {
