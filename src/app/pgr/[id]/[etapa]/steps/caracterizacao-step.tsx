@@ -162,6 +162,28 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risks: ghe.risks.map((risk) =>
                 risk.id === riskId
                   ? (() => {
+                      if (field === "tipoAgente") {
+                        const nextRisk = {
+                          ...risk,
+                          tipoAgente: value,
+                          // Ao trocar o agente, zera campos dependentes para evitar
+                          // combinações inválidas (ex.: descrição de outro agente).
+                          descricaoAgente: "",
+                          perigo: "",
+                          meioPropagacao: "",
+                          fontes: "",
+                          tipoAvaliacao: "",
+                          intensidade: "",
+                          severidade: "",
+                          probabilidade: "",
+                          classificacao: "",
+                          medidasControle: "",
+                          epc: ["N/A"],
+                          epi: ["N/A"],
+                        };
+                        return nextRisk;
+                      }
+
                       const nextRisk = { ...risk, [field]: value };
                       if (
                         field !== "tipoAgente" &&

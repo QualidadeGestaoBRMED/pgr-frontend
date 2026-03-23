@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { DEFAULT_DESCRICAO_AGENTE_OPTIONS, DEFAULT_TIPO_AGENTE_OPTIONS } from "../defaults";
+import { DEFAULT_TIPO_AGENTE_OPTIONS } from "../defaults";
 import type { GheRisk, RiskCatalogPayload } from "../types";
 
 const normalizeCatalogToken = (value: string) =>
@@ -92,17 +92,14 @@ const deriveProtectionDefaults = (risk: GheRisk) => {
 };
 
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
-  const allowStaticFallback = process.env.NODE_ENV !== "production";
-
   const normalizeAgentName = useCallback((value: string) => normalizeCatalogToken((value || "").trim()), []);
 
   const tipoAgenteOptions = useMemo(() => {
     const fromCatalog = (riskCatalogs?.riskAgents || [])
       .map((item) => String(item.name || "").trim())
       .filter((name) => name.length > 0);
-    if (fromCatalog.length) return fromCatalog;
-    return allowStaticFallback ? DEFAULT_TIPO_AGENTE_OPTIONS : [];
-  }, [allowStaticFallback, riskCatalogs]);
+    return fromCatalog.length ? fromCatalog : DEFAULT_TIPO_AGENTE_OPTIONS;
+  }, [riskCatalogs]);
 
   const riskAgentIdByNameExact = useMemo(() => {
     const map = new Map<string, number>();
@@ -276,18 +273,18 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const getDescricaoAgenteOptions = useCallback(
     (tipoAgente: string, currentValue: string) => {
       const agentId = resolveRiskAgentId(tipoAgente);
-      let options = agentId
+      const options = agentId
         ? riskDescriptionsByAgent.get(agentId) || []
         : [];
-      if (!options.length && allowStaticFallback) {
-        options = DEFAULT_DESCRICAO_AGENTE_OPTIONS;
-      }
-      if (currentValue && !options.includes(currentValue)) {
-        return [currentValue, ...options];
+
+      const safeCurrentValue = String(currentValue || "").trim();
+      if (!safeCurrentValue) return options;
+      if (options.includes(safeCurrentValue)) {
+        return options;
       }
       return options;
     },
-    [allowStaticFallback, resolveRiskAgentId, riskDescriptionsByAgent]
+    [resolveRiskAgentId, riskDescriptionsByAgent]
   );
 
   return {
