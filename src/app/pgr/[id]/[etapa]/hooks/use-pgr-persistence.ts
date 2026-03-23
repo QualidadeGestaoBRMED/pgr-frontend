@@ -281,7 +281,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     const loadRiskCatalogs = async () => {
       try {
         const data = await apiGet<RiskCatalogPayload>(
-          `/api/v1/frontend/catalogs/risk?ts=${Date.now()}`
+          `/api/catalogs/risk?ts=${Date.now()}`
         );
         if (!active) return;
         const hasCatalogData =

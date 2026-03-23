@@ -34,6 +34,9 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return NextResponse.json(emptyPayload, { status: 200 });
+    return NextResponse.json(
+      { ...emptyPayload, message: "Falha ao consultar catálogo no backend" },
+      { status: 502 }
+    );
   }
 }

@@ -94,78 +94,115 @@ const deriveProtectionDefaults = (risk: GheRisk) => {
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const allowStaticFallback = process.env.NODE_ENV !== "production";
 
+  const normalizeAgentName = useCallback((value: string) => normalizeCatalogToken((value || "").trim()), []);
+
   const tipoAgenteOptions = useMemo(() => {
-    const fromCatalog = (riskCatalogs?.riskAgents || []).map((item) => item.name);
+    const fromCatalog = (riskCatalogs?.riskAgents || [])
+      .map((item) => String(item.name || "").trim())
+      .filter((name) => name.length > 0);
     if (fromCatalog.length) return fromCatalog;
     return allowStaticFallback ? DEFAULT_TIPO_AGENTE_OPTIONS : [];
   }, [allowStaticFallback, riskCatalogs]);
 
-  const riskAgentIdByName = useMemo(() => {
+  const riskAgentIdByNameExact = useMemo(() => {
     const map = new Map<string, number>();
     (riskCatalogs?.riskAgents || []).forEach((item) => {
-      map.set(item.name, item.id);
+      const safeName = String(item.name || "").trim();
+      if (!safeName) return;
+      map.set(safeName, item.id);
     });
     return map;
   }, [riskCatalogs]);
 
-  const riskDescriptionsByAgent = useMemo(() => {
-    const grouped = new Map<number, string[]>();
-    (riskCatalogs?.riskDescriptions || []).forEach((item) => {
-      if (!item.agent || !item.name) return;
-      const current = grouped.get(item.agent) || [];
-      if (!current.includes(item.name)) current.push(item.name);
-      grouped.set(item.agent, current);
+  const riskAgentIdByNameNormalized = useMemo(() => {
+    const map = new Map<string, number>();
+    (riskCatalogs?.riskAgents || []).forEach((item) => {
+      const safeName = String(item.name || "").trim();
+      if (!safeName) return;
+      map.set(normalizeAgentName(safeName), item.id);
     });
-    return grouped;
+    return map;
+  }, [normalizeAgentName, riskCatalogs]);
+
+  const resolveRiskAgentId = useCallback(
+    (agentName: string): number | undefined => {
+      const safeName = String(agentName || "").trim();
+      if (!safeName) return undefined;
+      const exact = riskAgentIdByNameExact.get(safeName);
+      if (typeof exact === "number") return exact;
+      return riskAgentIdByNameNormalized.get(normalizeAgentName(safeName));
+    },
+    [normalizeAgentName, riskAgentIdByNameExact, riskAgentIdByNameNormalized]
+  );
+
+  const riskDescriptionsByAgent = useMemo(() => {
+      const grouped = new Map<number, string[]>();
+      (riskCatalogs?.riskDescriptions || []).forEach((item) => {
+        if (!item.agent || !item.name) return;
+        const safeName = String(item.name || "").trim();
+        if (!safeName) return;
+        const current = grouped.get(item.agent) || [];
+        if (!current.includes(safeName)) current.push(safeName);
+        grouped.set(item.agent, current);
+      });
+      return grouped;
   }, [riskCatalogs]);
 
   const hazardsByAgent = useMemo(() => {
-    const grouped = new Map<number, string[]>();
-    (riskCatalogs?.hazards || []).forEach((item) => {
-      if (!item.agent || !item.name) return;
-      const current = grouped.get(item.agent) || [];
-      if (!current.includes(item.name)) current.push(item.name);
-      grouped.set(item.agent, current);
-    });
-    return grouped;
+      const grouped = new Map<number, string[]>();
+      (riskCatalogs?.hazards || []).forEach((item) => {
+        if (!item.agent || !item.name) return;
+        const safeName = String(item.name || "").trim();
+        if (!safeName) return;
+        const current = grouped.get(item.agent) || [];
+        if (!current.includes(safeName)) current.push(safeName);
+        grouped.set(item.agent, current);
+      });
+      return grouped;
   }, [riskCatalogs]);
 
   const riskSourcesByAgent = useMemo(() => {
-    const grouped = new Map<number, string[]>();
-    (riskCatalogs?.riskSources || []).forEach((item) => {
-      if (!item.agent || !item.name) return;
-      const current = grouped.get(item.agent) || [];
-      if (!current.includes(item.name)) current.push(item.name);
-      grouped.set(item.agent, current);
-    });
-    return grouped;
+      const grouped = new Map<number, string[]>();
+      (riskCatalogs?.riskSources || []).forEach((item) => {
+        if (!item.agent || !item.name) return;
+        const safeName = String(item.name || "").trim();
+        if (!safeName) return;
+        const current = grouped.get(item.agent) || [];
+        if (!current.includes(safeName)) current.push(safeName);
+        grouped.set(item.agent, current);
+      });
+      return grouped;
   }, [riskCatalogs]);
 
   const propagationPathsByAgent = useMemo(() => {
-    const grouped = new Map<number, string[]>();
-    (riskCatalogs?.propagationPaths || []).forEach((item) => {
-      if (!item.agent || !item.name) return;
-      const current = grouped.get(item.agent) || [];
-      if (!current.includes(item.name)) current.push(item.name);
-      grouped.set(item.agent, current);
-    });
-    return grouped;
+      const grouped = new Map<number, string[]>();
+      (riskCatalogs?.propagationPaths || []).forEach((item) => {
+        if (!item.agent || !item.name) return;
+        const safeName = String(item.name || "").trim();
+        if (!safeName) return;
+        const current = grouped.get(item.agent) || [];
+        if (!current.includes(safeName)) current.push(safeName);
+        grouped.set(item.agent, current);
+      });
+      return grouped;
   }, [riskCatalogs]);
 
   const healthDamagesByAgent = useMemo(() => {
-    const grouped = new Map<number, string[]>();
-    (riskCatalogs?.healthDamages || []).forEach((item) => {
-      if (!item.agent || !item.name) return;
-      const current = grouped.get(item.agent) || [];
-      if (!current.includes(item.name)) current.push(item.name);
-      grouped.set(item.agent, current);
-    });
-    return grouped;
+      const grouped = new Map<number, string[]>();
+      (riskCatalogs?.healthDamages || []).forEach((item) => {
+        if (!item.agent || !item.name) return;
+        const safeName = String(item.name || "").trim();
+        if (!safeName) return;
+        const current = grouped.get(item.agent) || [];
+        if (!current.includes(safeName)) current.push(safeName);
+        grouped.set(item.agent, current);
+      });
+      return grouped;
   }, [riskCatalogs]);
 
   const getRiskDefaults = useCallback(
     (risk: GheRisk): Partial<GheRisk> => {
-      const agentId = riskAgentIdByName.get(risk.tipoAgente);
+      const agentId = resolveRiskAgentId(risk.tipoAgente);
       const perigoDefault =
         getFirstCatalogValue(healthDamagesByAgent, agentId) ||
         getFirstCatalogValue(hazardsByAgent, agentId);
@@ -196,7 +233,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       hazardsByAgent,
       healthDamagesByAgent,
       propagationPathsByAgent,
-      riskAgentIdByName,
+      resolveRiskAgentId,
       riskSourcesByAgent,
     ]
   );
@@ -238,7 +275,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
 
   const getDescricaoAgenteOptions = useCallback(
     (tipoAgente: string, currentValue: string) => {
-      const agentId = riskAgentIdByName.get(tipoAgente);
+      const agentId = resolveRiskAgentId(tipoAgente);
       let options = agentId
         ? riskDescriptionsByAgent.get(agentId) || []
         : [];
@@ -250,7 +287,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       }
       return options;
     },
-    [allowStaticFallback, riskAgentIdByName, riskDescriptionsByAgent]
+    [allowStaticFallback, resolveRiskAgentId, riskDescriptionsByAgent]
   );
 
   return {
