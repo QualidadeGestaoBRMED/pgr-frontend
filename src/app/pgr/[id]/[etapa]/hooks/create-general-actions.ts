@@ -502,10 +502,13 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         message: `Planilha importada: ${imported.functions.length} funções e ${imported.gheGroups.length} GHEs.`,
       });
     } catch (error) {
-      const message =
+      const rawMessage =
         error instanceof Error
           ? error.message
           : "Não foi possível importar essa planilha.";
+      const message = /^arquivo inválido:/i.test(rawMessage)
+        ? rawMessage
+        : `Arquivo inválido: ${rawMessage}`;
       setExcelImportFeedback({
         type: "error",
         message,
@@ -513,6 +516,70 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     } finally {
       setIsImportingExcel(false);
     }
+  };
+
+  const handleAddManualFunction = (payload: {
+    setor: string;
+    funcao: string;
+    descricao: string;
+    assignToCurrentGhe?: boolean;
+    gheId?: string;
+    funcionarios?: string;
+  }) => {
+    const setor = payload.setor.trim();
+    const funcao = payload.funcao.trim();
+    const descricao = payload.descricao.trim() || funcao;
+    if (!funcao) {
+      throw new Error("Informe ao menos a Função para cadastro manual.");
+    }
+
+    let createdFunctionId = "";
+    const normalizedKey = `${setor}||${funcao}||${descricao}`.toLowerCase();
+
+    setFunctionsData((prev) => {
+      const existing = prev.find(
+        (item) =>
+          `${(item.setor || "").trim()}||${(item.funcao || "").trim()}||${(
+            item.descricao || ""
+          ).trim()}`.toLowerCase() === normalizedKey
+      );
+      if (existing) {
+        createdFunctionId = existing.id;
+        return prev;
+      }
+
+      createdFunctionId = `func-manual-${Date.now()}-${prev.length + 1}`;
+      return [
+        ...prev,
+        {
+          id: createdFunctionId,
+          setor,
+          funcao,
+          descricao,
+        },
+      ];
+    });
+
+    if (!payload.assignToCurrentGhe || !payload.gheId || !createdFunctionId) {
+      return;
+    }
+
+    setGheGroups((prev) =>
+      prev.map((ghe) => {
+        if (ghe.id !== payload.gheId) return ghe;
+        if (ghe.items.some((item) => item.functionId === createdFunctionId)) return ghe;
+        return {
+          ...ghe,
+          items: [
+            ...ghe.items,
+            {
+              functionId: createdFunctionId,
+              funcionarios: (payload.funcionarios || "").trim(),
+            },
+          ],
+        };
+      })
+    );
   };
 
   const maskDate = (value: string) => {
@@ -707,6 +774,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleExtraEstabelecimentoFieldChange,
     handleRemoveExtraField,
     handleDescricaoExcelChange,
+    handleAddManualFunction,
     maskDate,
     handleAnexoFiles,
     handleAnexoFileRename,

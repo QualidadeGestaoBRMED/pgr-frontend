@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, FileSpreadsheet, MinusCircle, Search } from "lucide-react";
+import { useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
 import type { PgrFunction } from "../types";
@@ -24,6 +25,15 @@ type GheGroup = {
 };
 
 export function DescricaoStep({ ctx }: DescricaoStepProps) {
+  const [manualSetor, setManualSetor] = useState("");
+  const [manualFuncao, setManualFuncao] = useState("");
+  const [manualDescricao, setManualDescricao] = useState("");
+  const [manualAssignToCurrentGhe, setManualAssignToCurrentGhe] = useState(true);
+  const [manualFeedback, setManualFeedback] = useState<null | {
+    type: "success" | "error";
+    message: string;
+  }>(null);
+
   const {
     currentGheName,
     lastGheNotice,
@@ -37,6 +47,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     isGheListView,
     importExcelInputRef,
     handleDescricaoExcelChange,
+    handleAddManualFunction,
     isImportingExcel,
     excelImportFeedback,
     groupedFunctions,
@@ -89,6 +100,34 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     handleConfirmInfoModal,
     infoModalMode,
   } = ctx;
+
+  const handleManualFunctionSubmit = () => {
+    try {
+      handleAddManualFunction({
+        setor: manualSetor,
+        funcao: manualFuncao,
+        descricao: manualDescricao,
+        assignToCurrentGhe: manualAssignToCurrentGhe,
+        gheId: currentGhe?.id,
+      });
+      setManualFeedback({
+        type: "success",
+        message: manualAssignToCurrentGhe
+          ? "Função cadastrada manualmente e associada ao GHE atual."
+          : "Função cadastrada manualmente na lista geral.",
+      });
+      setManualSetor("");
+      setManualFuncao("");
+      setManualDescricao("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Não foi possível cadastrar a função manual.";
+      setManualFeedback({
+        type: "error",
+        message,
+      });
+    }
+  };
 
   return (
     <>
@@ -195,6 +234,57 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                 {excelImportFeedback.message}
               </p>
             ) : null}
+            <div className="mt-3 rounded-[12px] border border-border/70 bg-card px-4 py-4">
+              <p className="text-[13px] font-semibold text-foreground">
+                Sem planilha? Cadastre função manualmente
+              </p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Use este fallback para criar funções sem importação de Excel.
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <input
+                  value={manualSetor}
+                  onChange={(event) => setManualSetor(event.target.value)}
+                  className={inputInlineClass}
+                  placeholder="Setor (opcional)"
+                />
+                <input
+                  value={manualFuncao}
+                  onChange={(event) => setManualFuncao(event.target.value)}
+                  className={inputInlineClass}
+                  placeholder="Função (obrigatório)"
+                />
+                <input
+                  value={manualDescricao}
+                  onChange={(event) => setManualDescricao(event.target.value)}
+                  className={inputInlineClass}
+                  placeholder="Descrição da função (opcional)"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <label className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={manualAssignToCurrentGhe}
+                    onChange={(event) => setManualAssignToCurrentGhe(event.target.checked)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  Associar automaticamente ao {currentGheName}
+                </label>
+                <button type="button" onClick={handleManualFunctionSubmit} className="btn-primary px-4">
+                  Adicionar função manual
+                </button>
+              </div>
+              {manualFeedback ? (
+                <p
+                  className={`mt-2 text-[12px] ${
+                    manualFeedback.type === "error" ? "text-danger" : "text-muted-foreground"
+                  }`}
+                >
+                  {manualFeedback.message}
+                </p>
+              ) : null}
+            </div>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-stretch">
               <div
