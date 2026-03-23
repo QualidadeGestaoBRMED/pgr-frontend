@@ -114,8 +114,6 @@ type UsePgrPersistenceContext = {
   setRuntimeCachedStateFn: (pgrId: string, state: PersistedPgrState) => void;
 };
 
-let riskCatalogsRuntimeCache: RiskCatalogPayload | undefined;
-
 export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const {
     params,
@@ -277,16 +275,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   );
 
   useEffect(() => {
-    if (riskCatalogsRuntimeCache) {
-      setRiskCatalogs(riskCatalogsRuntimeCache);
-      return;
-    }
-
     let active = true;
     let retryTimer: number | null = null;
+    let refreshTimer: number | null = null;
     const loadRiskCatalogs = async () => {
       try {
-        const data = await apiGet<RiskCatalogPayload>("/api/v1/frontend/catalogs/risk");
+        const data = await apiGet<RiskCatalogPayload>(
+          `/api/v1/frontend/catalogs/risk?ts=${Date.now()}`
+        );
         if (!active) return;
         const hasCatalogData =
           Array.isArray(data.riskAgents) &&
@@ -302,7 +298,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           return;
         }
 
-        riskCatalogsRuntimeCache = data;
         setRiskCatalogs(data);
       } catch {
         if (!active) return;
@@ -313,10 +308,16 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       }
     };
     void loadRiskCatalogs();
+    refreshTimer = window.setInterval(() => {
+      void loadRiskCatalogs();
+    }, 60000);
     return () => {
       active = false;
       if (retryTimer !== null) {
         window.clearTimeout(retryTimer);
+      }
+      if (refreshTimer !== null) {
+        window.clearInterval(refreshTimer);
       }
     };
   }, [setRiskCatalogs]);
