@@ -28,6 +28,16 @@ const toCatalogAgentId = (value: unknown): number | null => {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : null;
   }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const nested =
+      record.id ??
+      record.pk ??
+      record.agent_id ??
+      record.agentId ??
+      (record.agent as unknown);
+    return toCatalogAgentId(nested);
+  }
   return null;
 };
 
@@ -142,7 +152,18 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       if (!safeName) return undefined;
       const exact = riskAgentIdByNameExact.get(safeName);
       if (typeof exact === "number") return exact;
-      return riskAgentIdByNameNormalized.get(normalizeAgentName(safeName));
+      const normalized = normalizeAgentName(safeName);
+      const normalizedMatch = riskAgentIdByNameNormalized.get(normalized);
+      if (typeof normalizedMatch === "number") return normalizedMatch;
+
+      // Fallback resiliente para catálogos com nomes compostos/legados
+      // (ex.: "Químico (não utilizar)") preservando o mapeamento por agente.
+      for (const [token, id] of riskAgentIdByNameNormalized.entries()) {
+        if (token.includes(normalized) || normalized.includes(token)) {
+          return id;
+        }
+      }
+      return undefined;
     },
     [normalizeAgentName, riskAgentIdByNameExact, riskAgentIdByNameNormalized]
   );

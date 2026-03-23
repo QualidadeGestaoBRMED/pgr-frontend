@@ -6,6 +6,7 @@ import type {
   PgrFunction,
   RiskGheGroup,
 } from "./types";
+import { createEmptyContratante } from "./utils/contractors";
 
 export const defaultHistorico: HistoricoData = {
   title: "Histórico de Versões",
@@ -68,6 +69,7 @@ export const initialDadosCadastrais: DadosCadastraisDraft = {
   estabelecimentoCnae: "",
   estabelecimentoGrauRisco: "",
   estabelecimentoAtividadePrincipal: "",
+  contratantes: [createEmptyContratante()],
   contratanteNomeFantasia: "",
   contratanteRazaoSocial: "",
   contratanteCnpj: "",

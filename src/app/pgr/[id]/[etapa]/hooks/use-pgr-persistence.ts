@@ -4,6 +4,12 @@ import { pgrSteps } from "@/app/pgr/steps";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, GheGroup, GheRisk, HistoricoData, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
+import { syncLegacyContractorFields } from "../utils/contractors";
+import {
+  DEFAULT_PDF_LAYOUT_STATE,
+  normalizePdfLayoutState,
+  type PdfLayoutState,
+} from "@/lib/pgr-pdf-runtime/layout";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -30,6 +36,7 @@ type PersistPayload = {
   currentGheId: string;
   riskGheGroups: RiskGheGroup[];
   currentRiskGheId: string;
+  pdfLayout: PdfLayoutState;
   workflow: Workflow;
 };
 
@@ -53,6 +60,7 @@ type BackendStateResponse = Partial<{
   currentGheId: string;
   riskGheGroups: Array<Omit<RiskGheGroup, "risks"> & { risks?: GheRisk[] }>;
   currentRiskGheId: string;
+  pdfLayout: unknown;
   workflow: Partial<Workflow>;
 }>;
 
@@ -84,6 +92,7 @@ type UsePgrPersistenceContext = {
     setCurrentGheId: Dispatch<SetStateAction<string>>;
     setRiskGheGroups: Dispatch<SetStateAction<RiskGheGroup[]>>;
     setCurrentRiskGheId: Dispatch<SetStateAction<string>>;
+    setPdfLayout: Dispatch<SetStateAction<PdfLayoutState>>;
     setWorkflow: Dispatch<SetStateAction<Workflow>>;
     setIsStateLoading: Dispatch<SetStateAction<boolean>>;
   };
@@ -104,6 +113,7 @@ type UsePgrPersistenceContext = {
     currentGheId: string;
     riskGheGroups: RiskGheGroup[];
     currentRiskGheId: string;
+    pdfLayout: PdfLayoutState;
     workflow: Workflow;
     isStateLoading: boolean;
   };
@@ -149,6 +159,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setCurrentGheId,
     setRiskGheGroups,
     setCurrentRiskGheId,
+    setPdfLayout,
     setWorkflow,
     setIsStateLoading,
   } = setters;
@@ -170,6 +181,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     currentGheId,
     riskGheGroups,
     currentRiskGheId,
+    pdfLayout,
     workflow,
     isStateLoading,
   } = state;
@@ -195,6 +207,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     gheId,
     riskGhes,
     riskGheId,
+    pdfLayout,
     workflowState,
   }: {
     completed: number;
@@ -213,6 +226,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     gheId: string;
     riskGhes: RiskGheGroup[];
     riskGheId: string;
+    pdfLayout: PdfLayoutState;
     workflowState: Workflow;
   }) => ({
     serverSynced: true,
@@ -233,6 +247,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     currentGheId: gheId,
     riskGheGroups: riskGhes,
     currentRiskGheId: riskGheId,
+    pdfLayout,
     workflow: workflowState,
   });
 
@@ -260,6 +275,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               gheId: payload.currentGheId,
               riskGhes: payload.riskGheGroups,
               riskGheId: payload.currentRiskGheId,
+              pdfLayout: payload.pdfLayout,
               workflowState: payload.workflow,
             })
           );
@@ -280,9 +296,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     let refreshTimer: number | null = null;
     const loadRiskCatalogs = async () => {
       try {
-        const data = await apiGet<RiskCatalogPayload>(
-          `/api/v1/frontend/catalogs/risk?ts=${Date.now()}`
-        );
+        const data = await apiGet<RiskCatalogPayload>(`/api/catalogs/risk?ts=${Date.now()}`);
         if (!active) return;
         const hasCatalogData =
           Array.isArray(data.riskAgents) &&
@@ -376,10 +390,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           ? Math.max(0, Math.min(100, Math.round(rawProgress)))
           : Math.round((normalizedCompleted / Math.max(1, pgrSteps.length)) * 100);
         const loadedInicioDraft = { ...initialInicioDraft, ...(state.inicioDraft || {}) };
-        const loadedDadosCadastrais = {
+        const loadedDadosCadastrais = syncLegacyContractorFields({
           ...initialDadosCadastrais,
           ...(state.dadosCadastrais || {}),
-        };
+        });
         const loadedCardMeta = {
           pipefyCardId: state.cardMeta?.pipefyCardId || "",
           cardName: state.cardMeta?.cardName || "",
@@ -419,6 +433,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           : riskGheGroups;
         const loadedCurrentRiskGheId =
           state.currentRiskGheId || loadedRiskGheGroups[0]?.id || currentRiskGheId;
+        const loadedPdfLayout = normalizePdfLayoutState(
+          state.pdfLayout ?? DEFAULT_PDF_LAYOUT_STATE
+        );
         const loadedWorkflow: Workflow = {
           isLocked: Boolean(state.workflow?.isLocked),
           version: Math.max(1, Number(state.workflow?.version || 1)),
@@ -453,6 +470,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setCurrentGheId(loadedCurrentGheId);
         setRiskGheGroups(loadedRiskGheGroups);
         setCurrentRiskGheId(loadedCurrentRiskGheId);
+        setPdfLayout(loadedPdfLayout);
         setWorkflow(loadedWorkflow);
 
         setRuntimeCachedStateFn(
@@ -474,6 +492,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             gheId: loadedCurrentGheId,
             riskGhes: loadedRiskGheGroups,
             riskGheId: loadedCurrentRiskGheId,
+            pdfLayout: loadedPdfLayout,
             workflowState: loadedWorkflow,
           })
         );
@@ -552,6 +571,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       currentGheId,
       riskGheGroups,
       currentRiskGheId,
+      pdfLayout,
       workflow,
     };
 
@@ -586,9 +606,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     params.id,
     persistPayload,
     planAction,
+    pdfLayout,
     riskGheGroups,
     saveTimerRef,
-    setRuntimeCachedStateFn,
     workflow,
   ]);
 

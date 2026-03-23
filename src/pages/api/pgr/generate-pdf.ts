@@ -7,6 +7,7 @@ import { ensureRuntimeFontsFromTemplate, getRuntimeFontDefinitions } from "@/lib
 import { buildRuntimeSnapshot } from "@/lib/pgr-pdf-runtime/snapshot";
 import { resolveRuntimeTemplate } from "@/lib/pgr-pdf-runtime/template-registry";
 import { ensureRuntimeVisualAssetsFromTemplate } from "@/lib/pgr-pdf-runtime/assets";
+import { normalizePdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 const TEMPLATE_FILE_NAME = "Modelo de PGR.docx";
 const PdfPrinter = require("pdfmake");
@@ -608,11 +609,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     measureDoc.font(fontPaths.workSansMedium.normal).fontSize(10);
     const measureTextWidth = (text: string) => measureDoc.widthOfString(String(text || ""));
     const runtimeTemplate = resolveRuntimeTemplate(payload);
+    const normalizedPdfLayout = normalizePdfLayoutState(payload?.pdfLayout);
     const definition = runtimeTemplate.build(snapshot, visualAssets, {
       measureTextWidth,
       pageSize: { width: 595.28, height: 841.89 },
       pageMargins: [40, 96, 40, 36],
-    }) as Record<string, unknown>;
+    }, normalizedPdfLayout) as Record<string, unknown>;
     const pdfBuffer = await buildPdfBuffer(definition, fontDefinitions);
     const rawAnexos = payload.anexos as { itens?: unknown[] } | undefined;
     const annexItems: AnnexItem[] = Array.isArray(rawAnexos?.itens)

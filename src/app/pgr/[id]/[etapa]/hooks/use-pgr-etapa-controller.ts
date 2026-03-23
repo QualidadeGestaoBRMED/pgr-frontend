@@ -17,6 +17,7 @@ import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
 import { useCycleTimeTracker } from "./use-cycle-time-tracker";
 import { setRuntimeCachedState } from "../state/runtime-cache";
+import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 export function usePgrEtapaController({
   params,
@@ -101,6 +102,7 @@ export function usePgrEtapaController({
       setCurrentGheId: setters.setCurrentGheId,
       setRiskGheGroups: setters.setRiskGheGroups,
       setCurrentRiskGheId: setters.setCurrentRiskGheId,
+      setPdfLayout: setters.setPdfLayout,
       setWorkflow: setters.setWorkflow,
       setIsStateLoading: setters.setIsStateLoading,
     },
@@ -121,6 +123,7 @@ export function usePgrEtapaController({
       currentGheId: state.currentGheId,
       riskGheGroups: state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
+      pdfLayout: state.pdfLayout,
       workflow: state.workflow,
       isStateLoading: state.isStateLoading,
     },
@@ -168,6 +171,7 @@ export function usePgrEtapaController({
         planAction: state.planAction,
         anexos: state.anexos,
         anexoDiretriz: state.anexoDiretriz,
+        pdfLayout: state.pdfLayout,
       }),
     [
       derived.stepStatusById,
@@ -181,6 +185,7 @@ export function usePgrEtapaController({
       state.historicoData,
       state.inicioDraft,
       state.planAction,
+      state.pdfLayout,
       state.riskGheGroups,
     ]
   );
@@ -214,6 +219,7 @@ export function usePgrEtapaController({
         currentGheId: state.currentGheId,
         riskGheGroups: state.riskGheGroups,
         currentRiskGheId: state.currentRiskGheId,
+        pdfLayout: state.pdfLayout,
       };
 
       await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
@@ -230,6 +236,7 @@ export function usePgrEtapaController({
         totalSteps: pgrSteps.length,
         backendState,
       });
+      payloadFromBackend.pdfLayout = state.pdfLayout;
 
       const blob = await apiBlob(`/api/pgr/generate-pdf`, payloadFromBackend);
       const objectUrl = window.URL.createObjectURL(blob);
@@ -294,8 +301,75 @@ export function usePgrEtapaController({
     state.historicoData,
     state.inicioDraft,
     state.planAction,
+    state.pdfLayout,
     state.riskGheGroups,
   ]);
+
+  const handleGeneratePreviewPdf = useCallback(
+    async (layoutOverride?: PdfLayoutState) => {
+      const generatedAt = new Date().toLocaleString("pt-BR");
+      const effectiveLayout = layoutOverride ?? state.pdfLayout;
+      const statePayload = {
+        completedSteps: state.completedSteps,
+        meta: {
+          pgrId: params.id,
+          progressPercent: weightedProgressPercent,
+        },
+        inicioDraft: state.inicioDraft,
+        dadosCadastrais: state.dadosCadastrais,
+        cardMeta: state.cardMeta,
+        historico: state.historicoData,
+        functions: state.functionsData,
+        extraEstabelecimentoFields: state.extraEstabelecimentoFields,
+        estabelecimentoSelecionado: state.estabelecimentoSelecionado,
+        planAction: state.planAction,
+        anexos: state.anexos,
+        anexoDiretriz: state.anexoDiretriz,
+        gheGroups: state.gheGroups,
+        currentGheId: state.currentGheId,
+        riskGheGroups: state.riskGheGroups,
+        currentRiskGheId: state.currentRiskGheId,
+        pdfLayout: effectiveLayout,
+      };
+
+      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
+        // segue com payload local quando houver falha pontual de rede
+      });
+
+      const backendState = await apiGet<unknown>(`/api/v1/frontend/pgr/${params.id}/state`).catch(
+        () => statePayload
+      );
+      const payloadFromBackend = buildPgrDocxPayloadFromBackendState({
+        pgrId: params.id,
+        generatedAt,
+        totalSteps: pgrSteps.length,
+        backendState,
+      });
+      payloadFromBackend.pdfLayout = effectiveLayout;
+      const blob = await apiBlob(`/api/pgr/generate-pdf`, payloadFromBackend);
+      return window.URL.createObjectURL(blob);
+    },
+    [
+      params.id,
+      state.anexoDiretriz,
+      state.anexos,
+      state.cardMeta,
+      state.completedSteps,
+      state.currentGheId,
+      state.currentRiskGheId,
+      state.dadosCadastrais,
+      state.estabelecimentoSelecionado,
+      state.extraEstabelecimentoFields,
+      state.functionsData,
+      state.gheGroups,
+      state.historicoData,
+      state.inicioDraft,
+      state.planAction,
+      state.pdfLayout,
+      state.riskGheGroups,
+      weightedProgressPercent,
+    ]
+  );
 
   const handleStartNewVersion = useCallback(async () => {
     const updated = await apiPost<{
@@ -521,6 +595,8 @@ export function usePgrEtapaController({
       setRiskGheGroups: setters.setRiskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
       setCurrentRiskGheId: setters.setCurrentRiskGheId,
+      pdfLayout: state.pdfLayout,
+      setPdfLayout: setters.setPdfLayout,
       pushHistory: actions.pushHistory,
       applyMissingRiskDefaults: derived.applyMissingRiskDefaults,
       tipoAgenteOptions: derived.tipoAgenteOptions,
@@ -557,6 +633,7 @@ export function usePgrEtapaController({
       isPreviewModalOpen: state.isPreviewModalOpen,
       setIsPreviewModalOpen: setters.setIsPreviewModalOpen,
       fakePreviewLines,
+      handleGeneratePreviewPdf,
       handleGenerateFakePdf,
       handleStartNewVersion,
       generalActions,

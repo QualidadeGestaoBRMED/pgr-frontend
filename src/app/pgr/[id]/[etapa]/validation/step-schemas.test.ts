@@ -6,6 +6,15 @@ import {
   isInicioDraftComplete,
   isRiskComplete,
 } from "./step-schemas";
+import {
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+  isValidPhoneBr,
+  isValidRiskGrade,
+  maskCpf,
+  maskPhoneBr,
+} from "./br-field-utils";
 
 describe("step schemas", () => {
   it("validates inicio draft required fields", () => {
@@ -15,7 +24,7 @@ describe("step schemas", () => {
       documentTitle: "PGR Teste",
       companyName: "Empresa X",
       unitName: "Unidade 1",
-      cnpj: "12.345.678/0001-90",
+      cnpj: "04.252.011/0001-10",
       responsible: "Maria",
       email: "maria@empresa.com",
       notes: "",
@@ -30,16 +39,34 @@ describe("step schemas", () => {
   it("validates dados cadastrais required subset", () => {
     const complete = {
       empresaRazaoSocial: "Razao",
-      empresaCnpj: "12.345.678/0001-90",
+      empresaCnpj: "04.252.011/0001-10",
       empresaCnae: "01.11-3-01",
       empresaEndereco: "Rua A",
       empresaCidade: "Rio",
       empresaEstado: "RJ",
+      empresaGrauRisco: "2",
+      estabelecimentoCnpj: "33.000.167/0001-01",
+      estabelecimentoGrauRisco: "3",
+      contratantes: [
+        {
+          id: "contr-1",
+          nomeFantasia: "Cliente X",
+          razaoSocial: "Cliente X LTDA",
+          cnpj: "45.543.915/0001-81",
+          cnae: "62.01-5-01",
+          endereco: "Rua B",
+          cep: "20000-000",
+          cidade: "Rio de Janeiro",
+          estado: "RJ",
+          grauRisco: "3",
+          atividadePrincipal: "Serviços",
+        },
+      ],
       responsavelPgrNome: "Joao",
       responsavelPgrFuncao: "Engenheiro",
-      responsavelPgrTelefone: "2199999999",
+      responsavelPgrTelefone: "(21) 99999-9999",
       responsavelPgrEmail: "joao@empresa.com",
-      responsavelPgrCpf: "00000000000",
+      responsavelPgrCpf: "529.982.247-25",
     };
 
     const invalid = { ...complete, responsavelPgrEmail: "" };
@@ -74,5 +101,20 @@ describe("step schemas", () => {
     expect(isGheInfoComplete(gheInfo)).toBe(true);
     expect(isRiskComplete(risk)).toBe(true);
     expect(isRiskComplete({ ...risk, epc: [] })).toBe(false);
+  });
+
+  it("validates cpf/cnpj/email/phone/risk-grade helpers", () => {
+    expect(isValidCpf("529.982.247-25")).toBe(true);
+    expect(isValidCpf("111.111.111-11")).toBe(false);
+    expect(isValidCnpj("04.252.011/0001-10")).toBe(true);
+    expect(isValidCnpj("00.000.000/0000-00")).toBe(false);
+    expect(isValidEmail("contato@empresa.com.br")).toBe(true);
+    expect(isValidEmail("contato@empresa")).toBe(false);
+    expect(isValidPhoneBr("(21) 99999-9999")).toBe(true);
+    expect(isValidPhoneBr("123")).toBe(false);
+    expect(maskPhoneBr("21999999999")).toBe("(21) 99999-9999");
+    expect(maskCpf("52998224725")).toBe("529.982.247-25");
+    expect(isValidRiskGrade("1")).toBe(true);
+    expect(isValidRiskGrade("5")).toBe(false);
   });
 });

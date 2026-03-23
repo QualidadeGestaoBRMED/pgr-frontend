@@ -18,6 +18,11 @@ import type {
   RiskGheGroup,
 } from "../types";
 import { getRuntimeCachedState } from "../state/runtime-cache";
+import { syncLegacyContractorFields } from "../utils/contractors";
+import {
+  DEFAULT_PDF_LAYOUT_STATE,
+  normalizePdfLayoutState,
+} from "@/lib/pgr-pdf-runtime/layout";
 
 export function usePgrEtapaState({
   paramsId,
@@ -47,7 +52,9 @@ export function usePgrEtapaState({
     serverSyncedCachedState?.inicioDraft ?? initialInicioDraft
   );
   const [dadosCadastrais, setDadosCadastrais] = useState<DadosCadastraisDraft>(
-    serverSyncedCachedState?.dadosCadastrais ?? initialDadosCadastrais
+    syncLegacyContractorFields(
+      serverSyncedCachedState?.dadosCadastrais ?? initialDadosCadastrais
+    )
   );
   const [cardMeta, setCardMeta] = useState(
     serverSyncedCachedState?.cardMeta ?? {
@@ -69,9 +76,12 @@ export function usePgrEtapaState({
   const saveTimerRef = useRef<number | null>(null);
   const lastCompletedSyncRef = useRef<number | null>(null);
   const importExcelInputRef = useRef<HTMLInputElement | null>(null);
-  const lastCepLookupRef = useRef<{ empresa: string; contratante: string }>({
+  const lastCepLookupRef = useRef<{
+    empresa: string;
+    contratanteByIndex: Record<string, string>;
+  }>({
     empresa: "",
-    contratante: "",
+    contratanteByIndex: {},
   });
 
   const [isPipefySyncing, setIsPipefySyncing] = useState(false);
@@ -149,6 +159,9 @@ export function usePgrEtapaState({
       finalizedBy: null as string | null,
       finalizedById: null as number | null,
     }
+  );
+  const [pdfLayout, setPdfLayout] = useState(() =>
+    normalizePdfLayoutState(serverSyncedCachedState?.pdfLayout ?? DEFAULT_PDF_LAYOUT_STATE)
   );
   const [lastGheNotice, setLastGheNotice] = useState<null | { from: string; to: string }>(
     null
@@ -243,6 +256,7 @@ export function usePgrEtapaState({
       riskGheGroups,
       currentRiskGheId,
       workflow,
+      pdfLayout,
       lastGheNotice,
     },
     setters: {
@@ -292,6 +306,7 @@ export function usePgrEtapaState({
       setRiskGheGroups,
       setCurrentRiskGheId,
       setWorkflow,
+      setPdfLayout,
       setLastGheNotice,
     },
     refs: {

@@ -18,7 +18,10 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
     <RevisaoPreviewModal
       open={ctx.isPreviewModalOpen}
       fakePreviewLines={ctx.fakePreviewLines}
+      pdfLayout={ctx.pdfLayout}
       isGeneratingFakePdf={ctx.isGeneratingFakePdf}
+      onPdfLayoutChange={ctx.setPdfLayout}
+      onGeneratePreviewPdf={ctx.handleGeneratePreviewPdf}
       onClose={() => ctx.setIsPreviewModalOpen(false)}
       onGenerate={ctx.handleGenerateFakePdf}
     />

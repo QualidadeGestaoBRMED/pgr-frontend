@@ -1,6 +1,7 @@
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import { defaultHistorico } from "../defaults";
 import type { AnexoItem, GheGroup, PgrFunction, RiskGheGroup } from "../types";
+import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 export type PersistedPgrState = {
   serverSynced?: boolean;
@@ -32,6 +33,7 @@ export type PersistedPgrState = {
   currentGheId: string;
   riskGheGroups: RiskGheGroup[];
   currentRiskGheId: string;
+  pdfLayout: PdfLayoutState;
   workflow: {
     isLocked: boolean;
     version: number;

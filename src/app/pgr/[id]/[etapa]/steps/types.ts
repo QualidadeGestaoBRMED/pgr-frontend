@@ -12,6 +12,20 @@ export type InicioDraft = {
 
 export type InicioDraftEditableField = keyof Omit<InicioDraft, "syncedAt">;
 
+export type ContratanteDraft = {
+  id: string;
+  nomeFantasia: string;
+  razaoSocial: string;
+  cnpj: string;
+  cnae: string;
+  endereco: string;
+  cep: string;
+  cidade: string;
+  estado: string;
+  grauRisco: string;
+  atividadePrincipal: string;
+};
+
 export type DadosCadastraisDraft = {
   empresaRazaoSocial: string;
   empresaGrupo: string;
@@ -30,6 +44,7 @@ export type DadosCadastraisDraft = {
   estabelecimentoCnae: string;
   estabelecimentoGrauRisco: string;
   estabelecimentoAtividadePrincipal: string;
+  contratantes: ContratanteDraft[];
   contratanteNomeFantasia: string;
   contratanteRazaoSocial: string;
   contratanteCnpj: string;
