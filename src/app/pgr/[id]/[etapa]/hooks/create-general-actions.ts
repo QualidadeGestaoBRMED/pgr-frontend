@@ -11,6 +11,19 @@ import type {
   RiskGheGroup,
 } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
+import {
+  maskCep,
+  maskCnpj,
+  maskCpf,
+  maskPhoneBr,
+  normalizeEmail,
+  normalizeRiskGrade,
+} from "../validation/br-field-utils";
+import {
+  createEmptyContratante,
+  normalizeContractors,
+  syncLegacyContractorFields,
+} from "../utils/contractors";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -53,7 +66,10 @@ type GeneralActionsContext = {
     setDragOverAnexoId: React.Dispatch<React.SetStateAction<string | null>>;
   };
   current: {
-    lastCepLookupRef: React.MutableRefObject<{ empresa: string; contratante: string }>;
+    lastCepLookupRef: React.MutableRefObject<{
+      empresa: string;
+      contratanteByIndex: Record<string, string>;
+    }>;
     planActionScope: "all" | "ghe" | "risk";
     riskGheGroups: RiskGheGroup[];
     planActionGheId: string;
@@ -136,9 +152,15 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const { handleAdvanceApiSync } = helpers;
 
   const handleInicioDraftChange = (field: keyof InicioDraft, value: string) => {
+    const normalizedValue =
+      field === "cnpj"
+        ? maskCnpj(value)
+        : field === "email"
+          ? normalizeEmail(value)
+          : value;
     setInicioDraft((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: normalizedValue,
     }));
   };
 
@@ -146,23 +168,86 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     field: keyof DadosCadastraisDraft,
     value: string
   ) => {
-    setDadosCadastrais((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    const normalizedValue = (() => {
+      switch (field) {
+        case "empresaCnpj":
+        case "estabelecimentoCnpj":
+        case "contratanteCnpj":
+          return maskCnpj(value);
+        case "responsavelPgrCpf":
+          return maskCpf(value);
+        case "responsavelPgrTelefone":
+          return maskPhoneBr(value);
+        case "empresaCep":
+        case "contratanteCep":
+          return maskCep(value);
+        case "responsavelPgrEmail":
+          return normalizeEmail(value);
+        case "empresaGrauRisco":
+        case "estabelecimentoGrauRisco":
+        case "contratanteGrauRisco":
+          return normalizeRiskGrade(value);
+        default:
+          return value;
+      }
+    })();
+
+    setDadosCadastrais((prev) => {
+      const next = { ...prev, [field]: normalizedValue };
+      if (
+        field.startsWith("contratante") &&
+        Array.isArray(prev.contratantes) &&
+        prev.contratantes.length
+      ) {
+        const first = prev.contratantes[0];
+        const updatedFirst = {
+          ...first,
+          ...(field === "contratanteNomeFantasia" ? { nomeFantasia: normalizedValue } : {}),
+          ...(field === "contratanteRazaoSocial" ? { razaoSocial: normalizedValue } : {}),
+          ...(field === "contratanteCnpj" ? { cnpj: normalizedValue } : {}),
+          ...(field === "contratanteCnae" ? { cnae: normalizedValue } : {}),
+          ...(field === "contratanteEndereco" ? { endereco: normalizedValue } : {}),
+          ...(field === "contratanteCep" ? { cep: normalizedValue } : {}),
+          ...(field === "contratanteCidade" ? { cidade: normalizedValue } : {}),
+          ...(field === "contratanteEstado" ? { estado: normalizedValue } : {}),
+          ...(field === "contratanteGrauRisco" ? { grauRisco: normalizedValue } : {}),
+          ...(field === "contratanteAtividadePrincipal"
+            ? { atividadePrincipal: normalizedValue }
+            : {}),
+        };
+        next.contratantes = [updatedFirst, ...prev.contratantes.slice(1)];
+      }
+      return syncLegacyContractorFields(next);
+    });
   };
 
   const handleRecalculateByCep = async (
     scope: "empresa" | "contratante",
-    cepValue: string
+    cepValue: string,
+    contractorIndex = 0
   ) => {
     const cep = cepValue.replace(/\D/g, "");
     if (cep.length !== 8) {
-      lastCepLookupRef.current[scope] = "";
+      if (scope === "empresa") {
+        lastCepLookupRef.current.empresa = "";
+      } else {
+        lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] = "";
+      }
       return;
     }
-    if (lastCepLookupRef.current[scope] === cep) return;
-    lastCepLookupRef.current[scope] = cep;
+    if (scope === "empresa" && lastCepLookupRef.current.empresa === cep) return;
+    if (
+      scope === "contratante" &&
+      lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] === cep
+    ) {
+      return;
+    }
+
+    if (scope === "empresa") {
+      lastCepLookupRef.current.empresa = cep;
+    } else {
+      lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] = cep;
+    }
 
     try {
       const response = await apiPost<{
@@ -182,24 +267,111 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         if (scope === "empresa") {
           return {
             ...prev,
-            empresaCep: payload.cep || prev.empresaCep,
+            empresaCep: maskCep(payload.cep || prev.empresaCep),
             empresaEndereco: payload.logradouro || prev.empresaEndereco,
             empresaCidade: payload.localidade || prev.empresaCidade,
             empresaEstado: payload.uf || prev.empresaEstado,
           };
         }
 
-        return {
+        const contractors = normalizeContractors(prev);
+        const safeIndex = Math.max(0, Math.min(contractorIndex, contractors.length - 1));
+        const nextContractors = contractors.map((contractor, index) =>
+          index === safeIndex
+            ? {
+                ...contractor,
+                cep: maskCep(payload.cep || contractor.cep),
+                endereco: payload.logradouro || contractor.endereco,
+                cidade: payload.localidade || contractor.cidade,
+                estado: payload.uf || contractor.estado,
+              }
+            : contractor
+        );
+
+        return syncLegacyContractorFields({
           ...prev,
-          contratanteCep: payload.cep || prev.contratanteCep,
-          contratanteEndereco: payload.logradouro || prev.contratanteEndereco,
-          contratanteCidade: payload.localidade || prev.contratanteCidade,
-          contratanteEstado: payload.uf || prev.contratanteEstado,
-        };
+          contratantes: nextContractors,
+        });
       });
     } catch {
-      lastCepLookupRef.current[scope] = "";
+      if (scope === "empresa") {
+        lastCepLookupRef.current.empresa = "";
+      } else {
+        lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] = "";
+      }
     }
+  };
+
+  const handleContractorChange = (
+    contractorIndex: number,
+    field: keyof Omit<
+      DadosCadastraisDraft["contratantes"][number],
+      "id"
+    >,
+    value: string
+  ) => {
+    const normalizedValue = (() => {
+      switch (field) {
+        case "cnpj":
+          return maskCnpj(value);
+        case "cep":
+          return maskCep(value);
+        case "grauRisco":
+          return normalizeRiskGrade(value);
+        default:
+          return value;
+      }
+    })();
+
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      const safeIndex = Math.max(0, Math.min(contractorIndex, contractors.length - 1));
+      const nextContractors = contractors.map((contractor, index) =>
+        index === safeIndex ? { ...contractor, [field]: normalizedValue } : contractor
+      );
+      return syncLegacyContractorFields({
+        ...prev,
+        contratantes: nextContractors,
+      });
+    });
+  };
+
+  const handleAddContractor = () => {
+    setDadosCadastrais((prev) =>
+      syncLegacyContractorFields({
+        ...prev,
+        contratantes: [...normalizeContractors(prev), createEmptyContratante()],
+      })
+    );
+  };
+
+  const handleDuplicateContractor = (contractorIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      const source = contractors[contractorIndex];
+      if (!source) return prev;
+      const duplicated = {
+        ...source,
+        id: createEmptyContratante().id,
+      };
+      const next = [...contractors];
+      next.splice(contractorIndex + 1, 0, duplicated);
+      return syncLegacyContractorFields({ ...prev, contratantes: next });
+    });
+  };
+
+  const handleRemoveContractor = (contractorIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      if (contractors.length <= 1) {
+        return syncLegacyContractorFields({
+          ...prev,
+          contratantes: [createEmptyContratante()],
+        });
+      }
+      const next = contractors.filter((_, index) => index !== contractorIndex);
+      return syncLegacyContractorFields({ ...prev, contratantes: next });
+    });
   };
 
   const handleLoadPipefyMock = async () => {
@@ -220,10 +392,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         ...prev,
         ...(response.inicioDraft || {}),
       }));
-      setDadosCadastrais({
-        ...initialDadosCadastrais,
-        ...(response.dadosCadastrais || {}),
-      });
+      setDadosCadastrais(
+        syncLegacyContractorFields({
+          ...initialDadosCadastrais,
+          ...(response.dadosCadastrais || {}),
+        })
+      );
       if (response.cardMeta) {
         setCardMeta({
           pipefyCardId: response.cardMeta.pipefyCardId || "",
@@ -614,6 +788,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleInicioDraftChange,
     handleDadosCadastraisChange,
     handleRecalculateByCep,
+    handleContractorChange,
+    handleAddContractor,
+    handleDuplicateContractor,
+    handleRemoveContractor,
     handleLoadPipefyMock,
     handleOpenPlanActionModal,
     handleChangePlanActionScope,

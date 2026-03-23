@@ -45,7 +45,7 @@ export const parseDescricaoExcel = async (
     defval: "",
   });
   if (!rows.length) {
-    throw new Error("A planilha não possui linhas com dados.");
+    throw new Error("Arquivo inválido: a planilha não possui linhas com dados.");
   }
 
   const headerToOriginal = new Map<string, string>();
@@ -69,9 +69,18 @@ export const parseDescricaoExcel = async (
   const descricaoColumn = getColumn("Descrição da Função", "Descricao da Funcao");
   const gheColumn = getColumn("GHE");
 
-  if (!setorColumn && !funcaoColumn && !descricaoColumn && !gheColumn) {
+  const requiredColumns = [
+    { label: "Setor", value: setorColumn },
+    { label: "Função", value: funcaoColumn },
+    { label: "Descrição da Função", value: descricaoColumn },
+    { label: "GHE", value: gheColumn },
+  ];
+  const missingColumns = requiredColumns
+    .filter((column) => !column.value)
+    .map((column) => column.label);
+  if (missingColumns.length) {
     throw new Error(
-      "Colunas esperadas não encontradas. Esperado: Setor, Função, Descrição da Função e GHE."
+      `Arquivo inválido: colunas obrigatórias ausentes (${missingColumns.join(", ")}).`
     );
   }
 
@@ -121,7 +130,13 @@ export const parseDescricaoExcel = async (
   }
 
   if (!functionCatalog.size) {
-    throw new Error("Nenhuma função válida foi encontrada para importação.");
+    throw new Error("Arquivo inválido: nenhuma função válida foi encontrada.");
+  }
+
+  if (!gheAssignments.size) {
+    throw new Error(
+      "Arquivo inválido: nenhuma vinculação de GHE encontrada nas linhas importadas."
+    );
   }
 
   const sortedFunctionsBase = Array.from(functionCatalog.values()).sort((a, b) =>

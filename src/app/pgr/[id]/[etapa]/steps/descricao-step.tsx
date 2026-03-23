@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, FileSpreadsheet, MinusCircle, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
 import type { PgrFunction } from "../types";
@@ -22,6 +23,32 @@ type GheGroup = {
   name: string;
   items: GheItem[];
 };
+
+const PROGRESSIVE_THRESHOLD = 50;
+const PROGRESSIVE_BATCH_SIZE = 50;
+
+function countGroupedItems(groups: DescricaoGroup[]): number {
+  return groups.reduce((total, group) => total + group.items.length, 0);
+}
+
+function sliceGroupedFunctions(groups: DescricaoGroup[], maxItems: number): DescricaoGroup[] {
+  let remaining = Math.max(0, maxItems);
+  const sliced: DescricaoGroup[] = [];
+  for (const group of groups) {
+    if (remaining <= 0) break;
+    if (group.items.length <= remaining) {
+      sliced.push(group);
+      remaining -= group.items.length;
+      continue;
+    }
+    sliced.push({
+      ...group,
+      items: group.items.slice(0, remaining),
+    });
+    remaining = 0;
+  }
+  return sliced;
+}
 
 export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const {
@@ -89,6 +116,97 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     handleConfirmInfoModal,
     infoModalMode,
   } = ctx;
+
+  const [leftVisibleCount, setLeftVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [rightVisibleCount, setRightVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [modalGroupsVisibleCount, setModalGroupsVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [modalListVisibleCount, setModalListVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
+
+  const leftTotalItems = useMemo(
+    () => countGroupedItems(groupedFunctions as DescricaoGroup[]),
+    [groupedFunctions]
+  );
+  const shouldPaginateLeft = leftTotalItems > PROGRESSIVE_THRESHOLD;
+  const visibleGroupedFunctions = useMemo(
+    () =>
+      shouldPaginateLeft
+        ? sliceGroupedFunctions(groupedFunctions as DescricaoGroup[], leftVisibleCount)
+        : (groupedFunctions as DescricaoGroup[]),
+    [groupedFunctions, leftVisibleCount, shouldPaginateLeft]
+  );
+  const visibleLeftItems = useMemo(
+    () => countGroupedItems(visibleGroupedFunctions),
+    [visibleGroupedFunctions]
+  );
+  const hiddenLeftItems = Math.max(0, leftTotalItems - visibleLeftItems);
+
+  const shouldPaginateRight = currentItems.length > PROGRESSIVE_THRESHOLD;
+  const visibleCurrentItems = useMemo(
+    () =>
+      shouldPaginateRight
+        ? currentItems.slice(0, rightVisibleCount)
+        : currentItems,
+    [currentItems, rightVisibleCount, shouldPaginateRight]
+  );
+  const hiddenRightItems = Math.max(0, currentItems.length - visibleCurrentItems.length);
+
+  const shouldPaginateModalGroups = gheGroups.length > PROGRESSIVE_THRESHOLD;
+  const visibleModalGroups = useMemo(
+    () =>
+      shouldPaginateModalGroups
+        ? gheGroups.slice(0, modalGroupsVisibleCount)
+        : gheGroups,
+    [gheGroups, modalGroupsVisibleCount, shouldPaginateModalGroups]
+  );
+  const hiddenModalGroups = Math.max(0, gheGroups.length - visibleModalGroups.length);
+
+  const shouldPaginateModalList = isGheListView
+    ? filteredGheGroupsForList.length > PROGRESSIVE_THRESHOLD
+    : filteredAllFunctions.length > PROGRESSIVE_THRESHOLD;
+  const visibleModalGheList = useMemo(
+    () =>
+      isGheListView
+        ? filteredGheGroupsForList.slice(0, modalListVisibleCount)
+        : filteredGheGroupsForList,
+    [filteredGheGroupsForList, isGheListView, modalListVisibleCount]
+  );
+  const visibleModalFunctionList = useMemo(
+    () =>
+      !isGheListView
+        ? filteredAllFunctions.slice(0, modalListVisibleCount)
+        : filteredAllFunctions,
+    [filteredAllFunctions, isGheListView, modalListVisibleCount]
+  );
+  const hiddenModalListItems = Math.max(
+    0,
+    (isGheListView ? filteredGheGroupsForList.length : filteredAllFunctions.length) -
+      (isGheListView ? visibleModalGheList.length : visibleModalFunctionList.length)
+  );
+
+  useEffect(() => {
+    setLeftVisibleCount(PROGRESSIVE_BATCH_SIZE);
+  }, [searchTerm, leftTotalItems]);
+
+  useEffect(() => {
+    setRightVisibleCount(PROGRESSIVE_BATCH_SIZE);
+  }, [currentGheName, currentItems.length]);
+
+  useEffect(() => {
+    if (!isGheModalOpen) return;
+    setModalGroupsVisibleCount(PROGRESSIVE_BATCH_SIZE);
+  }, [isGheModalOpen, gheGroups.length]);
+
+  useEffect(() => {
+    if (!isGheModalOpen) return;
+    setModalListVisibleCount(PROGRESSIVE_BATCH_SIZE);
+  }, [
+    isGheModalOpen,
+    isGheListView,
+    gheSearch,
+    gheFilterId,
+    filteredAllFunctions.length,
+    filteredGheGroupsForList.length,
+  ]);
 
   return (
     <>
@@ -244,8 +362,8 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   <p className="text-[11px] text-muted-foreground">
                     Arraste uma ou várias funções selecionadas para o GHE.
                   </p>
-                  {groupedFunctions.length ? (
-                    groupedFunctions.map((group: DescricaoGroup) => (
+                  {visibleGroupedFunctions.length ? (
+                    visibleGroupedFunctions.map((group: DescricaoGroup) => (
                       <div key={group.setor} className="space-y-3">
                         <h3 className="text-[16px] font-semibold text-foreground">
                           {group.setor}
@@ -287,6 +405,17 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       Nenhuma função encontrada.
                     </p>
                   )}
+                  {shouldPaginateLeft && hiddenLeftItems > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLeftVisibleCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)
+                      }
+                      className="btn-outline mt-2 px-4 py-2 text-[12px]"
+                    >
+                      Carregar mais ({hiddenLeftItems} restantes)
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="mt-6">
@@ -372,8 +501,8 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   <span />
                 </div>
                 <div className="mt-3 space-y-2">
-                  {currentItems.length ? (
-                    currentItems.map((item: GheItem) => {
+                  {visibleCurrentItems.length ? (
+                    visibleCurrentItems.map((item: GheItem) => {
                       const data = functionMap.get(item.functionId);
                       if (!data) return null;
                       return (
@@ -445,6 +574,17 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       Nenhuma função adicionada ao GHE.
                     </div>
                   )}
+                  {shouldPaginateRight && hiddenRightItems > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRightVisibleCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)
+                      }
+                      className="btn-outline mt-2 px-4 py-2 text-[12px]"
+                    >
+                      Carregar mais ({hiddenRightItems} restantes)
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -496,7 +636,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           funções associadas
                         </p>
                       </button>
-                      {gheGroups.map((ghe: GheGroup) => (
+                      {visibleModalGroups.map((ghe: GheGroup) => (
                         <div
                           key={ghe.id}
                           role="button"
@@ -536,6 +676,19 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           </div>
                         </div>
                       ))}
+                      {shouldPaginateModalGroups && hiddenModalGroups > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setModalGroupsVisibleCount(
+                              (prev) => prev + PROGRESSIVE_BATCH_SIZE
+                            )
+                          }
+                          className="btn-outline w-full px-3 py-2 text-[12px]"
+                        >
+                          Carregar mais GHEs ({hiddenModalGroups} restantes)
+                        </button>
+                      ) : null}
                     </div>
 
                     <div className="flex min-h-0 min-w-0 flex-col rounded-[12px] border border-border/70 bg-background/40 px-4 py-4">
@@ -571,8 +724,8 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       </div>
                     {isGheListView ? (
                       <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto pr-2">
-                        {filteredGheGroupsForList.length ? (
-                          filteredGheGroupsForList.map((ghe: GheGroup) => (
+                        {visibleModalGheList.length ? (
+                          visibleModalGheList.map((ghe: GheGroup) => (
                           <div
                             key={ghe.id}
                             className="rounded-[10px] border border-border/60 bg-card px-3 py-3"
@@ -604,10 +757,23 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                             Nenhum resultado para o filtro aplicado.
                           </div>
                         )}
+                        {shouldPaginateModalList && hiddenModalListItems > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setModalListVisibleCount(
+                                (prev) => prev + PROGRESSIVE_BATCH_SIZE
+                              )
+                            }
+                            className="btn-outline px-4 py-2 text-[12px]"
+                          >
+                            Carregar mais ({hiddenModalListItems} restantes)
+                          </button>
+                        ) : null}
                       </div>
                     ) : (
                         <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-2">
-                          {filteredAllFunctions.map((funcao: PgrFunction) => {
+                          {visibleModalFunctionList.map((funcao: PgrFunction) => {
                             const assignedGheId = functionAssignments.get(
                               funcao.id
                             );
@@ -644,6 +810,19 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                               </div>
                             );
                           })}
+                          {shouldPaginateModalList && hiddenModalListItems > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setModalListVisibleCount(
+                                  (prev) => prev + PROGRESSIVE_BATCH_SIZE
+                                )
+                              }
+                              className="btn-outline px-4 py-2 text-[12px]"
+                            >
+                              Carregar mais ({hiddenModalListItems} restantes)
+                            </button>
+                          ) : null}
                         </div>
                       )}
                     </div>

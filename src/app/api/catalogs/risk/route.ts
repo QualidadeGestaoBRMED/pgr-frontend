@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const backendBase = (
   process.env.BACKEND_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -25,18 +28,29 @@ export async function GET(request: Request) {
     });
     const raw = await upstream.text();
     if (!upstream.ok) {
-      return NextResponse.json(emptyPayload, { status: upstream.status });
+      return NextResponse.json(emptyPayload, {
+        status: upstream.status,
+        headers: {
+          "cache-control": "no-store, no-cache, must-revalidate",
+        },
+      });
     }
     return new NextResponse(raw, {
       status: 200,
       headers: {
         "content-type": upstream.headers.get("content-type") || "application/json",
+        "cache-control": "no-store, no-cache, must-revalidate",
       },
     });
   } catch {
     return NextResponse.json(
       { ...emptyPayload, message: "Falha ao consultar catálogo no backend" },
-      { status: 502 }
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store, no-cache, must-revalidate",
+        },
+      }
     );
   }
 }

@@ -1,6 +1,13 @@
 import { z } from "zod";
-import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
+import type { ContratanteDraft, DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { GheGroup, GheRisk } from "../types";
+import {
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+  isValidPhoneBr,
+  isValidRiskGrade,
+} from "./br-field-utils";
 
 const requiredText = (label: string) =>
   z
@@ -8,26 +15,62 @@ const requiredText = (label: string) =>
     .trim()
     .min(1, `${label} é obrigatório`);
 
+const cnpjField = (label: string) =>
+  requiredText(label).refine((value) => isValidCnpj(value), `${label} inválido`);
+
+const emailField = (label: string) =>
+  requiredText(label).refine((value) => isValidEmail(value), `${label} inválido`);
+
+const phoneField = (label: string) =>
+  requiredText(label).refine((value) => isValidPhoneBr(value), `${label} inválido`);
+
+const riskGradeField = (label: string) =>
+  requiredText(label).refine(
+    (value) => isValidRiskGrade(value),
+    `${label} deve ser inteiro entre 1 e 4`,
+  );
+
+const cpfField = (label: string) =>
+  requiredText(label).refine((value) => isValidCpf(value), `${label} inválido`);
+
 export const inicioDraftSchema = z.object({
   documentTitle: requiredText("Título do documento"),
   companyName: requiredText("Empresa"),
-  cnpj: requiredText("CNPJ"),
+  cnpj: cnpjField("CNPJ"),
   responsible: requiredText("Responsável"),
-  email: requiredText("E-mail"),
+  email: emailField("E-mail"),
+});
+
+const contratanteSchema: z.ZodType<ContratanteDraft> = z.object({
+  id: requiredText("ID do contratante"),
+  nomeFantasia: requiredText("Nome fantasia da contratante"),
+  razaoSocial: requiredText("Razão social da contratante"),
+  cnpj: cnpjField("CNPJ da contratante"),
+  cnae: requiredText("CNAE da contratante"),
+  endereco: requiredText("Endereço da contratante"),
+  cep: requiredText("CEP da contratante"),
+  cidade: requiredText("Cidade da contratante"),
+  estado: requiredText("Estado da contratante"),
+  grauRisco: riskGradeField("Grau de risco da contratante"),
+  atividadePrincipal: requiredText("Atividade principal da contratante"),
 });
 
 export const dadosCadastraisSchema = z.object({
   empresaRazaoSocial: requiredText("Razão social"),
-  empresaCnpj: requiredText("CNPJ da empresa"),
+  empresaCnpj: cnpjField("CNPJ da empresa"),
   empresaCnae: requiredText("CNAE da empresa"),
   empresaEndereco: requiredText("Endereço da empresa"),
   empresaCidade: requiredText("Cidade da empresa"),
   empresaEstado: requiredText("Estado da empresa"),
+  empresaGrauRisco: riskGradeField("Grau de risco da empresa"),
+  estabelecimentoCnpj: cnpjField("CNPJ do estabelecimento"),
+  estabelecimentoGrauRisco: riskGradeField("Grau de risco do estabelecimento"),
+  contratantes: z.array(contratanteSchema).min(1, "Adicione ao menos uma contratante"),
   responsavelPgrNome: requiredText("Nome do responsável PGR"),
   responsavelPgrFuncao: requiredText("Função do responsável PGR"),
-  responsavelPgrTelefone: requiredText("Telefone do responsável PGR"),
-  responsavelPgrEmail: requiredText("E-mail do responsável PGR"),
-  responsavelPgrCpf: requiredText("CPF do responsável PGR"),
+  responsavelPgrTelefone: phoneField("Telefone do responsável PGR"),
+  responsavelPgrEmail: emailField("E-mail do responsável PGR"),
+  responsavelPgrCpf: cpfField("CPF do responsável PGR"),
 });
 
 export const gheInfoSchema = z.object({

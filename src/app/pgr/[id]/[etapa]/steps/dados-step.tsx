@@ -1,4 +1,4 @@
-import type { DadosCadastraisDraft } from "./types";
+import type { ContratanteDraft, DadosCadastraisDraft } from "./types";
 
 type SearchableSelectOption = {
   label: string;
@@ -30,7 +30,17 @@ type DadosStepProps = {
     scope: "empresa" | "estabelecimento" | "contratante";
   }>;
   onDadosChange: (field: keyof DadosCadastraisDraft, value: string) => void;
-  onCepBlur: (scope: "empresa" | "contratante", value: string) => void;
+  onCepBlur: (scope: "empresa", value: string) => void;
+  contractors: ContratanteDraft[];
+  onContractorChange: (
+    contractorIndex: number,
+    field: keyof Omit<ContratanteDraft, "id">,
+    value: string
+  ) => void;
+  onContractorCepBlur: (contractorIndex: number, value: string) => void;
+  onAddContractor: () => void;
+  onDuplicateContractor: (contractorIndex: number) => void;
+  onRemoveContractor: (contractorIndex: number) => void;
   onSelectEstabelecimento: (value: string) => void;
   onExtraFieldChange: (
     id: string,
@@ -51,6 +61,12 @@ export function DadosStep({
   extraFields,
   onDadosChange,
   onCepBlur,
+  contractors,
+  onContractorChange,
+  onContractorCepBlur,
+  onAddContractor,
+  onDuplicateContractor,
+  onRemoveContractor,
   onSelectEstabelecimento,
   onExtraFieldChange,
   onRemoveExtraField,
@@ -110,9 +126,9 @@ export function DadosStep({
   };
 
   const handleCepInputChange = (
-    scope: "empresa" | "contratante",
+    scope: "empresa",
     value: string,
-    field: "empresaCep" | "contratanteCep"
+    field: "empresaCep"
   ) => {
     onDadosChange(field, value);
     if (value.replace(/\D/g, "").length === 8) {
@@ -409,137 +425,217 @@ export function DadosStep({
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
-        <h2 className="text-[16px] font-medium text-foreground">
-          Identificação da Contratante:
-        </h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-[1.2fr_1.6fr_1.1fr_1fr]">
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Nome Fantasia:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteNomeFantasia}
-              onChange={(event) =>
-                onDadosChange("contratanteNomeFantasia", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Razão social:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteRazaoSocial}
-              onChange={(event) =>
-                onDadosChange("contratanteRazaoSocial", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">CNPJ:</label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteCnpj}
-              onChange={(event) =>
-                onDadosChange("contratanteCnpj", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              CNAE:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteCnae}
-              onChange={(event) =>
-                onDadosChange("contratanteCnae", event.target.value)
-              }
-            />
-          </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h2 className="text-[16px] font-medium text-foreground">
+            Identificação da Contratante:
+          </h2>
+          <button
+            type="button"
+            onClick={onAddContractor}
+            className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
+          >
+            Adicionar contratante
+          </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Endereço
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteEndereco}
-              onChange={(event) =>
-                onDadosChange("contratanteEndereco", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">CEP:</label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteCep}
-              onChange={(event) =>
-                handleCepInputChange(
-                  "contratante",
-                  event.target.value,
-                  "contratanteCep"
-                )
-              }
-              onBlur={(event) => onCepBlur("contratante", event.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Cidade:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteCidade}
-              onChange={(event) =>
-                onDadosChange("contratanteCidade", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Estado:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteEstado}
-              onChange={(event) =>
-                onDadosChange("contratanteEstado", event.target.value)
-              }
-            />
-          </div>
-        </div>
+        <div className="mt-6 space-y-6">
+          {contractors.map((contractor, contractorIndex) => (
+            <div
+              key={contractor.id}
+              className="rounded-[12px] border border-border/60 bg-background/40 px-4 py-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[13px] font-semibold text-foreground">
+                  Contratante {contractorIndex + 1}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onDuplicateContractor(contractorIndex)}
+                    className="btn-outline px-3 py-1 text-[12px]"
+                  >
+                    Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "Confirma a exclusão deste bloco de contratante?"
+                        )
+                      ) {
+                        onRemoveContractor(contractorIndex);
+                      }
+                    }}
+                    className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                    disabled={contractors.length <= 1}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteGrauRisco}
-              onChange={(event) =>
-                onDadosChange("contratanteGrauRisco", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Descrição de Atividade Principal:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.contratanteAtividadePrincipal}
-              onChange={(event) =>
-                onDadosChange("contratanteAtividadePrincipal", event.target.value)
-              }
-            />
-          </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1.6fr_1.1fr_1fr]">
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Nome Fantasia:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.nomeFantasia}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "nomeFantasia",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Razão social:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.razaoSocial}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "razaoSocial",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    CNPJ:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.cnpj}
+                    onChange={(event) =>
+                      onContractorChange(contractorIndex, "cnpj", event.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    CNAE:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.cnae}
+                    onChange={(event) =>
+                      onContractorChange(contractorIndex, "cnae", event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Endereço
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.endereco}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "endereco",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    CEP:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.cep}
+                    onChange={(event) =>
+                      onContractorChange(contractorIndex, "cep", event.target.value)
+                    }
+                    onBlur={(event) =>
+                      onContractorCepBlur(contractorIndex, event.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Cidade:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.cidade}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "cidade",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Estado:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.estado}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "estado",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Grau de Risco:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.grauRisco}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "grauRisco",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    Descrição de Atividade Principal:
+                  </label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.atividadePrincipal}
+                    onChange={(event) =>
+                      onContractorChange(
+                        contractorIndex,
+                        "atividadePrincipal",
+                        event.target.value
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         {renderExtraFields(contratanteExtraFields)}

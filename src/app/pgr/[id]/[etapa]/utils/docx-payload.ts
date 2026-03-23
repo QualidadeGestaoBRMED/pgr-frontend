@@ -1,6 +1,11 @@
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, GheGroup, HistoricoData, PgrFunction, RiskGheGroup } from "../types";
 import { defaultHistorico, initialDadosCadastrais, initialInicioDraft } from "../defaults";
+import {
+  DEFAULT_PDF_LAYOUT_STATE,
+  normalizePdfLayoutState,
+  type PdfLayoutState,
+} from "@/lib/pgr-pdf-runtime/layout";
 
 type BackendDescricaoFunction = {
   setor?: string;
@@ -89,6 +94,7 @@ type BackendStateShape = {
         itens?: BackendNestedAnexoItem[];
       };
   anexoDiretriz?: string;
+  pdfLayout?: unknown;
 };
 
 export type PgrDocxPayload = {
@@ -167,6 +173,7 @@ export type PgrDocxPayload = {
       }>;
     }>;
   };
+  pdfLayout: PdfLayoutState;
 };
 
 export function buildPgrDocxPayload(input: {
@@ -187,6 +194,7 @@ export function buildPgrDocxPayload(input: {
   };
   anexos: AnexoItem[];
   anexoDiretriz: string;
+  pdfLayout: PdfLayoutState;
 }): PgrDocxPayload {
   const functionById = new Map(input.functionsData.map((item) => [item.id, item]));
 
@@ -279,6 +287,7 @@ export function buildPgrDocxPayload(input: {
         })),
       })),
     },
+    pdfLayout: normalizePdfLayoutState(input.pdfLayout || DEFAULT_PDF_LAYOUT_STATE),
   };
 }
 
@@ -405,5 +414,6 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     },
     anexos: Array.isArray(state.anexos) ? state.anexos : fallbackAnexos,
     anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Diretriz 1",
+    pdfLayout: normalizePdfLayoutState(state.pdfLayout ?? DEFAULT_PDF_LAYOUT_STATE),
   });
 }

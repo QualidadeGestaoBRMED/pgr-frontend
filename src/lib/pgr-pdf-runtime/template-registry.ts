@@ -1,6 +1,7 @@
 import { buildRuntimeDocDefinition } from "./document";
 import type { RuntimeSnapshot } from "./snapshot";
 import type { RuntimeVisualAssets } from "./assets";
+import type { PdfLayoutState } from "./layout";
 
 export type RuntimeTemplateId = "base_v1";
 
@@ -11,13 +12,15 @@ export type RuntimeTemplate = {
     snapshot: RuntimeSnapshot,
     visualAssets?: RuntimeVisualAssets,
     layout?: { measureTextWidth?: (text: string) => number; pageSize?: { width: number; height: number }; pageMargins?: [number, number, number, number] },
+    pdfLayout?: PdfLayoutState,
   ) => any;
 };
 
 const BASE_TEMPLATE: RuntimeTemplate = {
   id: "base_v1",
   label: "Template Base v1",
-  build: (snapshot, visualAssets, layout) => buildRuntimeDocDefinition(snapshot, visualAssets, layout),
+  build: (snapshot, visualAssets, layout, pdfLayout) =>
+    buildRuntimeDocDefinition(snapshot, visualAssets, layout, pdfLayout),
 };
 
 export function resolveRuntimeTemplate(payload: any): RuntimeTemplate {

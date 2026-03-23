@@ -2,6 +2,7 @@ import type { RuntimeGhe, RuntimeSnapshot } from "./snapshot";
 import type { RuntimeVisualAssets } from "./assets";
 import { FIXED_SECTIONS_5_TO_18 } from "./fixed-sections";
 import { SECTION_14_TABLES, SECTION_15_TABLES, type FixedRuntimeTable } from "./fixed-risk-tables";
+import { resolveTableWidths, type PdfLayoutState } from "./layout";
 
 type Content = any;
 type TableCell = any;
@@ -72,6 +73,36 @@ function toUpper(value: unknown) {
   return sanitizeText(value).toLocaleUpperCase("pt-BR");
 }
 
+const PT_BR_MONTHS = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+
+function buildSignatureLocationDate(dateText: string) {
+  const fallbackDate = new Date();
+  const normalized = sanitizeText(dateText);
+  const parsed = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const day = parsed ? Number.parseInt(parsed[1], 10) : fallbackDate.getDate();
+  const monthIndex = parsed
+    ? Number.parseInt(parsed[2], 10) - 1
+    : fallbackDate.getMonth();
+  const year = parsed ? Number.parseInt(parsed[3], 10) : fallbackDate.getFullYear();
+  const safeMonth = PT_BR_MONTHS[Math.max(0, Math.min(11, monthIndex))] || PT_BR_MONTHS[0];
+  const safeDay = Number.isFinite(day) ? String(day).padStart(2, "0") : "01";
+  const safeYear = Number.isFinite(year) ? String(year) : String(fallbackDate.getFullYear());
+  return `Rio de Janeiro, ${safeDay} de ${safeMonth} de ${safeYear}.`;
+}
+
 function bodyCell(value: unknown, style = "tableBodyCell"): TableCell {
   return { text: sanitizeText(value), style };
 }
@@ -86,6 +117,14 @@ function tealHeaderCell(value: string): TableCell {
 
 function sectionTitle(value: string, id?: string): Content {
   return { text: value, style: "sectionTitle", margin: [0, 16, 0, 8], id };
+}
+
+function resolveRuntimeTableWidths(
+  pdfLayout: PdfLayoutState | undefined,
+  tableId: string,
+  fallback: Array<number | string>,
+) {
+  return resolveTableWidths(pdfLayout, tableId, fallback);
 }
 
 type TocEntry = {
@@ -592,7 +631,7 @@ function buildCoverPage(snapshot: RuntimeSnapshot): Content[] {
   ];
 }
 
-function buildUpdatePage(snapshot: RuntimeSnapshot): Content[] {
+function buildUpdatePage(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState): Content[] {
   return [
     sectionTitle("Quadro de Atualizações do Programa"),
     {
@@ -606,7 +645,7 @@ function buildUpdatePage(snapshot: RuntimeSnapshot): Content[] {
     {
       table: {
         headerRows: 1,
-        widths: [80, "*", 100],
+        widths: resolveRuntimeTableWidths(pdfLayout, "update_table", [80, 190, 100]),
         body: [
           [tealHeaderCell("Alteração"), tealHeaderCell("Motivo da Revisão do PGR"), tealHeaderCell("Data")],
           [
@@ -667,7 +706,10 @@ function buildSummaryPage(layout?: LayoutContext): Content[] {
   ];
 }
 
-function buildIdentificationAndProgramPages(snapshot: RuntimeSnapshot): Content[] {
+function buildIdentificationAndProgramPages(
+  snapshot: RuntimeSnapshot,
+  pdfLayout?: PdfLayoutState,
+): Content[] {
   const commonInfoRows = (isCompany = true): TableCell[][] => {
     if (isCompany) {
       return [
@@ -692,18 +734,24 @@ function buildIdentificationAndProgramPages(snapshot: RuntimeSnapshot): Content[
   return [
     sectionTitle("1 - Identificação da Empresa", "sec_01"),
     {
-      table: { widths: ["43%", "*"], body: commonInfoRows(true) },
+      table: {
+        widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
+        body: commonInfoRows(true),
+      },
       layout: THIN_TABLE_LAYOUT,
     },
     sectionTitle("2 - Identificação do Estabelecimento", "sec_02"),
     {
-      table: { widths: ["43%", "*"], body: commonInfoRows(false) },
+      table: {
+        widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
+        body: commonInfoRows(false),
+      },
       layout: THIN_TABLE_LAYOUT,
     },
     sectionTitle("3 - Quantitativo Total de Empregados", "sec_03"),
     {
       table: {
-        widths: ["43%", "*"],
+        widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
         body: [[infoLabelCell("Quantitativo de empregados ativos"), bodyCell(String(snapshot.program.totalEmployees || 0))]],
       },
       layout: THIN_TABLE_LAYOUT,
@@ -713,7 +761,7 @@ function buildIdentificationAndProgramPages(snapshot: RuntimeSnapshot): Content[
     sectionTitle("4 - Dados do Programa", "sec_04"),
     {
       table: {
-        widths: ["43%", "*"],
+        widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
         body: [
           [infoLabelCell("Norma Regulamentadora"), bodyCell(snapshot.program.nr)],
           [infoLabelCell("Data de Elaboração do Documento"), bodyCell(snapshot.meta.generatedDate)],
@@ -731,8 +779,10 @@ function buildIdentificationAndProgramPages(snapshot: RuntimeSnapshot): Content[
 function buildNarrativeCoreAndAnnexIndex(
   snapshot: RuntimeSnapshot,
   visualAssets?: RuntimeVisualAssets,
+  pdfLayout?: PdfLayoutState,
 ): Content[] {
   const content: Content[] = [];
+  const signatureLocationDate = buildSignatureLocationDate(snapshot.meta.generatedDate);
   let insertedSection14Tables = false;
   let insertedSection15Tables = false;
   const fixedSectionTocId: Record<string, string> = {
@@ -1023,7 +1073,13 @@ function buildNarrativeCoreAndAnnexIndex(
     } else {
       let introBreakInserted = false;
       section.paragraphs.forEach((paragraph) => {
-        const normalized = normalizeFixedText(paragraph);
+        const normalizedBase = normalizeFixedText(paragraph);
+        const normalized = isSignatureSection
+          ? normalizedBase.replace(
+              /^Rio de Janeiro,\s*xx\s+de\s+xxxxxxx\s+de\s+xxxx\.$/i,
+              signatureLocationDate
+            )
+          : normalizedBase;
         if (!normalized) return;
 
         if (
@@ -1196,7 +1252,7 @@ function buildNarrativeCoreAndAnnexIndex(
     sectionTitle("19 - Índice de Anexos", "sec_19"),
     {
       table: {
-        widths: [65, "*", 110],
+        widths: resolveRuntimeTableWidths(pdfLayout, "index_anexos", [65, 165, 110]),
         body: [
           [tealHeaderCell("Anexo"), tealHeaderCell("Título"), tealHeaderCell("Data da Inclusão")],
           [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.generatedDate)],
@@ -1226,7 +1282,11 @@ function buildAnnexCover(letter: "A" | "B" | "C" | "D", title: string, id?: stri
   ];
 }
 
-function buildAnnexAmbienteTable(ghe: RuntimeGhe, index: number): Content {
+function buildAnnexAmbienteTable(
+  ghe: RuntimeGhe,
+  index: number,
+  pdfLayout?: PdfLayoutState,
+): Content {
   const ambienteRows =
     ghe.funcoes.length > 0
       ? ghe.funcoes.slice(0, 6).map((funcao) => [bodyCell(funcao.setor), bodyCell(truncateText(ghe.ambiente || funcao.descricaoAtividades, 220))])
@@ -1235,7 +1295,7 @@ function buildAnnexAmbienteTable(ghe: RuntimeGhe, index: number): Content {
   return {
     table: {
       headerRows: 0,
-      widths: [130, "*"],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_ambiente", [130, 190]),
       body: [
         [{ text: `GHE ${index + 1} - Descrição do Ambiente`, style: "annexBarCell", colSpan: 2 }, {}],
         [{ text: "Descrição sucinta do processo produtivo do GHE", style: "annexLeftHeaderCell" }, bodyCell(truncateText(ghe.processo, 220))],
@@ -1248,7 +1308,11 @@ function buildAnnexAmbienteTable(ghe: RuntimeGhe, index: number): Content {
   };
 }
 
-function buildAnnexAtividadeTable(ghe: RuntimeGhe, index: number): Content {
+function buildAnnexAtividadeTable(
+  ghe: RuntimeGhe,
+  index: number,
+  pdfLayout?: PdfLayoutState,
+): Content {
   const rows =
     ghe.funcoes.length > 0
       ? ghe.funcoes.map((funcao) => [
@@ -1261,7 +1325,7 @@ function buildAnnexAtividadeTable(ghe: RuntimeGhe, index: number): Content {
 
   return {
     table: {
-      widths: [70, 90, "*", 95],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_atividade", [70, 90, 190, 95]),
       body: [
         [{ text: `GHE ${index + 1} - Descrição de Atividade`, style: "annexBarCell", colSpan: 4 }, {}, {}, {}],
         [tealHeaderCell("Setor"), tealHeaderCell("Função"), tealHeaderCell("Descrição da Atividade"), tealHeaderCell("Total de Trabalhadores")],
@@ -1272,7 +1336,11 @@ function buildAnnexAtividadeTable(ghe: RuntimeGhe, index: number): Content {
   };
 }
 
-function buildAnnexReconhecimentoTable(ghe: RuntimeGhe, index: number): Content {
+function buildAnnexReconhecimentoTable(
+  ghe: RuntimeGhe,
+  index: number,
+  pdfLayout?: PdfLayoutState,
+): Content {
   const rows =
     ghe.riscos.length > 0
       ? ghe.riscos.map((risk) => [
@@ -1294,7 +1362,21 @@ function buildAnnexReconhecimentoTable(ghe: RuntimeGhe, index: number): Content 
 
   return {
     table: {
-      widths: ["6%", "10%", "7%", "8%", "12%", "10%", "7%", "8%", "7%", "6%", "6%", "7%", "6%"],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_reconhecimento", [
+        6,
+        10,
+        7,
+        8,
+        12,
+        10,
+        7,
+        8,
+        7,
+        6,
+        6,
+        7,
+        6,
+      ]),
       body: [
         [{ text: `GHE ${index + 1} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 13 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         [
@@ -1335,7 +1417,11 @@ function buildAnnexReconhecimentoTable(ghe: RuntimeGhe, index: number): Content 
   };
 }
 
-function buildAnnexMeasuresTable(ghe: RuntimeGhe, id?: string): Content {
+function buildAnnexMeasuresTable(
+  ghe: RuntimeGhe,
+  id?: string,
+  pdfLayout?: PdfLayoutState,
+): Content {
   const rows =
     ghe.riscos.length > 0
       ? ghe.riscos.map((risk) => [
@@ -1350,7 +1436,7 @@ function buildAnnexMeasuresTable(ghe: RuntimeGhe, id?: string): Content {
   return {
     id,
     table: {
-      widths: [72, 85, "*", 85, 85],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_medidas", [72, 85, 190, 85, 85]),
       body: [
         [{ text: "Medidas de Prevenção Implantadas", style: "annexBarCell", colSpan: 5 }, {}, {}, {}, {}],
         [
@@ -1367,7 +1453,12 @@ function buildAnnexMeasuresTable(ghe: RuntimeGhe, id?: string): Content {
   };
 }
 
-function buildAnnexPlanTable(ghe: RuntimeGhe, responsible: string, id?: string): Content {
+function buildAnnexPlanTable(
+  ghe: RuntimeGhe,
+  responsible: string,
+  id?: string,
+  pdfLayout?: PdfLayoutState,
+): Content {
   const rows =
     ghe.planoItens.length > 0
       ? ghe.planoItens.map((item) => [
@@ -1383,7 +1474,7 @@ function buildAnnexPlanTable(ghe: RuntimeGhe, responsible: string, id?: string):
   return {
     id,
     table: {
-      widths: [65, 95, 54, "*", 90, 70],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_plano", [65, 95, 54, 190, 90, 70]),
       body: [
         [{ text: "Plano de Ação", style: "annexBarCell", colSpan: 6 }, {}, {}, {}, {}, {}],
         [
@@ -1415,16 +1506,24 @@ function buildLandscapePage(
   };
 }
 
-function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
+function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState): Content[] {
   const content: Content[] = [];
 
   content.push(...buildAnnexCover("A", "INVENTÁRIO DE RISCOS OCUPACIONAIS", "annex_a"));
   snapshot.ghes.forEach((ghe, index) => {
     const firstPageBreak = index === 0 ? undefined : "before";
     content.push(
-      buildLandscapePage(buildAnnexAmbienteTable(ghe, index), firstPageBreak, "A3"),
-      buildLandscapePage(buildAnnexAtividadeTable(ghe, index), "before", "A3"),
-      buildLandscapePage(buildAnnexReconhecimentoTable(ghe, index), "before", "A3"),
+      buildLandscapePage(
+        buildAnnexAmbienteTable(ghe, index, pdfLayout),
+        firstPageBreak,
+        "A3",
+      ),
+      buildLandscapePage(buildAnnexAtividadeTable(ghe, index, pdfLayout), "before", "A3"),
+      buildLandscapePage(
+        buildAnnexReconhecimentoTable(ghe, index, pdfLayout),
+        "before",
+        "A3",
+      ),
     );
   });
 
@@ -1435,7 +1534,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
   snapshot.ghes.forEach((ghe, index) => {
     content.push(
       { text: "", pageBreak: index === 0 ? undefined : "before" },
-      buildAnnexMeasuresTable(ghe, index === 0 ? "annex_b_table" : undefined),
+      buildAnnexMeasuresTable(ghe, index === 0 ? "annex_b_table" : undefined, pdfLayout),
     );
   });
 
@@ -1455,6 +1554,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
             ghe,
             snapshot.program.responsavelImplementacao,
             index === 0 ? "annex_c_table" : undefined,
+            pdfLayout,
           ),
         ],
       },
@@ -1467,7 +1567,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
   );
   content.push({
     table: {
-      widths: [85, "*", 90],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_d_status", [85, 190, 90]),
       body: [
         [tealHeaderCell("Anexo"), tealHeaderCell("Descrição"), tealHeaderCell("Status")],
         [
@@ -1496,7 +1596,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot): Content[] {
   });
   content.push({
     table: {
-      widths: [180, "*"],
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_extra", [180, 190]),
       body: [[tealHeaderCell("Título"), tealHeaderCell("Arquivos")], ...annexRows],
     },
     layout: THIN_TABLE_LAYOUT,
@@ -2030,14 +2130,15 @@ export function buildRuntimeDocDefinition(
   snapshot: RuntimeSnapshot,
   visualAssets: RuntimeVisualAssets = {},
   layout?: LayoutContext,
+  pdfLayout?: PdfLayoutState,
 ): any {
   const content: Content[] = [
     ...buildCoverPage(snapshot),
-    ...buildUpdatePage(snapshot),
+    ...buildUpdatePage(snapshot, pdfLayout),
     ...buildSummaryPage(layout),
-    ...buildIdentificationAndProgramPages(snapshot),
-    ...buildNarrativeCoreAndAnnexIndex(snapshot, visualAssets),
-    ...buildAnnexContent(snapshot),
+    ...buildIdentificationAndProgramPages(snapshot, pdfLayout),
+    ...buildNarrativeCoreAndAnnexIndex(snapshot, visualAssets, pdfLayout),
+    ...buildAnnexContent(snapshot, pdfLayout),
     ...buildBackCoverPage(visualAssets),
   ];
 
@@ -2091,7 +2192,7 @@ export function buildRuntimeDocDefinition(
       return {
         margin: [40, 46, 40, 6],
         table: {
-          widths: ["67%", "33%"],
+          widths: resolveRuntimeTableWidths(pdfLayout, "header_main", [67, 33]),
           body: [
                 [
                   {

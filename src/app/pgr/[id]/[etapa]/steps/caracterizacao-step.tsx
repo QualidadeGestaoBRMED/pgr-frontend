@@ -33,6 +33,9 @@ const normalizeText = (value: string) =>
 const createRiskId = () =>
   `risk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
+const PROGRESSIVE_THRESHOLD = 50;
+const PROGRESSIVE_BATCH_SIZE = 50;
+
 export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const {
     riskGheGroups,
@@ -88,6 +91,51 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     () =>
       riskGheGroups.filter((ghe: RiskGheGroup) => ghe.id !== currentRiskGheId),
     [riskGheGroups, currentRiskGheId]
+  );
+  const copySourceGhesWithRisks = useMemo(
+    () => copySourceGhes.filter((ghe) => ghe.risks.length > 0),
+    [copySourceGhes]
+  );
+
+  const [visibleRiskGheCount, setVisibleRiskGheCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [visibleRiskCount, setVisibleRiskCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [visibleCopySourceCount, setVisibleCopySourceCount] = useState(PROGRESSIVE_BATCH_SIZE);
+
+  const shouldPaginateGheList = filteredRiskGheGroups.length > PROGRESSIVE_THRESHOLD;
+  const visibleFilteredRiskGheGroups = useMemo(
+    () =>
+      shouldPaginateGheList
+        ? filteredRiskGheGroups.slice(0, visibleRiskGheCount)
+        : filteredRiskGheGroups,
+    [filteredRiskGheGroups, shouldPaginateGheList, visibleRiskGheCount]
+  );
+  const hiddenRiskGheCount = Math.max(
+    0,
+    filteredRiskGheGroups.length - visibleFilteredRiskGheGroups.length
+  );
+
+  const currentRiskList = currentRiskGhe?.risks ?? [];
+  const shouldPaginateRiskList = currentRiskList.length > PROGRESSIVE_THRESHOLD;
+  const visibleCurrentRisks = useMemo(
+    () =>
+      shouldPaginateRiskList
+        ? currentRiskList.slice(0, visibleRiskCount)
+        : currentRiskList,
+    [currentRiskList, shouldPaginateRiskList, visibleRiskCount]
+  );
+  const hiddenRiskCount = Math.max(0, currentRiskList.length - visibleCurrentRisks.length);
+
+  const shouldPaginateCopySources = copySourceGhesWithRisks.length > PROGRESSIVE_THRESHOLD;
+  const visibleCopySourceGhes = useMemo(
+    () =>
+      shouldPaginateCopySources
+        ? copySourceGhesWithRisks.slice(0, visibleCopySourceCount)
+        : copySourceGhesWithRisks,
+    [copySourceGhesWithRisks, shouldPaginateCopySources, visibleCopySourceCount]
+  );
+  const hiddenCopySourceCount = Math.max(
+    0,
+    copySourceGhesWithRisks.length - visibleCopySourceGhes.length
   );
 
   const handleAddRisk = () => {
@@ -243,7 +291,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const handleCopyRiskStructure = (sourceGheId: string) => {
     if (!currentRiskGhe) return;
     const source = riskGheGroups.find((ghe: RiskGheGroup) => ghe.id === sourceGheId);
-    if (!source) return;
+    if (!source || !source.risks.length) return;
     pushHistory();
     const clonedRisks = source.risks.map((risk: GheRisk) => ({
       ...risk,
@@ -274,6 +322,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   }, [isCopyMenuOpen]);
 
   useEffect(() => {
+    setVisibleRiskGheCount(PROGRESSIVE_BATCH_SIZE);
+  }, [riskGheSearch, filteredRiskGheGroups.length]);
+
+  useEffect(() => {
+    setVisibleRiskCount(PROGRESSIVE_BATCH_SIZE);
+  }, [currentRiskGheId, currentRiskList.length]);
+
+  useEffect(() => {
+    if (!isCopyMenuOpen) return;
+    setVisibleCopySourceCount(PROGRESSIVE_BATCH_SIZE);
+  }, [isCopyMenuOpen, copySourceGhesWithRisks.length]);
+
+  useEffect(() => {
     if (!openMultiSelect) return;
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -294,8 +355,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
 
   const renderRiskCards = (withMargin: boolean) => (
     <div className={`${withMargin ? "mt-6" : ""} space-y-4`}>
-      {currentRiskGhe?.risks.length ? (
-        currentRiskGhe.risks.map((risk: GheRisk) => (
+      {visibleCurrentRisks.length ? (
+        visibleCurrentRisks.map((risk: GheRisk) => (
           <div
             key={risk.id}
             data-risk-id={risk.id}
@@ -602,6 +663,15 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           Nenhum risco cadastrado neste GHE.
         </div>
       )}
+      {shouldPaginateRiskList && hiddenRiskCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setVisibleRiskCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)}
+          className="btn-outline px-4 py-2 text-[12px]"
+        >
+          Carregar mais riscos ({hiddenRiskCount} restantes)
+        </button>
+      ) : null}
     </div>
   );
 
@@ -639,9 +709,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               <button
                 type="button"
                 onClick={() => setIsCopyMenuOpen((prev) => !prev)}
-                disabled={!copySourceGhes.length}
+                disabled={!copySourceGhesWithRisks.length}
                 className={
-                  copySourceGhes.length ? "btn-outline px-4" : "btn-disabled px-4"
+                  copySourceGhesWithRisks.length ? "btn-outline px-4" : "btn-disabled px-4"
                 }
               >
                 Copiar Estrutura do GHE
@@ -655,7 +725,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     </span>
                   </p>
                   <div className="mt-2 max-h-[220px] space-y-2 overflow-auto pr-1">
-                    {copySourceGhes.map((ghe: RiskGheGroup) => (
+                    {visibleCopySourceGhes.map((ghe: RiskGheGroup) => (
                       <button
                         key={ghe.id}
                         type="button"
@@ -670,6 +740,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         </span>
                       </button>
                     ))}
+                    {shouldPaginateCopySources && hiddenCopySourceCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleCopySourceCount(
+                            (prev) => prev + PROGRESSIVE_BATCH_SIZE
+                          )
+                        }
+                        className="btn-outline w-full px-3 py-2 text-[12px]"
+                      >
+                        Carregar mais fontes ({hiddenCopySourceCount} restantes)
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -700,7 +783,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 />
               </div>
               <div className="mt-3 max-h-[280px] space-y-2 overflow-auto pr-1">
-                {filteredRiskGheGroups.map((ghe: RiskGheGroup) => (
+                {visibleFilteredRiskGheGroups.map((ghe: RiskGheGroup) => (
                   <button
                     key={ghe.id}
                     type="button"
@@ -721,6 +804,17 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   <div className="rounded-[10px] border border-dashed border-border/70 px-3 py-4 text-center text-[12px] text-muted-foreground">
                     Nenhum GHE encontrado.
                   </div>
+                ) : null}
+                {shouldPaginateGheList && hiddenRiskGheCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleRiskGheCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)
+                    }
+                    className="btn-outline w-full px-3 py-2 text-[12px]"
+                  >
+                    Carregar mais GHEs ({hiddenRiskGheCount} restantes)
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -746,7 +840,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             </div>
 
             <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
-              {filteredRiskGheGroups.map((ghe: RiskGheGroup) => (
+              {visibleFilteredRiskGheGroups.map((ghe: RiskGheGroup) => (
                 <button
                   key={ghe.id}
                   type="button"
@@ -769,6 +863,17 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <div className="rounded-[12px] border border-dashed border-border/70 px-4 py-3 text-[12px] text-muted-foreground">
                   Nenhum GHE encontrado.
                 </div>
+              ) : null}
+              {shouldPaginateGheList && hiddenRiskGheCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleRiskGheCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)
+                  }
+                  className="btn-outline min-w-[180px] px-3 py-2 text-[12px]"
+                >
+                  + {hiddenRiskGheCount} GHEs
+                </button>
               ) : null}
             </div>
             {renderRiskCards(true)}
