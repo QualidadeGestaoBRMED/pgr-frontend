@@ -20,6 +20,17 @@ const getFirstCatalogValue = (map: Map<number, string[]>, agentId?: number) => {
   return values?.[0] || "";
 };
 
+const toCatalogAgentId = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 export const hasMeaningfulSelections = (values: string[] | undefined) =>
   Array.isArray(values) && values.some((item) => item.trim().length > 0);
 
@@ -105,8 +116,10 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     const map = new Map<string, number>();
     (riskCatalogs?.riskAgents || []).forEach((item) => {
       const safeName = String(item.name || "").trim();
+      const safeId = toCatalogAgentId((item as { id?: unknown }).id);
       if (!safeName) return;
-      map.set(safeName, item.id);
+      if (!safeId) return;
+      map.set(safeName, safeId);
     });
     return map;
   }, [riskCatalogs]);
@@ -115,8 +128,10 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     const map = new Map<string, number>();
     (riskCatalogs?.riskAgents || []).forEach((item) => {
       const safeName = String(item.name || "").trim();
+      const safeId = toCatalogAgentId((item as { id?: unknown }).id);
       if (!safeName) return;
-      map.set(normalizeAgentName(safeName), item.id);
+      if (!safeId) return;
+      map.set(normalizeAgentName(safeName), safeId);
     });
     return map;
   }, [normalizeAgentName, riskCatalogs]);
@@ -135,12 +150,13 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const riskDescriptionsByAgent = useMemo(() => {
       const grouped = new Map<number, string[]>();
       (riskCatalogs?.riskDescriptions || []).forEach((item) => {
-        if (!item.agent || !item.name) return;
+        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+        if (!safeAgentId || !item.name) return;
         const safeName = String(item.name || "").trim();
         if (!safeName) return;
-        const current = grouped.get(item.agent) || [];
+        const current = grouped.get(safeAgentId) || [];
         if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(item.agent, current);
+        grouped.set(safeAgentId, current);
       });
       return grouped;
   }, [riskCatalogs]);
@@ -148,12 +164,13 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const hazardsByAgent = useMemo(() => {
       const grouped = new Map<number, string[]>();
       (riskCatalogs?.hazards || []).forEach((item) => {
-        if (!item.agent || !item.name) return;
+        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+        if (!safeAgentId || !item.name) return;
         const safeName = String(item.name || "").trim();
         if (!safeName) return;
-        const current = grouped.get(item.agent) || [];
+        const current = grouped.get(safeAgentId) || [];
         if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(item.agent, current);
+        grouped.set(safeAgentId, current);
       });
       return grouped;
   }, [riskCatalogs]);
@@ -161,12 +178,13 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const riskSourcesByAgent = useMemo(() => {
       const grouped = new Map<number, string[]>();
       (riskCatalogs?.riskSources || []).forEach((item) => {
-        if (!item.agent || !item.name) return;
+        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+        if (!safeAgentId || !item.name) return;
         const safeName = String(item.name || "").trim();
         if (!safeName) return;
-        const current = grouped.get(item.agent) || [];
+        const current = grouped.get(safeAgentId) || [];
         if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(item.agent, current);
+        grouped.set(safeAgentId, current);
       });
       return grouped;
   }, [riskCatalogs]);
@@ -174,12 +192,13 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const propagationPathsByAgent = useMemo(() => {
       const grouped = new Map<number, string[]>();
       (riskCatalogs?.propagationPaths || []).forEach((item) => {
-        if (!item.agent || !item.name) return;
+        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+        if (!safeAgentId || !item.name) return;
         const safeName = String(item.name || "").trim();
         if (!safeName) return;
-        const current = grouped.get(item.agent) || [];
+        const current = grouped.get(safeAgentId) || [];
         if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(item.agent, current);
+        grouped.set(safeAgentId, current);
       });
       return grouped;
   }, [riskCatalogs]);
@@ -187,12 +206,13 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const healthDamagesByAgent = useMemo(() => {
       const grouped = new Map<number, string[]>();
       (riskCatalogs?.healthDamages || []).forEach((item) => {
-        if (!item.agent || !item.name) return;
+        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+        if (!safeAgentId || !item.name) return;
         const safeName = String(item.name || "").trim();
         if (!safeName) return;
-        const current = grouped.get(item.agent) || [];
+        const current = grouped.get(safeAgentId) || [];
         if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(item.agent, current);
+        grouped.set(safeAgentId, current);
       });
       return grouped;
   }, [riskCatalogs]);
