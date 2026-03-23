@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, FileSpreadsheet, MinusCircle, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileSpreadsheet, MinusCircle, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
@@ -51,6 +51,7 @@ function sliceGroupedFunctions(groups: DescricaoGroup[], maxItems: number): Desc
 }
 
 export function DescricaoStep({ ctx }: DescricaoStepProps) {
+  const [isManualFunctionModalOpen, setIsManualFunctionModalOpen] = useState(false);
   const [manualSetor, setManualSetor] = useState("");
   const [manualFuncao, setManualFuncao] = useState("");
   const [manualDescricao, setManualDescricao] = useState("");
@@ -246,6 +247,12 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     filteredGheGroupsForList.length,
   ]);
 
+  useEffect(() => {
+    if (!isManualFunctionModalOpen) {
+      setManualFeedback(null);
+    }
+  }, [isManualFunctionModalOpen]);
+
   return (
     <>
           <section className="px-2">
@@ -351,58 +358,6 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                 {excelImportFeedback.message}
               </p>
             ) : null}
-            <div className="mt-3 rounded-[12px] border border-border/70 bg-card px-4 py-4">
-              <p className="text-[13px] font-semibold text-foreground">
-                Sem planilha? Cadastre função manualmente
-              </p>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Use este fallback para criar funções sem importação de Excel.
-              </p>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <input
-                  value={manualSetor}
-                  onChange={(event) => setManualSetor(event.target.value)}
-                  className={inputInlineClass}
-                  placeholder="Setor (opcional)"
-                />
-                <input
-                  value={manualFuncao}
-                  onChange={(event) => setManualFuncao(event.target.value)}
-                  className={inputInlineClass}
-                  placeholder="Função (obrigatório)"
-                />
-                <input
-                  value={manualDescricao}
-                  onChange={(event) => setManualDescricao(event.target.value)}
-                  className={inputInlineClass}
-                  placeholder="Descrição da função (opcional)"
-                />
-              </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <label className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={manualAssignToCurrentGhe}
-                    onChange={(event) => setManualAssignToCurrentGhe(event.target.checked)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  Associar automaticamente ao {currentGheName}
-                </label>
-                <button type="button" onClick={handleManualFunctionSubmit} className="btn-primary px-4">
-                  Adicionar função manual
-                </button>
-              </div>
-              {manualFeedback ? (
-                <p
-                  className={`mt-2 text-[12px] ${
-                    manualFeedback.type === "error" ? "text-danger" : "text-muted-foreground"
-                  }`}
-                >
-                  {manualFeedback.message}
-                </p>
-              ) : null}
-            </div>
-
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-stretch">
               <div
                 ref={leftListRef}
@@ -577,9 +532,20 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       Arraste para devolver à lista geral
                     </p>
                   </div>
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
-                    {currentItems.length} associadas
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
+                      {currentItems.length} associadas
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsManualFunctionModalOpen(true)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/40 text-primary transition hover:bg-primary/10"
+                      title="Adicionar função manualmente"
+                      aria-label="Adicionar função manualmente"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto_auto] gap-4 text-[12px] font-semibold text-muted-foreground">
                   <span />
@@ -916,6 +882,91 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       )}
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isManualFunctionModalOpen ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-3xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-[18px] font-semibold text-foreground">
+                        Cadastro manual de função
+                      </h3>
+                      <p className="mt-1 text-[13px] text-muted-foreground">
+                        Fallback sem planilha para adicionar função ao fluxo do GHE.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsManualFunctionModalOpen(false)}
+                      className="btn-outline px-3 py-1 text-[12px]"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    <input
+                      value={manualSetor}
+                      onChange={(event) => setManualSetor(event.target.value)}
+                      className={inputInlineClass}
+                      placeholder="Setor (opcional)"
+                    />
+                    <input
+                      value={manualFuncao}
+                      onChange={(event) => setManualFuncao(event.target.value)}
+                      className={inputInlineClass}
+                      placeholder="Função (obrigatório)"
+                    />
+                    <input
+                      value={manualDescricao}
+                      onChange={(event) => setManualDescricao(event.target.value)}
+                      className={inputInlineClass}
+                      placeholder="Descrição da função (opcional)"
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <label className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={manualAssignToCurrentGhe}
+                        onChange={(event) => setManualAssignToCurrentGhe(event.target.checked)}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      Associar automaticamente ao {currentGheName}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsManualFunctionModalOpen(false)}
+                        className="btn-outline px-4"
+                      >
+                        Cancelar
+                      </button>
+                      <button type="button" onClick={handleManualFunctionSubmit} className="btn-primary px-4">
+                        Adicionar função manual
+                      </button>
+                    </div>
+                  </div>
+
+                  {manualFeedback ? (
+                    <p
+                      className={`mt-2 text-[12px] ${
+                        manualFeedback.type === "error"
+                          ? "text-danger"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {manualFeedback.message}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
