@@ -28,6 +28,73 @@ import {
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
 
+function readText(
+  source: Record<string, unknown> | undefined,
+  keys: string[]
+) {
+  if (!source) return "";
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function readNullableNumber(
+  source: Record<string, unknown> | undefined,
+  keys: string[]
+) {
+  if (!source) return null;
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function normalizeInicioDraftFromPipefy(
+  source: Partial<InicioDraft> | Record<string, unknown> | undefined,
+  cardMetaSource?: Record<string, unknown>
+): Partial<InicioDraft> {
+  const raw = (source || {}) as Record<string, unknown>;
+  const syncedAtRaw = raw.syncedAt ?? raw.synced_at;
+  const syncedAt = typeof syncedAtRaw === "string" ? syncedAtRaw : null;
+
+  return {
+    syncedAt,
+    pipefyCardId:
+      readText(raw, ["pipefyCardId", "pipefy_card_id"]) ||
+      readText(cardMetaSource, ["pipefyCardId", "pipefy_card_id"]),
+    documentTitle: readText(raw, ["documentTitle", "document_title", "tituloDocumento"]),
+    companyName: readText(raw, ["companyName", "company_name", "empresa", "empresaNome"]),
+    unitName: readText(raw, ["unitName", "unit_name", "unidade", "estabelecimentoNome"]),
+    cnpj: readText(raw, ["cnpj", "companyCnpj", "empresaCnpj"]),
+    responsible:
+      readText(raw, [
+        "responsible",
+        "responsavel",
+        "owner",
+        "ownerName",
+        "responsibleName",
+        "responsible_name",
+        "Responsável pela elaboração do documento (ST)",
+        "Responsavel pela elaboracao do documento (ST)",
+        "responsavel_pela_elaboracao_do_documento_st",
+      ]) ||
+      readText(cardMetaSource, ["responsibleName", "responsible_name", "ownerName"]),
+    email: readText(raw, ["email", "contactEmail", "responsavelEmail"]),
+    notes: readText(raw, ["notes", "observacoes", "observações"]),
+  };
+}
+
 type GeneralActionsContext = {
   params: { id: string };
   initialDadosCadastrais: DadosCadastraisDraft;
@@ -388,9 +455,16 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           responsibleId: number | null;
         };
       }>(`/api/v1/frontend/pgr/${params.id}/sync-pipefy`);
+      const rawInicioDraft = (response?.inicioDraft || {}) as Record<string, unknown>;
+      const rawCardMeta = (response?.cardMeta || {}) as Record<string, unknown>;
+      const normalizedInicioDraft = normalizeInicioDraftFromPipefy(
+        rawInicioDraft,
+        rawCardMeta
+      );
+
       setInicioDraft((prev) => ({
         ...prev,
-        ...(response.inicioDraft || {}),
+        ...normalizedInicioDraft,
       }));
       setDadosCadastrais(
         syncLegacyContractorFields({
@@ -400,11 +474,17 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       );
       if (response.cardMeta) {
         setCardMeta({
-          pipefyCardId: response.cardMeta.pipefyCardId || "",
-          cardName: response.cardMeta.cardName || "",
-          dueDate: response.cardMeta.dueDate || "",
-          companyId: response.cardMeta.companyId ?? null,
-          responsibleId: response.cardMeta.responsibleId ?? null,
+          pipefyCardId:
+            readText(rawCardMeta, ["pipefyCardId", "pipefy_card_id"]) || "",
+          cardName: readText(rawCardMeta, ["cardName", "card_name", "title"]) || "",
+          dueDate: readText(rawCardMeta, ["dueDate", "due_date", "deadline"]) || "",
+          companyId: readNullableNumber(rawCardMeta, ["companyId", "company_id"]),
+          responsibleId: readNullableNumber(rawCardMeta, [
+            "responsibleId",
+            "responsible_id",
+            "ownerId",
+            "owner_id",
+          ]),
         });
       }
     } finally {
