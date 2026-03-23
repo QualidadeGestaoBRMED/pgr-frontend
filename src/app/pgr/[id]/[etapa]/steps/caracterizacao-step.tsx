@@ -185,10 +185,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       }
 
                       const nextRisk = { ...risk, [field]: value };
-                      if (
-                        field !== "tipoAgente" &&
-                        field !== "descricaoAgente"
-                      ) {
+                      if (field !== "descricaoAgente") {
                         return nextRisk;
                       }
                       if (!nextRisk.tipoAgente || !nextRisk.descricaoAgente) {
