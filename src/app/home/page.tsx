@@ -23,6 +23,12 @@ type HomeData = {
     status: { label: string; bg: string; text: string; dot: string };
     createdAt: string;
     owner: string;
+    responsible?: string | null;
+    responsavel?: string | null;
+    ownerName?: string | null;
+    responsibleName?: string | null;
+    responsible_name?: string | null;
+    "Responsável pela elaboração do documento (ST)"?: string | null;
     progress: number;
     pipefyCardId?: string | null;
     dueDate?: string | null;
@@ -36,6 +42,38 @@ const emptyData: HomeData = {
   cards: [],
 };
 
+function pickFirstText(values: Array<unknown>) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function normalizeHomeData(data: HomeData): HomeData {
+  return {
+    ...data,
+    cards: (data.cards || []).map((card) => {
+      const rawCard = card as Record<string, unknown>;
+      return {
+        ...card,
+        owner:
+          pickFirstText([
+            card.owner,
+            card.ownerName,
+            card.responsible,
+            card.responsibleName,
+            card.responsavel,
+            card.responsible_name,
+            card["Responsável pela elaboração do documento (ST)"],
+            rawCard["Responsavel pela elaboracao do documento (ST)"],
+          ]) || "Não informado",
+      };
+    }),
+  };
+}
+
 export default function PgrsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,7 +84,7 @@ export default function PgrsPage() {
   const loadHomeData = useCallback(async () => {
     try {
       const data = await apiGet<HomeData>("/api/v1/frontend/home");
-      setHomeData(data);
+      setHomeData(normalizeHomeData(data));
       setLoadError(null);
     } catch (error) {
       setHomeData(emptyData);
