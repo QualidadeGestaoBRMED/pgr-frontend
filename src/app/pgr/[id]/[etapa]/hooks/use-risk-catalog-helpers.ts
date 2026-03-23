@@ -92,10 +92,13 @@ const deriveProtectionDefaults = (risk: GheRisk) => {
 };
 
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
+  const allowStaticFallback = process.env.NODE_ENV !== "production";
+
   const tipoAgenteOptions = useMemo(() => {
     const fromCatalog = (riskCatalogs?.riskAgents || []).map((item) => item.name);
-    return fromCatalog.length ? fromCatalog : DEFAULT_TIPO_AGENTE_OPTIONS;
-  }, [riskCatalogs]);
+    if (fromCatalog.length) return fromCatalog;
+    return allowStaticFallback ? DEFAULT_TIPO_AGENTE_OPTIONS : [];
+  }, [allowStaticFallback, riskCatalogs]);
 
   const riskAgentIdByName = useMemo(() => {
     const map = new Map<string, number>();
@@ -238,14 +241,16 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const agentId = riskAgentIdByName.get(tipoAgente);
       let options = agentId
         ? riskDescriptionsByAgent.get(agentId) || []
-        : DEFAULT_DESCRICAO_AGENTE_OPTIONS;
-      if (!options.length) options = DEFAULT_DESCRICAO_AGENTE_OPTIONS;
+        : [];
+      if (!options.length && allowStaticFallback) {
+        options = DEFAULT_DESCRICAO_AGENTE_OPTIONS;
+      }
       if (currentValue && !options.includes(currentValue)) {
         return [currentValue, ...options];
       }
       return options;
     },
-    [riskAgentIdByName, riskDescriptionsByAgent]
+    [allowStaticFallback, riskAgentIdByName, riskDescriptionsByAgent]
   );
 
   return {
