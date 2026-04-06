@@ -777,8 +777,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
   const handleAnexoFiles = (anexoId: string, files: FileList | null) => {
     if (!files?.length) return;
+    const allowed = [".pdf", ".png", ".jpeg", ".jpg"];
     const selectedFiles = Array.from(files).filter((file) =>
-      file.name.toLowerCase().endsWith(".pdf")
+      allowed.some((ext) => file.name.toLowerCase().endsWith(ext))
     );
     if (!selectedFiles.length) return;
 
@@ -854,7 +855,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         const objectUrl = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = objectUrl;
-        link.download = `${fileName || "anexo"}.pdf`;
+        link.download = fileName || "anexo";
         document.body.appendChild(link);
         link.click();
         link.remove();
