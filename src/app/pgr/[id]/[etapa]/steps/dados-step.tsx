@@ -468,7 +468,7 @@ export function DadosStep({
                       }
                     }}
                     className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
-                    disabled={contractors.length <= 1}
+                    disabled={contractors.length <= 0}
                   >
                     Excluir
                   </button>
