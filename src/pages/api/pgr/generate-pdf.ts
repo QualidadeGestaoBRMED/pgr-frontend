@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import path from "path";
 import fs from "fs/promises";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, rgb, type PDFPage, type PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, type PDFEmbeddedPage, type PDFImage, type PDFPage, type PDFFont } from "pdf-lib";
 import { ensureRuntimeFontsFromTemplate, getRuntimeFontDefinitions } from "@/lib/pgr-pdf-runtime/fonts";
 import { buildRuntimeSnapshot } from "@/lib/pgr-pdf-runtime/snapshot";
 import { resolveRuntimeTemplate } from "@/lib/pgr-pdf-runtime/template-registry";
@@ -29,6 +29,7 @@ const TEXT_STRONG = rgb(0.098, 0.231, 0.31);
 
 type AnnexFile = { id: string; nome: string };
 type AnnexItem = { id: string; titulo: string; arquivos: AnnexFile[] };
+type AttachmentKind = "pdf" | "png" | "jpeg" | "unknown";
 
 const RUNTIME_COLORS = {
   text: "#434343",
@@ -99,6 +100,38 @@ function decodeDataUrl(dataUrl: string) {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return null;
   return { mime: match[1], data: Buffer.from(match[2], "base64") };
+}
+
+function detectAttachmentKind(data: Uint8Array): AttachmentKind {
+  if (data.length >= 5) {
+    const isPdf =
+      data[0] === 0x25 && // %
+      data[1] === 0x50 && // P
+      data[2] === 0x44 && // D
+      data[3] === 0x46 && // F
+      data[4] === 0x2d; // -
+    if (isPdf) return "pdf";
+  }
+
+  if (data.length >= 8) {
+    const isPng =
+      data[0] === 0x89 &&
+      data[1] === 0x50 &&
+      data[2] === 0x4e &&
+      data[3] === 0x47 &&
+      data[4] === 0x0d &&
+      data[5] === 0x0a &&
+      data[6] === 0x1a &&
+      data[7] === 0x0a;
+    if (isPng) return "png";
+  }
+
+  if (data.length >= 3) {
+    const isJpeg = data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+    if (isJpeg) return "jpeg";
+  }
+
+  return "unknown";
 }
 
 type AnnexHeaderFooterOptions = {
@@ -509,11 +542,10 @@ async function mergeWithAnnexes(options: {
       if (!response.ok) {
         continue;
       }
-      const buffer = await response.arrayBuffer();
-      const annexDoc = await PDFDocument.load(buffer);
-      const annexIndices = annexDoc.getPageIndices();
-      for (const annexIndex of annexIndices) {
-        const [embedded] = await baseDoc.embedPages([annexDoc.getPage(annexIndex)]);
+      const fileBytes = new Uint8Array(await response.arrayBuffer());
+      const attachmentKind = detectAttachmentKind(fileBytes);
+
+      const drawEmbeddedPdfPageOnShell = async (embeddedPage: PDFEmbeddedPage) => {
         const pageNumber = insertIndex + 1;
         const shellBuffer = await buildAnnexShellPageBuffer({
           fontDefinitions: options.fontDefinitions,
@@ -529,13 +561,13 @@ async function mergeWithAnnexes(options: {
 
         const maxWidth = A4_WIDTH - 96;
         const maxHeight = A4_HEIGHT - 160;
-        const scale = Math.min(maxWidth / embedded.width, maxHeight / embedded.height);
-        const drawWidth = embedded.width * scale;
-        const drawHeight = embedded.height * scale;
+        const scale = Math.min(maxWidth / embeddedPage.width, maxHeight / embeddedPage.height);
+        const drawWidth = embeddedPage.width * scale;
+        const drawHeight = embeddedPage.height * scale;
         const x = (A4_WIDTH - drawWidth) / 2;
         const y = 70 + (maxHeight - drawHeight) / 2;
 
-        page.drawPage(embedded, { x, y, width: drawWidth, height: drawHeight });
+        page.drawPage(embeddedPage, { x, y, width: drawWidth, height: drawHeight });
         await drawAnnexHeaderFooter(page, {
           pdfDoc: baseDoc,
           companyName: options.companyName,
@@ -547,6 +579,68 @@ async function mergeWithAnnexes(options: {
           pageNumber,
         });
         insertIndex += 1;
+      };
+
+      const drawEmbeddedImageOnShell = async (embeddedImage: PDFImage) => {
+        const pageNumber = insertIndex + 1;
+        const shellBuffer = await buildAnnexShellPageBuffer({
+          fontDefinitions: options.fontDefinitions,
+          companyName: options.companyName,
+          establishmentName: options.establishmentName,
+          anl: options.anl,
+          brandLogo: options.brandLogo,
+          pageNumber,
+        });
+        const shellDoc = await PDFDocument.load(shellBuffer);
+        const [shellPage] = await baseDoc.copyPages(shellDoc, [0]);
+        const page = baseDoc.insertPage(insertIndex, shellPage);
+
+        const maxWidth = A4_WIDTH - 96;
+        const maxHeight = A4_HEIGHT - 160;
+        const scale = Math.min(maxWidth / embeddedImage.width, maxHeight / embeddedImage.height);
+        const drawWidth = embeddedImage.width * scale;
+        const drawHeight = embeddedImage.height * scale;
+        const x = (A4_WIDTH - drawWidth) / 2;
+        const y = 70 + (maxHeight - drawHeight) / 2;
+
+        page.drawImage(embeddedImage, { x, y, width: drawWidth, height: drawHeight });
+        await drawAnnexHeaderFooter(page, {
+          pdfDoc: baseDoc,
+          companyName: options.companyName,
+          establishmentName: options.establishmentName,
+          anl: options.anl,
+          brandLogo: options.brandLogo,
+          fontLight,
+          fontMedium,
+          pageNumber,
+        });
+        insertIndex += 1;
+      };
+
+      if (attachmentKind === "pdf") {
+        try {
+          const annexDoc = await PDFDocument.load(fileBytes);
+          const annexIndices = annexDoc.getPageIndices();
+          for (const annexIndex of annexIndices) {
+            const [embeddedPage] = await baseDoc.embedPages([annexDoc.getPage(annexIndex)]);
+            await drawEmbeddedPdfPageOnShell(embeddedPage);
+          }
+        } catch {
+          // Ignora anexos inválidos para manter a geração do PDF principal.
+        }
+        continue;
+      }
+
+      if (attachmentKind === "png" || attachmentKind === "jpeg") {
+        try {
+          const embeddedImage =
+            attachmentKind === "png"
+              ? await baseDoc.embedPng(fileBytes)
+              : await baseDoc.embedJpg(fileBytes);
+          await drawEmbeddedImageOnShell(embeddedImage);
+        } catch {
+          // Ignora anexos inválidos para manter a geração do PDF principal.
+        }
       }
     }
   }

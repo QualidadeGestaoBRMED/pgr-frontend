@@ -87,7 +87,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                 Escolher arquivos
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,image/png,image/jpeg"
                   multiple
                   className="hidden"
                   onChange={(event) =>
@@ -142,10 +142,10 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                     Descer
                   </button>
                   <label className="btn-outline px-3 py-1 text-[12px]">
-                    Adicionar PDF
+                    Adicionar anexo
                     <input
                       type="file"
-                      accept="application/pdf"
+                      accept="application/pdf,image/png,image/jpeg"
                       multiple
                       className="hidden"
                       onChange={(event) =>
