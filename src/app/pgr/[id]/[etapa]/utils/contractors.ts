@@ -66,20 +66,17 @@ export const normalizeContractors = (
 ): ContratanteDraft[] => {
   const provided = Array.isArray(dados.contratantes) ? dados.contratantes : [];
   if (provided.length) {
-    const normalized = provided
-      .map((item, index) => {
-        const legacy = fromLegacyFields({}, item.id || `contratante-${index + 1}`);
-        return {
-          ...legacy,
-          ...item,
-          id: String(item.id || legacy.id),
-          cnpj: maskCnpj(String(item.cnpj || "")),
-          cep: maskCep(String(item.cep || "")),
-          grauRisco: normalizeRiskGrade(String(item.grauRisco || "")),
-        };
-      })
-      .filter((item) => !isBlankContratante(item));
-    if (normalized.length) return normalized;
+    return provided.map((item, index) => {
+      const legacy = fromLegacyFields({}, item.id || `contratante-${index + 1}`);
+      return {
+        ...legacy,
+        ...item,
+        id: String(item.id || legacy.id),
+        cnpj: maskCnpj(String(item.cnpj || "")),
+        cep: maskCep(String(item.cep || "")),
+        grauRisco: normalizeRiskGrade(String(item.grauRisco || "")),
+      };
+    });
   }
 
   const legacy = fromLegacyFields(dados);

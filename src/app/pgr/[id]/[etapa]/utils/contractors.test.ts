@@ -10,6 +10,29 @@ describe("contractors utils", () => {
     expect(result).toEqual([]);
   });
 
+  it("keeps explicitly provided blank contractor item", () => {
+    const result = normalizeContractors({
+      contratantes: [
+        {
+          id: "contr-blank",
+          nomeFantasia: "",
+          razaoSocial: "",
+          cnpj: "",
+          cnae: "",
+          endereco: "",
+          cep: "",
+          cidade: "",
+          estado: "",
+          grauRisco: "",
+          atividadePrincipal: "",
+        },
+      ],
+    } as never);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("contr-blank");
+  });
+
   it("migrates legacy contractor fields into contratantes[]", () => {
     const result = normalizeContractors({
       contratanteNomeFantasia: "Cliente X",
