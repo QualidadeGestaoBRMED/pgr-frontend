@@ -5,6 +5,11 @@ import {
 } from "./contractors";
 
 describe("contractors utils", () => {
+  it("does not create contractor when both list and legacy fields are empty", () => {
+    const result = normalizeContractors({} as never);
+    expect(result).toEqual([]);
+  });
+
   it("migrates legacy contractor fields into contratantes[]", () => {
     const result = normalizeContractors({
       contratanteNomeFantasia: "Cliente X",

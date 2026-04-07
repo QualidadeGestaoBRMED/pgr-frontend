@@ -18,6 +18,32 @@ export const createEmptyContratante = (): ContratanteDraft => ({
   atividadePrincipal: "",
 });
 
+const isBlankContratante = (
+  contratante: Pick<
+    ContratanteDraft,
+    | "nomeFantasia"
+    | "razaoSocial"
+    | "cnpj"
+    | "cnae"
+    | "endereco"
+    | "cep"
+    | "cidade"
+    | "estado"
+    | "grauRisco"
+    | "atividadePrincipal"
+  >,
+) =>
+  !contratante.nomeFantasia &&
+  !contratante.razaoSocial &&
+  !contratante.cnpj &&
+  !contratante.cnae &&
+  !contratante.endereco &&
+  !contratante.cep &&
+  !contratante.cidade &&
+  !contratante.estado &&
+  !contratante.grauRisco &&
+  !contratante.atividadePrincipal;
+
 const fromLegacyFields = (
   dados: Partial<DadosCadastraisDraft>,
   fallbackId?: string,
@@ -40,38 +66,46 @@ export const normalizeContractors = (
 ): ContratanteDraft[] => {
   const provided = Array.isArray(dados.contratantes) ? dados.contratantes : [];
   if (provided.length) {
-    return provided.map((item, index) => {
-      const legacy = fromLegacyFields({}, item.id || `contratante-${index + 1}`);
-      return {
-        ...legacy,
-        ...item,
-        id: String(item.id || legacy.id),
-        cnpj: maskCnpj(String(item.cnpj || "")),
-        cep: maskCep(String(item.cep || "")),
-        grauRisco: normalizeRiskGrade(String(item.grauRisco || "")),
-      };
-    });
+    const normalized = provided
+      .map((item, index) => {
+        const legacy = fromLegacyFields({}, item.id || `contratante-${index + 1}`);
+        return {
+          ...legacy,
+          ...item,
+          id: String(item.id || legacy.id),
+          cnpj: maskCnpj(String(item.cnpj || "")),
+          cep: maskCep(String(item.cep || "")),
+          grauRisco: normalizeRiskGrade(String(item.grauRisco || "")),
+        };
+      })
+      .filter((item) => !isBlankContratante(item));
+    if (normalized.length) return normalized;
   }
-  return [fromLegacyFields(dados)];
+
+  const legacy = fromLegacyFields(dados);
+  if (isBlankContratante(legacy)) {
+    return [];
+  }
+  return [legacy];
 };
 
 export const syncLegacyContractorFields = (
   dados: DadosCadastraisDraft,
 ): DadosCadastraisDraft => {
   const normalizedContractors = normalizeContractors(dados);
-  const first = normalizedContractors[0] ?? createEmptyContratante();
+  const first = normalizedContractors[0];
   return {
     ...dados,
     contratantes: normalizedContractors,
-    contratanteNomeFantasia: first.nomeFantasia,
-    contratanteRazaoSocial: first.razaoSocial,
-    contratanteCnpj: first.cnpj,
-    contratanteCnae: first.cnae,
-    contratanteEndereco: first.endereco,
-    contratanteCep: first.cep,
-    contratanteCidade: first.cidade,
-    contratanteEstado: first.estado,
-    contratanteGrauRisco: first.grauRisco,
-    contratanteAtividadePrincipal: first.atividadePrincipal,
+    contratanteNomeFantasia: first?.nomeFantasia || "",
+    contratanteRazaoSocial: first?.razaoSocial || "",
+    contratanteCnpj: first?.cnpj || "",
+    contratanteCnae: first?.cnae || "",
+    contratanteEndereco: first?.endereco || "",
+    contratanteCep: first?.cep || "",
+    contratanteCidade: first?.cidade || "",
+    contratanteEstado: first?.estado || "",
+    contratanteGrauRisco: first?.grauRisco || "",
+    contratanteAtividadePrincipal: first?.atividadePrincipal || "",
   };
 };

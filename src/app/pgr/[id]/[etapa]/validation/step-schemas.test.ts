@@ -75,6 +75,28 @@ describe("step schemas", () => {
     expect(isDadosCadastraisComplete(invalid as never)).toBe(false);
   });
 
+  it("allows empty contractors list", () => {
+    const completeWithoutContractors = {
+      empresaRazaoSocial: "Razao",
+      empresaCnpj: "04.252.011/0001-10",
+      empresaCnae: "01.11-3-01",
+      empresaEndereco: "Rua A",
+      empresaCidade: "Rio",
+      empresaEstado: "RJ",
+      empresaGrauRisco: "2",
+      estabelecimentoCnpj: "33.000.167/0001-01",
+      estabelecimentoGrauRisco: "3",
+      contratantes: [],
+      responsavelPgrNome: "Joao",
+      responsavelPgrFuncao: "Engenheiro",
+      responsavelPgrTelefone: "(21) 99999-9999",
+      responsavelPgrEmail: "joao@empresa.com",
+      responsavelPgrCpf: "529.982.247-25",
+    };
+
+    expect(isDadosCadastraisComplete(completeWithoutContractors as never)).toBe(true);
+  });
+
   it("validates ghe info and risk completeness", () => {
     const gheInfo = {
       processo: "Soldagem",

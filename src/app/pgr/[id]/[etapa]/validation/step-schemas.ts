@@ -65,7 +65,7 @@ export const dadosCadastraisSchema = z.object({
   empresaGrauRisco: riskGradeField("Grau de risco da empresa"),
   estabelecimentoCnpj: cnpjField("CNPJ do estabelecimento"),
   estabelecimentoGrauRisco: riskGradeField("Grau de risco do estabelecimento"),
-  contratantes: z.array(contratanteSchema).min(1, "Adicione ao menos uma contratante"),
+  contratantes: z.array(contratanteSchema),
   responsavelPgrNome: requiredText("Nome do responsável PGR"),
   responsavelPgrFuncao: requiredText("Função do responsável PGR"),
   responsavelPgrTelefone: phoneField("Telefone do responsável PGR"),

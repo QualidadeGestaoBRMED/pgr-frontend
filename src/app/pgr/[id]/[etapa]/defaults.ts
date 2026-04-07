@@ -69,7 +69,7 @@ export const initialDadosCadastrais: DadosCadastraisDraft = {
   estabelecimentoCnae: "",
   estabelecimentoGrauRisco: "",
   estabelecimentoAtividadePrincipal: "",
-  contratantes: [createEmptyContratante()],
+  contratantes: [],
   contratanteNomeFantasia: "",
   contratanteRazaoSocial: "",
   contratanteCnpj: "",

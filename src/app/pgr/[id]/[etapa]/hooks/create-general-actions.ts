@@ -430,12 +430,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const handleRemoveContractor = (contractorIndex: number) => {
     setDadosCadastrais((prev) => {
       const contractors = normalizeContractors(prev);
-      if (contractors.length <= 1) {
-        return syncLegacyContractorFields({
-          ...prev,
-          contratantes: [createEmptyContratante()],
-        });
-      }
       const next = contractors.filter((_, index) => index !== contractorIndex);
       return syncLegacyContractorFields({ ...prev, contratantes: next });
     });
