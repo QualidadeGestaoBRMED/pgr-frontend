@@ -7,6 +7,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -75,6 +76,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     Record<string, { setor: string; funcao: string; descricao: string }>
   >({});
   const [editingFeedback, setEditingFeedback] = useState("");
+  const [isEditingGheName, setIsEditingGheName] = useState(false);
+  const [editingGheName, setEditingGheName] = useState("");
+  const [gheNameFeedback, setGheNameFeedback] = useState("");
 
   const {
     currentGheName,
@@ -107,6 +111,8 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     deleteFunction,
     handleRemoveSelected,
     handleCreateNextGhe,
+    handleRenameCurrentGhe,
+    handleDeleteCurrentGhe,
     currentItems,
     functionMap,
     selectedRightIds,
@@ -245,6 +251,59 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     }
   };
 
+  const startGheNameInlineEdit = () => {
+    setIsEditingGheName(true);
+    setEditingGheName(currentGheName);
+    setGheNameFeedback("");
+  };
+
+  const cancelGheNameInlineEdit = () => {
+    setIsEditingGheName(false);
+    setEditingGheName("");
+    setGheNameFeedback("");
+  };
+
+  const saveGheNameInlineEdit = () => {
+    const nextName = editingGheName.trim();
+    if (!nextName) {
+      setGheNameFeedback("O nome do GHE não pode ficar vazio.");
+      return;
+    }
+    const hasDuplicate = gheGroups.some(
+      (ghe: GheGroup) =>
+        ghe.id !== currentGhe?.id && ghe.name.trim().toLowerCase() === nextName.toLowerCase()
+    );
+    if (hasDuplicate) {
+      setGheNameFeedback("Já existe um GHE com esse nome.");
+      return;
+    }
+    const didSave = handleRenameCurrentGhe(nextName);
+    if (!didSave) {
+      setGheNameFeedback("Não foi possível atualizar o nome do GHE.");
+      return;
+    }
+    setIsEditingGheName(false);
+    setEditingGheName("");
+    setGheNameFeedback("");
+  };
+
+  const deleteCurrentGhe = () => {
+    if (gheGroups.length <= 1) {
+      setGheNameFeedback("Não é possível excluir o único GHE.");
+      return;
+    }
+    const confirmed = window.confirm(`Deseja excluir o ${currentGheName}?`);
+    if (!confirmed) return;
+    const didDelete = handleDeleteCurrentGhe();
+    if (!didDelete) {
+      setGheNameFeedback("Não foi possível excluir o GHE.");
+      return;
+    }
+    setIsEditingGheName(false);
+    setEditingGheName("");
+    setGheNameFeedback("");
+  };
+
   const [leftVisibleCount, setLeftVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
   const [rightVisibleCount, setRightVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
   const [modalGroupsVisibleCount, setModalGroupsVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
@@ -355,6 +414,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     }
   }, [isManualFunctionModalOpen]);
 
+  useEffect(() => {
+    if (isEditingGheName) return;
+    setEditingGheName(currentGheName);
+  }, [currentGheName, isEditingGheName]);
+
   return (
     <>
           <section className="px-2">
@@ -411,9 +475,63 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   <h2 className="text-[16px] font-medium text-foreground">
                     Funções do GHE
                   </h2>
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
-                    {currentGheName}
-                  </span>
+                  {isEditingGheName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={editingGheName}
+                        onChange={(event) => setEditingGheName(event.target.value)}
+                        className={`${inputInlineClass} h-8 w-[180px]`}
+                        placeholder="Nome do GHE"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveGheNameInlineEdit}
+                        className="text-muted-foreground transition hover:text-primary"
+                        title="Salvar nome do GHE"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelGheNameInlineEdit}
+                        className="text-muted-foreground transition hover:text-primary"
+                        title="Cancelar edição do GHE"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
+                        {currentGheName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={startGheNameInlineEdit}
+                        className="text-muted-foreground transition hover:text-primary"
+                        title="Editar nome do GHE"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={deleteCurrentGhe}
+                        className={`transition ${
+                          gheGroups.length > 1
+                            ? "text-muted-foreground hover:text-danger"
+                            : "text-muted-foreground/40"
+                        }`}
+                        title={
+                          gheGroups.length > 1
+                            ? "Excluir GHE"
+                            : "Não é possível excluir o único GHE"
+                        }
+                        disabled={gheGroups.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
                 <p className="mt-1 text-[12px] text-muted-foreground">
                   {currentItems.length} funções associadas
@@ -422,6 +540,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     : " · Todas as funções já estão associadas"}
                   {` · ${describedGheCount}/${gheGroups.length} GHEs descritos`}
                 </p>
+                {gheNameFeedback ? (
+                  <p className="mt-1 text-[12px] text-danger">{gheNameFeedback}</p>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-3">
                 <button

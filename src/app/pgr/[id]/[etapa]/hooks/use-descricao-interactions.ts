@@ -297,6 +297,43 @@ export function useDescricaoInteractions({
     setIsInfoModalOpen(true);
   };
 
+  const handleRenameCurrentGhe = (name: string) => {
+    if (!currentGhe) return false;
+    const nextName = name.trim();
+    if (!nextName) return false;
+    if (nextName === currentGhe.name) return true;
+    pushHistory();
+    setGheGroups((prev) =>
+      prev.map((ghe) => (ghe.id === currentGhe.id ? { ...ghe, name: nextName } : ghe))
+    );
+    setRiskGheGroups((prev) =>
+      prev.map((ghe) => (ghe.id === currentGhe.id ? { ...ghe, name: nextName } : ghe))
+    );
+    return true;
+  };
+
+  const handleDeleteCurrentGhe = () => {
+    if (!currentGhe) return false;
+    if (gheGroups.length <= 1) return false;
+
+    const currentIndex = gheGroups.findIndex((ghe) => ghe.id === currentGhe.id);
+    const nextGhe =
+      (currentIndex >= 0 ? gheGroups[currentIndex + 1] : null) ||
+      (currentIndex > 0 ? gheGroups[currentIndex - 1] : null) ||
+      null;
+    if (!nextGhe) return false;
+
+    pushHistory();
+    setGheGroups((prev) => prev.filter((ghe) => ghe.id !== currentGhe.id));
+    setRiskGheGroups((prev) => prev.filter((ghe) => ghe.id !== currentGhe.id));
+    setCurrentGheId(nextGhe.id);
+    setCurrentRiskGheId(nextGhe.id);
+    setLastGheNotice({ from: currentGheName, to: nextGhe.name });
+    setSelectedLeftIds([]);
+    setSelectedRightIds([]);
+    return true;
+  };
+
   const handleOpenInfoForAdvance = () => {
     if (!canOpenInfoModal || !allGhesDescribed) return;
     setInfoModalError("");
@@ -619,6 +656,8 @@ export function useDescricaoInteractions({
     handleDeleteSelected,
     handleEditSelected,
     handleCreateNextGhe,
+    handleRenameCurrentGhe,
+    handleDeleteCurrentGhe,
     handleOpenInfoForAdvance,
     handleConfirmInfoModal,
     handleSelectGhe,
