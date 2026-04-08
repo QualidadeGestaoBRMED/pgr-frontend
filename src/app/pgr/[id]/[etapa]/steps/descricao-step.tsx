@@ -1,4 +1,14 @@
-import { ArrowLeft, ArrowRight, FileSpreadsheet, MinusCircle, Plus, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileSpreadsheet,
+  MinusCircle,
+  Pencil,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
@@ -60,6 +70,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     type: "success" | "error";
     message: string;
   }>(null);
+  const [editingFunctionIds, setEditingFunctionIds] = useState<string[]>([]);
+  const [editingDrafts, setEditingDrafts] = useState<
+    Record<string, { setor: string; funcao: string; descricao: string }>
+  >({});
+  const [editingFeedback, setEditingFeedback] = useState("");
 
   const {
     currentGheName,
@@ -89,6 +104,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     handleToggleLeftSelection,
     handleDragStartLeft,
     handleAddSelected,
+    deleteFunction,
     handleRemoveSelected,
     handleCreateNextGhe,
     currentItems,
@@ -101,6 +117,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     miniInputClass,
     handleFuncionarioChange,
     handleRemoveSingle,
+    handleUpdateFunctionDetails,
     isGheModalOpen,
     gheFilterId,
     setGheFilterId,
@@ -127,6 +144,78 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     handleConfirmInfoModal,
     infoModalMode,
   } = ctx;
+
+  const addInlineEdit = (functionIds: string[]) => {
+    const validIds = functionIds.filter((id) => functionMap.has(id));
+    if (!validIds.length) return;
+    setEditingFunctionIds((prev) => Array.from(new Set([...prev, ...validIds])));
+    setEditingDrafts((prev) => {
+      const next = { ...prev };
+      validIds.forEach((id) => {
+        if (next[id]) return;
+        const data = functionMap.get(id);
+        if (!data) return;
+        next[id] = {
+          setor: data.setor || "",
+          funcao: data.funcao || "",
+          descricao: data.descricao || "",
+        };
+      });
+      return next;
+    });
+    setEditingFeedback("");
+  };
+
+  const removeInlineEdit = (functionId: string) => {
+    setEditingFunctionIds((prev) => prev.filter((id) => id !== functionId));
+    setEditingDrafts((prev) => {
+      if (!prev[functionId]) return prev;
+      const next = { ...prev };
+      delete next[functionId];
+      return next;
+    });
+  };
+
+  const startInlineEdit = (functionId: string) => {
+    addInlineEdit([functionId]);
+  };
+
+  const handleEditSelectedInline = () => {
+    if (!selectedRightIds.length) return;
+    addInlineEdit(selectedRightIds);
+  };
+
+  const handleDraftFieldChange = (
+    functionId: string,
+    field: "setor" | "funcao" | "descricao",
+    value: string
+  ) => {
+    setEditingDrafts((prev) => ({
+      ...prev,
+      [functionId]: {
+        setor: prev[functionId]?.setor ?? "",
+        funcao: prev[functionId]?.funcao ?? "",
+        descricao: prev[functionId]?.descricao ?? "",
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveInlineEdit = (functionId: string) => {
+    const draft = editingDrafts[functionId];
+    if (!draft) return;
+    const didSave = handleUpdateFunctionDetails({
+      id: functionId,
+      setor: draft.setor,
+      funcao: draft.funcao,
+      descricao: draft.descricao,
+    });
+    if (!didSave) {
+      setEditingFeedback("A função não pode ficar vazia.");
+      return;
+    }
+    removeInlineEdit(functionId);
+  };
 
   const handleManualFunctionSubmit = () => {
     try {
@@ -229,6 +318,19 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   useEffect(() => {
     setRightVisibleCount(PROGRESSIVE_BATCH_SIZE);
   }, [currentGheName, currentItems.length]);
+
+  useEffect(() => {
+    if (!editingFunctionIds.length) return;
+    const allowedIds = new Set(currentItems.map((item) => item.functionId));
+    setEditingFunctionIds((prev) => prev.filter((id) => allowedIds.has(id)));
+    setEditingDrafts((prev) => {
+      const next: typeof prev = {};
+      Object.entries(prev).forEach(([id, draft]) => {
+        if (allowedIds.has(id)) next[id] = draft;
+      });
+      return next;
+    });
+  }, [currentItems, editingFunctionIds.length]);
 
   useEffect(() => {
     if (!isGheModalOpen) return;
@@ -462,7 +564,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   ) : null}
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-6 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handleAddSelected}
@@ -475,7 +577,32 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   >
                     Adicionar selecionadas
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleEditSelectedInline}
+                    disabled={!selectedRightIds.length}
+                    className={
+                      selectedRightIds.length
+                        ? "btn-primary px-4"
+                        : "btn-disabled px-4"
+                    }
+                  >
+                    Editar selecionadas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deleteFunction}
+                    disabled={!selectedLeftIds.length}
+                    className={
+                      selectedLeftIds.length
+                        ? "btn-primary px-4"
+                        : "btn-disabled px-4"
+                    }
+                  >
+                    Excluir selecionadas
+                  </button>
                 </div>
+
               </div>
 
               <div className="flex flex-col items-center gap-3 self-center">
@@ -560,12 +687,18 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     visibleCurrentItems.map((item: GheItem) => {
                       const data = functionMap.get(item.functionId);
                       if (!data) return null;
+                      const isEditingRow = editingFunctionIds.includes(item.functionId);
+                      const draft = editingDrafts[item.functionId] ?? {
+                        setor: data.setor || "",
+                        funcao: data.funcao || "",
+                        descricao: data.descricao || "",
+                      };
                       return (
                       <div
                         key={item.functionId}
                         data-select-item
                         data-right-id={item.functionId}
-                        draggable
+                        draggable={!isEditingRow}
                         onDragStart={(event) =>
                           handleDragStartRight(event, item.functionId)
                         }
@@ -580,24 +713,69 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           }
                           className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                         />
-                        <span
-                          className="min-w-0 truncate font-semibold text-foreground"
-                          title={data.setor}
-                        >
-                          {data.setor}
-                        </span>
-                        <span
-                          className="min-w-0 truncate font-medium text-foreground/90"
-                          title={data.funcao}
-                        >
-                          {data.funcao}
-                        </span>
-                        <span
-                          className="min-w-0 truncate text-muted-foreground"
-                          title={data.descricao}
-                        >
-                          {truncatePreview(data.descricao, 90)}
-                        </span>
+                        {isEditingRow ? (
+                          <input
+                            value={draft.setor}
+                            onChange={(event) =>
+                              handleDraftFieldChange(
+                                item.functionId,
+                                "setor",
+                                event.target.value
+                              )
+                            }
+                            className={inputInlineClass}
+                            placeholder="Setor"
+                          />
+                        ) : (
+                          <span
+                            className="min-w-0 truncate font-semibold text-foreground"
+                            title={data.setor}
+                          >
+                            {data.setor}
+                          </span>
+                        )}
+                        {isEditingRow ? (
+                          <input
+                            value={draft.funcao}
+                            onChange={(event) =>
+                              handleDraftFieldChange(
+                                item.functionId,
+                                "funcao",
+                                event.target.value
+                              )
+                            }
+                            className={inputInlineClass}
+                            placeholder="Função"
+                          />
+                        ) : (
+                          <span
+                            className="min-w-0 truncate font-medium text-foreground/90"
+                            title={data.funcao}
+                          >
+                            {data.funcao}
+                          </span>
+                        )}
+                        {isEditingRow ? (
+                          <input
+                            value={draft.descricao}
+                            onChange={(event) =>
+                              handleDraftFieldChange(
+                                item.functionId,
+                                "descricao",
+                                event.target.value
+                              )
+                            }
+                            className={inputInlineClass}
+                            placeholder="Descrição das atividades"
+                          />
+                        ) : (
+                          <span
+                            className="min-w-0 truncate text-muted-foreground"
+                            title={data.descricao}
+                          >
+                            {truncatePreview(data.descricao, 90)}
+                          </span>
+                        )}
                         <input
                           className={miniInputClass}
                           type="number"
@@ -613,14 +791,47 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                             )
                           }
                         />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSingle(item.functionId)}
-                          className="text-muted-foreground transition hover:text-primary"
-                          title="Remover"
-                        >
-                          <MinusCircle className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {isEditingRow ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveInlineEdit(item.functionId)}
+                                className="text-muted-foreground transition hover:text-primary"
+                                title="Salvar"
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeInlineEdit(item.functionId)}
+                                className="text-muted-foreground transition hover:text-primary"
+                                title="Cancelar"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSingle(item.functionId)}
+                                className="text-muted-foreground transition hover:text-primary"
+                                title="Remover"
+                              >
+                                <MinusCircle className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => startInlineEdit(item.functionId)}
+                                className="text-muted-foreground transition hover:text-primary"
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       );
                     })
@@ -639,6 +850,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     >
                       Carregar mais ({hiddenRightItems} restantes)
                     </button>
+                  ) : null}
+                  {editingFeedback ? (
+                    <p className="text-[12px] text-danger">{editingFeedback}</p>
                   ) : null}
                 </div>
               </div>

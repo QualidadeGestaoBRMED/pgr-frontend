@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import type { GheGroup, RiskGheGroup } from "../types";
+import type { GheGroup, PgrFunction, RiskGheGroup } from "../types";
 
 type UseDescricaoInteractionsArgs = {
   currentGhe: GheGroup | undefined;
@@ -11,6 +11,7 @@ type UseDescricaoInteractionsArgs = {
   allGhesDescribed: boolean;
   infoModalMode: "next" | "next-existing" | "advance";
   infoModalError: string;
+  functionsData: PgrFunction[];
   availableFunctions: Array<{ id: string }>;
   selectedLeftIds: string[];
   selectedRightIds: string[];
@@ -18,6 +19,7 @@ type UseDescricaoInteractionsArgs = {
   gheGroups: GheGroup[];
   isGheInfoComplete: (ghe?: GheGroup) => boolean;
   setGheGroups: React.Dispatch<React.SetStateAction<GheGroup[]>>;
+  setFunctionsData: React.Dispatch<React.SetStateAction<PgrFunction[]>>;
   setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
   setCurrentGheId: React.Dispatch<React.SetStateAction<string>>;
   setCurrentRiskGheId: React.Dispatch<React.SetStateAction<string>>;
@@ -58,6 +60,7 @@ export function useDescricaoInteractions({
   allGhesDescribed,
   infoModalMode,
   infoModalError,
+  functionsData,
   availableFunctions,
   selectedLeftIds,
   selectedRightIds,
@@ -65,6 +68,7 @@ export function useDescricaoInteractions({
   gheGroups,
   isGheInfoComplete,
   setGheGroups,
+  setFunctionsData,
   setRiskGheGroups,
   setCurrentGheId,
   setCurrentRiskGheId,
@@ -132,6 +136,95 @@ export function useDescricaoInteractions({
     setSelectedRightIds((prev) => prev.filter((id) => !ids.includes(id)));
   };
 
+  const deleteFunctions = (ids: string[]) => {
+    if (!ids.length) return;
+    pushHistory();
+    setFunctionsData((prev) => prev.filter((item) => !ids.includes(item.id)));
+    setGheGroups((prev) =>
+      prev.map((ghe) =>
+        ({
+          ...ghe,
+          items: ghe.items.filter((item) => !ids.includes(item.functionId)),
+        })
+      )
+    );
+    setSelectedLeftIds((prev) => prev.filter((id) => !ids.includes(id)));
+    setSelectedRightIds((prev) => prev.filter((id) => !ids.includes(id)));
+  };
+
+  const editFunctions = (ids: string[]) => {
+    if (!ids.length || !currentGhe) return;
+    const hasAny = currentGhe.items.some((item) => ids.includes(item.functionId));
+    if (!hasAny) return;
+
+    const firstSelected =
+      currentGhe.items.find((item) => ids.includes(item.functionId))?.funcionarios || "0";
+    const rawValue = window.prompt(
+      "Informe o número de funcionários para os itens selecionados:",
+      String(firstSelected)
+    );
+    if (rawValue === null) return;
+
+    const normalized = rawValue.trim() === "" ? "0" : rawValue.trim();
+    const parsed = Number.parseInt(normalized, 10);
+    const safeValue = Number.isNaN(parsed) ? "0" : String(Math.max(0, parsed));
+
+    pushHistory();
+    setGheGroups((prev) =>
+      prev.map((ghe) =>
+        ghe.id === currentGhe.id
+          ? {
+              ...ghe,
+              items: ghe.items.map((item) =>
+                ids.includes(item.functionId)
+                  ? { ...item, funcionarios: safeValue }
+                  : item
+              ),
+            }
+          : ghe
+      )
+    );
+  };
+
+  const handleUpdateFunctionDetails = (payload: {
+    id: string;
+    setor: string;
+    funcao: string;
+    descricao: string;
+  }) => {
+    const currentFunction = functionsData.find((item) => item.id === payload.id);
+    if (!currentFunction) return false;
+
+    const setor = payload.setor.trim();
+    const funcao = payload.funcao.trim();
+    const descricao = payload.descricao.trim() || funcao;
+
+    if (!funcao) return false;
+
+    if (
+      setor === (currentFunction.setor || "") &&
+      funcao === (currentFunction.funcao || "") &&
+      descricao === (currentFunction.descricao || "")
+    ) {
+      return true;
+    }
+
+    pushHistory();
+    setFunctionsData((prev) =>
+      prev.map((item) =>
+        item.id === payload.id
+          ? {
+              ...item,
+              setor,
+              funcao,
+              descricao,
+            }
+          : item
+      )
+    );
+    return true;
+  };
+
   const handleToggleLeftSelection = (id: string) => {
     setSelectedLeftIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -154,9 +247,19 @@ export function useDescricaoInteractions({
     removeFunctionsFromCurrent(selectedRightIds);
   };
 
+  const handleDeleteSelected = () => {
+    if (!selectedLeftIds.length) return;
+    deleteFunctions(selectedLeftIds);
+  };
+
+  const handleEditSelected = () => {
+    if (!selectedRightIds.length || !currentGhe) return;
+    editFunctions(selectedRightIds);
+  };
+
   const handleRemoveSingle = (id: string) => {
     if (!currentGhe) return;
-    removeFunctionsFromCurrent([id]);
+    deleteFunctions([id]);
   };
 
   const handleFuncionarioChange = useCallback(
@@ -513,6 +616,8 @@ export function useDescricaoInteractions({
     handleToggleRightSelection,
     handleAddSelected,
     handleRemoveSelected,
+    handleDeleteSelected,
+    handleEditSelected,
     handleCreateNextGhe,
     handleOpenInfoForAdvance,
     handleConfirmInfoModal,
@@ -527,6 +632,7 @@ export function useDescricaoInteractions({
     handleSelectionStart,
     handleFuncionarioChange,
     handleRemoveSingle,
+    handleUpdateFunctionDetails,
     handleInfoChange,
     getSelectionStyle,
   };
