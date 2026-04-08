@@ -24,6 +24,8 @@ const EPI_OPTIONS = [
   "Protetor auricular (CA 44444)",
 ];
 
+const PROBABILIDADE_OPTIONS = ["1", "2", "3", "4", "5"];
+
 const normalizeText = (value: string) =>
   value
     .normalize("NFD")
@@ -498,14 +500,21 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <label className="text-[12px] font-medium text-foreground">
                   Probabilidade
                 </label>
-                <input
-                  className={inputBaseClass}
-                  value={risk.probabilidade}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "probabilidade", event.target.value)
-                  }
-                />
-              </div>
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={risk.probabilidade}
+                    onChange={(value) =>
+                      handleRiskChange(risk.id, "probabilidade", value)
+                    }
+                    options={PROBABILIDADE_OPTIONS.map((option) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectSmallClass}
+                    searchPlaceholder="Filtrar probabilidade"
+                  />
+                </div>
+              </div>              
               <div>
                 <label className="text-[12px] font-medium text-foreground">
                   Classificação de Risco

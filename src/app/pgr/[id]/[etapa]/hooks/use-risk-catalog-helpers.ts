@@ -260,7 +260,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         tipoAvaliacao: "Qualitativa",
         intensidade: "Não avaliado",
         severidade: "Média",
-        probabilidade: "Média",
+        probabilidade: "3",
         classificacao: "Moderado",
         medidasControle: medidasControleDefault,
         epc: protectionDefaults.epc,
