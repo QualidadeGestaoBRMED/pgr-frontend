@@ -9,7 +9,7 @@ type CaracterizacaoStepProps = {
 };
 
 const EPC_OPTIONS = [
-  "N/A",
+  "A ser evidenciado na fase de reconhecimento",
   "Sistema de exaustão",
   "Cortinas de proteção",
   "Ventilação local",
@@ -17,7 +17,7 @@ const EPC_OPTIONS = [
 ];
 
 const EPI_OPTIONS = [
-  "N/A",
+  "A ser evidenciado na fase de reconhecimento",
   "Respirador (CA 67890)",
   "Máscara de solda (CA 12345)",
   "Óculos de proteção (CA 55555)",
@@ -25,6 +25,22 @@ const EPI_OPTIONS = [
 ];
 
 const PROBABILIDADE_OPTIONS = ["1", "2", "3", "4", "5"];
+const DEFAULT_EPC_EPI_TEXT = "A ser evidenciado na fase de reconhecimento";
+const isNaValue = (value: string) => value.trim().toUpperCase() === "N/A";
+const withDefaultEpcEpi = (value: string | string[] | undefined | null) => {
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item && !isNaValue(item))
+      .join(", ");
+    return normalized || DEFAULT_EPC_EPI_TEXT;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed && !isNaValue(trimmed) ? trimmed : DEFAULT_EPC_EPI_TEXT;
+  }
+  return DEFAULT_EPC_EPI_TEXT;
+};
 
 const normalizeText = (value: string) =>
   value
@@ -156,8 +172,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       probabilidade: "",
       classificacao: "",
       medidasControle: "",
-      epc: ["N/A"],
-      epi: ["N/A"],
+      epc: DEFAULT_EPC_EPI_TEXT,
+      epi: DEFAULT_EPC_EPI_TEXT,
     };
     setRiskGheGroups((prev: RiskGheGroup[]) =>
       prev.map((ghe) =>
@@ -200,7 +216,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "severidade"
       | "probabilidade"
       | "classificacao"
-      | "medidasControle",
+      | "medidasControle"
+      | "epi"
+      | "epc",
     value: string
   ) => {
     if (!currentRiskGhe) return;
@@ -228,8 +246,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           probabilidade: "",
                           classificacao: "",
                           medidasControle: "",
-                          epc: ["N/A"],
-                          epi: ["N/A"],
+                          epc: DEFAULT_EPC_EPI_TEXT,
+                          epi: DEFAULT_EPC_EPI_TEXT,
                         };
                         return nextRisk;
                       }
@@ -251,38 +269,38 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     );
   };
 
-  const handleToggleRiskMultiSelect = (
-    riskId: string,
-    field: "epc" | "epi",
-    option: string
-  ) => {
-    if (!currentRiskGhe) return;
-    pushHistory();
-    setRiskGheGroups((prev: RiskGheGroup[]) =>
-      prev.map((ghe) => {
-        if (ghe.id !== currentRiskGhe.id) return ghe;
-        return {
-          ...ghe,
-          risks: ghe.risks.map((risk) => {
-            if (risk.id !== riskId) return risk;
-            const current = risk[field] ?? [];
-            let next: string[] = [];
-            if (option === "N/A") {
-              next = current.includes("N/A") ? [] : ["N/A"];
-            } else {
-              const withoutNa = current.filter((item) => item !== "N/A");
-              if (withoutNa.includes(option)) {
-                next = withoutNa.filter((item) => item !== option);
-              } else {
-                next = [...withoutNa, option];
-              }
-            }
-            return { ...risk, [field]: next };
-          }),
-        };
-      })
-    );
-  };
+  // const handleToggleRiskMultiSelect = (
+  //   riskId: string,
+  //   field: "epc" | "epi",
+  //   option: string
+  // ) => {
+  //   if (!currentRiskGhe) return;
+  //   pushHistory();
+  //   setRiskGheGroups((prev: RiskGheGroup[]) =>
+  //     prev.map((ghe) => {
+  //       if (ghe.id !== currentRiskGhe.id) return ghe;
+  //       return {
+  //         ...ghe,
+  //         risks: ghe.risks.map((risk) => {
+  //           if (risk.id !== riskId) return risk;
+  //           const current = risk[field] ?? [];
+  //           let next: string[] = [];
+  //           if (option === "N/A") {
+  //             next = current.includes("N/A") ? [] : ["N/A"];
+  //           } else {
+  //             const withoutNa = current.filter((item) => item !== "N/A");
+  //             if (withoutNa.includes(option)) {
+  //               next = withoutNa.filter((item) => item !== option);
+  //             } else {
+  //               next = [...withoutNa, option];
+  //             }
+  //           }
+  //           return { ...risk, [field]: next };
+  //         }),
+  //       };
+  //     })
+  //   );
+  // };
 
   const filterOptionsByQuery = (options: string[]) => {
     const term = normalizeText(multiSelectQuery.trim());
@@ -298,8 +316,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     const clonedRisks = source.risks.map((risk: GheRisk) => ({
       ...risk,
       medidasControle: risk.medidasControle ?? "",
-      epc: [...(risk.epc ?? [])],
-      epi: [...(risk.epi ?? [])],
+      epc: withDefaultEpcEpi(risk.epc),
+      epi: withDefaultEpcEpi(risk.epi),
       id: createRiskId(),
     }));
     setRiskGheGroups((prev: RiskGheGroup[]) =>
@@ -436,13 +454,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <label className="text-[12px] font-medium text-foreground">
                   Meio de Propagação
                 </label>
-                <input
-                  className={inputBaseClass}
-                  value={risk.meioPropagacao}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "meioPropagacao", event.target.value)
-                  }
-                />
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={risk.meioPropagacao}
+                    onChange={(value) =>
+                      handleRiskChange(risk.id, "meioPropagacao", value)
+                    }
+                    options={getDescricaoAgenteOptions(
+                      risk.tipoAgente,
+                      risk.meioPropagacao
+                    ).map((option: string) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectSmallClass}
+                    searchPlaceholder="Filtrar meio"
+                  />
+                </div>
               </div>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -462,13 +490,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <label className="text-[12px] font-medium text-foreground">
                   Tipo de Avaliação
                 </label>
-                <input
-                  className={inputBaseClass}
-                  value={risk.tipoAvaliacao}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "tipoAvaliacao", event.target.value)
-                  }
-                />
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={risk.tipoAvaliacao}
+                    onChange={(value) =>
+                      handleRiskChange(risk.id, "tipoAvaliacao", value)
+                    }
+                    options={getDescricaoAgenteOptions(
+                      risk.tipoAgente,
+                      risk.tipoAvaliacao
+                    ).map((option: string) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectSmallClass}
+                    searchPlaceholder="Filtrar tipo"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
@@ -549,119 +587,25 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   <label className="text-[12px] font-medium text-foreground">
                     EPC
                   </label>
-                  <div className="relative mt-2" data-multiselect>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenMultiSelect((prev) =>
-                          prev?.riskId === risk.id && prev.field === "epc"
-                            ? null
-                            : { riskId: risk.id, field: "epc" }
-                        )
-                      }
-                      className={`${selectSmallClass} flex items-center justify-between text-left`}
-                    >
-                      <span className="truncate">
-                        {risk.epc.length ? risk.epc.join(", ") : "Selecione"}
-                      </span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                    {openMultiSelect?.riskId === risk.id &&
-                    openMultiSelect.field === "epc" ? (
-                      <div className="absolute z-10 mt-2 w-full rounded-[10px] border border-border/70 bg-card p-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                        <input
-                          className={`${inputInlineClass} h-[32px]`}
-                          value={multiSelectQuery}
-                          onChange={(event) =>
-                            setMultiSelectQuery(event.target.value)
-                          }
-                          placeholder="Filtrar..."
-                        />
-                        <div className="mt-2 max-h-[180px] space-y-1 overflow-auto pr-1">
-                          {filterOptionsByQuery(EPC_OPTIONS).map((option) => (
-                            <label
-                              key={option}
-                              className="flex items-center gap-2 rounded-[8px] px-2 py-1 text-[12px] text-foreground hover:bg-muted/60"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={risk.epc.includes(option)}
-                                onChange={() =>
-                                  handleToggleRiskMultiSelect(risk.id, "epc", option)
-                                }
-                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                              />
-                              <span>{option}</span>
-                            </label>
-                          ))}
-                          {!filterOptionsByQuery(EPC_OPTIONS).length ? (
-                            <div className="rounded-[8px] border border-dashed border-border/60 px-2 py-2 text-center text-[12px] text-muted-foreground">
-                              Nenhum resultado
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
+                  <textarea
+                    className={`${textareaBaseClass} min-h-[80px]`}
+                    value={withDefaultEpcEpi(risk.epc)}
+                    onChange={(event) =>
+                      handleRiskChange(risk.id, "epc", event.target.value)
+                    }
+                  />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    EPI / C.A.
+                    EPI
                   </label>
-                  <div className="relative mt-2" data-multiselect>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenMultiSelect((prev) =>
-                          prev?.riskId === risk.id && prev.field === "epi"
-                            ? null
-                            : { riskId: risk.id, field: "epi" }
-                        )
-                      }
-                      className={`${selectSmallClass} flex items-center justify-between text-left`}
-                    >
-                      <span className="truncate">
-                        {risk.epi.length ? risk.epi.join(", ") : "Selecione"}
-                      </span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                    {openMultiSelect?.riskId === risk.id &&
-                    openMultiSelect.field === "epi" ? (
-                      <div className="absolute z-10 mt-2 w-full rounded-[10px] border border-border/70 bg-card p-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                        <input
-                          className={`${inputInlineClass} h-[32px]`}
-                          value={multiSelectQuery}
-                          onChange={(event) =>
-                            setMultiSelectQuery(event.target.value)
-                          }
-                          placeholder="Filtrar..."
-                        />
-                        <div className="mt-2 max-h-[180px] space-y-1 overflow-auto pr-1">
-                          {filterOptionsByQuery(EPI_OPTIONS).map((option) => (
-                            <label
-                              key={option}
-                              className="flex items-center gap-2 rounded-[8px] px-2 py-1 text-[12px] text-foreground hover:bg-muted/60"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={risk.epi.includes(option)}
-                                onChange={() =>
-                                  handleToggleRiskMultiSelect(risk.id, "epi", option)
-                                }
-                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                              />
-                              <span>{option}</span>
-                            </label>
-                          ))}
-                          {!filterOptionsByQuery(EPI_OPTIONS).length ? (
-                            <div className="rounded-[8px] border border-dashed border-border/60 px-2 py-2 text-center text-[12px] text-muted-foreground">
-                              Nenhum resultado
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
+                  <textarea
+                    className={`${textareaBaseClass} min-h-[80px]`}
+                    value={withDefaultEpcEpi(risk.epi)}
+                    onChange={(event) =>
+                      handleRiskChange(risk.id, "epi", event.target.value)
+                    }
+                  />
                 </div>
               </div>
             </div>

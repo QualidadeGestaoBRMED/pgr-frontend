@@ -2,6 +2,8 @@ import { useCallback, useMemo } from "react";
 import { DEFAULT_TIPO_AGENTE_OPTIONS } from "../defaults";
 import type { GheRisk, RiskCatalogPayload } from "../types";
 
+const DEFAULT_EPC_EPI_TEXT = "A ser evidenciado na fase de reconhecimento";
+
 const normalizeCatalogToken = (value: string) =>
   value
     .normalize("NFD")
@@ -107,8 +109,8 @@ const deriveProtectionDefaults = (risk: GheRisk) => {
   const nextEpi = Array.from(epi);
 
   return {
-    epc: nextEpc.length ? nextEpc : ["N/A"],
-    epi: nextEpi.length ? nextEpi : ["N/A"],
+    epc: nextEpc.length ? nextEpc : [DEFAULT_EPC_EPI_TEXT],
+    epi: nextEpi.length ? nextEpi : [DEFAULT_EPC_EPI_TEXT],
   };
 };
 

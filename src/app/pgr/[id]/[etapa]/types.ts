@@ -52,8 +52,8 @@ export type GheRisk = {
   probabilidade: string;
   classificacao: string;
   medidasControle: string;
-  epc: string[];
-  epi: string[];
+  epc: string;
+  epi: string;
 };
 
 export type RiskGheGroup = {
