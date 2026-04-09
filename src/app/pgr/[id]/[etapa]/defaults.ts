@@ -26,7 +26,11 @@ export const defaultGheGroups: GheGroup[] = [
   {
     id: "ghe-1",
     name: "GHE 1",
-    info: { processo: "", observacoes: "", ambiente: "" },
+    info: {
+      processo: "",
+      observacoes: "-",
+      ambiente: "A ser evidenciado na fase de reconhecimento",
+    },
     items: [],
   },
 ];

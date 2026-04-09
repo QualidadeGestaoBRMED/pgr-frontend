@@ -174,7 +174,11 @@ export const parseDescricaoExcel = async (
     return {
       id: `ghe-${index + 1}`,
       name,
-      info: { processo: "", observacoes: "", ambiente: "" },
+      info: {
+        processo: "",
+        observacoes: "-",
+        ambiente: "A ser evidenciado na fase de reconhecimento",
+      },
       items,
     };
   });

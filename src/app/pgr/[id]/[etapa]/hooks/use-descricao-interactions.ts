@@ -50,6 +50,9 @@ const normalizePoint = (x: number, y: number) => {
   return { x: x / zoom, y: y / zoom };
 };
 
+const DEFAULT_GHE_OBSERVACOES = "-";
+const DEFAULT_GHE_AMBIENTE = "A ser evidenciado na fase de reconhecimento";
+
 export function useDescricaoInteractions({
   currentGhe,
   currentGheName,
@@ -93,6 +96,37 @@ export function useDescricaoInteractions({
   const selectionRef = useRef<typeof selectionBox>(null);
   const leftListRef = useRef<HTMLDivElement | null>(null);
   const rightListRef = useRef<HTMLDivElement | null>(null);
+  const ensureCurrentGheInfoDefaults = () => {
+    if (!currentGhe) return;
+    const nextObservacoes =
+      typeof currentGhe.info.observacoes === "string" && currentGhe.info.observacoes.trim()
+        ? currentGhe.info.observacoes
+        : DEFAULT_GHE_OBSERVACOES;
+    const nextAmbiente =
+      typeof currentGhe.info.ambiente === "string" && currentGhe.info.ambiente.trim()
+        ? currentGhe.info.ambiente
+        : DEFAULT_GHE_AMBIENTE;
+    if (
+      nextObservacoes === currentGhe.info.observacoes &&
+      nextAmbiente === currentGhe.info.ambiente
+    ) {
+      return;
+    }
+    setGheGroups((prev) =>
+      prev.map((ghe) =>
+        ghe.id === currentGhe.id
+          ? {
+              ...ghe,
+              info: {
+                ...ghe.info,
+                observacoes: nextObservacoes,
+                ambiente: nextAmbiente,
+              },
+            }
+          : ghe
+      )
+    );
+  };
 
   const addFunctionsToCurrent = (ids: string[]) => {
     if (!ids.length || !currentGhe) return;
@@ -289,6 +323,7 @@ export function useDescricaoInteractions({
   const handleCreateNextGhe = () => {
     if (!canOpenInfoModal) return;
     setInfoModalError("");
+    ensureCurrentGheInfoDefaults();
     if (nextExistingGhe) {
       setInfoModalMode("next-existing");
     } else {
@@ -337,6 +372,7 @@ export function useDescricaoInteractions({
   const handleOpenInfoForAdvance = () => {
     if (!canOpenInfoModal || !allGhesDescribed) return;
     setInfoModalError("");
+    ensureCurrentGheInfoDefaults();
     setInfoModalMode("advance");
     setIsInfoModalOpen(true);
   };
@@ -378,7 +414,11 @@ export function useDescricaoInteractions({
       {
         id: newId,
         name: nextName,
-        info: { processo: "", observacoes: "", ambiente: "" },
+        info: {
+          processo: "",
+          observacoes: "-",
+          ambiente: "A ser evidenciado na fase de reconhecimento",
+        },
         items: [],
       },
     ]);

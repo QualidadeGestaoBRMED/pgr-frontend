@@ -1358,7 +1358,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       </label>
                       <textarea
                         className={textareaBaseClass}
-                        value={currentGhe?.info.observacoes ?? ""}
+                        value={
+                          currentGhe?.info.observacoes ?? "-"
+                        }
                         onChange={(event) =>
                           handleInfoChange("observacoes", event.target.value)
                         }
@@ -1370,7 +1372,10 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       </label>
                       <textarea
                         className={textareaBaseClass}
-                        value={currentGhe?.info.ambiente ?? ""}
+                        value={
+                          currentGhe?.info.ambiente ??
+                          "A ser evidenciado na fase de reconhecimento"
+                        }
                         onChange={(event) =>
                           handleInfoChange("ambiente", event.target.value)
                         }
