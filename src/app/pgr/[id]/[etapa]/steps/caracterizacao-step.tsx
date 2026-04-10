@@ -818,7 +818,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           </>
         )}
 
-        {currentRiskGhe && currentRiskGhe.risks.length >= 2 ? (
+        {currentRiskGhe && currentRiskGhe.risks.length >= 1 ? (
           <div className="mt-6 flex justify-end">
             <button
               type="button"
