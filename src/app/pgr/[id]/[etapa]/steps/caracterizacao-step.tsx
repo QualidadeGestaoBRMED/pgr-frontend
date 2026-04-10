@@ -393,7 +393,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 </button>
               </div>
             </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-[12px] font-medium text-foreground">
                   Tipo de Agente
