@@ -353,8 +353,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             normalized.probabilidade === risk.probabilidade &&
             normalized.classificacao === risk.classificacao &&
             normalized.medidasControle === risk.medidasControle &&
-            areStringArraysEqual(normalized.epc, risk.epc) &&
-            areStringArraysEqual(normalized.epi, risk.epi);
+            normalized.epc === risk.epc &&
+            normalized.epi === risk.epi;
           if (!same) changed = true;
           return same ? risk : normalized;
         });

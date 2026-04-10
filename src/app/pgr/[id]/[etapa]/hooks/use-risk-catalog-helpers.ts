@@ -265,8 +265,9 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         probabilidade: "3",
         classificacao: "Moderado",
         medidasControle: medidasControleDefault,
-        epc: protectionDefaults.epc,
-        epi: protectionDefaults.epi,
+        epc: "A ser evidenciado na fase de reconhecimento",
+        epi: "A ser evidenciado na fase de reconhecimento"
+
       };
     },
     [
@@ -280,9 +281,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
 
   const applyMissingRiskDefaults = useCallback((risk: GheRisk): GheRisk => {
     const normalizedRisk: GheRisk = {
-      ...risk,
-      epc: Array.isArray(risk.epc) ? risk.epc : [],
-      epi: Array.isArray(risk.epi) ? risk.epi : [],
+      ...risk
     };
     if (!normalizedRisk.tipoAgente || !normalizedRisk.descricaoAgente) {
       return normalizedRisk;
@@ -304,12 +303,8 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
       classificacao: normalizedRisk.classificacao || defaults.classificacao || "",
       medidasControle: normalizedRisk.medidasControle || defaults.medidasControle || "",
-      epc: hasActionableSelections(normalizedRisk.epc)
-        ? normalizedRisk.epc
-        : defaults.epc || [],
-      epi: hasActionableSelections(normalizedRisk.epi)
-        ? normalizedRisk.epi
-        : defaults.epi || [],
+      epc: normalizedRisk.epc || defaults.epc || "",
+      epi: normalizedRisk.epi || defaults.epi || "",
     };
   }, [getRiskDefaults]);
 

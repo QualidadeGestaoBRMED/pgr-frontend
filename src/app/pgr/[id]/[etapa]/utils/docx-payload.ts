@@ -36,8 +36,8 @@ type BackendCaracterizacaoRisk = {
   probabilidade?: string;
   classificacao?: string;
   medidasControle?: string;
-  epc?: string[];
-  epi?: string[];
+  epc?: string;
+  epi?: string;
 };
 
 type BackendCaracterizacaoGhe = {
@@ -143,8 +143,8 @@ export type PgrDocxPayload = {
         probabilidade: string;
         classificacao: string;
         medidasControle: string;
-        epc: string[];
-        epi: string[];
+        epc: string;
+        epi: string;
       }>;
     }>;
   };
@@ -156,8 +156,8 @@ export type PgrDocxPayload = {
       risco: string;
       classificacao: string;
       medidas: string;
-      epc: string[];
-      epi: string[];
+      epc: string;
+      epi: string;
     }>;
   };
   anexos: {
@@ -359,8 +359,8 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           probabilidade: risk?.probabilidade || "",
           classificacao: risk?.classificacao || "",
           medidasControle: risk?.medidasControle || "",
-          epc: Array.isArray(risk?.epc) ? risk.epc : [],
-          epi: Array.isArray(risk?.epi) ? risk.epi : [],
+          epc: risk?.epc || "",
+          epi: risk?.epi || "",
         }))
       : [],
   }));
