@@ -256,7 +256,6 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         : "";
       const protectionDefaults = deriveProtectionDefaults(risk);
       return {
-        perigo: perigoDefault,
         meioPropagacao: meioPropagacaoDefault,
         fontes: fontesDefault,
         tipoAvaliacao: "Qualitativa",
@@ -292,7 +291,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       isGenericPropagationValue(normalizedRisk.meioPropagacao);
     return {
       ...normalizedRisk,
-      perigo: normalizedRisk.perigo || defaults.perigo || "",
+
       meioPropagacao: shouldUseDefaultPropagation
         ? defaults.meioPropagacao || ""
         : normalizedRisk.meioPropagacao,

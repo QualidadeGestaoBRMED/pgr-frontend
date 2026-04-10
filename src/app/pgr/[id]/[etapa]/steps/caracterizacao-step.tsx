@@ -163,7 +163,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       id: createRiskId(),
       tipoAgente: "",
       descricaoAgente: "",
-      perigo: "",
       meioPropagacao: "",
       fontes: "",
       tipoAvaliacao: "",
@@ -208,7 +207,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field:
       | "tipoAgente"
       | "descricaoAgente"
-      | "perigo"
       | "meioPropagacao"
       | "fontes"
       | "tipoAvaliacao"
@@ -237,7 +235,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           // Ao trocar o agente, zera campos dependentes para evitar
                           // combinações inválidas (ex.: descrição de outro agente).
                           descricaoAgente: "",
-                          perigo: "",
                           meioPropagacao: "",
                           fontes: "",
                           tipoAvaliacao: "",
@@ -437,18 +434,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     searchPlaceholder="Filtrar descrição"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Perigo
-                </label>
-                <input
-                  className={inputBaseClass}
-                  value={risk.perigo}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "perigo", event.target.value)
-                  }
-                />
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">

@@ -27,7 +27,6 @@ type BackendCaracterizacaoRisk = {
   id?: string;
   tipoAgente?: string;
   descricaoAgente?: string;
-  perigo?: string;
   meioPropagacao?: string;
   fontes?: string;
   tipoAvaliacao?: string;
@@ -134,7 +133,6 @@ export type PgrDocxPayload = {
         id: string;
         tipoAgente: string;
         descricaoAgente: string;
-        perigo: string;
         meioPropagacao: string;
         fontes: string;
         tipoAvaliacao: string;
@@ -222,7 +220,6 @@ export function buildPgrDocxPayload(input: {
       id: risk.id,
       tipoAgente: risk.tipoAgente,
       descricaoAgente: risk.descricaoAgente,
-      perigo: risk.perigo,
       meioPropagacao: risk.meioPropagacao,
       fontes: risk.fontes,
       tipoAvaliacao: risk.tipoAvaliacao,
@@ -239,7 +236,7 @@ export function buildPgrDocxPayload(input: {
   const planoItens = caracterizacaoGhes.flatMap((ghe) =>
     ghe.riscos.map((risk) => ({
       ghe: ghe.nome,
-      risco: risk.descricaoAgente || risk.perigo || "",
+      risco: risk.descricaoAgente || "",
       classificacao: risk.classificacao,
       medidas: risk.medidasControle,
       epc: risk.epc,
@@ -350,7 +347,6 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           id: risk?.id || `risk-${gheIndex + 1}-${riskIndex + 1}`,
           tipoAgente: risk?.tipoAgente || "",
           descricaoAgente: risk?.descricaoAgente || "",
-          perigo: risk?.perigo || "",
           meioPropagacao: risk?.meioPropagacao || "",
           fontes: risk?.fontes || "",
           tipoAvaliacao: risk?.tipoAvaliacao || "",

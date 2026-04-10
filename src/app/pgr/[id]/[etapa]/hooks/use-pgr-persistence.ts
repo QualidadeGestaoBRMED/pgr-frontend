@@ -344,7 +344,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         const risks = ghe.risks.map((risk) => {
           const normalized = applyMissingRiskDefaults(risk);
           const same =
-            normalized.perigo === risk.perigo &&
             normalized.meioPropagacao === risk.meioPropagacao &&
             normalized.fontes === risk.fontes &&
             normalized.tipoAvaliacao === risk.tipoAvaliacao &&

@@ -43,7 +43,6 @@ export type GheRisk = {
   id: string;
   tipoAgente: string;
   descricaoAgente: string;
-  perigo: string;
   meioPropagacao: string;
   fontes: string;
   tipoAvaliacao: string;
