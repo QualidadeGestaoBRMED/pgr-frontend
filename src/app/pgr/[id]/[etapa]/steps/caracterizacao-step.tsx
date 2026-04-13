@@ -517,6 +517,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   onChange={(event) =>
                     handleRiskChange(risk.id, "severidade", event.target.value)
                   }
+                  disabled
                 />
               </div>
               <div>
@@ -548,6 +549,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   onChange={(event) =>
                     handleRiskChange(risk.id, "classificacao", event.target.value)
                   }
+                  disabled
                 />
               </div>
             </div>

@@ -259,7 +259,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         meioPropagacao: meioPropagacaoDefault,
         fontes: fontesDefault,
         tipoAvaliacao: "Qualitativa",
-        intensidade: "Não avaliado",
+        intensidade: "N/A",
         severidade: "Média",
         probabilidade: "3",
         classificacao: "Moderado",

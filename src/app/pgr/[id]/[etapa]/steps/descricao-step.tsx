@@ -1251,19 +1251,22 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       value={manualSetor}
                       onChange={(event) => setManualSetor(event.target.value)}
                       className={inputInlineClass}
-                      placeholder="Setor (opcional)"
+                      placeholder="Setor (obrigatório)"
+                      required
                     />
                     <input
                       value={manualFuncao}
                       onChange={(event) => setManualFuncao(event.target.value)}
                       className={inputInlineClass}
                       placeholder="Função (obrigatório)"
+                      required
                     />
                     <input
                       value={manualDescricao}
                       onChange={(event) => setManualDescricao(event.target.value)}
                       className={inputInlineClass}
-                      placeholder="Descrição da função (opcional)"
+                      placeholder="Descrição da atividade (obrigatório)"
+                      required
                     />
                   </div>
 

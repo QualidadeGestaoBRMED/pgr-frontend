@@ -696,9 +696,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   }) => {
     const setor = payload.setor.trim();
     const funcao = payload.funcao.trim();
-    const descricao = payload.descricao.trim() || funcao;
-    if (!funcao) {
-      throw new Error("Informe ao menos a Função para cadastro manual.");
+    const descricao = payload.descricao.trim();
+
+    if (!setor || !funcao|| !descricao) {
+      throw new Error("Setor, Função e Descrição da Atividade são obrigatórios!");
     }
 
     let createdFunctionId = "";
