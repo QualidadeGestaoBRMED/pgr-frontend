@@ -1,6 +1,10 @@
 import { useCallback, useMemo } from "react";
 import { DEFAULT_TIPO_AGENTE_OPTIONS } from "../defaults";
-import type { GheRisk, RiskCatalogPayload } from "../types";
+import type {
+  GheRisk,
+  RiskCatalogPayload,
+  TechnicalCriteriaCatalogItem,
+} from "../types";
 
 const DEFAULT_EPC_EPI_TEXT = "A ser evidenciado na fase de reconhecimento";
 
@@ -41,6 +45,12 @@ const toCatalogAgentId = (value: unknown): number | null => {
     return toCatalogAgentId(nested);
   }
   return null;
+};
+
+type TechnicalCriteriaResolved = {
+  descriptionToken: string;
+  evaluationType: string;
+  intensity: string;
 };
 
 export const hasMeaningfulSelections = (values: string[] | undefined) =>
@@ -240,6 +250,51 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       return grouped;
   }, [riskCatalogs]);
 
+  const technicalCriteriaByAgent = useMemo(() => {
+      const grouped = new Map<number, TechnicalCriteriaResolved[]>();
+      (riskCatalogs?.technicalCriteria || []).forEach((item: TechnicalCriteriaCatalogItem) => {
+        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+        if (!safeAgentId) return;
+
+        const descriptionToken = normalizeCatalogToken(String(item.description || "").trim());
+        if (!descriptionToken) return;
+
+        const limitRaw = item.limit;
+        const limitText =
+          limitRaw === undefined || limitRaw === null ? "" : String(limitRaw).trim();
+        const unitText = String(item.unit || "").trim();
+        const evaluationType = limitText ? "Quantitativa" : "Qualitativa";
+        const intensity = limitText ? `${limitText}${unitText ? ` ${unitText}` : ""}` : "N/A";
+
+        const current = grouped.get(safeAgentId) || [];
+        if (
+          !current.some(
+            (entry) =>
+              entry.descriptionToken === descriptionToken &&
+              entry.evaluationType === evaluationType &&
+              entry.intensity === intensity
+          )
+        ) {
+          current.push({ descriptionToken, evaluationType, intensity });
+        }
+        grouped.set(safeAgentId, current);
+      });
+      return grouped;
+  }, [riskCatalogs]);
+
+  const resolveTechnicalCriteriaOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string) => {
+      const agentId = resolveRiskAgentId(tipoAgente);
+      if (!agentId) return [];
+      const options = technicalCriteriaByAgent.get(agentId) || [];
+      const safeDescriptionToken = normalizeCatalogToken(String(descricaoAgente || "").trim());
+      if (!safeDescriptionToken) return options;
+      const filtered = options.filter((item) => item.descriptionToken === safeDescriptionToken);
+      return filtered.length ? filtered : options;
+    },
+    [resolveRiskAgentId, technicalCriteriaByAgent]
+  );
+
   const getRiskDefaults = useCallback(
     (risk: GheRisk): Partial<GheRisk> => {
       const agentId = resolveRiskAgentId(risk.tipoAgente);
@@ -251,6 +306,11 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         agentId
       );
       const fontesDefault = getFirstCatalogValue(riskSourcesByAgent, agentId);
+      const technicalCriteriaDefaults = resolveTechnicalCriteriaOptions(
+        risk.tipoAgente,
+        risk.descricaoAgente
+      );
+      const firstTechnicalCriteria = technicalCriteriaDefaults[0];
       const medidasControleDefault = risk.descricaoAgente
         ? `Implementar medidas de prevenção e controle para exposição a ${risk.descricaoAgente}.`
         : "";
@@ -258,8 +318,8 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       return {
         meioPropagacao: meioPropagacaoDefault,
         fontes: fontesDefault,
-        tipoAvaliacao: "Qualitativa",
-        intensidade: "N/A",
+        tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "Qualitativa",
+        intensidade: firstTechnicalCriteria?.intensity || "N/A",
         severidade: "Média",
         probabilidade: "3",
         classificacao: "Moderado",
@@ -273,6 +333,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       hazardsByAgent,
       healthDamagesByAgent,
       propagationPathsByAgent,
+      resolveTechnicalCriteriaOptions,
       resolveRiskAgentId,
       riskSourcesByAgent,
     ]
@@ -324,7 +385,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveRiskAgentId, riskDescriptionsByAgent]
   );
 
-    const getMeioPropagacaoOptions = useCallback(
+  const getMeioPropagacaoOptions = useCallback(
     (tipoAgente: string, currentValue: string) => {
       const agentId = resolveRiskAgentId(tipoAgente);
       const options = agentId
@@ -341,10 +402,54 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveRiskAgentId, propagationPathsByAgent]
   );
 
+  const getTipoAvaliacaoOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const fromCriteria = Array.from(
+        new Set(
+          resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+            (item) => item.evaluationType
+          )
+        )
+      );
+      const options = fromCriteria.length ? fromCriteria : ["Qualitativa", "Quantitativa"];
+
+      const safeCurrentValue = String(currentValue || "").trim();
+      if (!safeCurrentValue) return options;
+      if (options.includes(safeCurrentValue)) {
+        return options;
+      }
+      return options;
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
+  const getIntensidadeOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const fromCriteria = Array.from(
+        new Set(
+          resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+            (item) => item.intensity
+          )
+        )
+      );
+      const options = fromCriteria.length ? fromCriteria : ["N/A"];
+
+      const safeCurrentValue = String(currentValue || "").trim();
+      if (!safeCurrentValue) return options;
+      if (options.includes(safeCurrentValue)) {
+        return options;
+      }
+      return options;
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
   return {
     tipoAgenteOptions,
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getTipoAvaliacaoOptions,
+    getIntensidadeOptions,
   };
 }

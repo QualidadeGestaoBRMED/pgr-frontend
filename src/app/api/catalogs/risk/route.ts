@@ -16,6 +16,7 @@ const emptyPayload = {
   riskSources: [],
   propagationPaths: [],
   healthDamages: [],
+  technicalCriteria: [],
 };
 
 export async function GET(request: Request) {
@@ -35,10 +36,20 @@ export async function GET(request: Request) {
         },
       });
     }
-    return new NextResponse(raw, {
+
+    let parsedPayload: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        parsedPayload = parsed as Record<string, unknown>;
+      }
+    } catch {
+      parsedPayload = {};
+    }
+
+    return NextResponse.json({ ...emptyPayload, ...parsedPayload }, {
       status: 200,
       headers: {
-        "content-type": upstream.headers.get("content-type") || "application/json",
         "cache-control": "no-store, no-cache, must-revalidate",
       },
     });

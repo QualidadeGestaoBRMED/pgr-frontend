@@ -75,6 +75,14 @@ export type RiskCatalogItem = {
   agent: number;
 };
 
+export type TechnicalCriteriaCatalogItem = {
+  description: string;
+  standard: string;
+  limit: string | number | null;
+  unit: string;
+  agent: number;
+};
+
 export type RiskCatalogPayload = {
   riskAgents: Array<{ id: number; name: string }>;
   riskDescriptions: RiskCatalogItem[];
@@ -82,6 +90,7 @@ export type RiskCatalogPayload = {
   riskSources: RiskCatalogItem[];
   propagationPaths: RiskCatalogItem[];
   healthDamages: RiskCatalogItem[];
+  technicalCriteria: TechnicalCriteriaCatalogItem[];
 };
 
 export type ParsedDescricaoImport = {

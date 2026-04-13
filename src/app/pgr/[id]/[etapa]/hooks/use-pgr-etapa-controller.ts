@@ -604,6 +604,8 @@ export function usePgrEtapaController({
       tipoAgenteOptions: derived.tipoAgenteOptions,
       getDescricaoAgenteOptions: derived.getDescricaoAgenteOptions,
       getMeioPropagacaoOptions: derived.getMeioPropagacaoOptions,
+      getTipoAvaliacaoOptions: derived.getTipoAvaliacaoOptions,
+      getIntensidadeOptions: derived.getIntensidadeOptions,
       selectSmallClass: ui.selectSmallClass,
       planAction: state.planAction,
       setPlanAction: setters.setPlanAction,

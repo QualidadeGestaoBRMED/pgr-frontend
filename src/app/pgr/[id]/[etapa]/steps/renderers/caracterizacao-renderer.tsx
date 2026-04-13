@@ -11,6 +11,8 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   tipoAgenteOptions: ctx.tipoAgenteOptions,
   getDescricaoAgenteOptions: ctx.getDescricaoAgenteOptions,
   getMeioPropagacaoOptions: ctx.getMeioPropagacaoOptions,
+  getTipoAvaliacaoOptions: ctx.getTipoAvaliacaoOptions,
+  getIntensidadeOptions: ctx.getIntensidadeOptions,
   inputBaseClass: ctx.inputBaseClass,
   inputInlineClass: ctx.inputInlineClass,
   textareaBaseClass: ctx.textareaBaseClass,

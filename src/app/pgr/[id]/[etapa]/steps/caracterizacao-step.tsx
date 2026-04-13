@@ -65,6 +65,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     tipoAgenteOptions,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getTipoAvaliacaoOptions,
+    getIntensidadeOptions,
     inputBaseClass,
     inputInlineClass,
     textareaBaseClass,
@@ -482,8 +484,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     onChange={(value) =>
                       handleRiskChange(risk.id, "tipoAvaliacao", value)
                     }
-                    options={getDescricaoAgenteOptions(
+                    options={getTipoAvaliacaoOptions(
                       risk.tipoAgente,
+                      risk.descricaoAgente,
                       risk.tipoAvaliacao
                     ).map((option: string) => ({
                       label: option,
@@ -504,8 +507,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     onChange={(value) =>
                       handleRiskChange(risk.id, "intensidade", value)
                     }
-                    options={getDescricaoAgenteOptions(
+                    options={getIntensidadeOptions(
                       risk.tipoAgente,
+                      risk.descricaoAgente,
                       risk.intensidade
                     ).map((option: string) => ({
                       label: option,

@@ -76,6 +76,8 @@ export function usePgrEtapaDerived({
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getTipoAvaliacaoOptions,
+    getIntensidadeOptions,
   } =
     useRiskCatalogHelpers(riskCatalogs);
 
@@ -377,6 +379,8 @@ export function usePgrEtapaDerived({
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getTipoAvaliacaoOptions,
+    getIntensidadeOptions,
     diretrizOptions,
     estabelecimentoOptions,
     normalizedGheSearch,
