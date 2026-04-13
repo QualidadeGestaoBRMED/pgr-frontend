@@ -10,6 +10,7 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   applyMissingRiskDefaults: ctx.applyMissingRiskDefaults,
   tipoAgenteOptions: ctx.tipoAgenteOptions,
   getDescricaoAgenteOptions: ctx.getDescricaoAgenteOptions,
+  getMeioPropagacaoOptions: ctx.getMeioPropagacaoOptions,
   inputBaseClass: ctx.inputBaseClass,
   inputInlineClass: ctx.inputInlineClass,
   textareaBaseClass: ctx.textareaBaseClass,

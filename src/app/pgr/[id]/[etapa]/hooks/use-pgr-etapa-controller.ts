@@ -603,6 +603,7 @@ export function usePgrEtapaController({
       applyMissingRiskDefaults: derived.applyMissingRiskDefaults,
       tipoAgenteOptions: derived.tipoAgenteOptions,
       getDescricaoAgenteOptions: derived.getDescricaoAgenteOptions,
+      getMeioPropagacaoOptions: derived.getMeioPropagacaoOptions,
       selectSmallClass: ui.selectSmallClass,
       planAction: state.planAction,
       setPlanAction: setters.setPlanAction,

@@ -324,9 +324,27 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveRiskAgentId, riskDescriptionsByAgent]
   );
 
+    const getMeioPropagacaoOptions = useCallback(
+    (tipoAgente: string, currentValue: string) => {
+      const agentId = resolveRiskAgentId(tipoAgente);
+      const options = agentId
+        ? propagationPathsByAgent.get(agentId) || []
+        : [];
+
+      const safeCurrentValue = String(currentValue || "").trim();
+      if (!safeCurrentValue) return options;
+      if (options.includes(safeCurrentValue)) {
+        return options;
+      }
+      return options;
+    },
+    [resolveRiskAgentId, propagationPathsByAgent]
+  );
+
   return {
     tipoAgenteOptions,
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
+    getMeioPropagacaoOptions,
   };
 }

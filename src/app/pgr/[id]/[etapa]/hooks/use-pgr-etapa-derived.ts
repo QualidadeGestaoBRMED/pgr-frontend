@@ -71,7 +71,12 @@ export function usePgrEtapaDerived({
   );
   const normalizedGheSearch = useMemo(() => normalizeText(gheSearch.trim()), [gheSearch]);
 
-  const { tipoAgenteOptions, applyMissingRiskDefaults, getDescricaoAgenteOptions } =
+  const {
+    tipoAgenteOptions,
+    applyMissingRiskDefaults,
+    getDescricaoAgenteOptions,
+    getMeioPropagacaoOptions,
+  } =
     useRiskCatalogHelpers(riskCatalogs);
 
   const diretrizOptions = ["Diretriz 1", "Diretriz 2", "Diretriz 3"];
@@ -371,6 +376,7 @@ export function usePgrEtapaDerived({
     tipoAgenteOptions,
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
+    getMeioPropagacaoOptions,
     diretrizOptions,
     estabelecimentoOptions,
     normalizedGheSearch,

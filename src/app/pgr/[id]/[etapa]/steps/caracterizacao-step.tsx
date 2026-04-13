@@ -64,6 +64,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     applyMissingRiskDefaults,
     tipoAgenteOptions,
     getDescricaoAgenteOptions,
+    getMeioPropagacaoOptions,
     inputBaseClass,
     inputInlineClass,
     textareaBaseClass,
@@ -445,7 +446,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     onChange={(value) =>
                       handleRiskChange(risk.id, "meioPropagacao", value)
                     }
-                    options={getDescricaoAgenteOptions(
+                    options={getMeioPropagacaoOptions(
                       risk.tipoAgente,
                       risk.meioPropagacao
                     ).map((option: string) => ({
@@ -497,13 +498,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <label className="text-[12px] font-medium text-foreground">
                   Intensidade/Concentração
                 </label>
-                <input
-                  className={inputBaseClass}
-                  value={risk.intensidade}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "intensidade", event.target.value)
-                  }
-                />
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={risk.intensidade}
+                    onChange={(value) =>
+                      handleRiskChange(risk.id, "intensidade", value)
+                    }
+                    options={getDescricaoAgenteOptions(
+                      risk.tipoAgente,
+                      risk.intensidade
+                    ).map((option: string) => ({
+                      label: option,
+                      value: option,
+                    }))}
+                    buttonClassName={selectSmallClass}
+                    searchPlaceholder="Filtrar intensidade"
+                  />
+                </div>
               </div>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -557,7 +568,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               <p className="text-[13px] font-semibold text-foreground">
                 Medidas de prevenção
               </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="mt-4 grid gap-4 md:grid-cols-4">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
                     Medidas de Controle Administrativas e/ou de Engenharia
@@ -585,6 +596,18 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
                     EPI
+                  </label>
+                  <textarea
+                    className={`${textareaBaseClass} min-h-[80px]`}
+                    value={withDefaultEpcEpi(risk.epi)}
+                    onChange={(event) =>
+                      handleRiskChange(risk.id, "epi", event.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">
+                    CA
                   </label>
                   <textarea
                     className={`${textareaBaseClass} min-h-[80px]`}
