@@ -16,6 +16,7 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       editingMedidasValue: ctx.editingMedidasValue,
       setEditingMedidasValue: ctx.setEditingMedidasValue,
       handleEditMedidasSave: ctx.generalActions.handleEditMedidasSave,
+      handleDeleteMedidas: ctx.generalActions.handleDeleteMedidas,
       handleEditMedidasCancel: ctx.generalActions.handleEditMedidasCancel,
       handleEditMedidasStart: ctx.generalActions.handleEditMedidasStart,
       planTableCurrentPage: ctx.planTableCurrentPage,

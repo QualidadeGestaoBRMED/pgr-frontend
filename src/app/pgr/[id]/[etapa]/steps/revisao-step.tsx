@@ -1,10 +1,12 @@
-import { Check, Eye, FileDown, LoaderCircle, Pencil, TriangleAlert } from "lucide-react";
+import { Check, Eye, FileDown, LoaderCircle, Pencil, TriangleAlert, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { pgrSteps } from "@/app/pgr/steps";
 
 type RevisaoStepProps = {
   pgrId: string;
   completedSteps: number;
   stepStatusById?: Partial<Record<string, boolean>>;
+  missingFieldsByStep?: Partial<Record<string, string[]>>;
   workflow: {
     isLocked: boolean;
     version: number;
@@ -23,6 +25,7 @@ export function RevisaoStep({
   pgrId,
   completedSteps,
   stepStatusById,
+  missingFieldsByStep,
   workflow,
   lastFakePdfAt,
   isGeneratingFakePdf,
@@ -30,6 +33,16 @@ export function RevisaoStep({
   onOpenPreview,
   onGenerateFakePdf,
 }: RevisaoStepProps) {
+  const [openMissingStepId, setOpenMissingStepId] = useState<string | null>(null);
+  const missingFields = useMemo(
+    () => (openMissingStepId ? missingFieldsByStep?.[openMissingStepId] ?? [] : []),
+    [missingFieldsByStep, openMissingStepId]
+  );
+  const missingStepTitle = useMemo(
+    () => pgrSteps.find((item) => item.id === openMissingStepId)?.title ?? "Etapa",
+    [openMissingStepId]
+  );
+
   return (
     <>
       <section className="px-2">
@@ -51,6 +64,7 @@ export function RevisaoStep({
                 typeof stepStatusById?.[item.id] === "boolean"
                   ? Boolean(stepStatusById[item.id])
                   : fallbackByProgress;
+              const missingItems = missingFieldsByStep?.[item.id] ?? [];
               const statusLabel = isDone ? "Completo" : "Incompleto";
               return (
                 <div
@@ -85,6 +99,17 @@ export function RevisaoStep({
                     >
                       {statusLabel}
                     </span>
+                    {!isDone && missingItems.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenMissingStepId(item.id)}
+                        className="btn-outline px-2 py-1"
+                        title="Ver pendências"
+                        aria-label={`Ver pendências da etapa ${item.title}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => onEditStep(item.id)}
@@ -144,6 +169,44 @@ export function RevisaoStep({
           </div>
         </div>
       </section>
+
+      {openMissingStepId && missingFields.length > 0 ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-2xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Pendências de preenchimento
+                  </h3>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    {missingStepTitle}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenMissingStepId(null)}
+                  className="btn-outline px-2 py-1"
+                  aria-label="Fechar pendências"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-4 max-h-[55vh] space-y-2 overflow-auto pr-1">
+                {missingFields.map((field, index) => (
+                  <p
+                    key={`${openMissingStepId}-${index}`}
+                    className="rounded-[10px] border border-border/60 bg-background/40 px-3 py-2 text-[13px] text-foreground/90"
+                  >
+                    {field}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

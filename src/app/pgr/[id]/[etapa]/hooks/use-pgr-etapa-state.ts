@@ -110,6 +110,9 @@ export function usePgrEtapaState({
     nr: serverSyncedCachedState?.planAction.nr ?? "NR-01",
     vigencia: serverSyncedCachedState?.planAction.vigencia ?? "",
   });
+  const [removedPlanRiskKeys, setRemovedPlanRiskKeys] = useState<string[]>(
+    serverSyncedCachedState?.removedPlanRiskKeys ?? []
+  );
   const [isPlanActionModalOpen, setIsPlanActionModalOpen] = useState(false);
   const [planActionScope, setPlanActionScope] = useState<"all" | "ghe" | "risk">("risk");
   const [planActionGheId, setPlanActionGheId] = useState("");
@@ -228,6 +231,7 @@ export function usePgrEtapaState({
       estabelecimentoSelecionado,
       extraEstabelecimentoFields,
       planAction,
+      removedPlanRiskKeys,
       isPlanActionModalOpen,
       planActionScope,
       planActionGheId,
@@ -279,6 +283,7 @@ export function usePgrEtapaState({
       setEstabelecimentoSelecionado,
       setExtraEstabelecimentoFields,
       setPlanAction,
+      setRemovedPlanRiskKeys,
       setIsPlanActionModalOpen,
       setPlanActionScope,
       setPlanActionGheId,

@@ -1,5 +1,7 @@
 import { LoaderCircle } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { InicioDraft, InicioDraftEditableField } from "./types";
+import { isValidCnpj, isValidEmail } from "../validation/br-field-utils";
 
 type InicioStepProps = {
   inicioDraft: InicioDraft;
@@ -18,6 +20,49 @@ export function InicioStep({
   onLoadPipefyMock,
   onDraftChange,
 }: InicioStepProps) {
+  type RequiredInicioField =
+    | "documentTitle"
+    | "companyName"
+    | "cnpj"
+    | "responsible"
+    | "email";
+
+  const [touchedFields, setTouchedFields] = useState<
+    Partial<Record<RequiredInicioField, boolean>>
+  >({});
+
+  const markTouched = (field: RequiredInicioField) => {
+    setTouchedFields((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const errors = useMemo(
+    () => ({
+      documentTitle: inicioDraft.documentTitle.trim()
+        ? ""
+        : "Título do documento é obrigatório.",
+      companyName: inicioDraft.companyName.trim() ? "" : "Empresa é obrigatória.",
+      cnpj: !inicioDraft.cnpj.trim()
+        ? "CNPJ é obrigatório."
+        : isValidCnpj(inicioDraft.cnpj)
+          ? ""
+          : "CNPJ inválido.",
+      responsible: inicioDraft.responsible.trim()
+        ? ""
+        : "Responsável é obrigatório.",
+      email: !inicioDraft.email.trim()
+        ? "E-mail é obrigatório."
+        : isValidEmail(inicioDraft.email)
+          ? ""
+          : "E-mail inválido.",
+    }),
+    [inicioDraft]
+  );
+
+  const getRequiredFieldClassName = (field: RequiredInicioField) =>
+    touchedFields[field] && errors[field]
+      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
+      : inputBaseClass;
+
   return (
     <>
       <section className="px-2">
@@ -73,23 +118,31 @@ export function InicioStep({
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Título do documento
+              Título do documento *
             </label>
             <input
-              className={inputBaseClass}
+              className={getRequiredFieldClassName("documentTitle")}
               value={inicioDraft.documentTitle}
               onChange={(event) => onDraftChange("documentTitle", event.target.value)}
+              onBlur={() => markTouched("documentTitle")}
             />
+            {touchedFields.documentTitle && errors.documentTitle ? (
+              <p className="mt-1 text-[12px] text-danger">{errors.documentTitle}</p>
+            ) : null}
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Empresa
+              Empresa *
             </label>
             <input
-              className={inputBaseClass}
+              className={getRequiredFieldClassName("companyName")}
               value={inicioDraft.companyName}
               onChange={(event) => onDraftChange("companyName", event.target.value)}
+              onBlur={() => markTouched("companyName")}
             />
+            {touchedFields.companyName && errors.companyName ? (
+              <p className="mt-1 text-[12px] text-danger">{errors.companyName}</p>
+            ) : null}
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
@@ -102,32 +155,44 @@ export function InicioStep({
             />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-foreground">CNPJ</label>
+            <label className="text-[12px] font-medium text-foreground">CNPJ *</label>
             <input
-              className={inputBaseClass}
+              className={getRequiredFieldClassName("cnpj")}
               value={inicioDraft.cnpj}
               onChange={(event) => onDraftChange("cnpj", event.target.value)}
+              onBlur={() => markTouched("cnpj")}
             />
+            {touchedFields.cnpj && errors.cnpj ? (
+              <p className="mt-1 text-[12px] text-danger">{errors.cnpj}</p>
+            ) : null}
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Responsável
+              Responsável *
             </label>
             <input
-              className={inputBaseClass}
+              className={getRequiredFieldClassName("responsible")}
               value={inicioDraft.responsible}
               onChange={(event) => onDraftChange("responsible", event.target.value)}
+              onBlur={() => markTouched("responsible")}
             />
+            {touchedFields.responsible && errors.responsible ? (
+              <p className="mt-1 text-[12px] text-danger">{errors.responsible}</p>
+            ) : null}
           </div>
           <div className="md:col-span-2">
             <label className="text-[12px] font-medium text-foreground">
-              E-mail de contato
+              E-mail de contato *
             </label>
             <input
-              className={inputBaseClass}
+              className={getRequiredFieldClassName("email")}
               value={inicioDraft.email}
               onChange={(event) => onDraftChange("email", event.target.value)}
+              onBlur={() => markTouched("email")}
             />
+            {touchedFields.email && errors.email ? (
+              <p className="mt-1 text-[12px] text-danger">{errors.email}</p>
+            ) : null}
           </div>
           <div className="md:col-span-2">
             <label className="text-[12px] font-medium text-foreground">

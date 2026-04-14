@@ -33,6 +33,12 @@ const riskGradeField = (label: string) =>
 const cpfField = (label: string) =>
   requiredText(label).refine((value) => isValidCpf(value), `${label} inválido`);
 
+const stringOrArrayField = (label: string) =>
+  z.union([
+    requiredText(label),
+    z.array(z.string().trim().min(1)).min(1, `${label} é obrigatório`),
+  ]);
+
 export const inicioDraftSchema = z.object({
   documentTitle: requiredText("Título do documento"),
   companyName: requiredText("Empresa"),
@@ -82,7 +88,7 @@ export const gheInfoSchema = z.object({
 export const gheRiskSchema = z.object({
   tipoAgente: requiredText("Tipo de agente"),
   descricaoAgente: requiredText("Descrição do agente"),
-  perigo: requiredText("Perigo"),
+  perigo: z.string().optional(),
   meioPropagacao: requiredText("Meio de propagação"),
   fontes: requiredText("Fontes"),
   tipoAvaliacao: requiredText("Tipo de avaliação"),
@@ -91,8 +97,8 @@ export const gheRiskSchema = z.object({
   probabilidade: requiredText("Probabilidade"),
   classificacao: requiredText("Classificação"),
   medidasControle: requiredText("Medidas de controle"),
-  epc: z.array(z.string().trim().min(1)).min(1, "Selecione ao menos um EPC"),
-  epi: z.array(z.string().trim().min(1)).min(1, "Selecione ao menos um EPI"),
+  epc: stringOrArrayField("EPC"),
+  epi: stringOrArrayField("EPI"),
 });
 
 export function isInicioDraftComplete(input: InicioDraft): boolean {
@@ -109,4 +115,62 @@ export function isGheInfoComplete(input: GheGroup["info"]): boolean {
 
 export function isRiskComplete(input: GheRisk): boolean {
   return gheRiskSchema.safeParse(input).success;
+}
+
+const dedupeMessages = (messages: string[]) =>
+  Array.from(new Set(messages.map((message) => String(message || "").trim()).filter(Boolean)));
+
+const riskFieldLabels: Record<string, string> = {
+  tipoAgente: "Tipo de agente",
+  descricaoAgente: "Descrição do agente",
+  meioPropagacao: "Meio de propagação",
+  fontes: "Fontes",
+  tipoAvaliacao: "Tipo de avaliação",
+  intensidade: "Intensidade",
+  severidade: "Severidade",
+  probabilidade: "Probabilidade",
+  classificacao: "Classificação",
+  medidasControle: "Medidas de controle",
+  epc: "EPC",
+  epi: "EPI",
+};
+
+export function getInicioDraftIssues(input: InicioDraft): string[] {
+  const result = inicioDraftSchema.safeParse(input);
+  if (result.success) return [];
+  return dedupeMessages(result.error.issues.map((issue) => issue.message));
+}
+
+export function getDadosCadastraisIssues(input: DadosCadastraisDraft): string[] {
+  const result = dadosCadastraisSchema.safeParse(input);
+  if (result.success) return [];
+  return dedupeMessages(
+    result.error.issues.map((issue) => {
+      const [root, index] = issue.path;
+      if (root === "contratantes" && typeof index === "number") {
+        return `Contratante ${index + 1}: ${issue.message}`;
+      }
+      return issue.message;
+    })
+  );
+}
+
+export function getGheInfoIssues(input: GheGroup["info"]): string[] {
+  const result = gheInfoSchema.safeParse(input);
+  if (result.success) return [];
+  return dedupeMessages(result.error.issues.map((issue) => issue.message));
+}
+
+export function getRiskIssues(input: GheRisk): string[] {
+  const result = gheRiskSchema.safeParse(input);
+  if (result.success) return [];
+  return dedupeMessages(
+    result.error.issues.map((issue) => {
+      if (issue.message !== "Invalid input") return issue.message;
+      const firstPath = String(issue.path[0] || "");
+      const label = riskFieldLabels[firstPath];
+      if (!label) return issue.message;
+      return `${label} é obrigatório`;
+    })
+  );
 }

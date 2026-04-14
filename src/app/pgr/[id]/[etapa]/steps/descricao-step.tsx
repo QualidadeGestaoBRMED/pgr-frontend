@@ -35,6 +35,8 @@ type GheGroup = {
   items: GheItem[];
 };
 
+type RequiredGheInfoField = "processo" | "observacoes" | "ambiente";
+
 const PROGRESSIVE_THRESHOLD = 50;
 const PROGRESSIVE_BATCH_SIZE = 50;
 
@@ -79,6 +81,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const [isEditingGheName, setIsEditingGheName] = useState(false);
   const [editingGheName, setEditingGheName] = useState("");
   const [gheNameFeedback, setGheNameFeedback] = useState("");
+  const [pendingRemoveFunction, setPendingRemoveFunction] = useState<null | {
+    id: string;
+    label: string;
+  }>(null);
+  const [touchedInfoFields, setTouchedInfoFields] = useState<
+    Partial<Record<RequiredGheInfoField, boolean>>
+  >({});
 
   const {
     currentGheName,
@@ -418,6 +427,35 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     if (isEditingGheName) return;
     setEditingGheName(currentGheName);
   }, [currentGheName, isEditingGheName]);
+
+  useEffect(() => {
+    if (!isInfoModalOpen) return;
+    setTouchedInfoFields({});
+  }, [isInfoModalOpen, currentGhe?.id]);
+
+  const infoErrors = useMemo<Record<RequiredGheInfoField, string>>(
+    () => ({
+      processo: (currentGhe?.info.processo ?? "").trim()
+        ? ""
+        : "Descrição sucinta do processo produtivo é obrigatória.",
+      observacoes: (currentGhe?.info.observacoes ?? "").trim()
+        ? ""
+        : "Observações do GHE é obrigatório.",
+      ambiente: (currentGhe?.info.ambiente ?? "").trim()
+        ? ""
+        : "Descrição do ambiente do GHE é obrigatória.",
+    }),
+    [currentGhe?.info.ambiente, currentGhe?.info.observacoes, currentGhe?.info.processo]
+  );
+
+  const markInfoTouched = (field: RequiredGheInfoField) => {
+    setTouchedInfoFields((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const getInfoFieldClassName = (field: RequiredGheInfoField) =>
+    touchedInfoFields[field] && infoErrors[field]
+      ? `${textareaBaseClass} border-rose-400 focus:ring-rose-500`
+      : textareaBaseClass;
 
   return (
     <>
@@ -936,7 +974,12 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                             <>
                               <button
                                 type="button"
-                                onClick={() => handleRemoveSingle(item.functionId)}
+                                onClick={() =>
+                                  setPendingRemoveFunction({
+                                    id: item.functionId,
+                                    label: data.funcao || "Função",
+                                  })
+                                }
                                 className="text-muted-foreground transition hover:text-primary"
                                 title="Remover"
                               >
@@ -979,6 +1022,47 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
               </div>
             </div>
           </section>
+
+          {pendingRemoveFunction ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Confirmar exclusão
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    Deseja realmente excluir a função{" "}
+                    <span className="font-semibold text-foreground">
+                      {pendingRemoveFunction.label}
+                    </span>
+                    ?
+                  </p>
+
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPendingRemoveFunction(null)}
+                      className="btn-outline px-4"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleRemoveSingle(pendingRemoveFunction.id);
+                        setPendingRemoveFunction(null);
+                      }}
+                      className="btn-primary px-5"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {isGheModalOpen ? (
             <div className="fixed -inset-6 z-50">
@@ -1345,36 +1429,44 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   <div className="mt-6 space-y-5">
                     <div>
                       <label className="text-[12px] font-medium text-foreground">
-                        Descrição Sucinta do Processo Produtivo
+                        Descrição Sucinta do Processo Produtivo *
                       </label>
                       <textarea
-                        className={textareaBaseClass}
+                        className={getInfoFieldClassName("processo")}
                         value={currentGhe?.info.processo ?? ""}
                         onChange={(event) =>
                           handleInfoChange("processo", event.target.value)
                         }
+                        onBlur={() => markInfoTouched("processo")}
                       />
+                      {touchedInfoFields.processo && infoErrors.processo ? (
+                        <p className="mt-1 text-[12px] text-danger">{infoErrors.processo}</p>
+                      ) : null}
                     </div>
                     <div>
                       <label className="text-[12px] font-medium text-foreground">
-                        Observações do GHE:
+                        Observações do GHE *:
                       </label>
                       <textarea
-                        className={textareaBaseClass}
+                        className={getInfoFieldClassName("observacoes")}
                         value={
                           currentGhe?.info.observacoes ?? "-"
                         }
                         onChange={(event) =>
                           handleInfoChange("observacoes", event.target.value)
                         }
+                        onBlur={() => markInfoTouched("observacoes")}
                       />
+                      {touchedInfoFields.observacoes && infoErrors.observacoes ? (
+                        <p className="mt-1 text-[12px] text-danger">{infoErrors.observacoes}</p>
+                      ) : null}
                     </div>
                     <div>
                       <label className="text-[12px] font-medium text-foreground">
-                        Descrição do Ambiente do GHE:
+                        Descrição do Ambiente do GHE *:
                       </label>
                       <textarea
-                        className={textareaBaseClass}
+                        className={getInfoFieldClassName("ambiente")}
                         value={
                           currentGhe?.info.ambiente ??
                           "A ser evidenciado na fase de reconhecimento"
@@ -1382,7 +1474,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         onChange={(event) =>
                           handleInfoChange("ambiente", event.target.value)
                         }
+                        onBlur={() => markInfoTouched("ambiente")}
                       />
+                      {touchedInfoFields.ambiente && infoErrors.ambiente ? (
+                        <p className="mt-1 text-[12px] text-danger">{infoErrors.ambiente}</p>
+                      ) : null}
                     </div>
                   </div>
 

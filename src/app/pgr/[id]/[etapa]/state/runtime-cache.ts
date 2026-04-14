@@ -27,6 +27,7 @@ export type PersistedPgrState = {
   }>;
   estabelecimentoSelecionado: string;
   planAction: { nr: string; vigencia: string };
+  removedPlanRiskKeys: string[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
   gheGroups: GheGroup[];

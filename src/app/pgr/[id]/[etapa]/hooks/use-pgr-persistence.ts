@@ -30,6 +30,7 @@ type PersistPayload = {
   extraEstabelecimentoFields: ExtraField[];
   estabelecimentoSelecionado: string;
   planAction: PlanAction;
+  removedPlanRiskKeys: string[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
   gheGroups: GheGroup[];
@@ -54,6 +55,7 @@ type BackendStateResponse = Partial<{
   extraEstabelecimentoFields: Array<Partial<ExtraField>>;
   estabelecimentoSelecionado: string;
   planAction: Partial<PlanAction>;
+  removedPlanRiskKeys: string[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
   gheGroups: GheGroup[];
@@ -86,6 +88,7 @@ type UsePgrPersistenceContext = {
     setExtraEstabelecimentoFields: Dispatch<SetStateAction<ExtraField[]>>;
     setEstabelecimentoSelecionado: Dispatch<SetStateAction<string>>;
     setPlanAction: Dispatch<SetStateAction<PlanAction>>;
+    setRemovedPlanRiskKeys: Dispatch<SetStateAction<string[]>>;
     setAnexos: Dispatch<SetStateAction<AnexoItem[]>>;
     setAnexoDiretriz: Dispatch<SetStateAction<string>>;
     setGheGroups: Dispatch<SetStateAction<GheGroup[]>>;
@@ -107,6 +110,7 @@ type UsePgrPersistenceContext = {
     extraEstabelecimentoFields: ExtraField[];
     estabelecimentoSelecionado: string;
     planAction: PlanAction;
+    removedPlanRiskKeys: string[];
     anexos: AnexoItem[];
     anexoDiretriz: string;
     gheGroups: GheGroup[];
@@ -153,6 +157,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setExtraEstabelecimentoFields,
     setEstabelecimentoSelecionado,
     setPlanAction,
+    setRemovedPlanRiskKeys,
     setAnexos,
     setAnexoDiretriz,
     setGheGroups,
@@ -175,6 +180,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraEstabelecimentoFields,
     estabelecimentoSelecionado,
     planAction,
+    removedPlanRiskKeys,
     anexos,
     anexoDiretriz,
     gheGroups,
@@ -201,6 +207,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraFields,
     estabelecimento,
     plan,
+    removedPlanRiskKeys,
     anexosState,
     diretriz,
     ghes,
@@ -220,6 +227,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraFields: ExtraField[];
     estabelecimento: string;
     plan: PlanAction;
+    removedPlanRiskKeys: string[];
     anexosState: AnexoItem[];
     diretriz: string;
     ghes: GheGroup[];
@@ -241,6 +249,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraEstabelecimentoFields: extraFields,
     estabelecimentoSelecionado: estabelecimento,
     planAction: plan,
+    removedPlanRiskKeys,
     anexos: anexosState,
     anexoDiretriz: diretriz,
     gheGroups: ghes,
@@ -269,6 +278,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               extraFields: payload.extraEstabelecimentoFields,
               estabelecimento: payload.estabelecimentoSelecionado,
               plan: payload.planAction,
+              removedPlanRiskKeys: payload.removedPlanRiskKeys,
               anexosState: payload.anexos,
               diretriz: payload.anexoDiretriz,
               ghes: payload.gheGroups,
@@ -420,6 +430,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           : [];
         const loadedEstabelecimento = state.estabelecimentoSelecionado || "";
         const loadedPlanAction = { nr: "NR-01", vigencia: "", ...(state.planAction || {}) };
+        const loadedRemovedPlanRiskKeys = Array.isArray(state.removedPlanRiskKeys)
+          ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
+          : [];
         const loadedAnexos = state.anexos?.length ? state.anexos : defaultAnexos;
         const loadedAnexoDiretriz = state.anexoDiretriz || "Diretriz 1";
         const loadedGheGroups = state.gheGroups?.length ? state.gheGroups : gheGroups;
@@ -462,6 +475,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setExtraEstabelecimentoFields(loadedExtraFields);
         setEstabelecimentoSelecionado(loadedEstabelecimento);
         setPlanAction(loadedPlanAction);
+        setRemovedPlanRiskKeys(loadedRemovedPlanRiskKeys);
         setAnexos(loadedAnexos);
         setAnexoDiretriz(loadedAnexoDiretriz);
 
@@ -485,6 +499,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             extraFields: loadedExtraFields,
             estabelecimento: loadedEstabelecimento,
             plan: loadedPlanAction,
+            removedPlanRiskKeys: loadedRemovedPlanRiskKeys,
             anexosState: loadedAnexos,
             diretriz: loadedAnexoDiretriz,
             ghes: loadedGheGroups,
@@ -564,6 +579,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       extraEstabelecimentoFields,
       estabelecimentoSelecionado,
       planAction,
+      removedPlanRiskKeys,
       anexos,
       anexoDiretriz,
       gheGroups,
@@ -605,6 +621,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     params.id,
     persistPayload,
     planAction,
+    removedPlanRiskKeys,
     pdfLayout,
     riskGheGroups,
     saveTimerRef,

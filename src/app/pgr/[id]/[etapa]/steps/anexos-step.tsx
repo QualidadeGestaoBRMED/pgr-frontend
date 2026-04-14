@@ -1,4 +1,5 @@
 import type { Dispatch, DragEvent, SetStateAction } from "react";
+import { useMemo, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 
 type AnexosStepProps = {
@@ -50,6 +51,19 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
     handleAddAnexo,
   } = ctx;
 
+  const [hasTriedAttachmentAction, setHasTriedAttachmentAction] = useState(false);
+
+  const hasAnyAttachment = useMemo(
+    () => anexos.some((anexo) => anexo.files.length > 0),
+    [anexos]
+  );
+  const showAttachmentError = hasTriedAttachmentAction && !hasAnyAttachment;
+
+  const handleAttachmentInput = (anexoId: string, files: FileList | null) => {
+    setHasTriedAttachmentAction(true);
+    handleAnexoFiles(anexoId, files);
+  };
+
   return (
     <>
       <section className="px-2">
@@ -60,6 +74,19 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+        <div className="mb-4">
+          <p className="text-[12px] font-semibold text-muted-foreground">
+            Anexos obrigatórios *
+          </p>
+          <p className="text-[12px] text-muted-foreground">
+            É necessário anexar ao menos 1 arquivo em qualquer item.
+          </p>
+          {showAttachmentError ? (
+            <p className="mt-1 text-[12px] text-danger">
+              Anexe ao menos um arquivo para concluir esta etapa.
+            </p>
+          ) : null}
+        </div>
         <div className="grid gap-4 md:grid-cols-[1.2fr_1.4fr]">
           <div>
             <label className="text-[12px] font-semibold text-muted-foreground">
@@ -91,7 +118,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                   multiple
                   className="hidden"
                   onChange={(event) =>
-                    handleAnexoFiles("anexo-art", event.target.files)
+                    handleAttachmentInput("anexo-art", event.target.files)
                   }
                 />
               </label>
@@ -115,6 +142,8 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
               className={`rounded-[12px] border px-4 py-4 ${
                 dragOverAnexoId === anexo.id
                   ? "border-primary/50 bg-primary/5"
+                  : showAttachmentError && !anexo.files.length
+                    ? "border-rose-300 bg-rose-50/40 dark:bg-rose-950/10"
                   : "border-border/60 bg-background/40"
               }`}
             >
@@ -149,7 +178,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       multiple
                       className="hidden"
                       onChange={(event) =>
-                        handleAnexoFiles(anexo.id, event.target.files)
+                        handleAttachmentInput(anexo.id, event.target.files)
                       }
                     />
                   </label>
@@ -185,7 +214,10 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleAnexoFileRemove(anexo.id, file.id)}
+                        onClick={() => {
+                          setHasTriedAttachmentAction(true);
+                          handleAnexoFileRemove(anexo.id, file.id);
+                        }}
                         className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
                       >
                         Excluir

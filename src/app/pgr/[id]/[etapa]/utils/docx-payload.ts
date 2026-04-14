@@ -77,6 +77,7 @@ type BackendStateShape = {
   };
   gheGroups?: GheGroup[];
   riskGheGroups?: RiskGheGroup[];
+  removedPlanRiskKeys?: string[];
   functions?: PgrFunction[];
   planAction?: {
     nr?: string;
@@ -185,6 +186,7 @@ export function buildPgrDocxPayload(input: {
   historicoData: HistoricoData;
   gheGroups: GheGroup[];
   riskGheGroups: RiskGheGroup[];
+  removedPlanRiskKeys?: string[];
   functionsData: PgrFunction[];
   planAction: {
     nr: string;
@@ -233,15 +235,18 @@ export function buildPgrDocxPayload(input: {
     })),
   }));
 
+  const excludedPlanKeys = new Set(input.removedPlanRiskKeys ?? []);
   const planoItens = caracterizacaoGhes.flatMap((ghe) =>
-    ghe.riscos.map((risk) => ({
-      ghe: ghe.nome,
-      risco: risk.descricaoAgente || "",
-      classificacao: risk.classificacao,
-      medidas: risk.medidasControle,
-      epc: risk.epc,
-      epi: risk.epi,
-    }))
+    ghe.riscos
+      .filter((risk) => !excludedPlanKeys.has(`${ghe.id}::${risk.id}`))
+      .map((risk) => ({
+        ghe: ghe.nome,
+        risco: risk.descricaoAgente || "",
+        classificacao: risk.classificacao,
+        medidas: risk.medidasControle,
+        epc: risk.epc,
+        epi: risk.epi,
+      }))
   );
 
   const totalArquivos = input.anexos.reduce((total, anexo) => total + anexo.files.length, 0);
@@ -403,6 +408,9 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     riskGheGroups: Array.isArray(state.riskGheGroups)
       ? state.riskGheGroups
       : fallbackRiskGheGroups,
+    removedPlanRiskKeys: Array.isArray(state.removedPlanRiskKeys)
+      ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
+      : [],
     functionsData: Array.isArray(state.functions) ? state.functions : fallbackFunctions,
     planAction: {
       nr: state.planAction?.nr || state.planoAcao?.nr || "NR-01",

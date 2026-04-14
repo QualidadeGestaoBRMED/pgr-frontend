@@ -109,6 +109,7 @@ type GeneralActionsContext = {
     setPlanActionDescription: React.Dispatch<React.SetStateAction<string>>;
     setIsPlanActionModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
+    setRemovedPlanRiskKeys: React.Dispatch<React.SetStateAction<string[]>>;
     setEditingMedidasId: React.Dispatch<React.SetStateAction<string | null>>;
     setEditingMedidasValue: React.Dispatch<React.SetStateAction<string>>;
     setCompletedSteps: React.Dispatch<React.SetStateAction<number>>;
@@ -178,6 +179,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionDescription,
     setIsPlanActionModalOpen,
     setRiskGheGroups,
+    setRemovedPlanRiskKeys,
     setEditingMedidasId,
     setEditingMedidasValue,
     setCompletedSteps,
@@ -431,6 +433,22 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setDadosCadastrais((prev) => {
       const contractors = normalizeContractors(prev);
       const next = contractors.filter((_, index) => index !== contractorIndex);
+      if (!next.length) {
+        return syncLegacyContractorFields({
+          ...prev,
+          contratantes: [],
+          contratanteNomeFantasia: "",
+          contratanteRazaoSocial: "",
+          contratanteCnpj: "",
+          contratanteCnae: "",
+          contratanteEndereco: "",
+          contratanteCep: "",
+          contratanteCidade: "",
+          contratanteEstado: "",
+          contratanteGrauRisco: "",
+          contratanteAtividadePrincipal: "",
+        });
+      }
       return syncLegacyContractorFields({ ...prev, contratantes: next });
     });
   };
@@ -565,6 +583,19 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setEditingMedidasValue("");
   };
 
+  const handleDeleteMedidas = (
+    gheId: string,
+    riskId: string,
+    groupTargets?: Array<{ gheId: string; riskId: string }>
+  ) => {
+    const keysToExclude = Array.isArray(groupTargets) && groupTargets.length
+      ? groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
+      : [`${gheId}::${riskId}`];
+    setRemovedPlanRiskKeys((prev) => Array.from(new Set([...prev, ...keysToExclude])));
+    setEditingMedidasId(null);
+    setEditingMedidasValue("");
+  };
+
   const handleSavePlanActionModal = () => {
     const actionDescription = planActionDescription.trim();
     if (!actionDescription) return;
@@ -580,6 +611,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       return `${currentValue}\n${nextValue}`;
     };
 
+    const touchedKeys = new Set<string>();
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         const applyForGhe = planActionScope === "all" || ghe.id === planActionGheId;
@@ -589,6 +621,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           const applyForRisk =
             planActionScope !== "risk" || risk.id === planActionRiskId;
           if (!applyForRisk) return risk;
+          touchedKeys.add(`${ghe.id}::${risk.id}`);
 
           return {
             ...risk,
@@ -599,6 +632,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         return { ...ghe, risks };
       })
     );
+
+    if (touchedKeys.size > 0) {
+      setRemovedPlanRiskKeys((prev) =>
+        prev.filter((key) => !touchedKeys.has(key))
+      );
+    }
 
     setPlanActionDescription("");
     setIsPlanActionModalOpen(false);
@@ -658,6 +697,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       setCurrentGheId(imported.gheGroups[0]?.id ?? "ghe-1");
       setRiskGheGroups(imported.riskGheGroups);
       setCurrentRiskGheId(imported.riskGheGroups[0]?.id ?? "ghe-1");
+      setRemovedPlanRiskKeys([]);
       setSelectedLeftIds([]);
       setSelectedRightIds([]);
       setGheSearch("");
@@ -942,6 +982,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleEditMedidasStart,
     handleEditMedidasCancel,
     handleEditMedidasSave,
+    handleDeleteMedidas,
     handleSavePlanActionModal,
     handleAdvance,
     handleAddExtraField,

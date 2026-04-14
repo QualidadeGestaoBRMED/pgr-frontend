@@ -2,6 +2,10 @@ import { useMemo } from "react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { useRiskCatalogHelpers } from "./use-risk-catalog-helpers";
 import {
+  getDadosCadastraisIssues,
+  getGheInfoIssues,
+  getInicioDraftIssues,
+  getRiskIssues,
   isDadosCadastraisComplete,
   isGheInfoComplete as isGheInfoCompleteBySchema,
   isInicioDraftComplete,
@@ -28,6 +32,9 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const uniqueValues = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
 export function usePgrEtapaDerived({
   riskCatalogs,
   functionsData,
@@ -37,6 +44,7 @@ export function usePgrEtapaDerived({
   gheSearch,
   gheFilterId,
   riskGheGroups,
+  removedPlanRiskKeys,
   planActionGheId,
   planTablePage,
   planTablePageSize,
@@ -55,6 +63,7 @@ export function usePgrEtapaDerived({
   gheSearch: string;
   gheFilterId: "all" | string;
   riskGheGroups: RiskGheGroup[];
+  removedPlanRiskKeys: string[];
   planActionGheId: string;
   planTablePage: number;
   planTablePageSize: number;
@@ -192,19 +201,23 @@ export function usePgrEtapaDerived({
   );
 
   const rawPlanTableRows = useMemo<PlanTableRow[]>(
-    () =>
-      riskGheGroups.flatMap((ghe) =>
-        ghe.risks.map((risk) => ({
-          id: `${ghe.id}-${risk.id}`,
-          gheId: ghe.id,
-          riskId: risk.id,
-          gheName: ghe.name,
-          descricaoAgente: risk.descricaoAgente || "Não informado",
-          classificacao: risk.classificacao || "Não informado",
-          medidasPrevencao: risk.medidasControle || "",
-        }))
-      ),
-    [riskGheGroups]
+    () => {
+      const excludedKeys = new Set(removedPlanRiskKeys);
+      return riskGheGroups.flatMap((ghe) =>
+        ghe.risks
+          .filter((risk) => !excludedKeys.has(`${ghe.id}::${risk.id}`))
+          .map((risk) => ({
+            id: `${ghe.id}-${risk.id}`,
+            gheId: ghe.id,
+            riskId: risk.id,
+            gheName: ghe.name,
+            descricaoAgente: risk.descricaoAgente || "Não informado",
+            classificacao: risk.classificacao || "Não informado",
+            medidasPrevencao: risk.medidasControle || "",
+          }))
+      );
+    },
+    [riskGheGroups, removedPlanRiskKeys]
   );
 
   const planTableRows = useMemo<PlanTableRow[]>(() => {
@@ -286,6 +299,83 @@ export function usePgrEtapaDerived({
     () => anexos.some((anexo) => anexo.files.length > 0),
     [anexos]
   );
+
+  const missingFieldsByStep = useMemo<Partial<Record<PgrStepId, string[]>>>(() => {
+    const missingInicio = getInicioDraftIssues(inicioDraft);
+    const missingDados = getDadosCadastraisIssues(dadosCadastrais);
+
+    const missingDescricao: string[] = [];
+    if (!gheGroups.length) {
+      missingDescricao.push("Adicionar ao menos um GHE.");
+    }
+    if (remainingCount > 0) {
+      missingDescricao.push(
+        `Associar todas as funções aos GHEs (${remainingCount} restantes).`
+      );
+    }
+    gheGroups.forEach((ghe) => {
+      if (!ghe.items.length) {
+        missingDescricao.push(`${ghe.name}: adicionar ao menos uma função associada.`);
+      }
+      const gheInfoIssues = getGheInfoIssues(ghe.info);
+      gheInfoIssues.forEach((issue) => {
+        missingDescricao.push(`${ghe.name}: ${issue}`);
+      });
+    });
+
+    const missingCaracterizacao: string[] = [];
+    if (!riskGheGroups.length) {
+      missingCaracterizacao.push("Adicionar ao menos um GHE para caracterização.");
+    } else {
+      riskGheGroups.forEach((ghe) => {
+        if (!ghe.risks.length) {
+          missingCaracterizacao.push(`${ghe.name}: adicionar ao menos um risco.`);
+          return;
+        }
+        ghe.risks.forEach((risk, index) => {
+          const riskIssues = getRiskIssues(risk);
+          riskIssues.forEach((issue) => {
+            missingCaracterizacao.push(`${ghe.name} · Risco ${index + 1}: ${issue}`);
+          });
+        });
+      });
+    }
+
+    const missingPlano: string[] = [];
+    if (!rawPlanTableRows.length) {
+      missingPlano.push("Adicionar riscos na etapa de caracterização.");
+    } else {
+      rawPlanTableRows.forEach((row) => {
+        if (row.medidasPrevencao.trim().length > 0) return;
+        missingPlano.push(
+          `${row.gheName}: preencher medidas de prevenção para ${row.descricaoAgente}.`
+        );
+      });
+    }
+
+    const missingAnexos = isAnexosComplete
+      ? []
+      : ["Anexar ao menos um arquivo em qualquer item de anexo."];
+
+    return {
+      inicio: uniqueValues(missingInicio),
+      dados: uniqueValues(missingDados),
+      descricao: uniqueValues(missingDescricao),
+      caracterizacao: uniqueValues(missingCaracterizacao),
+      plano: uniqueValues(missingPlano),
+      anexos: uniqueValues(missingAnexos),
+      historico: [],
+      revisao: [],
+    };
+  }, [
+    dadosCadastrais,
+    gheGroups,
+    inicioDraft,
+    isAnexosComplete,
+    rawPlanTableRows,
+    remainingCount,
+    riskGheGroups,
+  ]);
 
   const stepStatusById = useMemo<Partial<Record<PgrStepId, boolean>>>(
     () => ({
@@ -404,6 +494,7 @@ export function usePgrEtapaDerived({
     assignGheOptions,
     planTableRows,
     stepStatusById,
+    missingFieldsByStep,
     alertSteps,
     planActionGheOptions,
     planActionRiskOptions,

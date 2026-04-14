@@ -116,13 +116,33 @@ describe("step schemas", () => {
       probabilidade: "Media",
       classificacao: "Significativo",
       medidasControle: "Isolamento",
-      epc: ["Barreira acustica"],
-      epi: ["Protetor auricular"],
+      epc: "Barreira acustica",
+      epi: "Protetor auricular",
     };
 
     expect(isGheInfoComplete(gheInfo)).toBe(true);
     expect(isRiskComplete(risk)).toBe(true);
-    expect(isRiskComplete({ ...risk, epc: [] })).toBe(false);
+    expect(isRiskComplete({ ...risk, epc: "" })).toBe(false);
+  });
+
+  it("accepts UI risk payload shape without perigo and with string epc/epi", () => {
+    const uiRisk = {
+      id: "r-ui-1",
+      tipoAgente: "Fisico",
+      descricaoAgente: "Ruido",
+      meioPropagacao: "Ar",
+      fontes: "Maquinas",
+      tipoAvaliacao: "Quantitativa",
+      intensidade: "85 dB",
+      severidade: "Alta",
+      probabilidade: "3",
+      classificacao: "Moderado",
+      medidasControle: "Isolamento",
+      epc: "Barreira acustica",
+      epi: "Protetor auricular",
+    };
+
+    expect(isRiskComplete(uiRisk as never)).toBe(true);
   });
 
   it("validates cpf/cnpj/email/phone/risk-grade helpers", () => {

@@ -1,5 +1,6 @@
+import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { Pencil } from "lucide-react";
+import { MinusCircle, Pencil } from "lucide-react";
 import { SearchableSelect, type SearchableSelectProps } from "./searchable-select";
 
 type PlanoStepProps = {
@@ -34,6 +35,11 @@ type PlanoStepProps = {
     editingMedidasValue: string;
     setEditingMedidasValue: Dispatch<SetStateAction<string>>;
     handleEditMedidasSave: (
+      gheId: string,
+      riskId: string,
+      groupTargets?: Array<{ gheId: string; riskId: string }>
+    ) => void;
+    handleDeleteMedidas: (
       gheId: string,
       riskId: string,
       groupTargets?: Array<{ gheId: string; riskId: string }>
@@ -74,6 +80,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     editingMedidasValue,
     setEditingMedidasValue,
     handleEditMedidasSave,
+    handleDeleteMedidas,
     handleEditMedidasCancel,
     handleEditMedidasStart,
     planTableCurrentPage,
@@ -94,6 +101,53 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     setPlanActionDescription,
     handleSavePlanActionModal,
   } = ctx;
+
+  const [touchedMedidasByRowId, setTouchedMedidasByRowId] = useState<
+    Record<string, boolean>
+  >({});
+  const [touchedPlanActionDescription, setTouchedPlanActionDescription] =
+    useState(false);
+  const [pendingDeleteRow, setPendingDeleteRow] = useState<null | {
+    gheId: string;
+    riskId: string;
+    groupTargets?: Array<{ gheId: string; riskId: string }>;
+  }>(null);
+
+  useEffect(() => {
+    if (!isPlanActionModalOpen) return;
+    setTouchedPlanActionDescription(false);
+  }, [isPlanActionModalOpen]);
+
+  const medidasErrorsByRowId = useMemo<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        planTableRows.map((row) => [
+          row.id,
+          row.medidasPrevencao.trim()
+            ? ""
+            : "Medidas de prevenção é obrigatório.",
+        ])
+      ),
+    [planTableRows]
+  );
+
+  const planActionDescriptionError = planActionDescription.trim()
+    ? ""
+    : "Descrição da ação é obrigatória.";
+
+  const markMedidasTouched = (rowId: string) => {
+    setTouchedMedidasByRowId((prev) => ({ ...prev, [rowId]: true }));
+  };
+
+  const getMedidasTextareaClassName = (rowId: string) =>
+    touchedMedidasByRowId[rowId] && medidasErrorsByRowId[rowId]
+      ? `${textareaBaseClass} min-h-[96px] border-rose-400 focus:ring-rose-500`
+      : `${textareaBaseClass} min-h-[96px]`;
+
+  const getPlanActionDescriptionClassName = () =>
+    touchedPlanActionDescription && planActionDescriptionError
+      ? `${textareaBaseClass} min-h-[120px] border-rose-400 focus:ring-rose-500`
+      : `${textareaBaseClass} min-h-[120px]`;
 
   return (
     <>
@@ -187,7 +241,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       Classificação
                     </th>
                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                      Medidas de prevenção
+                      Medidas de prevenção *
                     </th>
                   </tr>
                 </thead>
@@ -205,23 +259,32 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                         {editingMedidasId === row.id ? (
                           <div className="space-y-2">
                             <textarea
-                              className={`${textareaBaseClass} min-h-[96px]`}
+                              className={getMedidasTextareaClassName(row.id)}
                               value={editingMedidasValue}
                               onChange={(event) =>
                                 setEditingMedidasValue(event.target.value)
                               }
+                              onBlur={() => markMedidasTouched(row.id)}
                               placeholder="Descreva as medidas de prevenção"
                             />
+                            {touchedMedidasByRowId[row.id] &&
+                            medidasErrorsByRowId[row.id] ? (
+                              <p className="text-[12px] text-danger">
+                                {medidasErrorsByRowId[row.id]}
+                              </p>
+                            ) : null}
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                  handleEditMedidasSave(
-                                    row.gheId,
-                                    row.riskId,
-                                    row.groupTargets
-                                  )
-                                }
+                                  onClick={() => {
+                                    markMedidasTouched(row.id);
+                                    if (editingMedidasValue.trim().length === 0) return;
+                                    handleEditMedidasSave(
+                                      row.gheId,
+                                      row.riskId,
+                                      row.groupTargets
+                                    );
+                                  }}
                                 className="btn-primary px-3 py-1 text-[11px]"
                               >
                                 Salvar
@@ -249,21 +312,35 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                                   ? row.medidasPrevencao
                                   : "Sem medidas cadastradas."}
                               </p>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleEditMedidasStart(
-                                    row.id,
-                                    row.medidasPrevencao
-                                  )
-                                }
-                                className="opacity-0 transition group-hover:opacity-100"
-                                title="Editar medidas de prevenção"
-                              >
-                                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border/50 text-muted-foreground/70 hover:text-foreground hover:border-border">
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </span>
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleEditMedidasStart(
+                                      row.id,
+                                      row.medidasPrevencao
+                                    )
+                                  }
+                                  className="text-muted-foreground transition hover:text-primary"
+                                  title="Editar medidas de prevenção"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPendingDeleteRow({
+                                      gheId: row.gheId,
+                                      riskId: row.riskId,
+                                      groupTargets: row.groupTargets,
+                                    });
+                                  }}
+                                  className="text-muted-foreground transition hover:text-primary"
+                                  title="Excluir ação"
+                                >
+                                  <MinusCircle className="h-4 w-4" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -424,14 +501,20 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
 
                 <div>
                   <label className="text-[12px] font-semibold text-muted-foreground">
-                    Descrição da ação
+                    Descrição da ação *
                   </label>
                   <textarea
-                    className={`${textareaBaseClass} min-h-[120px]`}
+                    className={getPlanActionDescriptionClassName()}
                     value={planActionDescription}
                     onChange={(event) => setPlanActionDescription(event.target.value)}
+                    onBlur={() => setTouchedPlanActionDescription(true)}
                     placeholder="Descreva a ação preventiva..."
                   />
+                  {touchedPlanActionDescription && planActionDescriptionError ? (
+                    <p className="mt-1 text-[12px] text-danger">
+                      {planActionDescriptionError}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -445,10 +528,55 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={handleSavePlanActionModal}
+                  onClick={() => {
+                    setTouchedPlanActionDescription(true);
+                    if (planActionDescription.trim().length === 0) return;
+                    handleSavePlanActionModal();
+                  }}
                   className="btn-primary px-5"
                 >
                   Salvar ação
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingDeleteRow ? (
+        <div className="fixed -inset-6 z-50">
+          <div className="absolute inset-0 bg-black/65" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <h3 className="text-[18px] font-semibold text-foreground">
+                Confirmar exclusão
+              </h3>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Deseja realmente excluir esta ação do plano? O risco será mantido.
+              </p>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteRow(null)}
+                  className="btn-outline px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDeleteMedidas(
+                      pendingDeleteRow.gheId,
+                      pendingDeleteRow.riskId,
+                      pendingDeleteRow.groupTargets
+                    );
+                    setPendingDeleteRow(null);
+                  }}
+                  className="btn-primary px-5"
+                >
+                  Excluir
                 </button>
               </div>
             </div>

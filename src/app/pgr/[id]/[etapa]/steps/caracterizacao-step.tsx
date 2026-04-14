@@ -27,6 +27,20 @@ const EPI_OPTIONS = [
 const PROBABILIDADE_OPTIONS = ["1", "2", "3", "4", "5"];
 const DEFAULT_EPC_EPI_TEXT = "A ser evidenciado na fase de reconhecimento";
 const isNaValue = (value: string) => value.trim().toUpperCase() === "N/A";
+type RequiredRiskField =
+  | "tipoAgente"
+  | "descricaoAgente"
+  | "meioPropagacao"
+  | "fontes"
+  | "tipoAvaliacao"
+  | "intensidade"
+  | "severidade"
+  | "probabilidade"
+  | "classificacao"
+  | "medidasControle"
+  | "epc"
+  | "epi";
+
 const withDefaultEpcEpi = (value: string | string[] | undefined | null) => {
   if (Array.isArray(value)) {
     const normalized = value
@@ -80,6 +94,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field: "epc" | "epi";
   }>(null);
   const [multiSelectQuery, setMultiSelectQuery] = useState("");
+  const [touchedRiskFields, setTouchedRiskFields] = useState<
+    Record<string, Partial<Record<RequiredRiskField, boolean>>>
+  >({});
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
 
   const isManyRiskGhes = riskGheGroups.length > 10;
@@ -135,7 +152,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     filteredRiskGheGroups.length - visibleFilteredRiskGheGroups.length
   );
 
-  const currentRiskList = currentRiskGhe?.risks ?? [];
+  const currentRiskList = useMemo(
+    () => currentRiskGhe?.risks ?? [],
+    [currentRiskGhe]
+  );
   const shouldPaginateRiskList = currentRiskList.length > PROGRESSIVE_THRESHOLD;
   const visibleCurrentRisks = useMemo(
     () =>
@@ -158,6 +178,72 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     0,
     copySourceGhesWithRisks.length - visibleCopySourceGhes.length
   );
+
+  const riskErrorsById = useMemo<
+    Record<string, Record<RequiredRiskField, string>>
+  >(() => {
+    const hasValue = (value: string | string[] | undefined | null) => {
+      if (Array.isArray(value)) {
+        return value.some((item) => typeof item === "string" && item.trim().length > 0);
+      }
+      return typeof value === "string" && value.trim().length > 0;
+    };
+
+    const map: Record<string, Record<RequiredRiskField, string>> = {};
+    riskGheGroups.forEach((ghe) => {
+      ghe.risks.forEach((risk) => {
+        map[risk.id] = {
+          tipoAgente: hasValue(risk.tipoAgente) ? "" : "Tipo de Agente é obrigatório.",
+          descricaoAgente: hasValue(risk.descricaoAgente)
+            ? ""
+            : "Descrição do Agente é obrigatória.",
+          meioPropagacao: hasValue(risk.meioPropagacao)
+            ? ""
+            : "Meio de Propagação é obrigatório.",
+          fontes: hasValue(risk.fontes) ? "" : "Fontes/Circunstâncias é obrigatório.",
+          tipoAvaliacao: hasValue(risk.tipoAvaliacao)
+            ? ""
+            : "Tipo de Avaliação é obrigatório.",
+          intensidade: hasValue(risk.intensidade)
+            ? ""
+            : "Intensidade/Concentração é obrigatória.",
+          severidade: hasValue(risk.severidade) ? "" : "Severidade é obrigatória.",
+          probabilidade: hasValue(risk.probabilidade) ? "" : "Probabilidade é obrigatória.",
+          classificacao: hasValue(risk.classificacao)
+            ? ""
+            : "Classificação de Risco é obrigatória.",
+          medidasControle: hasValue(risk.medidasControle)
+            ? ""
+            : "Medidas de Controle é obrigatório.",
+          epc: hasValue(risk.epc) ? "" : "EPC é obrigatório.",
+          epi: hasValue(risk.epi) ? "" : "EPI é obrigatório.",
+        };
+      });
+    });
+    return map;
+  }, [riskGheGroups]);
+
+  const markRiskTouched = (riskId: string, field: RequiredRiskField) => {
+    setTouchedRiskFields((prev) => ({
+      ...prev,
+      [riskId]: {
+        ...(prev[riskId] || {}),
+        [field]: true,
+      },
+    }));
+  };
+
+  const getRiskFieldClassName = (
+    riskId: string,
+    field: RequiredRiskField,
+    baseClassName: string
+  ) =>
+    touchedRiskFields[riskId]?.[field] && riskErrorsById[riskId]?.[field]
+      ? `${baseClassName} border-rose-400 focus:ring-rose-500`
+      : baseClassName;
+
+  const getRiskFieldError = (riskId: string, field: RequiredRiskField) =>
+    touchedRiskFields[riskId]?.[field] ? riskErrorsById[riskId]?.[field] || "" : "";
 
   const handleAddRisk = () => {
     if (!currentRiskGhe) return;
@@ -203,6 +289,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           : ghe
       )
     );
+    setTouchedRiskFields((prev) => {
+      if (!prev[riskId]) return prev;
+      const next = { ...prev };
+      delete next[riskId];
+      return next;
+    });
   };
 
   const handleRiskChange = (
@@ -399,33 +491,44 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Tipo de Agente
+                  Tipo de Agente *
                 </label>
                 <div className="mt-2">
                   <SearchableSelect
                     value={risk.tipoAgente}
-                    onChange={(value) =>
-                      handleRiskChange(risk.id, "tipoAgente", value)
-                    }
+                    onChange={(value) => {
+                      markRiskTouched(risk.id, "tipoAgente");
+                      handleRiskChange(risk.id, "tipoAgente", value);
+                    }}
                     options={tipoAgenteOptions.map((option: string) => ({
                       label: option,
                       value: option,
                     }))}
-                    buttonClassName={selectSmallClass}
+                    buttonClassName={getRiskFieldClassName(
+                      risk.id,
+                      "tipoAgente",
+                      selectSmallClass
+                    )}
                     searchPlaceholder="Filtrar agente"
                   />
                 </div>
+                {getRiskFieldError(risk.id, "tipoAgente") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "tipoAgente")}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Descrição do Agente
+                  Descrição do Agente *
                 </label>
                 <div className="mt-2">
                   <SearchableSelect
                     value={risk.descricaoAgente}
-                    onChange={(value) =>
-                      handleRiskChange(risk.id, "descricaoAgente", value)
-                    }
+                    onChange={(value) => {
+                      markRiskTouched(risk.id, "descricaoAgente");
+                      handleRiskChange(risk.id, "descricaoAgente", value);
+                    }}
                     options={getDescricaoAgenteOptions(
                       risk.tipoAgente,
                       risk.descricaoAgente
@@ -433,21 +536,31 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       label: option,
                       value: option,
                     }))}
-                    buttonClassName={selectSmallClass}
+                    buttonClassName={getRiskFieldClassName(
+                      risk.id,
+                      "descricaoAgente",
+                      selectSmallClass
+                    )}
                     searchPlaceholder="Filtrar descrição"
                   />
                 </div>
+                {getRiskFieldError(risk.id, "descricaoAgente") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "descricaoAgente")}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Meio de Propagação
+                  Meio de Propagação *
                 </label>
                 <div className="mt-2">
                   <SearchableSelect
                     value={risk.meioPropagacao}
-                    onChange={(value) =>
-                      handleRiskChange(risk.id, "meioPropagacao", value)
-                    }
+                    onChange={(value) => {
+                      markRiskTouched(risk.id, "meioPropagacao");
+                      handleRiskChange(risk.id, "meioPropagacao", value);
+                    }}
                     options={getMeioPropagacaoOptions(
                       risk.tipoAgente,
                       risk.meioPropagacao
@@ -455,35 +568,51 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       label: option,
                       value: option,
                     }))}
-                    buttonClassName={selectSmallClass}
+                    buttonClassName={getRiskFieldClassName(
+                      risk.id,
+                      "meioPropagacao",
+                      selectSmallClass
+                    )}
                     searchPlaceholder="Filtrar meio"
                   />
                 </div>
+                {getRiskFieldError(risk.id, "meioPropagacao") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "meioPropagacao")}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Fontes/Circunstâncias
+                  Fontes/Circunstâncias *
                 </label>
                 <input
-                  className={inputBaseClass}
+                  className={getRiskFieldClassName(risk.id, "fontes", inputBaseClass)}
                   value={risk.fontes}
                   onChange={(event) =>
                     handleRiskChange(risk.id, "fontes", event.target.value)
                   }
+                  onBlur={() => markRiskTouched(risk.id, "fontes")}
                 />
+                {getRiskFieldError(risk.id, "fontes") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "fontes")}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Tipo de Avaliação
+                  Tipo de Avaliação *
                 </label>
                 <div className="mt-2">
                   <SearchableSelect
                     value={risk.tipoAvaliacao}
-                    onChange={(value) =>
-                      handleRiskChange(risk.id, "tipoAvaliacao", value)
-                    }
+                    onChange={(value) => {
+                      markRiskTouched(risk.id, "tipoAvaliacao");
+                      handleRiskChange(risk.id, "tipoAvaliacao", value);
+                    }}
                     options={getTipoAvaliacaoOptions(
                       risk.tipoAgente,
                       risk.descricaoAgente,
@@ -492,21 +621,31 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       label: option,
                       value: option,
                     }))}
-                    buttonClassName={selectSmallClass}
+                    buttonClassName={getRiskFieldClassName(
+                      risk.id,
+                      "tipoAvaliacao",
+                      selectSmallClass
+                    )}
                     searchPlaceholder="Filtrar tipo"
                   />
                 </div>
+                {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "tipoAvaliacao")}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Intensidade/Concentração
+                  Intensidade/Concentração *
                 </label>
                 <div className="mt-2">
                   <SearchableSelect
                     value={risk.intensidade}
-                    onChange={(value) =>
-                      handleRiskChange(risk.id, "intensidade", value)
-                    }
+                    onChange={(value) => {
+                      markRiskTouched(risk.id, "intensidade");
+                      handleRiskChange(risk.id, "intensidade", value);
+                    }}
                     options={getIntensidadeOptions(
                       risk.tipoAgente,
                       risk.descricaoAgente,
@@ -515,57 +654,88 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       label: option,
                       value: option,
                     }))}
-                    buttonClassName={selectSmallClass}
+                    buttonClassName={getRiskFieldClassName(
+                      risk.id,
+                      "intensidade",
+                      selectSmallClass
+                    )}
                     searchPlaceholder="Filtrar intensidade"
                   />
                 </div>
+                {getRiskFieldError(risk.id, "intensidade") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "intensidade")}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Severidade
+                  Severidade *
                 </label>
                 <input
-                  className={inputBaseClass}
+                  className={getRiskFieldClassName(risk.id, "severidade", inputBaseClass)}
                   value={risk.severidade}
                   onChange={(event) =>
                     handleRiskChange(risk.id, "severidade", event.target.value)
                   }
                   disabled
                 />
+                {getRiskFieldError(risk.id, "severidade") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "severidade")}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Probabilidade
+                  Probabilidade *
                 </label>
                 <div className="mt-2">
                   <SearchableSelect
                     value={risk.probabilidade}
-                    onChange={(value) =>
-                      handleRiskChange(risk.id, "probabilidade", value)
-                    }
+                    onChange={(value) => {
+                      markRiskTouched(risk.id, "probabilidade");
+                      markRiskTouched(risk.id, "severidade");
+                      markRiskTouched(risk.id, "classificacao");
+                      handleRiskChange(risk.id, "probabilidade", value);
+                    }}
                     options={PROBABILIDADE_OPTIONS.map((option) => ({
                       label: option,
                       value: option,
                     }))}
-                    buttonClassName={selectSmallClass}
+                    buttonClassName={getRiskFieldClassName(
+                      risk.id,
+                      "probabilidade",
+                      selectSmallClass
+                    )}
                     searchPlaceholder="Filtrar probabilidade"
                   />
                 </div>
+                {getRiskFieldError(risk.id, "probabilidade") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "probabilidade")}
+                  </p>
+                ) : null}
               </div>              
               <div>
                 <label className="text-[12px] font-medium text-foreground">
-                  Classificação de Risco
+                  Classificação de Risco *
                 </label>
                 <input
-                  className={inputBaseClass}
+                  className={getRiskFieldClassName(risk.id, "classificacao", inputBaseClass)}
                   value={risk.classificacao}
                   onChange={(event) =>
                     handleRiskChange(risk.id, "classificacao", event.target.value)
                   }
                   disabled
                 />
+                {getRiskFieldError(risk.id, "classificacao") ? (
+                  <p className="mt-1 text-[12px] text-danger">
+                    {getRiskFieldError(risk.id, "classificacao")}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="mt-8">
@@ -575,39 +745,69 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               <div className="mt-4 grid gap-4 md:grid-cols-4">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Medidas de Controle Administrativas e/ou de Engenharia
+                    Medidas de Controle Administrativas e/ou de Engenharia *
                   </label>
                   <textarea
-                    className={`${textareaBaseClass} min-h-[80px]`}
+                    className={getRiskFieldClassName(
+                      risk.id,
+                      "medidasControle",
+                      `${textareaBaseClass} min-h-[80px]`
+                    )}
                     value={risk.medidasControle}
                     onChange={(event) =>
                       handleRiskChange(risk.id, "medidasControle", event.target.value)
                     }
+                    onBlur={() => markRiskTouched(risk.id, "medidasControle")}
                   />
+                  {getRiskFieldError(risk.id, "medidasControle") ? (
+                    <p className="mt-1 text-[12px] text-danger">
+                      {getRiskFieldError(risk.id, "medidasControle")}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    EPC
+                    EPC *
                   </label>
                   <textarea
-                    className={`${textareaBaseClass} min-h-[80px]`}
+                    className={getRiskFieldClassName(
+                      risk.id,
+                      "epc",
+                      `${textareaBaseClass} min-h-[80px]`
+                    )}
                     value={withDefaultEpcEpi(risk.epc)}
                     onChange={(event) =>
                       handleRiskChange(risk.id, "epc", event.target.value)
                     }
+                    onBlur={() => markRiskTouched(risk.id, "epc")}
                   />
+                  {getRiskFieldError(risk.id, "epc") ? (
+                    <p className="mt-1 text-[12px] text-danger">
+                      {getRiskFieldError(risk.id, "epc")}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    EPI
+                    EPI *
                   </label>
                   <textarea
-                    className={`${textareaBaseClass} min-h-[80px]`}
+                    className={getRiskFieldClassName(
+                      risk.id,
+                      "epi",
+                      `${textareaBaseClass} min-h-[80px]`
+                    )}
                     value={withDefaultEpcEpi(risk.epi)}
                     onChange={(event) =>
                       handleRiskChange(risk.id, "epi", event.target.value)
                     }
+                    onBlur={() => markRiskTouched(risk.id, "epi")}
                   />
+                  {getRiskFieldError(risk.id, "epi") ? (
+                    <p className="mt-1 text-[12px] text-danger">
+                      {getRiskFieldError(risk.id, "epi")}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">

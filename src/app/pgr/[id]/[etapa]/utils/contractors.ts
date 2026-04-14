@@ -64,9 +64,8 @@ const fromLegacyFields = (
 export const normalizeContractors = (
   dados: Partial<DadosCadastraisDraft>,
 ): ContratanteDraft[] => {
-  const provided = Array.isArray(dados.contratantes) ? dados.contratantes : [];
-  if (provided.length) {
-    return provided.map((item, index) => {
+  if (Array.isArray(dados.contratantes)) {
+    return dados.contratantes.map((item, index) => {
       const legacy = fromLegacyFields({}, item.id || `contratante-${index + 1}`);
       return {
         ...legacy,
