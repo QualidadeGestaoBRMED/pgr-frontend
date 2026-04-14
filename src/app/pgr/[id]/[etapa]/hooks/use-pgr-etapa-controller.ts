@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useRouter, notFound } from "next/navigation";
 import { apiBlob, apiGet, apiPost, apiPut } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
-import { defaultAnexos, defaultHistorico, initialDadosCadastrais, initialInicioDraft } from "../defaults";
+import {
+  defaultAnexos,
+  defaultFunctions,
+  defaultGheGroups,
+  defaultHistorico,
+  defaultRiskGheGroups,
+  initialDadosCadastrais,
+  initialInicioDraft,
+} from "../defaults";
 import type { HistoricoData } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { slugify, truncatePreview } from "../utils/text";
@@ -17,7 +25,7 @@ import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
 import { useCycleTimeTracker } from "./use-cycle-time-tracker";
 import { setRuntimeCachedState } from "../state/runtime-cache";
-import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
+import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 export function usePgrEtapaController({
   params,
@@ -404,6 +412,65 @@ export function usePgrEtapaController({
     router.push(`/pgr/${params.id}/inicio`);
   }, [params.id, router, setters, weightedProgressPercent]);
 
+  const handleResetAllData = useCallback(() => {
+    if (state.workflow.isLocked) return;
+
+    refs.lastCepLookupRef.current = {
+      empresa: "",
+      contratanteByIndex: {},
+    };
+
+    setters.setCompletedSteps(0);
+    setters.setProgressPercent(0);
+    setters.setInicioDraft(initialInicioDraft);
+    setters.setDadosCadastrais(initialDadosCadastrais);
+    setters.setCardMeta({
+      pipefyCardId: "",
+      cardName: "",
+      dueDate: "",
+      companyId: null,
+      responsibleId: null,
+    });
+    setters.setHistoricoData(defaultHistorico);
+    setters.setFunctionsData(defaultFunctions);
+    setters.setExtraEstabelecimentoFields([]);
+    setters.setEstabelecimentoSelecionado("");
+    setters.setPlanAction({ nr: "NR-01", vigencia: "" });
+    setters.setRemovedPlanRiskKeys([]);
+    setters.setAnexos(defaultAnexos);
+    setters.setAnexoDiretriz("Diretriz 1");
+    setters.setGheGroups(defaultGheGroups);
+    setters.setCurrentGheId(defaultGheGroups[0]?.id ?? "ghe-1");
+    setters.setRiskGheGroups(defaultRiskGheGroups);
+    setters.setCurrentRiskGheId(defaultRiskGheGroups[0]?.id ?? "ghe-1");
+    setters.setPdfLayout(DEFAULT_PDF_LAYOUT_STATE);
+    setters.setSearchTerm("");
+    setters.setSelectedLeftIds([]);
+    setters.setSelectedRightIds([]);
+    setters.setHistory([]);
+    setters.setGheSearch("");
+    setters.setGheFilterId("all");
+    setters.setIsGheListView(false);
+    setters.setIsGheModalOpen(false);
+    setters.setIsInfoModalOpen(false);
+    setters.setInfoModalError("");
+    setters.setInfoModalMode("next");
+    setters.setPlanActionScope("risk");
+    setters.setPlanActionGheId("");
+    setters.setPlanActionRiskId("");
+    setters.setPlanActionDescription("");
+    setters.setIsPlanActionModalOpen(false);
+    setters.setEditingMedidasId(null);
+    setters.setEditingMedidasValue("");
+    setters.setPlanTablePage(1);
+    setters.setDraggedAnexoId(null);
+    setters.setDragOverAnexoId(null);
+    setters.setLastGheNotice(null);
+    setters.setExcelImportFeedback(null);
+    setters.setIsPreviewModalOpen(false);
+    setters.setLastFakePdfAt(null);
+  }, [refs.lastCepLookupRef, setters, state.workflow.isLocked]);
+
   useEffect(() => {
     if (!state.workflow.isLocked) return;
     if (step.id === "historico" || step.id === "revisao") return;
@@ -652,6 +719,7 @@ export function usePgrEtapaController({
       handleGeneratePreviewPdf,
       handleGenerateFakePdf,
       handleStartNewVersion,
+      handleResetAllData,
       generalActions,
       descricaoInteractions,
     },

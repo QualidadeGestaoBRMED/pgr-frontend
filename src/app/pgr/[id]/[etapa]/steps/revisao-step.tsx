@@ -19,6 +19,7 @@ type RevisaoStepProps = {
   onEditStep: (stepId: string) => void;
   onOpenPreview: () => void;
   onGenerateFakePdf: () => void;
+  onResetData: () => void;
 };
 
 export function RevisaoStep({
@@ -32,8 +33,10 @@ export function RevisaoStep({
   onEditStep,
   onOpenPreview,
   onGenerateFakePdf,
+  onResetData,
 }: RevisaoStepProps) {
   const [openMissingStepId, setOpenMissingStepId] = useState<string | null>(null);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const missingFields = useMemo(
     () => (openMissingStepId ? missingFieldsByStep?.[openMissingStepId] ?? [] : []),
     [missingFieldsByStep, openMissingStepId]
@@ -143,6 +146,18 @@ export function RevisaoStep({
               <p className="mt-1 text-[11px] text-muted-foreground">PGR: {pgrId}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(true)}
+                disabled={workflow.isLocked}
+                className={
+                  workflow.isLocked
+                    ? "btn-disabled px-4"
+                    : "btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+                }
+              >
+                Limpar dados
+              </button>
               <button type="button" onClick={onOpenPreview} className="btn-outline px-4">
                 <Eye className="h-4 w-4" />
                 Visualizar prévia
@@ -202,6 +217,42 @@ export function RevisaoStep({
                     {field}
                   </p>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isResetModalOpen ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <h3 className="text-[18px] font-semibold text-foreground">
+                Confirmar limpeza
+              </h3>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Todos os dados preenchidos serão removidos. Deseja continuar?
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="btn-outline px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onResetData();
+                    setOpenMissingStepId(null);
+                    setIsResetModalOpen(false);
+                  }}
+                  className="btn-primary px-5"
+                >
+                  Confirmar limpeza
+                </button>
               </div>
             </div>
           </div>
