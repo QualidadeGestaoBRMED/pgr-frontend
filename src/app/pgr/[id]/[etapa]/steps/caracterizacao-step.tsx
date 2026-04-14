@@ -8,6 +8,19 @@ type CaracterizacaoStepProps = {
   ctx: CaracterizacaoStepCtx;
 };
 
+type RiskOverviewRow = {
+  gheId: string;
+  gheName: string;
+  risk: GheRisk;
+};
+
+type BatchRiskGroup = {
+  key: string;
+  risk: GheRisk;
+  sourceGheIds: string[];
+  sourceGheNames: string[];
+};
+
 const EPC_OPTIONS = [
   "A ser evidenciado na fase de reconhecimento",
   "Sistema de exaustão",
@@ -65,6 +78,38 @@ const normalizeText = (value: string) =>
 const createRiskId = () =>
   `risk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
+const isSameRiskContent = (a: GheRisk, b: GheRisk) =>
+  a.tipoAgente === b.tipoAgente &&
+  a.descricaoAgente === b.descricaoAgente &&
+  a.meioPropagacao === b.meioPropagacao &&
+  a.fontes === b.fontes &&
+  a.tipoAvaliacao === b.tipoAvaliacao &&
+  a.intensidade === b.intensidade &&
+  a.severidade === b.severidade &&
+  a.probabilidade === b.probabilidade &&
+  a.classificacao === b.classificacao &&
+  a.medidasControle === b.medidasControle &&
+  withDefaultEpcEpi(a.epc) === withDefaultEpcEpi(b.epc) &&
+  withDefaultEpcEpi(a.epi) === withDefaultEpcEpi(b.epi);
+
+const getRiskContentKey = (risk: GheRisk) =>
+  [
+    risk.tipoAgente,
+    risk.descricaoAgente,
+    risk.meioPropagacao,
+    risk.fontes,
+    risk.tipoAvaliacao,
+    risk.intensidade,
+    risk.severidade,
+    risk.probabilidade,
+    risk.classificacao,
+    risk.medidasControle,
+    withDefaultEpcEpi(risk.epc),
+    withDefaultEpcEpi(risk.epi),
+  ]
+    .map((value) => (value || "").trim().toLowerCase())
+    .join("||");
+
 const PROGRESSIVE_THRESHOLD = 50;
 const PROGRESSIVE_BATCH_SIZE = 50;
 
@@ -88,7 +133,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   } = ctx;
 
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
+  const [isRiskOverviewModalOpen, setIsRiskOverviewModalOpen] = useState(false);
+  const [isBatchAssignModalOpen, setIsBatchAssignModalOpen] = useState(false);
   const [riskGheSearch, setRiskGheSearch] = useState("");
+  const [riskOverviewSearch, setRiskOverviewSearch] = useState("");
+  const [batchRiskSearch, setBatchRiskSearch] = useState("");
+  const [batchGheSearch, setBatchGheSearch] = useState("");
+  const [riskOverviewGheFilterId, setRiskOverviewGheFilterId] = useState<"all" | string>("all");
+  const [selectedBatchRiskKey, setSelectedBatchRiskKey] = useState<string | null>(null);
+  const [selectedBatchGheIds, setSelectedBatchGheIds] = useState<string[]>([]);
+  const [batchAssignFeedback, setBatchAssignFeedback] = useState<string>("");
   const [openMultiSelect, setOpenMultiSelect] = useState<null | {
     riskId: string;
     field: "epc" | "epi";
@@ -97,6 +151,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const [touchedRiskFields, setTouchedRiskFields] = useState<
     Record<string, Partial<Record<RequiredRiskField, boolean>>>
   >({});
+  const [minimizedRiskIds, setMinimizedRiskIds] = useState<Record<string, boolean>>({});
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
 
   const isManyRiskGhes = riskGheGroups.length > 10;
@@ -138,6 +193,14 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const [visibleRiskGheCount, setVisibleRiskGheCount] = useState(PROGRESSIVE_BATCH_SIZE);
   const [visibleRiskCount, setVisibleRiskCount] = useState(PROGRESSIVE_BATCH_SIZE);
   const [visibleCopySourceCount, setVisibleCopySourceCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [visibleRiskOverviewGheCount, setVisibleRiskOverviewGheCount] = useState(
+    PROGRESSIVE_BATCH_SIZE
+  );
+  const [visibleRiskOverviewRiskCount, setVisibleRiskOverviewRiskCount] = useState(
+    PROGRESSIVE_BATCH_SIZE
+  );
+  const [visibleBatchRiskCount, setVisibleBatchRiskCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [visibleBatchGheCount, setVisibleBatchGheCount] = useState(PROGRESSIVE_BATCH_SIZE);
 
   const shouldPaginateGheList = filteredRiskGheGroups.length > PROGRESSIVE_THRESHOLD;
   const visibleFilteredRiskGheGroups = useMemo(
@@ -165,6 +228,154 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     [currentRiskList, shouldPaginateRiskList, visibleRiskCount]
   );
   const hiddenRiskCount = Math.max(0, currentRiskList.length - visibleCurrentRisks.length);
+  const allCurrentRisksMinimized = useMemo(
+    () =>
+      currentRiskList.length > 0 &&
+      currentRiskList.every((risk) => Boolean(minimizedRiskIds[risk.id])),
+    [currentRiskList, minimizedRiskIds]
+  );
+  const totalRiskOverviewCount = useMemo(
+    () => riskGheGroups.reduce((total, ghe) => total + ghe.risks.length, 0),
+    [riskGheGroups]
+  );
+  const normalizedRiskOverviewSearch = useMemo(
+    () => normalizeText(riskOverviewSearch.trim()),
+    [riskOverviewSearch]
+  );
+  const shouldPaginateRiskOverviewGhes = riskGheGroups.length > PROGRESSIVE_THRESHOLD;
+  const visibleRiskOverviewGhes = useMemo(
+    () =>
+      shouldPaginateRiskOverviewGhes
+        ? riskGheGroups.slice(0, visibleRiskOverviewGheCount)
+        : riskGheGroups,
+    [riskGheGroups, shouldPaginateRiskOverviewGhes, visibleRiskOverviewGheCount]
+  );
+  const hiddenRiskOverviewGheCount = Math.max(
+    0,
+    riskGheGroups.length - visibleRiskOverviewGhes.length
+  );
+  const selectedRiskOverviewGhe = useMemo(
+    () =>
+      riskOverviewGheFilterId === "all"
+        ? null
+        : riskGheGroups.find((ghe) => ghe.id === riskOverviewGheFilterId) ?? null,
+    [riskGheGroups, riskOverviewGheFilterId]
+  );
+  const scopedRiskOverviewRows = useMemo<RiskOverviewRow[]>(() => {
+    if (riskOverviewGheFilterId === "all") {
+      return riskGheGroups.flatMap((ghe) =>
+        ghe.risks.map((risk) => ({
+          gheId: ghe.id,
+          gheName: ghe.name,
+          risk,
+        }))
+      );
+    }
+    const ghe = riskGheGroups.find((item) => item.id === riskOverviewGheFilterId);
+    if (!ghe) return [];
+    return ghe.risks.map((risk) => ({
+      gheId: ghe.id,
+      gheName: ghe.name,
+      risk,
+    }));
+  }, [riskGheGroups, riskOverviewGheFilterId]);
+  const filteredRiskOverviewRows = useMemo(() => {
+    if (!normalizedRiskOverviewSearch) return scopedRiskOverviewRows;
+    return scopedRiskOverviewRows.filter((row) =>
+      normalizeText(
+        `${row.gheName} ${row.risk.tipoAgente || ""} ${row.risk.descricaoAgente || ""} ${row.risk.classificacao || ""}`
+      ).includes(normalizedRiskOverviewSearch)
+    );
+  }, [normalizedRiskOverviewSearch, scopedRiskOverviewRows]);
+  const shouldPaginateRiskOverviewRows =
+    filteredRiskOverviewRows.length > PROGRESSIVE_THRESHOLD;
+  const visibleRiskOverviewRows = useMemo(
+    () =>
+      shouldPaginateRiskOverviewRows
+        ? filteredRiskOverviewRows.slice(0, visibleRiskOverviewRiskCount)
+        : filteredRiskOverviewRows,
+    [filteredRiskOverviewRows, shouldPaginateRiskOverviewRows, visibleRiskOverviewRiskCount]
+  );
+  const hiddenRiskOverviewRiskCount = Math.max(
+    0,
+    filteredRiskOverviewRows.length - visibleRiskOverviewRows.length
+  );
+  const batchRiskGroups = useMemo<BatchRiskGroup[]>(() => {
+    const grouped = new Map<string, BatchRiskGroup>();
+    riskGheGroups.forEach((ghe) => {
+      ghe.risks.forEach((risk) => {
+        const key = getRiskContentKey(risk);
+        const existing = grouped.get(key);
+        if (!existing) {
+          grouped.set(key, {
+            key,
+            risk,
+            sourceGheIds: [ghe.id],
+            sourceGheNames: [ghe.name],
+          });
+          return;
+        }
+        if (!existing.sourceGheIds.includes(ghe.id)) {
+          existing.sourceGheIds.push(ghe.id);
+          existing.sourceGheNames.push(ghe.name);
+        }
+      });
+    });
+    return Array.from(grouped.values());
+  }, [riskGheGroups]);
+  const selectedBatchRiskGroup = useMemo(() => {
+    if (!selectedBatchRiskKey) return null;
+    return batchRiskGroups.find((group) => group.key === selectedBatchRiskKey) ?? null;
+  }, [batchRiskGroups, selectedBatchRiskKey]);
+  const normalizedBatchRiskSearch = useMemo(
+    () => normalizeText(batchRiskSearch.trim()),
+    [batchRiskSearch]
+  );
+  const normalizedBatchGheSearch = useMemo(
+    () => normalizeText(batchGheSearch.trim()),
+    [batchGheSearch]
+  );
+  const filteredBatchRiskGroups = useMemo(() => {
+    if (!normalizedBatchRiskSearch) return batchRiskGroups;
+    return batchRiskGroups.filter((group) =>
+      normalizeText(
+        `${group.sourceGheNames.join(" ")} ${group.risk.tipoAgente || ""} ${group.risk.descricaoAgente || ""} ${group.risk.classificacao || ""}`
+      ).includes(normalizedBatchRiskSearch)
+    );
+  }, [batchRiskGroups, normalizedBatchRiskSearch]);
+  const shouldPaginateBatchRisks = filteredBatchRiskGroups.length > PROGRESSIVE_THRESHOLD;
+  const visibleBatchRiskGroups = useMemo(
+    () =>
+      shouldPaginateBatchRisks
+        ? filteredBatchRiskGroups.slice(0, visibleBatchRiskCount)
+        : filteredBatchRiskGroups,
+    [filteredBatchRiskGroups, shouldPaginateBatchRisks, visibleBatchRiskCount]
+  );
+  const hiddenBatchRiskCount = Math.max(
+    0,
+    filteredBatchRiskGroups.length - visibleBatchRiskGroups.length
+  );
+  const filteredBatchGhes = useMemo(() => {
+    const base = selectedBatchRiskGroup
+      ? riskGheGroups.filter((ghe) => !selectedBatchRiskGroup.sourceGheIds.includes(ghe.id))
+      : riskGheGroups;
+    if (!normalizedBatchGheSearch) return base;
+    return base.filter((ghe) =>
+      normalizeText(ghe.name).includes(normalizedBatchGheSearch)
+    );
+  }, [normalizedBatchGheSearch, riskGheGroups, selectedBatchRiskGroup]);
+  const shouldPaginateBatchGhes = filteredBatchGhes.length > PROGRESSIVE_THRESHOLD;
+  const visibleBatchGhes = useMemo(
+    () =>
+      shouldPaginateBatchGhes
+        ? filteredBatchGhes.slice(0, visibleBatchGheCount)
+        : filteredBatchGhes,
+    [filteredBatchGhes, shouldPaginateBatchGhes, visibleBatchGheCount]
+  );
+  const hiddenBatchGheCount = Math.max(
+    0,
+    filteredBatchGhes.length - visibleBatchGhes.length
+  );
 
   const shouldPaginateCopySources = copySourceGhesWithRisks.length > PROGRESSIVE_THRESHOLD;
   const visibleCopySourceGhes = useMemo(
@@ -290,6 +501,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       )
     );
     setTouchedRiskFields((prev) => {
+      if (!prev[riskId]) return prev;
+      const next = { ...prev };
+      delete next[riskId];
+      return next;
+    });
+    setMinimizedRiskIds((prev) => {
       if (!prev[riskId]) return prev;
       const next = { ...prev };
       delete next[riskId];
@@ -447,6 +664,51 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   }, [isCopyMenuOpen, copySourceGhesWithRisks.length]);
 
   useEffect(() => {
+    if (!isRiskOverviewModalOpen) return;
+    setVisibleRiskOverviewGheCount(PROGRESSIVE_BATCH_SIZE);
+  }, [isRiskOverviewModalOpen, riskGheGroups.length]);
+
+  useEffect(() => {
+    if (!isRiskOverviewModalOpen) return;
+    setVisibleRiskOverviewRiskCount(PROGRESSIVE_BATCH_SIZE);
+  }, [isRiskOverviewModalOpen, riskOverviewSearch, riskOverviewGheFilterId, filteredRiskOverviewRows.length]);
+
+  useEffect(() => {
+    if (riskOverviewGheFilterId === "all") return;
+    if (riskGheGroups.some((ghe) => ghe.id === riskOverviewGheFilterId)) return;
+    setRiskOverviewGheFilterId("all");
+  }, [riskGheGroups, riskOverviewGheFilterId]);
+
+  useEffect(() => {
+    if (!isBatchAssignModalOpen) return;
+    setVisibleBatchRiskCount(PROGRESSIVE_BATCH_SIZE);
+  }, [isBatchAssignModalOpen, filteredBatchRiskGroups.length, batchRiskSearch]);
+
+  useEffect(() => {
+    if (!isBatchAssignModalOpen) return;
+    setVisibleBatchGheCount(PROGRESSIVE_BATCH_SIZE);
+  }, [isBatchAssignModalOpen, filteredBatchGhes.length, batchGheSearch, selectedBatchRiskKey]);
+
+  useEffect(() => {
+    if (!selectedBatchRiskKey) return;
+    if (batchRiskGroups.some((group) => group.key === selectedBatchRiskKey)) return;
+    setSelectedBatchRiskKey(null);
+  }, [batchRiskGroups, selectedBatchRiskKey]);
+
+  useEffect(() => {
+    setSelectedBatchGheIds((prev) =>
+      prev.filter((id) => riskGheGroups.some((ghe) => ghe.id === id))
+    );
+  }, [riskGheGroups]);
+
+  useEffect(() => {
+    if (!selectedBatchRiskGroup) return;
+    setSelectedBatchGheIds((prev) =>
+      prev.filter((id) => !selectedBatchRiskGroup.sourceGheIds.includes(id))
+    );
+  }, [selectedBatchRiskGroup]);
+
+  useEffect(() => {
     if (!openMultiSelect) return;
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
@@ -465,365 +727,465 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     }
   }, [openMultiSelect]);
 
+  const handleToggleAllRisks = () => {
+    if (!currentRiskList.length) return;
+    setMinimizedRiskIds((prev) => {
+      const next = { ...prev };
+      if (allCurrentRisksMinimized) {
+        currentRiskList.forEach((risk) => {
+          delete next[risk.id];
+        });
+      } else {
+        currentRiskList.forEach((risk) => {
+          next[risk.id] = true;
+        });
+      }
+      return next;
+    });
+  };
+
+  const toggleBatchGheSelection = (gheId: string) => {
+    setSelectedBatchGheIds((prev) =>
+      prev.includes(gheId) ? prev.filter((id) => id !== gheId) : [...prev, gheId]
+    );
+    setBatchAssignFeedback("");
+  };
+
+  const handleApplyBatchRiskAssignment = () => {
+    if (!selectedBatchRiskGroup || !selectedBatchGheIds.length) return;
+
+    pushHistory();
+    const sourceRisk = selectedBatchRiskGroup.risk;
+    const targetGheIds = selectedBatchGheIds.filter(
+      (gheId) => !selectedBatchRiskGroup.sourceGheIds.includes(gheId)
+    );
+    if (!targetGheIds.length) {
+      setBatchAssignFeedback("Selecione ao menos um GHE de destino válido.");
+      return;
+    }
+    let addedCount = 0;
+
+    setRiskGheGroups((prev) =>
+      prev.map((ghe) => {
+        if (!targetGheIds.includes(ghe.id)) return ghe;
+        const hasSameRisk = ghe.risks.some((risk) => isSameRiskContent(risk, sourceRisk));
+        if (hasSameRisk) return ghe;
+        addedCount += 1;
+        return {
+          ...ghe,
+          risks: [
+            ...ghe.risks,
+            {
+              ...sourceRisk,
+              id: createRiskId(),
+            },
+          ],
+        };
+      })
+    );
+
+    setSelectedBatchGheIds([]);
+    setBatchAssignFeedback(
+      addedCount > 0
+        ? `Risco atribuído em ${addedCount} GHE(s).`
+        : "Os GHEs selecionados já possuem esse risco."
+    );
+  };
+
   const renderRiskCards = (withMargin: boolean) => (
     <div className={`${withMargin ? "mt-6" : ""} space-y-4`}>
       {visibleCurrentRisks.length ? (
         visibleCurrentRisks.map((risk: GheRisk) => (
-          <div
-            key={risk.id}
-            data-risk-id={risk.id}
-            className="rounded-[14px] border border-border/60 bg-card px-4 py-4"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[13px] font-semibold text-foreground">
-                Risco cadastrado
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleRemoveRisk(risk.id)}
-                  className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
-                >
-                  Excluir risco
-                </button>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Tipo de Agente *
-                </label>
-                <div className="mt-2">
-                  <SearchableSelect
-                    value={risk.tipoAgente}
-                    onChange={(value) => {
-                      markRiskTouched(risk.id, "tipoAgente");
-                      handleRiskChange(risk.id, "tipoAgente", value);
-                    }}
-                    options={tipoAgenteOptions.map((option: string) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    buttonClassName={getRiskFieldClassName(
-                      risk.id,
-                      "tipoAgente",
-                      selectSmallClass
-                    )}
-                    searchPlaceholder="Filtrar agente"
-                  />
-                </div>
-                {getRiskFieldError(risk.id, "tipoAgente") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "tipoAgente")}
+          (() => {
+            const isMinimized = Boolean(minimizedRiskIds[risk.id]);
+            return (
+              <div
+                key={risk.id}
+                data-risk-id={risk.id}
+                className="rounded-[14px] border border-border/60 bg-card px-4 py-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Risco cadastrado
                   </p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Descrição do Agente *
-                </label>
-                <div className="mt-2">
-                  <SearchableSelect
-                    value={risk.descricaoAgente}
-                    onChange={(value) => {
-                      markRiskTouched(risk.id, "descricaoAgente");
-                      handleRiskChange(risk.id, "descricaoAgente", value);
-                    }}
-                    options={getDescricaoAgenteOptions(
-                      risk.tipoAgente,
-                      risk.descricaoAgente
-                    ).map((option: string) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    buttonClassName={getRiskFieldClassName(
-                      risk.id,
-                      "descricaoAgente",
-                      selectSmallClass
-                    )}
-                    searchPlaceholder="Filtrar descrição"
-                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMinimizedRiskIds((prev) => ({
+                          ...prev,
+                          [risk.id]: !prev[risk.id],
+                        }))
+                      }
+                      className="btn-outline px-3 py-1 text-[12px]"
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          isMinimized ? "-rotate-90" : "rotate-0"
+                        }`}
+                      />
+                      {isMinimized ? "Expandir risco" : "Minimizar risco"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRisk(risk.id)}
+                      className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                    >
+                      Excluir risco
+                    </button>
+                  </div>
                 </div>
-                {getRiskFieldError(risk.id, "descricaoAgente") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "descricaoAgente")}
-                  </p>
-                ) : null}
+
+                {isMinimized ? (
+                  <div className="mt-3 rounded-[10px] border border-border/50 bg-background/40 px-3 py-2 text-[12px] text-muted-foreground">
+                    <span>
+                      Tipo: {risk.tipoAgente || "Não informado"} · Agente:{" "}
+                      {risk.descricaoAgente || "Não informado"} · Classificação:{" "}
+                      {risk.classificacao || "Não informado"}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Tipo de Agente *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.tipoAgente}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "tipoAgente");
+                              handleRiskChange(risk.id, "tipoAgente", value);
+                            }}
+                            options={tipoAgenteOptions.map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "tipoAgente",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar agente"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "tipoAgente") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "tipoAgente")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Descrição do Agente *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.descricaoAgente}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "descricaoAgente");
+                              handleRiskChange(risk.id, "descricaoAgente", value);
+                            }}
+                            options={getDescricaoAgenteOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "descricaoAgente",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar descrição"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "descricaoAgente") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "descricaoAgente")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Meio de Propagação *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.meioPropagacao}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "meioPropagacao");
+                              handleRiskChange(risk.id, "meioPropagacao", value);
+                            }}
+                            options={getMeioPropagacaoOptions(
+                              risk.tipoAgente,
+                              risk.meioPropagacao
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "meioPropagacao",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar meio"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "meioPropagacao") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "meioPropagacao")}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Fontes/Circunstâncias *
+                        </label>
+                        <input
+                          className={getRiskFieldClassName(risk.id, "fontes", inputBaseClass)}
+                          value={risk.fontes}
+                          onChange={(event) =>
+                            handleRiskChange(risk.id, "fontes", event.target.value)
+                          }
+                          onBlur={() => markRiskTouched(risk.id, "fontes")}
+                        />
+                        {getRiskFieldError(risk.id, "fontes") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "fontes")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Tipo de Avaliação *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.tipoAvaliacao}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "tipoAvaliacao");
+                              handleRiskChange(risk.id, "tipoAvaliacao", value);
+                            }}
+                            options={getTipoAvaliacaoOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente,
+                              risk.tipoAvaliacao
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "tipoAvaliacao",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar tipo"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "tipoAvaliacao")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Intensidade/Concentração *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.intensidade}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "intensidade");
+                              handleRiskChange(risk.id, "intensidade", value);
+                            }}
+                            options={getIntensidadeOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente,
+                              risk.intensidade
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "intensidade",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar intensidade"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "intensidade") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "intensidade")}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Severidade *
+                        </label>
+                        <input
+                          className={getRiskFieldClassName(risk.id, "severidade", inputBaseClass)}
+                          value={risk.severidade}
+                          onChange={(event) =>
+                            handleRiskChange(risk.id, "severidade", event.target.value)
+                          }
+                          disabled
+                        />
+                        {getRiskFieldError(risk.id, "severidade") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "severidade")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Probabilidade *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.probabilidade}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "probabilidade");
+                              markRiskTouched(risk.id, "severidade");
+                              markRiskTouched(risk.id, "classificacao");
+                              handleRiskChange(risk.id, "probabilidade", value);
+                            }}
+                            options={PROBABILIDADE_OPTIONS.map((option) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "probabilidade",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar probabilidade"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "probabilidade") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "probabilidade")}
+                          </p>
+                        ) : null}
+                      </div>              
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Classificação de Risco *
+                        </label>
+                        <input
+                          className={getRiskFieldClassName(risk.id, "classificacao", inputBaseClass)}
+                          value={risk.classificacao}
+                          onChange={(event) =>
+                            handleRiskChange(risk.id, "classificacao", event.target.value)
+                          }
+                          disabled
+                        />
+                        {getRiskFieldError(risk.id, "classificacao") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "classificacao")}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-8">
+                      <p className="text-[13px] font-semibold text-foreground">
+                        Medidas de prevenção
+                      </p>
+                      <div className="mt-4 grid gap-4 md:grid-cols-4">
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Medidas de Controle Administrativas e/ou de Engenharia *
+                          </label>
+                          <textarea
+                            className={getRiskFieldClassName(
+                              risk.id,
+                              "medidasControle",
+                              `${textareaBaseClass} min-h-[80px]`
+                            )}
+                            value={risk.medidasControle}
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "medidasControle", event.target.value)
+                            }
+                            onBlur={() => markRiskTouched(risk.id, "medidasControle")}
+                          />
+                          {getRiskFieldError(risk.id, "medidasControle") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "medidasControle")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            EPC *
+                          </label>
+                          <textarea
+                            className={getRiskFieldClassName(
+                              risk.id,
+                              "epc",
+                              `${textareaBaseClass} min-h-[80px]`
+                            )}
+                            value={withDefaultEpcEpi(risk.epc)}
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "epc", event.target.value)
+                            }
+                            onBlur={() => markRiskTouched(risk.id, "epc")}
+                          />
+                          {getRiskFieldError(risk.id, "epc") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "epc")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            EPI *
+                          </label>
+                          <textarea
+                            className={getRiskFieldClassName(
+                              risk.id,
+                              "epi",
+                              `${textareaBaseClass} min-h-[80px]`
+                            )}
+                            value={withDefaultEpcEpi(risk.epi)}
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "epi", event.target.value)
+                            }
+                            onBlur={() => markRiskTouched(risk.id, "epi")}
+                          />
+                          {getRiskFieldError(risk.id, "epi") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "epi")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            CA
+                          </label>
+                          <textarea
+                            className={`${textareaBaseClass} min-h-[80px]`}
+                            value={withDefaultEpcEpi(risk.epi)}
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "epi", event.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Meio de Propagação *
-                </label>
-                <div className="mt-2">
-                  <SearchableSelect
-                    value={risk.meioPropagacao}
-                    onChange={(value) => {
-                      markRiskTouched(risk.id, "meioPropagacao");
-                      handleRiskChange(risk.id, "meioPropagacao", value);
-                    }}
-                    options={getMeioPropagacaoOptions(
-                      risk.tipoAgente,
-                      risk.meioPropagacao
-                    ).map((option: string) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    buttonClassName={getRiskFieldClassName(
-                      risk.id,
-                      "meioPropagacao",
-                      selectSmallClass
-                    )}
-                    searchPlaceholder="Filtrar meio"
-                  />
-                </div>
-                {getRiskFieldError(risk.id, "meioPropagacao") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "meioPropagacao")}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Fontes/Circunstâncias *
-                </label>
-                <input
-                  className={getRiskFieldClassName(risk.id, "fontes", inputBaseClass)}
-                  value={risk.fontes}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "fontes", event.target.value)
-                  }
-                  onBlur={() => markRiskTouched(risk.id, "fontes")}
-                />
-                {getRiskFieldError(risk.id, "fontes") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "fontes")}
-                  </p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Tipo de Avaliação *
-                </label>
-                <div className="mt-2">
-                  <SearchableSelect
-                    value={risk.tipoAvaliacao}
-                    onChange={(value) => {
-                      markRiskTouched(risk.id, "tipoAvaliacao");
-                      handleRiskChange(risk.id, "tipoAvaliacao", value);
-                    }}
-                    options={getTipoAvaliacaoOptions(
-                      risk.tipoAgente,
-                      risk.descricaoAgente,
-                      risk.tipoAvaliacao
-                    ).map((option: string) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    buttonClassName={getRiskFieldClassName(
-                      risk.id,
-                      "tipoAvaliacao",
-                      selectSmallClass
-                    )}
-                    searchPlaceholder="Filtrar tipo"
-                  />
-                </div>
-                {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "tipoAvaliacao")}
-                  </p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Intensidade/Concentração *
-                </label>
-                <div className="mt-2">
-                  <SearchableSelect
-                    value={risk.intensidade}
-                    onChange={(value) => {
-                      markRiskTouched(risk.id, "intensidade");
-                      handleRiskChange(risk.id, "intensidade", value);
-                    }}
-                    options={getIntensidadeOptions(
-                      risk.tipoAgente,
-                      risk.descricaoAgente,
-                      risk.intensidade
-                    ).map((option: string) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    buttonClassName={getRiskFieldClassName(
-                      risk.id,
-                      "intensidade",
-                      selectSmallClass
-                    )}
-                    searchPlaceholder="Filtrar intensidade"
-                  />
-                </div>
-                {getRiskFieldError(risk.id, "intensidade") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "intensidade")}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Severidade *
-                </label>
-                <input
-                  className={getRiskFieldClassName(risk.id, "severidade", inputBaseClass)}
-                  value={risk.severidade}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "severidade", event.target.value)
-                  }
-                  disabled
-                />
-                {getRiskFieldError(risk.id, "severidade") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "severidade")}
-                  </p>
-                ) : null}
-              </div>
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Probabilidade *
-                </label>
-                <div className="mt-2">
-                  <SearchableSelect
-                    value={risk.probabilidade}
-                    onChange={(value) => {
-                      markRiskTouched(risk.id, "probabilidade");
-                      markRiskTouched(risk.id, "severidade");
-                      markRiskTouched(risk.id, "classificacao");
-                      handleRiskChange(risk.id, "probabilidade", value);
-                    }}
-                    options={PROBABILIDADE_OPTIONS.map((option) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    buttonClassName={getRiskFieldClassName(
-                      risk.id,
-                      "probabilidade",
-                      selectSmallClass
-                    )}
-                    searchPlaceholder="Filtrar probabilidade"
-                  />
-                </div>
-                {getRiskFieldError(risk.id, "probabilidade") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "probabilidade")}
-                  </p>
-                ) : null}
-              </div>              
-              <div>
-                <label className="text-[12px] font-medium text-foreground">
-                  Classificação de Risco *
-                </label>
-                <input
-                  className={getRiskFieldClassName(risk.id, "classificacao", inputBaseClass)}
-                  value={risk.classificacao}
-                  onChange={(event) =>
-                    handleRiskChange(risk.id, "classificacao", event.target.value)
-                  }
-                  disabled
-                />
-                {getRiskFieldError(risk.id, "classificacao") ? (
-                  <p className="mt-1 text-[12px] text-danger">
-                    {getRiskFieldError(risk.id, "classificacao")}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <div className="mt-8">
-              <p className="text-[13px] font-semibold text-foreground">
-                Medidas de prevenção
-              </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-4">
-                <div>
-                  <label className="text-[12px] font-medium text-foreground">
-                    Medidas de Controle Administrativas e/ou de Engenharia *
-                  </label>
-                  <textarea
-                    className={getRiskFieldClassName(
-                      risk.id,
-                      "medidasControle",
-                      `${textareaBaseClass} min-h-[80px]`
-                    )}
-                    value={risk.medidasControle}
-                    onChange={(event) =>
-                      handleRiskChange(risk.id, "medidasControle", event.target.value)
-                    }
-                    onBlur={() => markRiskTouched(risk.id, "medidasControle")}
-                  />
-                  {getRiskFieldError(risk.id, "medidasControle") ? (
-                    <p className="mt-1 text-[12px] text-danger">
-                      {getRiskFieldError(risk.id, "medidasControle")}
-                    </p>
-                  ) : null}
-                </div>
-                <div>
-                  <label className="text-[12px] font-medium text-foreground">
-                    EPC *
-                  </label>
-                  <textarea
-                    className={getRiskFieldClassName(
-                      risk.id,
-                      "epc",
-                      `${textareaBaseClass} min-h-[80px]`
-                    )}
-                    value={withDefaultEpcEpi(risk.epc)}
-                    onChange={(event) =>
-                      handleRiskChange(risk.id, "epc", event.target.value)
-                    }
-                    onBlur={() => markRiskTouched(risk.id, "epc")}
-                  />
-                  {getRiskFieldError(risk.id, "epc") ? (
-                    <p className="mt-1 text-[12px] text-danger">
-                      {getRiskFieldError(risk.id, "epc")}
-                    </p>
-                  ) : null}
-                </div>
-                <div>
-                  <label className="text-[12px] font-medium text-foreground">
-                    EPI *
-                  </label>
-                  <textarea
-                    className={getRiskFieldClassName(
-                      risk.id,
-                      "epi",
-                      `${textareaBaseClass} min-h-[80px]`
-                    )}
-                    value={withDefaultEpcEpi(risk.epi)}
-                    onChange={(event) =>
-                      handleRiskChange(risk.id, "epi", event.target.value)
-                    }
-                    onBlur={() => markRiskTouched(risk.id, "epi")}
-                  />
-                  {getRiskFieldError(risk.id, "epi") ? (
-                    <p className="mt-1 text-[12px] text-danger">
-                      {getRiskFieldError(risk.id, "epi")}
-                    </p>
-                  ) : null}
-                </div>
-                <div>
-                  <label className="text-[12px] font-medium text-foreground">
-                    CA
-                  </label>
-                  <textarea
-                    className={`${textareaBaseClass} min-h-[80px]`}
-                    value={withDefaultEpcEpi(risk.epi)}
-                    onChange={(event) =>
-                      handleRiskChange(risk.id, "epi", event.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+            );
+          })()
         ))
       ) : (
         <div className="rounded-[12px] border border-dashed border-border/70 px-4 py-8 text-center text-[13px] text-muted-foreground">
@@ -924,6 +1286,43 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 </div>
               ) : null}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setRiskOverviewGheFilterId(currentRiskGhe?.id ?? "all");
+                setRiskOverviewSearch("");
+                setIsRiskOverviewModalOpen(true);
+              }}
+              className="btn-primary px-4"
+            >
+              Ver Riscos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBatchRiskSearch("");
+                setBatchGheSearch("");
+                setSelectedBatchGheIds([]);
+                setBatchAssignFeedback("");
+                setSelectedBatchRiskKey(
+                  currentRiskGhe?.risks[0]
+                    ? getRiskContentKey(currentRiskGhe.risks[0])
+                    : null
+                );
+                setIsBatchAssignModalOpen(true);
+              }}
+              className="btn-outline px-4"
+            >
+              Atribuir risco em lote
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleAllRisks}
+              disabled={!currentRiskList.length}
+              className={currentRiskList.length ? "btn-outline px-4" : "btn-disabled px-4"}
+            >
+              {allCurrentRisksMinimized ? "Expandir todos os riscos" : "Minimizar todos os riscos"}
+            </button>
             <button type="button" onClick={handleAddRisk} className="btn-primary px-4">
               <PlusCircle className="h-4 w-4" />
               Adicionar Risco
@@ -1061,6 +1460,374 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           </div>
         ) : null}
       </section>
+
+      {isBatchAssignModalOpen ? (
+        <div className="fixed -inset-6 z-50">
+          <div className="absolute inset-0 bg-black/65" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="flex h-[min(88vh,900px)] w-full max-w-6xl flex-col rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Atribuir Risco a Vários GHEs
+                  </h3>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Selecione um risco na esquerda e marque os GHEs de destino na direita.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBatchAssignModalOpen(false)}
+                  className="btn-outline px-3 py-1 text-[12px]"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="mt-6 grid min-h-0 flex-1 gap-6 lg:grid-cols-[1fr_1fr]">
+                <div className="flex min-h-0 min-w-0 flex-col rounded-[12px] border border-border/70 bg-background/40 px-4 py-4">
+                  <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={batchRiskSearch}
+                      onChange={(event) => setBatchRiskSearch(event.target.value)}
+                      className={`${inputInlineClass} pl-10`}
+                      placeholder="Buscar risco por GHE, tipo, agente ou classificação"
+                    />
+                  </div>
+                  <p className="mt-3 text-[12px] text-muted-foreground">
+                    {filteredBatchRiskGroups.length} riscos encontrados
+                  </p>
+
+                  <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-auto pr-1">
+                    {visibleBatchRiskGroups.length ? (
+                      visibleBatchRiskGroups.map((group) => {
+                        const isSelected = selectedBatchRiskKey === group.key;
+                        return (
+                          <button
+                            key={group.key}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBatchRiskKey(group.key);
+                              setSelectedBatchGheIds([]);
+                              setBatchAssignFeedback("");
+                            }}
+                            className={`w-full rounded-[10px] border px-3 py-3 text-left ${
+                              isSelected
+                                ? "border-primary/50 bg-primary/5"
+                                : "border-border/60 bg-card hover:bg-muted/60"
+                            }`}
+                          >
+                            <p className="text-[13px] font-semibold text-foreground">
+                              {group.risk.descricaoAgente || "Agente não informado"}
+                            </p>
+                            <p className="mt-1 text-[12px] text-muted-foreground">
+                              Tipo: {group.risk.tipoAgente || "Não informado"} · Classificação:{" "}
+                              {group.risk.classificacao || "Não informada"}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {group.sourceGheNames.map((gheName) => (
+                                <span
+                                  key={`${group.key}-${gheName}`}
+                                  className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                                >
+                                  {gheName}
+                                </span>
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-[10px] border border-dashed border-border/70 px-3 py-6 text-center text-[12px] text-muted-foreground">
+                        Nenhum risco para o filtro informado.
+                      </div>
+                    )}
+                    {shouldPaginateBatchRisks && hiddenBatchRiskCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleBatchRiskCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)}
+                        className="btn-outline w-full px-3 py-2 text-[12px]"
+                      >
+                        Carregar mais riscos ({hiddenBatchRiskCount} restantes)
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex min-h-0 min-w-0 flex-col rounded-[12px] border border-border/70 bg-background/40 px-4 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[13px] font-semibold text-foreground">GHEs de destino</p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedBatchGheIds((prev) => {
+                          const visibleIds = visibleBatchGhes.map((ghe) => ghe.id);
+                          const allSelected =
+                            visibleIds.length > 0 &&
+                            visibleIds.every((id) => prev.includes(id));
+                          if (allSelected) {
+                            return prev.filter((id) => !visibleIds.includes(id));
+                          }
+                          return Array.from(new Set([...prev, ...visibleIds]));
+                        })
+                      }
+                      disabled={!visibleBatchGhes.length}
+                      className={!visibleBatchGhes.length ? "btn-disabled px-3 py-1 text-[12px]" : "btn-outline px-3 py-1 text-[12px]"}
+                    >
+                      Marcar visíveis
+                    </button>
+                  </div>
+
+                  <p className="mt-2 text-[12px] text-muted-foreground">
+                    {selectedBatchRiskGroup
+                      ? `Origem em: ${selectedBatchRiskGroup.sourceGheNames.join(", ")}`
+                      : "Selecione um risco para habilitar os destinos."}
+                  </p>
+
+                  <div className="relative mt-3 w-full">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={batchGheSearch}
+                      onChange={(event) => setBatchGheSearch(event.target.value)}
+                      className={`${inputInlineClass} pl-10`}
+                      placeholder="Buscar GHE de destino"
+                    />
+                  </div>
+
+                  <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-auto pr-1">
+                    {visibleBatchGhes.length ? (
+                      visibleBatchGhes.map((ghe) => (
+                        <label
+                          key={ghe.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-[10px] border border-border/60 bg-card px-3 py-3"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-primary"
+                            checked={selectedBatchGheIds.includes(ghe.id)}
+                            onChange={() => toggleBatchGheSelection(ghe.id)}
+                            disabled={!selectedBatchRiskGroup}
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-[13px] font-semibold text-foreground">
+                              {ghe.name}
+                            </span>
+                            <span className="block text-[12px] text-muted-foreground">
+                              {ghe.risks.length} riscos cadastrados
+                            </span>
+                          </span>
+                        </label>
+                      ))
+                    ) : (
+                      <div className="rounded-[10px] border border-dashed border-border/70 px-3 py-6 text-center text-[12px] text-muted-foreground">
+                        Nenhum GHE disponível para destino.
+                      </div>
+                    )}
+                    {shouldPaginateBatchGhes && hiddenBatchGheCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleBatchGheCount((prev) => prev + PROGRESSIVE_BATCH_SIZE)}
+                        className="btn-outline w-full px-3 py-2 text-[12px]"
+                      >
+                        Carregar mais GHEs ({hiddenBatchGheCount} restantes)
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[12px] text-muted-foreground">
+                      {selectedBatchGheIds.length} GHE(s) selecionado(s)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleApplyBatchRiskAssignment}
+                      disabled={!selectedBatchRiskGroup || !selectedBatchGheIds.length}
+                      className={
+                        !selectedBatchRiskGroup || !selectedBatchGheIds.length
+                          ? "btn-disabled px-4"
+                          : "btn-primary px-4"
+                      }
+                    >
+                      Atribuir risco
+                    </button>
+                  </div>
+                  {batchAssignFeedback ? (
+                    <p className="mt-2 text-[12px] text-muted-foreground">{batchAssignFeedback}</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isRiskOverviewModalOpen ? (
+        <div className="fixed -inset-6 z-50">
+          <div className="absolute inset-0 bg-black/65" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="flex h-[min(88vh,900px)] w-full max-w-6xl flex-col rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Riscos por GHE
+                  </h3>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Navegue pelos GHEs e visualize os riscos cadastrados.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRiskOverviewModalOpen(false)}
+                  className="btn-outline px-3 py-1 text-[12px]"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="mt-6 grid min-h-0 flex-1 gap-6 lg:grid-cols-[1fr_1.6fr]">
+                <div className="min-h-0 space-y-4 overflow-auto pr-2">
+                  <button
+                    type="button"
+                    onClick={() => setRiskOverviewGheFilterId("all")}
+                    className={`w-full rounded-[12px] border px-4 py-4 text-left ${
+                      riskOverviewGheFilterId === "all"
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border/70 bg-background/40"
+                    }`}
+                  >
+                    <p className="text-[14px] font-semibold text-foreground">
+                      Todos os GHEs
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {totalRiskOverviewCount} riscos cadastrados
+                    </p>
+                  </button>
+                  {visibleRiskOverviewGhes.map((ghe) => (
+                    <div
+                      key={ghe.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setRiskOverviewGheFilterId(ghe.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setRiskOverviewGheFilterId(ghe.id);
+                        }
+                      }}
+                      className={`cursor-pointer rounded-[12px] border px-4 py-4 ${
+                        riskOverviewGheFilterId === ghe.id
+                          ? "border-primary/50 bg-primary/5"
+                          : "border-border/70 bg-background/40"
+                      }`}
+                    >
+                      <div className="w-full text-left">
+                        <p className="text-[14px] font-semibold text-foreground">{ghe.name}</p>
+                        <p className="text-[12px] text-muted-foreground">
+                          {ghe.risks.length} riscos cadastrados
+                        </p>
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setCurrentRiskGheId(ghe.id);
+                            setIsRiskOverviewModalOpen(false);
+                          }}
+                          className="btn-outline px-3 py-1 text-[12px]"
+                        >
+                          Editar riscos
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {shouldPaginateRiskOverviewGhes && hiddenRiskOverviewGheCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisibleRiskOverviewGheCount(
+                          (prev) => prev + PROGRESSIVE_BATCH_SIZE
+                        )
+                      }
+                      className="btn-outline w-full px-3 py-2 text-[12px]"
+                    >
+                      Carregar mais GHEs ({hiddenRiskOverviewGheCount} restantes)
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="flex min-h-0 min-w-0 flex-col rounded-[12px] border border-border/70 bg-background/40 px-4 py-4">
+                  <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={riskOverviewSearch}
+                      onChange={(event) => setRiskOverviewSearch(event.target.value)}
+                      className={`${inputInlineClass} pl-10`}
+                      placeholder="Buscar por tipo, agente ou classificação"
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[12px] text-muted-foreground">
+                      {riskOverviewGheFilterId === "all"
+                        ? "Visualizando riscos de todos os GHEs"
+                        : `Filtro: ${selectedRiskOverviewGhe?.name ?? "GHE"}`}
+                      {normalizedRiskOverviewSearch
+                        ? ` · ${filteredRiskOverviewRows.length} resultados`
+                        : ""}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-2">
+                    {visibleRiskOverviewRows.length ? (
+                      visibleRiskOverviewRows.map((row) => (
+                        <div
+                          key={`${row.gheId}::${row.risk.id}`}
+                          className="rounded-[10px] border border-border/60 bg-card px-3 py-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-[13px] font-semibold text-foreground">
+                              {row.risk.descricaoAgente || "Agente não informado"}
+                            </p>
+                            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                              {row.gheName}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[12px] text-muted-foreground">
+                            Tipo: {row.risk.tipoAgente || "Não informado"} · Classificação:{" "}
+                            {row.risk.classificacao || "Não informada"}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-[10px] border border-dashed border-border/70 px-3 py-6 text-center text-[12px] text-muted-foreground">
+                        Nenhum resultado para o filtro aplicado.
+                      </div>
+                    )}
+
+                    {shouldPaginateRiskOverviewRows && hiddenRiskOverviewRiskCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleRiskOverviewRiskCount(
+                            (prev) => prev + PROGRESSIVE_BATCH_SIZE
+                          )
+                        }
+                        className="btn-outline px-4 py-2 text-[12px]"
+                      >
+                        Carregar mais riscos ({hiddenRiskOverviewRiskCount} restantes)
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
