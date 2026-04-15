@@ -35,6 +35,24 @@ const normalizeText = (value: string) =>
 const uniqueValues = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 
+const getRiskContentKey = (risk: RiskGheGroup["risks"][number]) =>
+  [
+    risk.tipoAgente,
+    risk.descricaoAgente,
+    risk.meioPropagacao,
+    risk.fontes,
+    risk.tipoAvaliacao,
+    risk.intensidade,
+    risk.severidade,
+    risk.probabilidade,
+    risk.classificacao,
+    risk.medidasControle,
+    risk.epc,
+    risk.epi,
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .join("||");
+
 export function usePgrEtapaDerived({
   riskCatalogs,
   functionsData,
@@ -286,6 +304,26 @@ export function usePgrEtapaDerived({
     }
     return hasAnyRisk;
   }, [riskGheGroups]);
+  const duplicatedRiskStructureNameGroups = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const ghe of riskGheGroups) {
+      if (!ghe.risks.length) continue;
+      const signature = ghe.risks
+        .map((risk) => getRiskContentKey(risk))
+        .sort()
+        .join("##");
+      const existing = groups.get(signature);
+      if (!existing) {
+        groups.set(signature, [ghe.name]);
+        continue;
+      }
+      existing.push(ghe.name);
+    }
+    return Array.from(groups.values()).filter((names) => names.length > 1);
+  }, [riskGheGroups]);
+  const hasDuplicatedRiskStructure = duplicatedRiskStructureNameGroups.length > 0;
+  const isCaracterizacaoStepComplete =
+    isCaracterizacaoComplete && !hasDuplicatedRiskStructure;
 
   const isPlanoComplete = useMemo(() => {
     if (!rawPlanTableRows.length) return false;
@@ -339,6 +377,14 @@ export function usePgrEtapaDerived({
           });
         });
       });
+      if (hasDuplicatedRiskStructure) {
+        missingCaracterizacao.push(
+          "Os seguintes GHEs possuem a mesma estrutura de caracterização de risco:"
+        );
+        duplicatedRiskStructureNameGroups.forEach((gheNames) => {
+          missingCaracterizacao.push(`• ${gheNames.join(", ")}.`);
+        });
+      }
     }
 
     const missingPlano: string[] = [];
@@ -375,6 +421,8 @@ export function usePgrEtapaDerived({
     rawPlanTableRows,
     remainingCount,
     riskGheGroups,
+    hasDuplicatedRiskStructure,
+    duplicatedRiskStructureNameGroups,
   ]);
 
   const stepStatusById = useMemo<Partial<Record<PgrStepId, boolean>>>(
@@ -383,7 +431,7 @@ export function usePgrEtapaDerived({
       historico: isHistoricoComplete,
       dados: isDadosComplete,
       descricao: isDescricaoComplete,
-      caracterizacao: isCaracterizacaoComplete,
+      caracterizacao: isCaracterizacaoStepComplete,
       plano: isPlanoComplete,
       anexos: isAnexosComplete,
       revisao:
@@ -391,14 +439,14 @@ export function usePgrEtapaDerived({
         isHistoricoComplete &&
         isDadosComplete &&
         isDescricaoComplete &&
-        isCaracterizacaoComplete &&
+        isCaracterizacaoStepComplete &&
         isPlanoComplete &&
         isAnexosComplete,
     }),
     [
       isInicioComplete,
       isAnexosComplete,
-      isCaracterizacaoComplete,
+      isCaracterizacaoStepComplete,
       isDadosComplete,
       isDescricaoComplete,
       isHistoricoComplete,
@@ -426,7 +474,10 @@ export function usePgrEtapaDerived({
         historico: false,
         dados: shouldAlertStepWhenAdvanced("dados", isDadosComplete),
         descricao: shouldAlertStepWhenAdvanced("descricao", isDescricaoComplete),
-        caracterizacao: shouldAlertStepWhenAdvanced("caracterizacao", isCaracterizacaoComplete),
+        caracterizacao: shouldAlertStepWhenAdvanced(
+          "caracterizacao",
+          isCaracterizacaoStepComplete
+        ),
         plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete),
         anexos: shouldAlertStepWhenAdvanced("anexos", isAnexosComplete),
       };
@@ -435,7 +486,7 @@ export function usePgrEtapaDerived({
       currentStepId,
       completedSteps,
       isAnexosComplete,
-      isCaracterizacaoComplete,
+      isCaracterizacaoStepComplete,
       isDadosComplete,
       isDescricaoComplete,
       isInicioComplete,

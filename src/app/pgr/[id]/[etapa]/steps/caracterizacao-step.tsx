@@ -1,4 +1,4 @@
-import { ChevronDown, PlusCircle, Search } from "lucide-react";
+import { ChevronDown, PlusCircle, Search, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { GheRisk, RiskGheGroup } from "../types";
@@ -19,6 +19,12 @@ type BatchRiskGroup = {
   risk: GheRisk;
   sourceGheIds: string[];
   sourceGheNames: string[];
+};
+
+type DuplicateRiskStructureGroup = {
+  structureKey: string;
+  gheIds: string[];
+  gheNames: string[];
 };
 
 const EPC_OPTIONS = [
@@ -188,6 +194,50 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const copySourceGhesWithRisks = useMemo(
     () => copySourceGhes.filter((ghe) => ghe.risks.length > 0),
     [copySourceGhes]
+  );
+  const duplicatedRiskStructureGroups = useMemo<DuplicateRiskStructureGroup[]>(() => {
+    const grouped = new Map<
+      string,
+      {
+        gheIds: string[];
+        gheNames: string[];
+      }
+    >();
+
+    riskGheGroups.forEach((ghe) => {
+      if (!ghe.risks.length) return;
+
+      const structureKey = ghe.risks
+        .map((risk) => getRiskContentKey(risk))
+        .sort()
+        .join("##");
+      const existing = grouped.get(structureKey);
+
+      if (!existing) {
+        grouped.set(structureKey, { gheIds: [ghe.id], gheNames: [ghe.name] });
+        return;
+      }
+
+      existing.gheIds.push(ghe.id);
+      existing.gheNames.push(ghe.name);
+    });
+
+    return Array.from(grouped.entries())
+      .filter(([, group]) => group.gheIds.length > 1)
+      .map(([structureKey, group]) => ({
+        structureKey,
+        gheIds: group.gheIds,
+        gheNames: group.gheNames,
+      }));
+  }, [riskGheGroups]);
+  const duplicatedRiskStructureGheIds = useMemo(
+    () =>
+      new Set(
+        duplicatedRiskStructureGroups.flatMap(
+          (group: DuplicateRiskStructureGroup) => group.gheIds
+        )
+      ),
+    [duplicatedRiskStructureGroups]
   );
 
   const [visibleRiskGheCount, setVisibleRiskGheCount] = useState(PROGRESSIVE_BATCH_SIZE);
@@ -1349,6 +1399,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 />
               </div>
               <div className="mt-3 max-h-[280px] space-y-2 overflow-auto pr-1">
+                {duplicatedRiskStructureGroups.length > 0 ? (
+                  <div className="rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2">
+                    <p className="flex items-center gap-2 text-[12px] font-semibold text-amber-900">
+                      <TriangleAlert className="h-4 w-4 text-amber-500" />
+                      Existem GHEs com a mesma caracterização de risco.
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-900/90">
+                      {duplicatedRiskStructureGroups
+                        .map((group) => group.gheNames.join(", "))
+                        .join(" | ")}
+                    </p>
+                  </div>
+                ) : null}
                 {visibleFilteredRiskGheGroups.map((ghe: RiskGheGroup) => (
                   <button
                     key={ghe.id}
@@ -1356,11 +1419,20 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     onClick={() => setCurrentRiskGheId(ghe.id)}
                     className={`w-full rounded-[10px] border px-3 py-2 text-left text-[12px] transition ${
                       currentRiskGheId === ghe.id
-                        ? "border-primary/50 bg-primary/5"
-                        : "border-border/70 bg-background/60 hover:bg-muted/60"
+                        ? duplicatedRiskStructureGheIds.has(ghe.id)
+                          ? "border-amber-500 bg-primary/5"
+                          : "border-primary/50 bg-primary/5"
+                        : duplicatedRiskStructureGheIds.has(ghe.id)
+                          ? "border-amber-300 bg-background/60 hover:bg-muted/60"
+                          : "border-border/70 bg-background/60 hover:bg-muted/60"
                     }`}
                   >
-                    <p className="font-semibold text-foreground">{ghe.name}</p>
+                    <p className="flex items-center gap-1 font-semibold text-foreground">
+                      {duplicatedRiskStructureGheIds.has(ghe.id) ? (
+                        <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                      ) : null}
+                      {ghe.name}
+                    </p>
                     <p className="text-[11px] text-muted-foreground">
                       {ghe.risks.length} riscos cadastrados
                     </p>
@@ -1404,6 +1476,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 </span>
               </div>
             </div>
+            {duplicatedRiskStructureGroups.length > 0 ? (
+              <div className="mt-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2">
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-amber-900">
+                  <TriangleAlert className="h-4 w-4 text-amber-500" />
+                  Existem GHEs com a mesma caracterização de risco.
+                </p>
+                <p className="mt-1 text-[11px] text-amber-900/90">
+                  {duplicatedRiskStructureGroups
+                    .map((group) => group.gheNames.join(", "))
+                    .join(" | ")}
+                </p>
+              </div>
+            ) : null}
 
             <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
               {visibleFilteredRiskGheGroups.map((ghe: RiskGheGroup) => (
@@ -1413,11 +1498,18 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   onClick={() => setCurrentRiskGheId(ghe.id)}
                   className={`min-w-[150px] rounded-[12px] border px-3 py-2 text-left transition ${
                     currentRiskGheId === ghe.id
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border/70 bg-background/40 hover:bg-muted/60"
+                      ? duplicatedRiskStructureGheIds.has(ghe.id)
+                        ? "border-amber-500 bg-primary/5"
+                        : "border-primary/50 bg-primary/5"
+                      : duplicatedRiskStructureGheIds.has(ghe.id)
+                        ? "border-amber-300 bg-background/40 hover:bg-muted/60"
+                        : "border-border/70 bg-background/40 hover:bg-muted/60"
                   }`}
                 >
-                  <p className="text-[12px] font-semibold text-foreground">
+                  <p className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
+                    {duplicatedRiskStructureGheIds.has(ghe.id) ? (
+                      <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                    ) : null}
                     {ghe.name}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
