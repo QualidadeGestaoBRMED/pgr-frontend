@@ -596,9 +596,33 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setEditingMedidasValue("");
   };
 
-  const handleSavePlanActionModal = () => {
+  const handleSavePlanActionModal = (options?: { riskIds?: string[]; gheIds?: string[] }) => {
     const actionDescription = planActionDescription.trim();
     if (!actionDescription) return;
+    const riskIds = options?.riskIds;
+    const gheIds = options?.gheIds;
+    const selectedRiskIds = new Set(
+      (Array.isArray(riskIds) && riskIds.length ? riskIds : [planActionRiskId]).filter(Boolean)
+    );
+    const selectedGheIds = new Set(
+      (Array.isArray(gheIds) && gheIds.length ? gheIds : [planActionGheId]).filter(Boolean)
+    );
+    if (planActionScope === "risk" && selectedRiskIds.size === 0) return;
+    if (planActionScope === "risk" && selectedGheIds.size === 0) return;
+
+    const getRiskContentKey = (risk: GheRisk) =>
+      [risk.descricaoAgente, risk.classificacao]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join("||");
+    const selectedRiskContentKeys = new Set<string>();
+    if (planActionScope === "risk") {
+      riskGheGroups.forEach((ghe) => {
+        ghe.risks.forEach((risk) => {
+          if (!selectedRiskIds.has(risk.id)) return;
+          selectedRiskContentKeys.add(getRiskContentKey(risk));
+        });
+      });
+    }
 
     const mergeMedidas = (previous: string, nextValue: string) => {
       const currentValue = previous.trim();
@@ -614,12 +638,18 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     const touchedKeys = new Set<string>();
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
-        const applyForGhe = planActionScope === "all" || ghe.id === planActionGheId;
+        const applyForGhe =
+          planActionScope === "all" ||
+          (planActionScope === "ghe" && ghe.id === planActionGheId) ||
+          (planActionScope === "risk" && selectedGheIds.has(ghe.id));
         if (!applyForGhe) return ghe;
 
         const risks = ghe.risks.map((risk) => {
-          const applyForRisk =
-            planActionScope !== "risk" || risk.id === planActionRiskId;
+          const applyForRisk = (() => {
+            if (planActionScope !== "risk") return true;
+            if (selectedRiskIds.has(risk.id)) return true;
+            return selectedRiskContentKeys.has(getRiskContentKey(risk));
+          })();
           if (!applyForRisk) return risk;
           touchedKeys.add(`${ghe.id}::${risk.id}`);
 
