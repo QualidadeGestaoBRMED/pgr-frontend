@@ -37,13 +37,46 @@ export function RevisaoStep({
 }: RevisaoStepProps) {
   const [openMissingStepId, setOpenMissingStepId] = useState<string | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isGenerateBlockedModalOpen, setIsGenerateBlockedModalOpen] = useState(false);
+  const reviewItems = useMemo(
+    () =>
+      pgrSteps
+        .filter((item) => item.id !== "revisao" && item.id !== "inicio")
+        .map((item, index) => {
+          const fallbackByProgress = index < completedSteps;
+          const isDone =
+            typeof stepStatusById?.[item.id] === "boolean"
+              ? Boolean(stepStatusById[item.id])
+              : fallbackByProgress;
+          const missingItems = missingFieldsByStep?.[item.id] ?? [];
+          return {
+            id: item.id,
+            title: item.title,
+            isDone,
+            missingItems,
+          };
+        }),
+    [completedSteps, stepStatusById, missingFieldsByStep]
+  );
+  const pendingReviewItems = useMemo(
+    () =>
+      reviewItems
+        .filter((item) => !item.isDone)
+        .map((item) => ({
+          ...item,
+          missingItems: item.missingItems.length
+            ? item.missingItems
+            : ["Concluir esta etapa para liberar a geração do PDF."],
+        })),
+    [reviewItems]
+  );
   const missingFields = useMemo(
     () => (openMissingStepId ? missingFieldsByStep?.[openMissingStepId] ?? [] : []),
     [missingFieldsByStep, openMissingStepId]
   );
   const missingStepTitle = useMemo(
-    () => pgrSteps.find((item) => item.id === openMissingStepId)?.title ?? "Etapa",
-    [openMissingStepId]
+    () => reviewItems.find((item) => item.id === openMissingStepId)?.title ?? "Etapa",
+    [reviewItems, openMissingStepId]
   );
 
   return (
@@ -59,15 +92,8 @@ export function RevisaoStep({
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
         <div className="space-y-3">
-          {pgrSteps
-            .filter((item) => item.id !== "revisao" && item.id !== "inicio")
-            .map((item, index) => {
-              const fallbackByProgress = index < completedSteps;
-              const isDone =
-                typeof stepStatusById?.[item.id] === "boolean"
-                  ? Boolean(stepStatusById[item.id])
-                  : fallbackByProgress;
-              const missingItems = missingFieldsByStep?.[item.id] ?? [];
+          {reviewItems.map((item) => {
+              const { isDone, missingItems } = item;
               const statusLabel = isDone ? "Completo" : "Incompleto";
               return (
                 <div
@@ -164,7 +190,13 @@ export function RevisaoStep({
               </button>
               <button
                 type="button"
-                onClick={onGenerateFakePdf}
+                onClick={() => {
+                  if (pendingReviewItems.length > 0) {
+                    setIsGenerateBlockedModalOpen(true);
+                    return;
+                  }
+                  onGenerateFakePdf();
+                }}
                 disabled={isGeneratingFakePdf}
                 className={isGeneratingFakePdf ? "btn-disabled px-5" : "btn-primary px-5"}
               >
@@ -217,6 +249,63 @@ export function RevisaoStep({
                     {field}
                   </p>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isGenerateBlockedModalOpen ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-3xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Pendências de preenchimento
+                  </h3>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Complete os itens abaixo para liberar a geração do PDF.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsGenerateBlockedModalOpen(false)}
+                  className="btn-outline px-2 py-1"
+                  aria-label="Fechar pendências"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-4 max-h-[55vh] space-y-3 overflow-auto pr-1">
+                {pendingReviewItems.map((item) => (
+                  <div
+                    key={`pending-${item.id}`}
+                    className="rounded-[10px] border border-border/60 bg-background/40 px-3 py-3"
+                  >
+                    <p className="text-[13px] font-semibold text-foreground">{item.title}</p>
+                    <div className="mt-2 space-y-2">
+                      {item.missingItems.map((field, index) => (
+                        <p
+                          key={`${item.id}-field-${index}`}
+                          className="rounded-[8px] border border-border/60 bg-card px-3 py-2 text-[13px] text-foreground/90"
+                        >
+                          {field}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsGenerateBlockedModalOpen(false)}
+                  className="btn-primary px-5"
+                >
+                  Entendi
+                </button>
               </div>
             </div>
           </div>
