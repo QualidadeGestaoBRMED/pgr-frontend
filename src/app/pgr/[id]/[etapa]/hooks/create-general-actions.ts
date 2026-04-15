@@ -604,8 +604,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     const selectedRiskIds = new Set(
       (Array.isArray(riskIds) && riskIds.length ? riskIds : [planActionRiskId]).filter(Boolean)
     );
+    const fallbackGheIds =
+      planActionScope === "all"
+        ? riskGheGroups.map((ghe) => ghe.id)
+        : [planActionGheId];
     const selectedGheIds = new Set(
-      (Array.isArray(gheIds) && gheIds.length ? gheIds : [planActionGheId]).filter(Boolean)
+      (Array.isArray(gheIds) && gheIds.length ? gheIds : fallbackGheIds).filter(Boolean)
     );
     if (planActionScope === "risk" && selectedRiskIds.size === 0) return;
     if (planActionScope === "risk" && selectedGheIds.size === 0) return;
@@ -639,7 +643,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         const applyForGhe =
-          planActionScope === "all" ||
+          (planActionScope === "all" && selectedGheIds.has(ghe.id)) ||
           (planActionScope === "ghe" && ghe.id === planActionGheId) ||
           (planActionScope === "risk" && selectedGheIds.has(ghe.id));
         if (!applyForGhe) return ghe;

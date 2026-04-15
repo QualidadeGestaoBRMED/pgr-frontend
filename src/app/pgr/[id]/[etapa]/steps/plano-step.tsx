@@ -124,7 +124,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
 
   useEffect(() => {
     if (!isPlanActionModalOpen) return;
-    if (planActionScope !== "risk") {
+    if (planActionScope !== "risk" && planActionScope !== "all") {
       setSelectedPlanActionGheIds([]);
       return;
     }
@@ -138,6 +138,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     }
 
     setSelectedPlanActionGheIds((prev) => {
+      if (planActionScope === "all") return availableGheIds;
       const next = prev.filter((id) => availableGheIds.includes(id));
       if (next.length) return next;
       if (planActionGheId && availableGheIds.includes(planActionGheId)) {
@@ -168,8 +169,10 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   const planActionDescriptionError = planActionDescription.trim()
     ? ""
     : "Descrição da ação é obrigatória.";
+  const shouldValidateGheBatchSelection =
+    planActionScope === "risk" || planActionScope === "all";
   const planActionGheSelectionError =
-    planActionScope === "risk" && selectedPlanActionGheIds.length === 0
+    shouldValidateGheBatchSelection && selectedPlanActionGheIds.length === 0
       ? "Selecione ao menos um GHE."
       : "";
 
@@ -621,6 +624,85 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                     ) : null}
                   </>
                 ) : null}
+                {planActionScope === "all" ? (
+                  <div>
+                    <label className="text-[12px] font-semibold text-muted-foreground">
+                      GHEs para aplicar em lote
+                    </label>
+                    <div className="mt-2 rounded-[10px] border border-border/60 bg-background/40 p-3">
+                      {planActionGheOptions.length ? (
+                        <>
+                          <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                            <span>
+                              {selectedPlanActionGheIds.length} de{" "}
+                              {planActionGheOptions.length} selecionados
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedPlanActionGheIds(
+                                    planActionGheOptions.map((option) =>
+                                      String(option.value)
+                                    )
+                                  )
+                                }
+                                className="underline underline-offset-2 hover:text-foreground"
+                              >
+                                Marcar todos
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPlanActionGheIds([])}
+                                className="underline underline-offset-2 hover:text-foreground"
+                              >
+                                Limpar
+                              </button>
+                            </div>
+                          </div>
+                          <div className="max-h-[220px] space-y-2 overflow-auto pr-1">
+                            {planActionGheOptions.map((option) => {
+                              const gheId = String(option.value);
+                              const checked = selectedPlanActionGheIds.includes(gheId);
+                              return (
+                                <label
+                                  key={gheId}
+                                  className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-border/60 bg-background/60 px-2 py-2 text-[12px] text-foreground hover:bg-muted/60"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5 h-4 w-4 accent-primary"
+                                    checked={checked}
+                                    onChange={(event) => {
+                                      setSelectedPlanActionGheIds((prev) => {
+                                        if (event.target.checked) {
+                                          return prev.includes(gheId)
+                                            ? prev
+                                            : [...prev, gheId];
+                                        }
+                                        return prev.filter((id) => id !== gheId);
+                                      });
+                                    }}
+                                  />
+                                  <span className="leading-relaxed">{option.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[12px] text-muted-foreground">
+                          Nenhum GHE disponível.
+                        </p>
+                      )}
+                    </div>
+                    {touchedPlanActionGheSelection && planActionGheSelectionError ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {planActionGheSelectionError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="text-[12px] font-semibold text-muted-foreground">
@@ -653,17 +735,26 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                   type="button"
                   onClick={() => {
                     setTouchedPlanActionDescription(true);
-                    if (planActionScope === "risk") {
+                    if (shouldValidateGheBatchSelection) {
                       setTouchedPlanActionGheSelection(true);
                     }
                     if (planActionDescription.trim().length === 0) return;
-                    if (planActionScope === "risk" && selectedPlanActionGheIds.length === 0) {
+                    if (
+                      shouldValidateGheBatchSelection &&
+                      selectedPlanActionGheIds.length === 0
+                    ) {
                       return;
                     }
-                    handleSavePlanActionModal({
-                      riskIds: planActionRiskId ? [planActionRiskId] : [],
-                      gheIds: selectedPlanActionGheIds,
-                    });
+                    handleSavePlanActionModal(
+                      planActionScope === "risk"
+                        ? {
+                            riskIds: planActionRiskId ? [planActionRiskId] : [],
+                            gheIds: selectedPlanActionGheIds,
+                          }
+                        : planActionScope === "all"
+                          ? { gheIds: selectedPlanActionGheIds }
+                          : undefined
+                    );
                   }}
                   className="btn-primary px-5"
                 >

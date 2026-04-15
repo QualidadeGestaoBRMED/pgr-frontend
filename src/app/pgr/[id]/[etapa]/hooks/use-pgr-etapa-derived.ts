@@ -35,6 +35,21 @@ const normalizeText = (value: string) =>
 const uniqueValues = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 
+const extractGheToken = (gheName: string) => {
+  const token = gheName.replace(/^ghe\s*/i, "").trim();
+  const numberMatch = token.match(/\d+/);
+  return numberMatch ? numberMatch[0] : token || gheName;
+};
+
+const compareGheTokens = (a: string, b: string) => {
+  const aNum = Number(a);
+  const bNum = Number(b);
+  if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
+  if (Number.isFinite(aNum)) return -1;
+  if (Number.isFinite(bNum)) return 1;
+  return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
+};
+
 const getRiskContentKey = (risk: RiskGheGroup["risks"][number]) =>
   [
     risk.tipoAgente,
@@ -241,48 +256,50 @@ export function usePgrEtapaDerived({
   const planTableRows = useMemo<PlanTableRow[]>(() => {
     if (!rawPlanTableRows.length) return rawPlanTableRows;
 
-    const measures = rawPlanTableRows.map((row) => row.medidasPrevencao.trim());
-    const allHaveMeasure = measures.every((value) => value.length > 0);
-    if (!allHaveMeasure) return rawPlanTableRows;
-
-    const normalizedUniqueMeasures = new Set(measures.map((value) => value.toLowerCase()));
-    if (normalizedUniqueMeasures.size !== 1) return rawPlanTableRows;
-
-    const gheEntries = Array.from(
-      new Map(rawPlanTableRows.map((row) => [row.gheId, row.gheName])).entries()
-    )
-      .map(([gheId, gheName]) => {
-        const token = gheName.replace(/^ghe\s*/i, "").trim();
-        const numberMatch = token.match(/\d+/);
-        return {
-          gheId,
-          token: numberMatch ? numberMatch[0] : token || gheName,
-        };
-      })
-      .sort((a, b) => {
-        const aNum = Number(a.token);
-        const bNum = Number(b.token);
-        if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
-        if (Number.isFinite(aNum)) return -1;
-        if (Number.isFinite(bNum)) return 1;
-        return a.token.localeCompare(b.token, "pt-BR", { sensitivity: "base" });
-      });
-
-    return [
+    const grouped = new Map<
+      string,
       {
-        id: "plan-grouped-all-ghes-same-measure",
-        gheId: "__group__",
-        riskId: "__group__",
-        gheName: gheEntries.map((entry) => entry.token).join(","),
-        descricaoAgente: "Múltiplos agentes",
-        classificacao: "Múltiplas classificações",
-        medidasPrevencao: measures[0],
-        groupTargets: rawPlanTableRows.map((row) => ({
-          gheId: row.gheId,
-          riskId: row.riskId,
-        })),
-      },
-    ];
+        firstIndex: number;
+        rows: PlanTableRow[];
+      }
+    >();
+
+    rawPlanTableRows.forEach((row, index) => {
+      const key = [
+        row.descricaoAgente.trim().toLowerCase(),
+        row.classificacao.trim().toLowerCase(),
+        row.medidasPrevencao.trim().toLowerCase(),
+      ].join("||");
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, { firstIndex: index, rows: [row] });
+        return;
+      }
+      existing.rows.push(row);
+    });
+
+    return Array.from(grouped.values())
+      .sort((a, b) => a.firstIndex - b.firstIndex)
+      .map(({ rows }) => {
+        if (rows.length === 1) return rows[0];
+
+        const first = rows[0];
+        const gheTokens = Array.from(
+          new Map(rows.map((row) => [row.gheId, extractGheToken(row.gheName)])).values()
+        ).sort(compareGheTokens);
+
+        return {
+          ...first,
+          id: `plan-grouped-${first.id}-${rows.length}`,
+          gheId: "__group__",
+          riskId: "__group__",
+          gheName: `GHE ${gheTokens.join(", ")}`,
+          groupTargets: rows.map((row) => ({
+            gheId: row.gheId,
+            riskId: row.riskId,
+          })),
+        };
+      });
   }, [rawPlanTableRows]);
 
   const isInicioComplete = isInicioDraftComplete(inicioDraft);
