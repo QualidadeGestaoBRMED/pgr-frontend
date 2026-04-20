@@ -15,6 +15,7 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   getTipoAvaliacaoOptions: ctx.getTipoAvaliacaoOptions,
   getUnidadeMedidaOptions: ctx.getUnidadeMedidaOptions,
   getIntensidadeOptions: ctx.getIntensidadeOptions,
+  getIsCalculatedCriteria: ctx.getIsCalculatedCriteria,
   getNivelAcaoOptions: ctx.getNivelAcaoOptions,
   getSeveridadeOptions: ctx.getSeveridadeOptions,
   inputBaseClass: ctx.inputBaseClass,

@@ -56,6 +56,7 @@ const getRiskContentKey = (risk: RiskGheGroup["risks"][number]) =>
     risk.descricaoAgente,
     risk.meioPropagacao,
     risk.fontes,
+    risk.valorMedido || "",
     risk.tipoAvaliacao,
     risk.intensidade,
     risk.nivelAcao || "",
@@ -123,6 +124,7 @@ export function usePgrEtapaDerived({
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
   } =
@@ -546,6 +548,7 @@ export function usePgrEtapaDerived({
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
     diretrizOptions,

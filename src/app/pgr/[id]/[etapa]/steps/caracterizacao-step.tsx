@@ -81,6 +81,11 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const hasNumericToken = (value: string) => /\d/.test(value);
+
 const createRiskId = () =>
   `risk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
@@ -90,6 +95,7 @@ const isSameRiskContent = (a: GheRisk, b: GheRisk) =>
   a.meioPropagacao === b.meioPropagacao &&
   a.fontes === b.fontes &&
   (a.unidadeMedida || "") === (b.unidadeMedida || "") &&
+  (a.valorMedido || "") === (b.valorMedido || "") &&
   a.tipoAvaliacao === b.tipoAvaliacao &&
   a.intensidade === b.intensidade &&
   (a.nivelAcao || "") === (b.nivelAcao || "") &&
@@ -107,6 +113,7 @@ const getRiskContentKey = (risk: GheRisk) =>
     risk.meioPropagacao,
     risk.fontes,
     risk.unidadeMedida || "",
+    risk.valorMedido || "",
     risk.tipoAvaliacao,
     risk.intensidade,
     risk.nivelAcao || "",
@@ -138,6 +145,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
     inputBaseClass,
@@ -524,6 +532,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       meioPropagacao: "",
       fontes: "",
       unidadeMedida: "",
+      valorMedido: "",
       tipoAvaliacao: "",
       intensidade: "",
       nivelAcao: "",
@@ -582,6 +591,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "meioPropagacao"
       | "fontes"
       | "unidadeMedida"
+      | "valorMedido"
       | "tipoAvaliacao"
       | "intensidade"
       | "nivelAcao"
@@ -612,6 +622,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           meioPropagacao: "",
                           fontes: "",
                           unidadeMedida: "",
+                          valorMedido: "",
                           tipoAvaliacao: "",
                           intensidade: "",
                           nivelAcao: "",
@@ -625,13 +636,34 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         return nextRisk;
                       }
 
-                      const nextRisk = { ...risk, [field]: value };
                       if (field !== "descricaoAgente") {
-                        return nextRisk;
+                        return { ...risk, [field]: value };
                       }
+
+                      const nextRisk = {
+                        ...risk,
+                        descricaoAgente: value,
+                        // Ao trocar a descrição, limpa os campos técnicos para
+                        // não reaproveitar valores do item anterior.
+                        meioPropagacao: "",
+                        fontes: "",
+                        unidadeMedida: "",
+                        valorMedido: "",
+                        tipoAvaliacao: "",
+                        intensidade: "",
+                        nivelAcao: "",
+                        severidade: "",
+                        probabilidade: "",
+                        classificacao: "",
+                        medidasControle: "",
+                        epc: DEFAULT_EPC_EPI_TEXT,
+                        epi: DEFAULT_EPC_EPI_TEXT,
+                      };
+
                       if (!nextRisk.tipoAgente || !nextRisk.descricaoAgente) {
                         return nextRisk;
                       }
+
                       return applyMissingRiskDefaults(nextRisk);
                     })()
                   : risk
@@ -862,6 +894,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
         visibleCurrentRisks.map((risk: GheRisk) => (
           (() => {
             const isMinimized = Boolean(minimizedRiskIds[risk.id]);
+            const isQuantitativeEvaluation = normalizeText(risk.tipoAvaliacao).includes("quantit");
+            const allowsCalculatedInputs = getIsCalculatedCriteria(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            );
+            const measuredUnit = String(risk.unidadeMedida || "").trim();
             return (
               <div
                 key={risk.id}
@@ -1069,46 +1107,95 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           Valor Medido *
                         </label>
                         <input
-                          className={getRiskFieldClassName(risk.id, "classificacao", inputBaseClass)}
-                          value={risk.classificacao}
+                          className={inputBaseClass}
+                          value={risk.valorMedido || ""}
                           onChange={(event) =>
-                            handleRiskChange(risk.id, "classificacao", event.target.value)
+                            handleRiskChange(risk.id, "valorMedido", event.target.value)
                           }
-                          disabled
+                          onBlur={() => {
+                            if (!isQuantitativeEvaluation) return;
+                            const currentValue = String(risk.valorMedido || "").trim();
+                            if (!currentValue) return;
+
+                            const hasMeasuredUnit =
+                              measuredUnit && !isNaValue(measuredUnit);
+                            const valueWithoutUnit = hasMeasuredUnit
+                              ? currentValue
+                                  .replace(
+                                    new RegExp(escapeRegExp(measuredUnit), "ig"),
+                                    " "
+                                  )
+                                  .replace(/\s+/g, " ")
+                                  .trim()
+                              : currentValue;
+
+                            // Quantitativa exige valor numérico; evita estado "apenas unidade".
+                            if (!hasNumericToken(valueWithoutUnit)) {
+                              handleRiskChange(risk.id, "valorMedido", "");
+                              return;
+                            }
+
+                            if (!hasMeasuredUnit) return;
+                            if (normalizeText(currentValue).includes(normalizeText(measuredUnit))) {
+                              const normalized = `${valueWithoutUnit} ${measuredUnit}`
+                                .replace(/\s+/g, " ")
+                                .trim();
+                              if (normalized !== currentValue) {
+                                handleRiskChange(risk.id, "valorMedido", normalized);
+                              }
+                              return;
+                            }
+                            handleRiskChange(
+                              risk.id,
+                              "valorMedido",
+                              `${currentValue} ${measuredUnit}`.replace(/\s+/g, " ").trim()
+                            );
+                          }}
+                          disabled={!isQuantitativeEvaluation}
                         />
-                        {getRiskFieldError(risk.id, "classificacao") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "classificacao")}
-                          </p>
-                        ) : null}
                       </div>
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
                           Limite de Tolerância *
                         </label>
-                        <div className="mt-2">
-                          <SearchableSelect
-                            value={risk.intensidade}
-                            onChange={(value) => {
-                              markRiskTouched(risk.id, "intensidade");
-                              handleRiskChange(risk.id, "intensidade", value);
-                            }}
-                            options={getIntensidadeOptions(
-                              risk.tipoAgente,
-                              risk.descricaoAgente,
-                              risk.intensidade
-                            ).map((option: string) => ({
-                              label: option,
-                              value: option,
-                            }))}
-                            buttonClassName={getRiskFieldClassName(
+                        {allowsCalculatedInputs ? (
+                          <input
+                            className={getRiskFieldClassName(
                               risk.id,
                               "intensidade",
-                              selectSmallClass
+                              inputBaseClass
                             )}
-                            searchPlaceholder="Filtrar intensidade"
+                            value={risk.intensidade}
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "intensidade", event.target.value)
+                            }
+                            onBlur={() => markRiskTouched(risk.id, "intensidade")}
                           />
-                        </div>
+                        ) : (
+                          <div className="mt-2">
+                            <SearchableSelect
+                              value={risk.intensidade}
+                              onChange={(value) => {
+                                markRiskTouched(risk.id, "intensidade");
+                                handleRiskChange(risk.id, "intensidade", value);
+                              }}
+                              options={getIntensidadeOptions(
+                                risk.tipoAgente,
+                                risk.descricaoAgente,
+                                risk.intensidade
+                              ).map((option: string) => ({
+                                label: option,
+                                value: option,
+                              }))}
+                              buttonClassName={getRiskFieldClassName(
+                                risk.id,
+                                "intensidade",
+                                selectSmallClass
+                              )}
+                              searchPlaceholder="Filtrar intensidade"
+                            />
+                          </div>
+                        )}
                         {getRiskFieldError(risk.id, "intensidade") ? (
                           <p className="mt-1 text-[12px] text-danger">
                             {getRiskFieldError(risk.id, "intensidade")}
@@ -1119,24 +1206,34 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         <label className="text-[12px] font-medium text-foreground">
                           Nível de Ação *
                         </label>
-                        <div className="mt-2">
-                          <SearchableSelect
+                        {allowsCalculatedInputs ? (
+                          <input
+                            className={inputBaseClass}
                             value={risk.nivelAcao || ""}
-                            onChange={(value) => {
-                              handleRiskChange(risk.id, "nivelAcao", value);
-                            }}
-                            options={getNivelAcaoOptions(
-                              risk.tipoAgente,
-                              risk.descricaoAgente,
-                              risk.nivelAcao || ""
-                            ).map((option: string) => ({
-                              label: option,
-                              value: option,
-                            }))}
-                            buttonClassName={selectSmallClass}
-                            searchPlaceholder="Filtrar nível de ação"
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "nivelAcao", event.target.value)
+                            }
                           />
-                        </div>
+                        ) : (
+                          <div className="mt-2">
+                            <SearchableSelect
+                              value={risk.nivelAcao || ""}
+                              onChange={(value) => {
+                                handleRiskChange(risk.id, "nivelAcao", value);
+                              }}
+                              options={getNivelAcaoOptions(
+                                risk.tipoAgente,
+                                risk.descricaoAgente,
+                                risk.nivelAcao || ""
+                              ).map((option: string) => ({
+                                label: option,
+                                value: option,
+                              }))}
+                              buttonClassName={selectSmallClass}
+                              searchPlaceholder="Filtrar nível de ação"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="mt-4 grid gap-4 md:grid-cols-4">

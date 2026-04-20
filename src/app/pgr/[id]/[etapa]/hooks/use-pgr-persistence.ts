@@ -356,6 +356,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           const same =
             normalized.meioPropagacao === risk.meioPropagacao &&
             normalized.fontes === risk.fontes &&
+            (normalized.valorMedido || "") === (risk.valorMedido || "") &&
             normalized.tipoAvaliacao === risk.tipoAvaliacao &&
             normalized.intensidade === risk.intensidade &&
             (normalized.nivelAcao || "") === (risk.nivelAcao || "") &&

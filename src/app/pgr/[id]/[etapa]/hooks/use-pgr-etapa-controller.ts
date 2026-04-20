@@ -685,6 +685,7 @@ export function usePgrEtapaController({
       getTipoAvaliacaoOptions: derived.getTipoAvaliacaoOptions,
       getUnidadeMedidaOptions: derived.getUnidadeMedidaOptions,
       getIntensidadeOptions: derived.getIntensidadeOptions,
+      getIsCalculatedCriteria: derived.getIsCalculatedCriteria,
       getNivelAcaoOptions: derived.getNivelAcaoOptions,
       getSeveridadeOptions: derived.getSeveridadeOptions,
       selectSmallClass: ui.selectSmallClass,

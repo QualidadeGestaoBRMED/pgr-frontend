@@ -89,8 +89,19 @@ const resolveActionLevel = (item: TechnicalCriteriaCatalogItem) => {
   const rawActionLevel = item.actionLevel ?? item.action_level;
   const actionLevelText = toSafeCatalogText(rawActionLevel);
   const unitText = toSafeCatalogText(item.unit);
-  if (!actionLevelText) return "N/A";
+  if (!actionLevelText) return "Calculado";
   return `${actionLevelText}${unitText ? ` ${unitText}` : ""}`;
+};
+
+const resolveIsCalculated = (item: TechnicalCriteriaCatalogItem) => {
+  const rawValue: unknown = item.isCalculated ?? item.is_calculated;
+  if (typeof rawValue === "boolean") return rawValue;
+  if (typeof rawValue === "number") return rawValue !== 0;
+  if (typeof rawValue === "string") {
+    const normalized = rawValue.trim().toLowerCase();
+    return ["1", "true", "t", "yes", "y", "sim", "s"].includes(normalized);
+  }
+  return false;
 };
 
 const resolveSeverity = (value: TechnicalCriteriaCatalogItem["severity"]) => {
@@ -140,6 +151,7 @@ type TechnicalCriteriaResolved = {
   evaluationType: string;
   intensity: string;
   actionLevel: string;
+  isCalculated: boolean;
   severity: string;
 };
 
@@ -260,6 +272,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const evaluationType = resolveEvaluationType(item);
       const intensity = resolveIntensity(item);
       const actionLevel = resolveActionLevel(item);
+      const isCalculated = resolveIsCalculated(item);
       const severity = resolveSeverity(item.severity);
 
       const current = grouped.get(safeAgentId) || [];
@@ -271,6 +284,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         evaluationType,
         intensity,
         actionLevel,
+        isCalculated ? "1" : "0",
         severity,
       ].join("||");
 
@@ -285,6 +299,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
               entry.evaluationType,
               entry.intensity,
               entry.actionLevel,
+              entry.isCalculated ? "1" : "0",
               entry.severity,
             ].join("||") === dedupeKey
         )
@@ -298,6 +313,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           evaluationType,
           intensity,
           actionLevel,
+          isCalculated,
           severity,
         });
       }
@@ -372,6 +388,11 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         risk.descricaoAgente
       );
       const firstTechnicalCriteria = technicalCriteriaDefaults[0];
+      const calculatedDefaultValue =
+        firstTechnicalCriteria?.isCalculated &&
+        (!firstTechnicalCriteria?.intensity || isNaSelection(firstTechnicalCriteria.intensity))
+          ? "Calculado"
+          : "";
       const medidasControleDefault = risk.descricaoAgente
         ? `Implementar medidas de prevenção e controle para exposição a ${risk.descricaoAgente}.`
         : "";
@@ -385,7 +406,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           getFirstCatalogValue(riskSourcesByAgent, agentId),
         unidadeMedida: firstTechnicalCriteria?.unit || "",
         tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
-        intensidade: firstTechnicalCriteria?.intensity || "",
+        intensidade: calculatedDefaultValue || firstTechnicalCriteria?.intensity || "",
         nivelAcao: firstTechnicalCriteria?.actionLevel || "",
         severidade: firstTechnicalCriteria?.severity || "Média",
         probabilidade: "3",
@@ -517,6 +538,14 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveTechnicalCriteriaOptions]
   );
 
+  const getIsCalculatedCriteria = useCallback(
+    (tipoAgente: string, descricaoAgente: string) =>
+      resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).some(
+        (item) => item.isCalculated
+      ),
+    [resolveTechnicalCriteriaOptions]
+  );
+
   const getNivelAcaoOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
@@ -524,7 +553,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           (item) => item.actionLevel
         )
       );
-      const options = optionsFromCriteria.length ? optionsFromCriteria : ["N/A"];
+      const options = optionsFromCriteria.length ? optionsFromCriteria : ["Calculado"];
       return withCurrentValue(options, currentValue);
     },
     [resolveTechnicalCriteriaOptions]
@@ -552,6 +581,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
   };

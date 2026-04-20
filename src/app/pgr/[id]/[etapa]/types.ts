@@ -46,6 +46,7 @@ export type GheRisk = {
   meioPropagacao: string;
   fontes: string;
   unidadeMedida?: string;
+  valorMedido?: string;
   tipoAvaliacao: string;
   intensidade: string;
   nivelAcao?: string;
@@ -91,6 +92,8 @@ export type TechnicalCriteriaCatalogItem = {
   tolerance_limit?: string | number | null;
   actionLevel?: string | number | null;
   action_level?: string | number | null;
+  isCalculated?: boolean;
+  is_calculated?: boolean;
   unit?: string;
   agent: number | string;
 };
