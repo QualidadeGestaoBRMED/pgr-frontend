@@ -58,6 +58,7 @@ const getRiskContentKey = (risk: RiskGheGroup["risks"][number]) =>
     risk.fontes,
     risk.tipoAvaliacao,
     risk.intensidade,
+    risk.nivelAcao || "",
     risk.severidade,
     risk.probabilidade,
     risk.classificacao,
@@ -118,8 +119,12 @@ export function usePgrEtapaDerived({
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getFontesOptions,
     getTipoAvaliacaoOptions,
+    getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getNivelAcaoOptions,
+    getSeveridadeOptions,
   } =
     useRiskCatalogHelpers(riskCatalogs);
 
@@ -537,8 +542,12 @@ export function usePgrEtapaDerived({
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getFontesOptions,
     getTipoAvaliacaoOptions,
+    getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getNivelAcaoOptions,
+    getSeveridadeOptions,
     diretrizOptions,
     estabelecimentoOptions,
     normalizedGheSearch,

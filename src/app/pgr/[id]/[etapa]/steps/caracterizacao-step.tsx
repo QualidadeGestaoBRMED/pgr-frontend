@@ -89,8 +89,10 @@ const isSameRiskContent = (a: GheRisk, b: GheRisk) =>
   a.descricaoAgente === b.descricaoAgente &&
   a.meioPropagacao === b.meioPropagacao &&
   a.fontes === b.fontes &&
+  (a.unidadeMedida || "") === (b.unidadeMedida || "") &&
   a.tipoAvaliacao === b.tipoAvaliacao &&
   a.intensidade === b.intensidade &&
+  (a.nivelAcao || "") === (b.nivelAcao || "") &&
   a.severidade === b.severidade &&
   a.probabilidade === b.probabilidade &&
   a.classificacao === b.classificacao &&
@@ -104,8 +106,10 @@ const getRiskContentKey = (risk: GheRisk) =>
     risk.descricaoAgente,
     risk.meioPropagacao,
     risk.fontes,
+    risk.unidadeMedida || "",
     risk.tipoAvaliacao,
     risk.intensidade,
+    risk.nivelAcao || "",
     risk.severidade,
     risk.probabilidade,
     risk.classificacao,
@@ -130,8 +134,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     tipoAgenteOptions,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getFontesOptions,
     getTipoAvaliacaoOptions,
+    getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getNivelAcaoOptions,
+    getSeveridadeOptions,
     inputBaseClass,
     inputInlineClass,
     textareaBaseClass,
@@ -515,8 +523,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       descricaoAgente: "",
       meioPropagacao: "",
       fontes: "",
+      unidadeMedida: "",
       tipoAvaliacao: "",
       intensidade: "",
+      nivelAcao: "",
       severidade: "",
       probabilidade: "",
       classificacao: "",
@@ -571,8 +581,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "descricaoAgente"
       | "meioPropagacao"
       | "fontes"
+      | "unidadeMedida"
       | "tipoAvaliacao"
       | "intensidade"
+      | "nivelAcao"
       | "severidade"
       | "probabilidade"
       | "classificacao"
@@ -599,8 +611,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           descricaoAgente: "",
                           meioPropagacao: "",
                           fontes: "",
+                          unidadeMedida: "",
                           tipoAvaliacao: "",
                           intensidade: "",
+                          nivelAcao: "",
                           severidade: "",
                           probabilidade: "",
                           classificacao: "",
@@ -896,7 +910,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   </div>
                 ) : (
                   <>
-                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                    <div className="mt-4 grid gap-4 md:grid-cols-4">
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
                           Tipo de Agente *
@@ -971,6 +985,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             }}
                             options={getMeioPropagacaoOptions(
                               risk.tipoAgente,
+                              risk.descricaoAgente,
                               risk.meioPropagacao
                             ).map((option: string) => ({
                               label: option,
@@ -990,26 +1005,141 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </p>
                         ) : null}
                       </div>
-                    </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-3">
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
                           Fontes/Circunstâncias *
                         </label>
-                        <input
-                          className={getRiskFieldClassName(risk.id, "fontes", inputBaseClass)}
-                          value={risk.fontes}
-                          onChange={(event) =>
-                            handleRiskChange(risk.id, "fontes", event.target.value)
-                          }
-                          onBlur={() => markRiskTouched(risk.id, "fontes")}
-                        />
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.fontes}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "fontes");
+                              handleRiskChange(risk.id, "fontes", value);
+                            }}
+                            options={getFontesOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente,
+                              risk.fontes
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "fontes",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar fonte"
+                          />
+                        </div>
                         {getRiskFieldError(risk.id, "fontes") ? (
                           <p className="mt-1 text-[12px] text-danger">
                             {getRiskFieldError(risk.id, "fontes")}
                           </p>
                         ) : null}
                       </div>
+
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-4">
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Unidade de Medida *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.unidadeMedida || ""}
+                            onChange={(value) => {
+                              handleRiskChange(risk.id, "unidadeMedida", value);
+                            }}
+                            options={getUnidadeMedidaOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente,
+                              risk.unidadeMedida || ""
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={selectSmallClass}
+                            searchPlaceholder="Filtrar unidade"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Valor Medido *
+                        </label>
+                        <input
+                          className={getRiskFieldClassName(risk.id, "classificacao", inputBaseClass)}
+                          value={risk.classificacao}
+                          onChange={(event) =>
+                            handleRiskChange(risk.id, "classificacao", event.target.value)
+                          }
+                          disabled
+                        />
+                        {getRiskFieldError(risk.id, "classificacao") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "classificacao")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Limite de Tolerância *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.intensidade}
+                            onChange={(value) => {
+                              markRiskTouched(risk.id, "intensidade");
+                              handleRiskChange(risk.id, "intensidade", value);
+                            }}
+                            options={getIntensidadeOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente,
+                              risk.intensidade
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={getRiskFieldClassName(
+                              risk.id,
+                              "intensidade",
+                              selectSmallClass
+                            )}
+                            searchPlaceholder="Filtrar intensidade"
+                          />
+                        </div>
+                        {getRiskFieldError(risk.id, "intensidade") ? (
+                          <p className="mt-1 text-[12px] text-danger">
+                            {getRiskFieldError(risk.id, "intensidade")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Nível de Ação *
+                        </label>
+                        <div className="mt-2">
+                          <SearchableSelect
+                            value={risk.nivelAcao || ""}
+                            onChange={(value) => {
+                              handleRiskChange(risk.id, "nivelAcao", value);
+                            }}
+                            options={getNivelAcaoOptions(
+                              risk.tipoAgente,
+                              risk.descricaoAgente,
+                              risk.nivelAcao || ""
+                            ).map((option: string) => ({
+                              label: option,
+                              value: option,
+                            }))}
+                            buttonClassName={selectSmallClass}
+                            searchPlaceholder="Filtrar nível de ação"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-4">
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
                           Tipo de Avaliação *
@@ -1045,51 +1175,31 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       </div>
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
-                          Intensidade/Concentração *
+                          Severidade *
                         </label>
                         <div className="mt-2">
                           <SearchableSelect
-                            value={risk.intensidade}
+                            value={risk.severidade}
                             onChange={(value) => {
-                              markRiskTouched(risk.id, "intensidade");
-                              handleRiskChange(risk.id, "intensidade", value);
+                              markRiskTouched(risk.id, "severidade");
+                              handleRiskChange(risk.id, "severidade", value);
                             }}
-                            options={getIntensidadeOptions(
+                            options={getSeveridadeOptions(
                               risk.tipoAgente,
                               risk.descricaoAgente,
-                              risk.intensidade
+                              risk.severidade
                             ).map((option: string) => ({
                               label: option,
                               value: option,
                             }))}
                             buttonClassName={getRiskFieldClassName(
                               risk.id,
-                              "intensidade",
+                              "severidade",
                               selectSmallClass
                             )}
-                            searchPlaceholder="Filtrar intensidade"
+                            searchPlaceholder="Filtrar severidade"
                           />
                         </div>
-                        {getRiskFieldError(risk.id, "intensidade") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "intensidade")}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Severidade *
-                        </label>
-                        <input
-                          className={getRiskFieldClassName(risk.id, "severidade", inputBaseClass)}
-                          value={risk.severidade}
-                          onChange={(event) =>
-                            handleRiskChange(risk.id, "severidade", event.target.value)
-                          }
-                          disabled
-                        />
                         {getRiskFieldError(risk.id, "severidade") ? (
                           <p className="mt-1 text-[12px] text-danger">
                             {getRiskFieldError(risk.id, "severidade")}

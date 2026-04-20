@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { DEFAULT_TIPO_AGENTE_OPTIONS } from "../defaults";
 import type {
   GheRisk,
   RiskCatalogPayload,
@@ -47,18 +46,105 @@ const toCatalogAgentId = (value: unknown): number | null => {
   return null;
 };
 
+const toSafeCatalogText = (value: unknown) => {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return "";
+};
+
+const resolveEvaluationType = (item: TechnicalCriteriaCatalogItem) => {
+  const rawType = toSafeCatalogText(
+    item.evaluationType ?? item.evaluation_type
+  ).toLowerCase();
+  if (rawType.startsWith("quant")) return "Quantitativa";
+  if (rawType.startsWith("qual")) return "Qualitativa";
+
+  const toleranceLimit = item.toleranceLimit ?? item.tolerance_limit ?? item.limit;
+  const actionLevel = item.actionLevel ?? item.action_level;
+  const hasToleranceLimit =
+    toleranceLimit !== undefined &&
+    toleranceLimit !== null &&
+    toSafeCatalogText(toleranceLimit) !== "";
+  const hasActionLevel =
+    actionLevel !== undefined &&
+    actionLevel !== null &&
+    toSafeCatalogText(actionLevel) !== "";
+
+  return hasToleranceLimit || hasActionLevel ? "Quantitativa" : "Qualitativa";
+};
+
+const resolveIntensity = (item: TechnicalCriteriaCatalogItem) => {
+  const toleranceLimit = item.toleranceLimit ?? item.tolerance_limit ?? item.limit;
+  const limitText = toSafeCatalogText(toleranceLimit);
+  const unitText = toSafeCatalogText(item.unit);
+  if (!limitText) return "N/A";
+  return `${limitText}${unitText ? ` ${unitText}` : ""}`;
+};
+
+const resolveActionLevel = (item: TechnicalCriteriaCatalogItem) => {
+  const rawActionLevel = item.actionLevel ?? item.action_level;
+  const actionLevelText = toSafeCatalogText(rawActionLevel);
+  const unitText = toSafeCatalogText(item.unit);
+  if (!actionLevelText) return "N/A";
+  return `${actionLevelText}${unitText ? ` ${unitText}` : ""}`;
+};
+
+const resolveSeverity = (value: TechnicalCriteriaCatalogItem["severity"]) => {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "object") {
+    const maybeName = toSafeCatalogText(value.name);
+    if (maybeName) return maybeName;
+    return toSafeCatalogText(value.value);
+  }
+  return "";
+};
+
+const uniqueNonEmptyValues = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
+const withCurrentValue = (options: string[], currentValue: string) => {
+  const safeCurrentValue = String(currentValue || "").trim();
+  if (!safeCurrentValue) return options;
+  if (options.includes(safeCurrentValue)) return options;
+  return [...options, safeCurrentValue];
+};
+
+const buildCatalogValuesByAgent = (
+  items: Array<{ name: string; agent: number } | { name: string; agent: string }>
+) => {
+  const grouped = new Map<number, string[]>();
+  items.forEach((item) => {
+    const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+    if (!safeAgentId) return;
+    const safeName = toSafeCatalogText(item.name);
+    if (!safeName) return;
+    const current = grouped.get(safeAgentId) || [];
+    if (!current.includes(safeName)) current.push(safeName);
+    grouped.set(safeAgentId, current);
+  });
+  return grouped;
+};
+
 type TechnicalCriteriaResolved = {
+  description: string;
   descriptionToken: string;
+  source: string;
+  propagationPath: string;
+  unit: string;
   evaluationType: string;
   intensity: string;
+  actionLevel: string;
+  severity: string;
 };
 
 export const hasMeaningfulSelections = (values: string[] | undefined) =>
   Array.isArray(values) && values.some((item) => item.trim().length > 0);
-
-const hasActionableSelections = (values: string[] | undefined) =>
-  Array.isArray(values) &&
-  values.some((item) => item.trim().length > 0 && !isNaSelection(item));
 
 export const areStringArraysEqual = (a: string[] | undefined, b: string[] | undefined) => {
   const left = Array.isArray(a) ? a : [];
@@ -125,38 +211,125 @@ const deriveProtectionDefaults = (risk: GheRisk) => {
 };
 
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
-  const normalizeAgentName = useCallback((value: string) => normalizeCatalogToken((value || "").trim()), []);
+  const normalizeAgentName = useCallback(
+    (value: string) => normalizeCatalogToken((value || "").trim()),
+    []
+  );
+
+  const riskAgentNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    (riskCatalogs?.riskAgents || []).forEach((item) => {
+      const safeId = toCatalogAgentId((item as { id?: unknown }).id);
+      const safeName = String(item.name || "").trim();
+      if (!safeId || !safeName) return;
+      map.set(safeId, safeName);
+    });
+    return map;
+  }, [riskCatalogs]);
+
+  const riskDescriptionsByAgent = useMemo(
+    () => buildCatalogValuesByAgent(riskCatalogs?.riskDescriptions || []),
+    [riskCatalogs]
+  );
+
+  const riskSourcesByAgent = useMemo(
+    () => buildCatalogValuesByAgent(riskCatalogs?.riskSources || []),
+    [riskCatalogs]
+  );
+
+  const propagationPathsByAgent = useMemo(
+    () => buildCatalogValuesByAgent(riskCatalogs?.propagationPaths || []),
+    [riskCatalogs]
+  );
+
+  const technicalCriteriaByAgent = useMemo(() => {
+    const grouped = new Map<number, TechnicalCriteriaResolved[]>();
+    (riskCatalogs?.technicalCriteria || []).forEach((item: TechnicalCriteriaCatalogItem) => {
+      const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
+      if (!safeAgentId) return;
+
+      const description = toSafeCatalogText(item.description);
+      const descriptionToken = normalizeCatalogToken(description);
+      if (!descriptionToken) return;
+
+      const source = toSafeCatalogText(item.source);
+      const propagationPath = toSafeCatalogText(
+        item.propagationPath ?? item.propagation_path
+      );
+      const unit = toSafeCatalogText(item.unit);
+      const evaluationType = resolveEvaluationType(item);
+      const intensity = resolveIntensity(item);
+      const actionLevel = resolveActionLevel(item);
+      const severity = resolveSeverity(item.severity);
+
+      const current = grouped.get(safeAgentId) || [];
+      const dedupeKey = [
+        descriptionToken,
+        source,
+        propagationPath,
+        unit,
+        evaluationType,
+        intensity,
+        actionLevel,
+        severity,
+      ].join("||");
+
+      if (
+        !current.some(
+          (entry) =>
+            [
+              entry.descriptionToken,
+              entry.source,
+              entry.propagationPath,
+              entry.unit,
+              entry.evaluationType,
+              entry.intensity,
+              entry.actionLevel,
+              entry.severity,
+            ].join("||") === dedupeKey
+        )
+      ) {
+        current.push({
+          description,
+          descriptionToken,
+          source,
+          propagationPath,
+          unit,
+          evaluationType,
+          intensity,
+          actionLevel,
+          severity,
+        });
+      }
+      grouped.set(safeAgentId, current);
+    });
+    return grouped;
+  }, [riskCatalogs]);
 
   const tipoAgenteOptions = useMemo(() => {
-    const fromCatalog = (riskCatalogs?.riskAgents || [])
-      .map((item) => String(item.name || "").trim())
+    const ids = Array.from(technicalCriteriaByAgent.keys()).sort((a, b) => a - b);
+    const fromTechnicalCriteria = ids
+      .map((id) => riskAgentNameById.get(id) || "")
       .filter((name) => name.length > 0);
-    return fromCatalog.length ? fromCatalog : DEFAULT_TIPO_AGENTE_OPTIONS;
-  }, [riskCatalogs]);
+    if (fromTechnicalCriteria.length) return fromTechnicalCriteria;
+    return Array.from(riskAgentNameById.values());
+  }, [riskAgentNameById, technicalCriteriaByAgent]);
 
   const riskAgentIdByNameExact = useMemo(() => {
     const map = new Map<string, number>();
-    (riskCatalogs?.riskAgents || []).forEach((item) => {
-      const safeName = String(item.name || "").trim();
-      const safeId = toCatalogAgentId((item as { id?: unknown }).id);
-      if (!safeName) return;
-      if (!safeId) return;
-      map.set(safeName, safeId);
+    riskAgentNameById.forEach((name, id) => {
+      map.set(name, id);
     });
     return map;
-  }, [riskCatalogs]);
+  }, [riskAgentNameById]);
 
   const riskAgentIdByNameNormalized = useMemo(() => {
     const map = new Map<string, number>();
-    (riskCatalogs?.riskAgents || []).forEach((item) => {
-      const safeName = String(item.name || "").trim();
-      const safeId = toCatalogAgentId((item as { id?: unknown }).id);
-      if (!safeName) return;
-      if (!safeId) return;
-      map.set(normalizeAgentName(safeName), safeId);
+    riskAgentIdByNameExact.forEach((id, name) => {
+      map.set(normalizeAgentName(name), id);
     });
     return map;
-  }, [normalizeAgentName, riskCatalogs]);
+  }, [normalizeAgentName, riskAgentIdByNameExact]);
 
   const resolveRiskAgentId = useCallback(
     (agentName: string): number | undefined => {
@@ -168,8 +341,6 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const normalizedMatch = riskAgentIdByNameNormalized.get(normalized);
       if (typeof normalizedMatch === "number") return normalizedMatch;
 
-      // Fallback resiliente para catálogos com nomes compostos/legados
-      // (ex.: "Químico (não utilizar)") preservando o mapeamento por agente.
       for (const [token, id] of riskAgentIdByNameNormalized.entries()) {
         if (token.includes(normalized) || normalized.includes(token)) {
           return id;
@@ -179,108 +350,6 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     },
     [normalizeAgentName, riskAgentIdByNameExact, riskAgentIdByNameNormalized]
   );
-
-  const riskDescriptionsByAgent = useMemo(() => {
-      const grouped = new Map<number, string[]>();
-      (riskCatalogs?.riskDescriptions || []).forEach((item) => {
-        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
-        if (!safeAgentId || !item.name) return;
-        const safeName = String(item.name || "").trim();
-        if (!safeName) return;
-        const current = grouped.get(safeAgentId) || [];
-        if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(safeAgentId, current);
-      });
-      return grouped;
-  }, [riskCatalogs]);
-
-  const hazardsByAgent = useMemo(() => {
-      const grouped = new Map<number, string[]>();
-      (riskCatalogs?.hazards || []).forEach((item) => {
-        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
-        if (!safeAgentId || !item.name) return;
-        const safeName = String(item.name || "").trim();
-        if (!safeName) return;
-        const current = grouped.get(safeAgentId) || [];
-        if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(safeAgentId, current);
-      });
-      return grouped;
-  }, [riskCatalogs]);
-
-  const riskSourcesByAgent = useMemo(() => {
-      const grouped = new Map<number, string[]>();
-      (riskCatalogs?.riskSources || []).forEach((item) => {
-        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
-        if (!safeAgentId || !item.name) return;
-        const safeName = String(item.name || "").trim();
-        if (!safeName) return;
-        const current = grouped.get(safeAgentId) || [];
-        if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(safeAgentId, current);
-      });
-      return grouped;
-  }, [riskCatalogs]);
-
-  const propagationPathsByAgent = useMemo(() => {
-      const grouped = new Map<number, string[]>();
-      (riskCatalogs?.propagationPaths || []).forEach((item) => {
-        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
-        if (!safeAgentId || !item.name) return;
-        const safeName = String(item.name || "").trim();
-        if (!safeName) return;
-        const current = grouped.get(safeAgentId) || [];
-        if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(safeAgentId, current);
-      });
-      return grouped;
-  }, [riskCatalogs]);
-
-  const healthDamagesByAgent = useMemo(() => {
-      const grouped = new Map<number, string[]>();
-      (riskCatalogs?.healthDamages || []).forEach((item) => {
-        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
-        if (!safeAgentId || !item.name) return;
-        const safeName = String(item.name || "").trim();
-        if (!safeName) return;
-        const current = grouped.get(safeAgentId) || [];
-        if (!current.includes(safeName)) current.push(safeName);
-        grouped.set(safeAgentId, current);
-      });
-      return grouped;
-  }, [riskCatalogs]);
-
-  const technicalCriteriaByAgent = useMemo(() => {
-      const grouped = new Map<number, TechnicalCriteriaResolved[]>();
-      (riskCatalogs?.technicalCriteria || []).forEach((item: TechnicalCriteriaCatalogItem) => {
-        const safeAgentId = toCatalogAgentId((item as { agent?: unknown }).agent);
-        if (!safeAgentId) return;
-
-        const descriptionToken = normalizeCatalogToken(String(item.description || "").trim());
-        if (!descriptionToken) return;
-
-        const limitRaw = item.limit;
-        const limitText =
-          limitRaw === undefined || limitRaw === null ? "" : String(limitRaw).trim();
-        const unitText = String(item.unit || "").trim();
-        const evaluationType = limitText ? "Quantitativa" : "Qualitativa";
-        const intensity = limitText ? `${limitText}${unitText ? ` ${unitText}` : ""}` : "N/A";
-
-        const current = grouped.get(safeAgentId) || [];
-        if (
-          !current.some(
-            (entry) =>
-              entry.descriptionToken === descriptionToken &&
-              entry.evaluationType === evaluationType &&
-              entry.intensity === intensity
-          )
-        ) {
-          current.push({ descriptionToken, evaluationType, intensity });
-        }
-        grouped.set(safeAgentId, current);
-      });
-      return grouped;
-  }, [riskCatalogs]);
 
   const resolveTechnicalCriteriaOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string) => {
@@ -298,14 +367,6 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   const getRiskDefaults = useCallback(
     (risk: GheRisk): Partial<GheRisk> => {
       const agentId = resolveRiskAgentId(risk.tipoAgente);
-      const perigoDefault =
-        getFirstCatalogValue(healthDamagesByAgent, agentId) ||
-        getFirstCatalogValue(hazardsByAgent, agentId);
-      const meioPropagacaoDefault = getFirstCatalogValue(
-        propagationPathsByAgent,
-        agentId
-      );
-      const fontesDefault = getFirstCatalogValue(riskSourcesByAgent, agentId);
       const technicalCriteriaDefaults = resolveTechnicalCriteriaOptions(
         risk.tipoAgente,
         risk.descricaoAgente
@@ -316,130 +377,168 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         : "";
       const protectionDefaults = deriveProtectionDefaults(risk);
       return {
-        meioPropagacao: meioPropagacaoDefault,
-        fontes: fontesDefault,
-        tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "Qualitativa",
-        intensidade: firstTechnicalCriteria?.intensity || "N/A",
-        severidade: "Média",
+        meioPropagacao:
+          firstTechnicalCriteria?.propagationPath ||
+          getFirstCatalogValue(propagationPathsByAgent, agentId),
+        fontes:
+          firstTechnicalCriteria?.source ||
+          getFirstCatalogValue(riskSourcesByAgent, agentId),
+        unidadeMedida: firstTechnicalCriteria?.unit || "",
+        tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
+        intensidade: firstTechnicalCriteria?.intensity || "",
+        nivelAcao: firstTechnicalCriteria?.actionLevel || "",
+        severidade: firstTechnicalCriteria?.severity || "Média",
         probabilidade: "3",
         classificacao: "Moderado",
         medidasControle: medidasControleDefault,
-        epc: "A ser evidenciado na fase de reconhecimento",
-        epi: "A ser evidenciado na fase de reconhecimento"
-
+        epc: protectionDefaults.epc.join(", "),
+        epi: protectionDefaults.epi.join(", "),
       };
     },
-    [
-      hazardsByAgent,
-      healthDamagesByAgent,
-      propagationPathsByAgent,
-      resolveTechnicalCriteriaOptions,
-      resolveRiskAgentId,
-      riskSourcesByAgent,
-    ]
+    [propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
   );
 
-  const applyMissingRiskDefaults = useCallback((risk: GheRisk): GheRisk => {
-    const normalizedRisk: GheRisk = {
-      ...risk
-    };
-    if (!normalizedRisk.tipoAgente || !normalizedRisk.descricaoAgente) {
-      return normalizedRisk;
-    }
-    const defaults = getRiskDefaults(normalizedRisk);
-    const shouldUseDefaultPropagation =
-      !normalizedRisk.meioPropagacao ||
-      isGenericPropagationValue(normalizedRisk.meioPropagacao);
-    return {
-      ...normalizedRisk,
-
-      meioPropagacao: shouldUseDefaultPropagation
-        ? defaults.meioPropagacao || ""
-        : normalizedRisk.meioPropagacao,
-      fontes: normalizedRisk.fontes || defaults.fontes || "",
-      tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
-      intensidade: normalizedRisk.intensidade || defaults.intensidade || "",
-      severidade: normalizedRisk.severidade || defaults.severidade || "",
-      probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
-      classificacao: normalizedRisk.classificacao || defaults.classificacao || "",
-      medidasControle: normalizedRisk.medidasControle || defaults.medidasControle || "",
-      epc: normalizedRisk.epc || defaults.epc || "",
-      epi: normalizedRisk.epi || defaults.epi || "",
-    };
-  }, [getRiskDefaults]);
+  const applyMissingRiskDefaults = useCallback(
+    (risk: GheRisk): GheRisk => {
+      const normalizedRisk: GheRisk = {
+        ...risk,
+      };
+      if (!normalizedRisk.tipoAgente || !normalizedRisk.descricaoAgente) {
+        return normalizedRisk;
+      }
+      const defaults = getRiskDefaults(normalizedRisk);
+      const shouldUseDefaultPropagation =
+        !normalizedRisk.meioPropagacao ||
+        isGenericPropagationValue(normalizedRisk.meioPropagacao);
+      return {
+        ...normalizedRisk,
+        meioPropagacao: shouldUseDefaultPropagation
+          ? defaults.meioPropagacao || ""
+          : normalizedRisk.meioPropagacao,
+        fontes: normalizedRisk.fontes || defaults.fontes || "",
+        unidadeMedida: normalizedRisk.unidadeMedida || defaults.unidadeMedida || "",
+        tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
+        intensidade: normalizedRisk.intensidade || defaults.intensidade || "",
+        nivelAcao: normalizedRisk.nivelAcao || defaults.nivelAcao || "",
+        severidade: normalizedRisk.severidade || defaults.severidade || "",
+        probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
+        classificacao: normalizedRisk.classificacao || defaults.classificacao || "",
+        medidasControle: normalizedRisk.medidasControle || defaults.medidasControle || "",
+        epc: normalizedRisk.epc || defaults.epc || "",
+        epi: normalizedRisk.epi || defaults.epi || "",
+      };
+    },
+    [getRiskDefaults]
+  );
 
   const getDescricaoAgenteOptions = useCallback(
     (tipoAgente: string, currentValue: string) => {
       const agentId = resolveRiskAgentId(tipoAgente);
-      const options = agentId
-        ? riskDescriptionsByAgent.get(agentId) || []
-        : [];
-
-      const safeCurrentValue = String(currentValue || "").trim();
-      if (!safeCurrentValue) return options;
-      if (options.includes(safeCurrentValue)) {
-        return options;
-      }
-      return options;
+      const optionsFromCriteria = !agentId
+        ? []
+        : uniqueNonEmptyValues(
+            (technicalCriteriaByAgent.get(agentId) || []).map((item) => item.description)
+          );
+      const optionsFromCatalog = !agentId ? [] : riskDescriptionsByAgent.get(agentId) || [];
+      const options = optionsFromCriteria.length ? optionsFromCriteria : optionsFromCatalog;
+      return withCurrentValue(options, currentValue);
     },
-    [resolveRiskAgentId, riskDescriptionsByAgent]
+    [resolveRiskAgentId, riskDescriptionsByAgent, technicalCriteriaByAgent]
   );
 
   const getMeioPropagacaoOptions = useCallback(
-    (tipoAgente: string, currentValue: string) => {
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.propagationPath
+        )
+      );
       const agentId = resolveRiskAgentId(tipoAgente);
-      const options = agentId
-        ? propagationPathsByAgent.get(agentId) || []
-        : [];
-
-      const safeCurrentValue = String(currentValue || "").trim();
-      if (!safeCurrentValue) return options;
-      if (options.includes(safeCurrentValue)) {
-        return options;
-      }
-      return options;
+      const optionsFromCatalog = !agentId ? [] : propagationPathsByAgent.get(agentId) || [];
+      const options = optionsFromCriteria.length ? optionsFromCriteria : optionsFromCatalog;
+      return withCurrentValue(options, currentValue);
     },
-    [resolveRiskAgentId, propagationPathsByAgent]
+    [propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions]
+  );
+
+  const getFontesOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.source
+        )
+      );
+      const agentId = resolveRiskAgentId(tipoAgente);
+      const optionsFromCatalog = !agentId ? [] : riskSourcesByAgent.get(agentId) || [];
+      const options = optionsFromCriteria.length ? optionsFromCriteria : optionsFromCatalog;
+      return withCurrentValue(options, currentValue);
+    },
+    [resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
   );
 
   const getTipoAvaliacaoOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
-      const fromCriteria = Array.from(
-        new Set(
-          resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
-            (item) => item.evaluationType
-          )
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.evaluationType
         )
       );
-      const options = fromCriteria.length ? fromCriteria : ["Qualitativa", "Quantitativa"];
+      const options = optionsFromCriteria.length
+        ? optionsFromCriteria
+        : ["Qualitativa", "Quantitativa"];
+      return withCurrentValue(options, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
 
-      const safeCurrentValue = String(currentValue || "").trim();
-      if (!safeCurrentValue) return options;
-      if (options.includes(safeCurrentValue)) {
-        return options;
-      }
-      return options;
+  const getUnidadeMedidaOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.unit
+        )
+      );
+      const options = optionsFromCriteria.length ? optionsFromCriteria : ["N/A"];
+      return withCurrentValue(options, currentValue);
     },
     [resolveTechnicalCriteriaOptions]
   );
 
   const getIntensidadeOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
-      const fromCriteria = Array.from(
-        new Set(
-          resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
-            (item) => item.intensity
-          )
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.intensity
         )
       );
-      const options = fromCriteria.length ? fromCriteria : ["N/A"];
+      const options = optionsFromCriteria.length ? optionsFromCriteria : ["N/A"];
+      return withCurrentValue(options, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
 
-      const safeCurrentValue = String(currentValue || "").trim();
-      if (!safeCurrentValue) return options;
-      if (options.includes(safeCurrentValue)) {
-        return options;
-      }
-      return options;
+  const getNivelAcaoOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.actionLevel
+        )
+      );
+      const options = optionsFromCriteria.length ? optionsFromCriteria : ["N/A"];
+      return withCurrentValue(options, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
+  const getSeveridadeOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.severity
+        )
+      );
+      const options = optionsFromCriteria.length ? optionsFromCriteria : ["Média"];
+      return withCurrentValue(options, currentValue);
     },
     [resolveTechnicalCriteriaOptions]
   );
@@ -449,7 +548,11 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     applyMissingRiskDefaults,
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
+    getFontesOptions,
     getTipoAvaliacaoOptions,
+    getUnidadeMedidaOptions,
     getIntensidadeOptions,
+    getNivelAcaoOptions,
+    getSeveridadeOptions,
   };
 }

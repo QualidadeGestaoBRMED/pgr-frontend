@@ -358,6 +358,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             normalized.fontes === risk.fontes &&
             normalized.tipoAvaliacao === risk.tipoAvaliacao &&
             normalized.intensidade === risk.intensidade &&
+            (normalized.nivelAcao || "") === (risk.nivelAcao || "") &&
             normalized.severidade === risk.severidade &&
             normalized.probabilidade === risk.probabilidade &&
             normalized.classificacao === risk.classificacao &&

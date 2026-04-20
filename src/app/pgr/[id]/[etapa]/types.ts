@@ -45,8 +45,10 @@ export type GheRisk = {
   descricaoAgente: string;
   meioPropagacao: string;
   fontes: string;
+  unidadeMedida?: string;
   tipoAvaliacao: string;
   intensidade: string;
+  nivelAcao?: string;
   severidade: string;
   probabilidade: string;
   classificacao: string;
@@ -77,10 +79,20 @@ export type RiskCatalogItem = {
 
 export type TechnicalCriteriaCatalogItem = {
   description: string;
-  standard: string;
-  limit: string | number | null;
-  unit: string;
-  agent: number;
+  standard?: string;
+  source?: string;
+  propagationPath?: string;
+  propagation_path?: string;
+  evaluationType?: string;
+  evaluation_type?: string;
+  severity?: string | number | { value?: string | number; name?: string };
+  limit?: string | number | null;
+  toleranceLimit?: string | number | null;
+  tolerance_limit?: string | number | null;
+  actionLevel?: string | number | null;
+  action_level?: string | number | null;
+  unit?: string;
+  agent: number | string;
 };
 
 export type RiskCatalogPayload = {
