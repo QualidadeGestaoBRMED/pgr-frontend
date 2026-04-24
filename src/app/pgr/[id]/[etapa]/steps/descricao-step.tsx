@@ -84,10 +84,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const [pendingRemoveFunction, setPendingRemoveFunction] = useState<null | {
     id: string;
     label: string;
+    setor: string;
   }>(null);
-  const [touchedInfoFields, setTouchedInfoFields] = useState<
-    Partial<Record<RequiredGheInfoField, boolean>>
-  >({});
+  const [, setTouchedInfoFields] = useState<Partial<
+    Record<RequiredGheInfoField, boolean>
+  >>({});
 
   const {
     currentGheName,
@@ -219,6 +220,25 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const handleSaveInlineEdit = (functionId: string) => {
     const draft = editingDrafts[functionId];
     if (!draft) return;
+    const setor = draft.setor.trim();
+    const funcao = draft.funcao.trim();
+
+    if (!funcao) {
+      setEditingFeedback("A função não pode ficar vazia.");
+      return;
+    }
+
+    const duplicate = Array.from(functionMap.values()).some(
+      (item) =>
+        item.id !== functionId &&
+        `${(item.setor || "").trim()}||${(item.funcao || "").trim()}`.toLowerCase() ===
+          `${setor}||${funcao}`.toLowerCase()
+    );
+    if (duplicate) {
+      setEditingFeedback("Já existe uma função com este setor e função.");
+      return;
+    }
+
     const didSave = handleUpdateFunctionDetails({
       id: functionId,
       setor: draft.setor,
@@ -226,7 +246,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       descricao: draft.descricao,
     });
     if (!didSave) {
-      setEditingFeedback("A função não pode ficar vazia.");
+      setEditingFeedback("Não foi possível salvar a função.");
       return;
     }
     removeInlineEdit(functionId);
@@ -453,7 +473,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   };
 
   const getInfoFieldClassName = (field: RequiredGheInfoField) =>
-    touchedInfoFields[field] && infoErrors[field]
+    infoErrors[field]
       ? `${textareaBaseClass} border-rose-400 focus:ring-rose-500`
       : textareaBaseClass;
 
@@ -978,6 +998,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                                   setPendingRemoveFunction({
                                     id: item.functionId,
                                     label: data.funcao || "Função",
+                                    setor: data.setor || "Setor",
                                   })
                                 }
                                 className="text-muted-foreground transition hover:text-primary"
@@ -1036,6 +1057,10 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     Deseja realmente excluir a função{" "}
                     <span className="font-semibold text-foreground">
                       {pendingRemoveFunction.label}
+                    </span>
+                    {" "}do setor{" "}
+                    <span className="font-semibold text-foreground">
+                      {pendingRemoveFunction.setor}
                     </span>
                     ?
                   </p>
@@ -1439,7 +1464,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         }
                         onBlur={() => markInfoTouched("processo")}
                       />
-                      {touchedInfoFields.processo && infoErrors.processo ? (
+                      {infoErrors.processo ? (
                         <p className="mt-1 text-[12px] text-danger">{infoErrors.processo}</p>
                       ) : null}
                     </div>
@@ -1457,7 +1482,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         }
                         onBlur={() => markInfoTouched("observacoes")}
                       />
-                      {touchedInfoFields.observacoes && infoErrors.observacoes ? (
+                      {infoErrors.observacoes ? (
                         <p className="mt-1 text-[12px] text-danger">{infoErrors.observacoes}</p>
                       ) : null}
                     </div>
@@ -1476,7 +1501,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         }
                         onBlur={() => markInfoTouched("ambiente")}
                       />
-                      {touchedInfoFields.ambiente && infoErrors.ambiente ? (
+                      {infoErrors.ambiente ? (
                         <p className="mt-1 text-[12px] text-danger">{infoErrors.ambiente}</p>
                       ) : null}
                     </div>

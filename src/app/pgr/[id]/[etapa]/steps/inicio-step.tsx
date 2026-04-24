@@ -27,9 +27,9 @@ export function InicioStep({
     | "responsible"
     | "email";
 
-  const [touchedFields, setTouchedFields] = useState<
-    Partial<Record<RequiredInicioField, boolean>>
-  >({});
+  const [, setTouchedFields] = useState<Partial<Record<RequiredInicioField, boolean>>>(
+    {}
+  );
 
   const markTouched = (field: RequiredInicioField) => {
     setTouchedFields((prev) => ({ ...prev, [field]: true }));
@@ -59,7 +59,7 @@ export function InicioStep({
   );
 
   const getRequiredFieldClassName = (field: RequiredInicioField) =>
-    touchedFields[field] && errors[field]
+    errors[field]
       ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
       : inputBaseClass;
 
@@ -126,7 +126,7 @@ export function InicioStep({
               onChange={(event) => onDraftChange("documentTitle", event.target.value)}
               onBlur={() => markTouched("documentTitle")}
             />
-            {touchedFields.documentTitle && errors.documentTitle ? (
+            {errors.documentTitle ? (
               <p className="mt-1 text-[12px] text-danger">{errors.documentTitle}</p>
             ) : null}
           </div>
@@ -140,7 +140,7 @@ export function InicioStep({
               onChange={(event) => onDraftChange("companyName", event.target.value)}
               onBlur={() => markTouched("companyName")}
             />
-            {touchedFields.companyName && errors.companyName ? (
+            {errors.companyName ? (
               <p className="mt-1 text-[12px] text-danger">{errors.companyName}</p>
             ) : null}
           </div>
@@ -162,7 +162,7 @@ export function InicioStep({
               onChange={(event) => onDraftChange("cnpj", event.target.value)}
               onBlur={() => markTouched("cnpj")}
             />
-            {touchedFields.cnpj && errors.cnpj ? (
+            {errors.cnpj ? (
               <p className="mt-1 text-[12px] text-danger">{errors.cnpj}</p>
             ) : null}
           </div>
@@ -176,7 +176,7 @@ export function InicioStep({
               onChange={(event) => onDraftChange("responsible", event.target.value)}
               onBlur={() => markTouched("responsible")}
             />
-            {touchedFields.responsible && errors.responsible ? (
+            {errors.responsible ? (
               <p className="mt-1 text-[12px] text-danger">{errors.responsible}</p>
             ) : null}
           </div>
@@ -190,7 +190,7 @@ export function InicioStep({
               onChange={(event) => onDraftChange("email", event.target.value)}
               onBlur={() => markTouched("email")}
             />
-            {touchedFields.email && errors.email ? (
+            {errors.email ? (
               <p className="mt-1 text-[12px] text-danger">{errors.email}</p>
             ) : null}
           </div>

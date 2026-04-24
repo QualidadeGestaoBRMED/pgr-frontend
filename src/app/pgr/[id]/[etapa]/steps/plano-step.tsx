@@ -102,14 +102,10 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     handleSavePlanActionModal,
   } = ctx;
 
-  const [touchedMedidasByRowId, setTouchedMedidasByRowId] = useState<
-    Record<string, boolean>
-  >({});
-  const [touchedPlanActionDescription, setTouchedPlanActionDescription] =
-    useState(false);
+  const [, setTouchedMedidasByRowId] = useState<Record<string, boolean>>({});
+  const [, setTouchedPlanActionDescription] = useState(false);
   const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
-  const [touchedPlanActionGheSelection, setTouchedPlanActionGheSelection] =
-    useState(false);
+  const [, setTouchedPlanActionGheSelection] = useState(false);
   const [pendingDeleteRow, setPendingDeleteRow] = useState<null | {
     gheId: string;
     riskId: string;
@@ -172,7 +168,9 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   const shouldValidateGheBatchSelection =
     planActionScope === "risk" || planActionScope === "all";
   const planActionGheSelectionError =
-    shouldValidateGheBatchSelection && selectedPlanActionGheIds.length === 0
+    shouldValidateGheBatchSelection &&
+    planActionGheOptions.length > 0 &&
+    selectedPlanActionGheIds.length === 0
       ? "Selecione ao menos um GHE."
       : "";
 
@@ -181,12 +179,12 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   };
 
   const getMedidasTextareaClassName = (rowId: string) =>
-    touchedMedidasByRowId[rowId] && medidasErrorsByRowId[rowId]
+    medidasErrorsByRowId[rowId]
       ? `${textareaBaseClass} min-h-[96px] border-rose-400 focus:ring-rose-500`
       : `${textareaBaseClass} min-h-[96px]`;
 
   const getPlanActionDescriptionClassName = () =>
-    touchedPlanActionDescription && planActionDescriptionError
+    planActionDescriptionError
       ? `${textareaBaseClass} min-h-[120px] border-rose-400 focus:ring-rose-500`
       : `${textareaBaseClass} min-h-[120px]`;
 
@@ -308,8 +306,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                               onBlur={() => markMedidasTouched(row.id)}
                               placeholder="Descreva as medidas de prevenção"
                             />
-                            {touchedMedidasByRowId[row.id] &&
-                            medidasErrorsByRowId[row.id] ? (
+                            {medidasErrorsByRowId[row.id] ? (
                               <p className="text-[12px] text-danger">
                                 {medidasErrorsByRowId[row.id]}
                               </p>
@@ -613,8 +610,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                               </p>
                             )}
                           </div>
-                          {touchedPlanActionGheSelection &&
-                          planActionGheSelectionError ? (
+                          {planActionGheSelectionError ? (
                             <p className="mt-1 text-[12px] text-danger">
                               {planActionGheSelectionError}
                             </p>
@@ -696,7 +692,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                         </p>
                       )}
                     </div>
-                    {touchedPlanActionGheSelection && planActionGheSelectionError ? (
+                    {planActionGheSelectionError ? (
                       <p className="mt-1 text-[12px] text-danger">
                         {planActionGheSelectionError}
                       </p>
@@ -715,7 +711,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                     onBlur={() => setTouchedPlanActionDescription(true)}
                     placeholder="Descreva a ação preventiva..."
                   />
-                  {touchedPlanActionDescription && planActionDescriptionError ? (
+                  {planActionDescriptionError ? (
                     <p className="mt-1 text-[12px] text-danger">
                       {planActionDescriptionError}
                     </p>

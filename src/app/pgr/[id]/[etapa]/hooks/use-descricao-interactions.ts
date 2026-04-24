@@ -235,6 +235,15 @@ export function useDescricaoInteractions({
 
     if (!funcao) return false;
 
+    const normalizedSetorFuncao = `${setor}||${funcao}`.toLowerCase();
+    const duplicate = functionsData.some(
+      (item) =>
+        item.id !== payload.id &&
+        `${(item.setor || "").trim()}||${(item.funcao || "").trim()}`.toLowerCase() ===
+          normalizedSetorFuncao
+    );
+    if (duplicate) return false;
+
     if (
       setor === (currentFunction.setor || "") &&
       funcao === (currentFunction.funcao || "") &&

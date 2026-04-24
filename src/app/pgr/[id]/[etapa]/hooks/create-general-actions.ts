@@ -772,24 +772,21 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     const funcao = payload.funcao.trim();
     const descricao = payload.descricao.trim();
 
-    if (!setor || !funcao|| !descricao) {
+    if (!setor || !funcao || !descricao) {
       throw new Error("Setor, Função e Descrição da Atividade são obrigatórios!");
     }
 
     let createdFunctionId = "";
-    const normalizedKey = `${setor}||${funcao}||${descricao}`.toLowerCase();
+    let hasDuplicate = false;
+    const normalizedSetorFuncao = `${setor}||${funcao}`.toLowerCase();
 
     setFunctionsData((prev) => {
-      const existing = prev.find(
+      hasDuplicate = prev.some(
         (item) =>
-          `${(item.setor || "").trim()}||${(item.funcao || "").trim()}||${(
-            item.descricao || ""
-          ).trim()}`.toLowerCase() === normalizedKey
+          `${(item.setor || "").trim()}||${(item.funcao || "").trim()}`.toLowerCase() ===
+          normalizedSetorFuncao
       );
-      if (existing) {
-        createdFunctionId = existing.id;
-        return prev;
-      }
+      if (hasDuplicate) return prev;
 
       createdFunctionId = `func-manual-${Date.now()}-${prev.length + 1}`;
       return [
@@ -802,6 +799,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         },
       ];
     });
+    if (hasDuplicate) {
+      throw new Error("Já existe uma função com este setor e função.");
+    }
 
     if (!payload.assignToCurrentGhe || !payload.gheId || !createdFunctionId) {
       return;

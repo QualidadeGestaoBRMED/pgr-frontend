@@ -170,7 +170,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field: "epc" | "epi";
   }>(null);
   const [multiSelectQuery, setMultiSelectQuery] = useState("");
-  const [touchedRiskFields, setTouchedRiskFields] = useState<
+  const [, setTouchedRiskFields] = useState<
     Record<string, Partial<Record<RequiredRiskField, boolean>>>
   >({});
   const [minimizedRiskIds, setMinimizedRiskIds] = useState<Record<string, boolean>>({});
@@ -515,12 +515,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field: RequiredRiskField,
     baseClassName: string
   ) =>
-    touchedRiskFields[riskId]?.[field] && riskErrorsById[riskId]?.[field]
+    riskErrorsById[riskId]?.[field]
       ? `${baseClassName} border-rose-400 focus:ring-rose-500`
       : baseClassName;
 
   const getRiskFieldError = (riskId: string, field: RequiredRiskField) =>
-    touchedRiskFields[riskId]?.[field] ? riskErrorsById[riskId]?.[field] || "" : "";
+    riskErrorsById[riskId]?.[field] || "";
 
   const handleAddRisk = () => {
     if (!currentRiskGhe) return;

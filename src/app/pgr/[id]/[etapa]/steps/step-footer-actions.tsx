@@ -97,10 +97,6 @@ export function StepFooterActions({
           >
             Descrever este GHE
           </button>
-          <button type="button" className="btn-outline px-4">
-            <Save className="h-4 w-4" />
-            Salvar
-          </button>
           {nextStepId ? (
             <button
               type="button"
@@ -130,10 +126,6 @@ export function StepFooterActions({
           onNavigateStep={onNavigateStep}
         />
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="btn-outline px-4">
-            <Save className="h-4 w-4" />
-            Salvar
-          </button>
           <AdvanceButton
             nextStepId={nextStepId}
             onAdvance={onAdvance}
