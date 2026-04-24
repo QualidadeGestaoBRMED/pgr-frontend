@@ -25,5 +25,6 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     onExtraFieldChange={ctx.generalActions.handleExtraEstabelecimentoFieldChange}
     onRemoveExtraField={ctx.generalActions.handleRemoveExtraField}
     onAddExtraField={ctx.generalActions.handleAddExtraField}
+    onClearData={ctx.handleResetDadosData}
   />
 );

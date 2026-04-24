@@ -412,6 +412,80 @@ export function usePgrEtapaController({
     router.push(`/pgr/${params.id}/inicio`);
   }, [params.id, router, setters, weightedProgressPercent]);
 
+  const handleResetInicioData = useCallback(() => {
+    if (state.workflow.isLocked) return;
+    setters.setInicioDraft(initialInicioDraft);
+  }, [setters, state.workflow.isLocked]);
+
+  const handleResetDadosData = useCallback(() => {
+    if (state.workflow.isLocked) return;
+    refs.lastCepLookupRef.current = {
+      empresa: "",
+      contratanteByIndex: {},
+    };
+    setters.setDadosCadastrais(initialDadosCadastrais);
+    setters.setExtraEstabelecimentoFields([]);
+    setters.setEstabelecimentoSelecionado("");
+  }, [refs.lastCepLookupRef, setters, state.workflow.isLocked]);
+
+  const handleResetDescricaoData = useCallback(() => {
+    if (state.workflow.isLocked) return;
+    setters.setFunctionsData(defaultFunctions);
+    setters.setGheGroups(defaultGheGroups);
+    setters.setCurrentGheId(defaultGheGroups[0]?.id ?? "ghe-1");
+    setters.setSelectedLeftIds([]);
+    setters.setSelectedRightIds([]);
+    setters.setHistory([]);
+    setters.setSearchTerm("");
+    setters.setGheSearch("");
+    setters.setGheFilterId("all");
+    setters.setIsGheListView(false);
+    setters.setIsGheModalOpen(false);
+    setters.setIsInfoModalOpen(false);
+    setters.setInfoModalError("");
+    setters.setInfoModalMode("next");
+    setters.setLastGheNotice(null);
+    setters.setExcelImportFeedback(null);
+    setters.setRiskGheGroups(defaultRiskGheGroups);
+    setters.setCurrentRiskGheId(defaultRiskGheGroups[0]?.id ?? "ghe-1");
+    setters.setRemovedPlanRiskKeys([]);
+    setters.setPlanActionGheId("");
+    setters.setPlanActionRiskId("");
+  }, [setters, state.workflow.isLocked]);
+
+  const handleResetCaracterizacaoData = useCallback(() => {
+    if (state.workflow.isLocked) return;
+    setters.setRiskGheGroups(defaultRiskGheGroups);
+    setters.setCurrentRiskGheId(defaultRiskGheGroups[0]?.id ?? "ghe-1");
+    setters.setHistory([]);
+    setters.setRemovedPlanRiskKeys([]);
+    setters.setPlanActionGheId("");
+    setters.setPlanActionRiskId("");
+  }, [setters, state.workflow.isLocked]);
+
+  const handleResetPlanoData = useCallback(() => {
+    if (state.workflow.isLocked) return;
+    setters.setPlanAction({ nr: "NR-01", vigencia: "" });
+    setters.setRemovedPlanRiskKeys([]);
+    setters.setEditingMedidasId(null);
+    setters.setEditingMedidasValue("");
+    setters.setPlanTablePage(1);
+    setters.setIsPlanActionModalOpen(false);
+    setters.setPlanActionScope("risk");
+    setters.setPlanActionGheId("");
+    setters.setPlanActionRiskId("");
+    setters.setPlanActionDescription("");
+    setters.setRiskGheGroups((prev) =>
+      prev.map((ghe) => ({
+        ...ghe,
+        risks: ghe.risks.map((risk) => ({
+          ...risk,
+          medidasControle: "",
+        })),
+      }))
+    );
+  }, [setters, state.workflow.isLocked]);
+
   const handleResetAllData = useCallback(() => {
     if (state.workflow.isLocked) return;
 
@@ -724,6 +798,11 @@ export function usePgrEtapaController({
       handleGeneratePreviewPdf,
       handleGenerateFakePdf,
       handleStartNewVersion,
+      handleResetInicioData,
+      handleResetDadosData,
+      handleResetDescricaoData,
+      handleResetCaracterizacaoData,
+      handleResetPlanoData,
       handleResetAllData,
       generalActions,
       descricaoInteractions,

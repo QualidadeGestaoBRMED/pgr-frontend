@@ -7,6 +7,7 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       inputBaseClass: ctx.inputBaseClass,
       textareaBaseClass: ctx.textareaBaseClass,
       selectBaseClass: ctx.selectBaseClass,
+      handleResetPlanoData: ctx.handleResetPlanoData,
       planAction: ctx.planAction,
       maskDate: ctx.generalActions.maskDate,
       setPlanAction: ctx.setPlanAction,

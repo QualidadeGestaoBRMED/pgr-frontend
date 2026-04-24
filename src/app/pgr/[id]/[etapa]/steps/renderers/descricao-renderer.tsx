@@ -2,6 +2,7 @@ import { DescricaoStep } from "../descricao-step";
 import type { StepRenderer } from "./types";
 
 export const buildDescricaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
+  handleResetDescricaoData: ctx.handleResetDescricaoData,
   currentGheName: ctx.currentGheName,
   lastGheNotice: ctx.lastGheNotice,
   searchTerm: ctx.searchTerm,

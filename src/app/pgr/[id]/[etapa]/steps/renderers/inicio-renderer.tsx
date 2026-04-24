@@ -8,6 +8,7 @@ export const renderInicioStep: StepRenderer = (ctx) => (
     inputBaseClass={ctx.inputBaseClass}
     textareaBaseClass={ctx.textareaBaseClass}
     onLoadPipefyMock={ctx.generalActions.handleLoadPipefyMock}
+    onClearData={ctx.handleResetInicioData}
     onDraftChange={ctx.generalActions.handleInicioDraftChange}
   />
 );

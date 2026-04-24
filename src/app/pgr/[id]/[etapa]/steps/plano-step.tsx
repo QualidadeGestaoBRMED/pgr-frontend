@@ -8,6 +8,7 @@ type PlanoStepProps = {
     inputBaseClass: string;
     textareaBaseClass: string;
     selectBaseClass: string;
+    handleResetPlanoData: () => void;
     planAction: { nr: string; vigencia: string };
     maskDate: (value: string) => string;
     setPlanAction: Dispatch<SetStateAction<{ nr: string; vigencia: string }>>;
@@ -71,6 +72,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     inputBaseClass,
     textareaBaseClass,
     selectBaseClass,
+    handleResetPlanoData,
     planAction,
     maskDate,
     setPlanAction,
@@ -106,6 +108,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   const [, setTouchedPlanActionDescription] = useState(false);
   const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
   const [, setTouchedPlanActionGheSelection] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [pendingDeleteRow, setPendingDeleteRow] = useState<null | {
     gheId: string;
     riskId: string;
@@ -191,12 +194,25 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   return (
     <>
       <section className="px-2">
-        <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
-          Plano de Ação
-        </h1>
-        <p className="mt-1 text-[14px] text-muted-foreground">
-          Defina as ações para mitigação dos riscos identificados
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
+              Plano de Ação
+            </h1>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              Defina as ações para mitigação dos riscos identificados
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsResetModalOpen(true)}
+              className="btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+            >
+              Limpar dados da etapa
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
@@ -796,6 +812,41 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                   className="btn-primary px-5"
                 >
                   Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isResetModalOpen ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <h3 className="text-[18px] font-semibold text-foreground">
+                Confirmar limpeza
+              </h3>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Todos os dados preenchidos serão removidos. Deseja continuar?
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="btn-outline px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleResetPlanoData();
+                    setIsResetModalOpen(false);
+                  }}
+                  className="btn-primary px-5"
+                >
+                  Confirmar limpeza
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { CaracterizacaoStep } from "../caracterizacao-step";
 import type { StepRenderer } from "./types";
 
 export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
+  handleResetCaracterizacaoData: ctx.handleResetCaracterizacaoData,
   riskGheGroups: ctx.riskGheGroups,
   setRiskGheGroups: ctx.setRiskGheGroups,
   currentRiskGheId: ctx.currentRiskGheId,

@@ -86,11 +86,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     label: string;
     setor: string;
   }>(null);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [, setTouchedInfoFields] = useState<Partial<
     Record<RequiredGheInfoField, boolean>
   >>({});
 
   const {
+    handleResetDescricaoData,
     currentGheName,
     lastGheNotice,
     searchTerm,
@@ -479,7 +481,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
 
   return (
     <>
-          <section className="px-2">
+      <section className="px-2">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-[22px] font-medium text-foreground sm:text-[24px]">
                 Descrição do GHE
@@ -493,16 +497,25 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   ?
                 </button>
                 <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-[260px] -translate-x-1/2 rounded-[10px] bg-popover p-3 text-[12px] text-popover-foreground shadow-[0px_8px_20px_rgba(25,59,79,0.15)] opacity-0 transition group-hover:opacity-100">
-                  Dica rápida: Associar as funções ao GHE e,
-                  depois, preencher processo, observações e ambiente. Atenção à
-                  ordem pois é um processo repetitivo e pode gerar erros.
+                  Dica rápida: Associar as funções ao GHE e, depois, preencher
+                  processo, observações e ambiente. Atenção à ordem pois é um
+                  processo repetitivo e pode gerar erros.
                 </div>
               </div>
             </div>
             <p className="mt-1 text-[14px] text-muted-foreground">
               Descreva o processo produtivo, ambiente e funções do GHE
             </p>
-          </section>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsResetModalOpen(true)}
+            className="btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+          >
+            Limpar dados da etapa
+          </button>
+        </div>
+      </section>
 
           <section className="rounded-[14px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1531,6 +1544,41 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         : infoModalMode === "next-existing"
                           ? "Salvar e ir para próximo GHE"
                           : "Salvar e continuar"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isResetModalOpen ? (
+            <div className="fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/55" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Confirmar limpeza
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    Todos os dados preenchidos serão removidos. Deseja continuar?
+                  </p>
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsResetModalOpen(false)}
+                      className="btn-outline px-4"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleResetDescricaoData();
+                        setIsResetModalOpen(false);
+                      }}
+                      className="btn-primary px-5"
+                    >
+                      Confirmar limpeza
                     </button>
                   </div>
                 </div>
