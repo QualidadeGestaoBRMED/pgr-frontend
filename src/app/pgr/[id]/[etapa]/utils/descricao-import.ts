@@ -90,6 +90,7 @@ export const parseDescricaoExcel = async (
   );
   const gheColumn = getColumn("GHE");
   const funcionariosColumn = getColumn(
+    "Quantitativo",
     "Quantitativo de Funcionários",
     "Quantitativo de Funcionarios",
     "Quantidade de Funcionários",
@@ -117,6 +118,7 @@ export const parseDescricaoExcel = async (
     string,
     { key: string; setor: string; funcao: string; descricao: string }
   >();
+  const functionQuantitiesByCatalogKey = new Map<string, number>();
   const gheAssignments = new Map<string, Map<string, number>>();
   const missingRequiredFieldRows: ExcelImportMissingRequiredFieldRow[] = [];
 
@@ -141,7 +143,7 @@ export const parseDescricaoExcel = async (
     const funcionariosCount =
       Number.isFinite(parsedFuncionarios) && !Number.isNaN(parsedFuncionarios)
         ? Math.max(0, parsedFuncionarios)
-        : 1;
+        : 0;
     const sanitizedGhe = isExcelInstructionText(rawGheName) ? "" : rawGheName;
     const gheNumericMatch =
       sanitizedGhe.match(/^ghe\s*0*(\d+)$/i) ?? sanitizedGhe.match(/^0*(\d+)$/);
@@ -174,6 +176,10 @@ export const parseDescricaoExcel = async (
         descricao,
       });
     }
+    functionQuantitiesByCatalogKey.set(
+      catalogKey,
+      (functionQuantitiesByCatalogKey.get(catalogKey) ?? 0) + funcionariosCount
+    );
 
     if (gheName) {
       const bucket = gheAssignments.get(gheName) ?? new Map<string, number>();
@@ -202,6 +208,7 @@ export const parseDescricaoExcel = async (
     setor: item.setor,
     funcao: item.funcao,
     descricao: item.descricao,
+    quantitativo: String(functionQuantitiesByCatalogKey.get(item.key) ?? 0),
   }));
   const functionIdByKey = new Map<string, string>();
   sortedFunctionsBase.forEach((item, index) => {

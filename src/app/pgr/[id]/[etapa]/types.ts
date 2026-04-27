@@ -26,6 +26,7 @@ export type PgrFunction = {
   setor: string;
   funcao: string;
   descricao: string;
+  quantitativo?: string;
 };
 
 export type GheGroup = {

@@ -110,14 +110,21 @@ const stripTrailingMeasuredUnits = (value: string, measuredUnits: string[]) =>
     (acc, measuredUnit) => stripTrailingMeasuredUnit(acc, measuredUnit),
     value
   );
-const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) => ({
-  ...risk,
-  valorMedido: sanitizeNumericInput(
-    stripTrailingMeasuredUnits(String(risk.valorMedido || ""), measuredUnits)
-  ),
-  intensidade: stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits),
-  nivelAcao: stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
-});
+const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) => {
+  const sanitizedValorMedido = stripTrailingMeasuredUnits(
+    String(risk.valorMedido || ""),
+    measuredUnits
+  );
+  const isQualitativeEvaluation = normalizeText(String(risk.tipoAvaliacao || "")).includes(
+    "qualit"
+  );
+  return {
+    ...risk,
+    valorMedido: isQualitativeEvaluation ? "N/A" : sanitizeNumericInput(sanitizedValorMedido),
+    intensidade: stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits),
+    nivelAcao: stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
+  };
+};
 
 const createRiskId = () =>
   `risk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -672,6 +679,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       }
 
                       if (field !== "descricaoAgente") {
+                        if (field === "tipoAvaliacao") {
+                          return sanitizeRiskMeasurementFields(
+                            {
+                              ...risk,
+                              tipoAvaliacao: value,
+                            },
+                            [String(risk.unidadeMedida || "").trim()]
+                          );
+                        }
+
                         if (field === "unidadeMedida") {
                           const previousMeasuredUnit = String(risk.unidadeMedida || "").trim();
                           const nextMeasuredUnit = String(value || "").trim();
@@ -992,6 +1009,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           (() => {
             const isMinimized = Boolean(minimizedRiskIds[risk.id]);
             const isQuantitativeEvaluation = normalizeText(risk.tipoAvaliacao).includes("quantit");
+            const isQualitativeEvaluation = normalizeText(risk.tipoAvaliacao).includes("qualit");
             const allowsCalculatedInputs = getIsCalculatedCriteria(
               risk.tipoAgente,
               risk.descricaoAgente
@@ -1380,6 +1398,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               />
                             </div>
                           )}
+                        </div>
+                      </div>
+                    ) : isQualitativeEvaluation ? (
+                      <div className="mt-4 grid gap-4 md:grid-cols-4">
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Valor Medido *
+                          </label>
+                          <input
+                            className={inputBaseClass}
+                            value="N/A"
+                            disabled
+                          />
                         </div>
                       </div>
                     ) : null}

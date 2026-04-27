@@ -128,6 +128,16 @@ export function useDescricaoInteractions({
     );
   };
 
+  const getDefaultFuncionariosForFunction = (functionId: string) => {
+    const fn = functionsData.find((item) => item.id === functionId);
+    const parsed = Number.parseInt(
+      String(fn?.quantitativo ?? "").replace(/[^\d-]/g, ""),
+      10
+    );
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed)) return "";
+    return String(Math.max(0, parsed));
+  };
+
   const addFunctionsToCurrent = (ids: string[]) => {
     if (!ids.length || !currentGhe) return;
     const toAdd = availableFunctions.filter((item) => ids.includes(item.id));
@@ -142,7 +152,7 @@ export function useDescricaoInteractions({
                 ...ghe.items,
                 ...toAdd.map((item) => ({
                   functionId: item.id,
-                  funcionarios: "",
+                  funcionarios: getDefaultFuncionariosForFunction(item.id),
                 })),
               ],
             }
@@ -497,7 +507,10 @@ export function useDescricaoInteractions({
         return removed;
       }
 
-      const itemToAdd = cachedItem ?? { functionId, funcionarios: "" };
+      const itemToAdd = cachedItem ?? {
+        functionId,
+        funcionarios: getDefaultFuncionariosForFunction(functionId),
+      };
       return removed.map((ghe) =>
         ghe.id === targetGheId ? { ...ghe, items: [...ghe.items, itemToAdd] } : ghe
       );

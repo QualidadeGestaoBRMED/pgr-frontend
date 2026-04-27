@@ -143,6 +143,7 @@ type GeneralActionsContext = {
       contratanteByIndex: Record<string, string>;
     }>;
     functionsData: PgrFunction[];
+    gheGroups: PersistedPgrState["gheGroups"];
     planActionScope: "all" | "ghe" | "risk";
     riskGheGroups: RiskGheGroup[];
     planActionGheId: string;
@@ -201,6 +202,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const {
     lastCepLookupRef,
     functionsData,
+    gheGroups,
     planActionScope,
     riskGheGroups,
     planActionGheId,
@@ -726,34 +728,58 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
       const normalizeFunctionKey = (setor: string, funcao: string) =>
         `${setor.trim().toLowerCase()}||${funcao.trim().toLowerCase()}`;
+      const normalizeGheName = (name: string) => name.trim().toLowerCase();
+      const parseNonNegativeInteger = (value: string | number | null | undefined) => {
+        const parsed = Number.parseInt(String(value ?? "").replace(/[^\d-]/g, ""), 10);
+        return Number.isFinite(parsed) && !Number.isNaN(parsed) ? Math.max(0, parsed) : 0;
+      };
 
-      const existingKeys = new Set(
-        functionsData.map((item) => normalizeFunctionKey(item.setor || "", item.funcao || ""))
-      );
+      const existingFunctionIdByKey = new Map<string, string>();
+      functionsData.forEach((item) => {
+        const key = normalizeFunctionKey(item.setor || "", item.funcao || "");
+        if (!existingFunctionIdByKey.has(key)) {
+          existingFunctionIdByKey.set(key, item.id);
+        }
+      });
       const existingIds = new Set(functionsData.map((item) => item.id));
-      const importSeenKeys = new Set<string>();
+      const importSeenKeys = new Map<string, string>();
+      const importedFunctionIdToFinalId = new Map<string, string>();
+      const importedQuantitativoByFinalFunctionId = new Map<string, number>();
       const importedUniqueFunctions: PgrFunction[] = [];
       let skippedExistingCount = 0;
       let skippedDuplicatedInFileCount = 0;
       const importBatchSeed = Date.now();
+      const incrementImportedQuantitativo = (functionId: string, value: number) => {
+        if (!functionId || value <= 0) return;
+        importedQuantitativoByFinalFunctionId.set(
+          functionId,
+          (importedQuantitativoByFinalFunctionId.get(functionId) ?? 0) + value
+        );
+      };
 
       imported.functions.forEach((item, index) => {
         const setor = String(item.setor || "").trim();
         const funcao = String(item.funcao || "").trim();
         const descricao = String(item.descricao || "").trim() || funcao;
+        const importedQuantitativo = parseNonNegativeInteger(item.quantitativo);
         const key = normalizeFunctionKey(setor, funcao);
+        const existingFunctionId = existingFunctionIdByKey.get(key);
 
-        if (existingKeys.has(key)) {
+        if (existingFunctionId) {
+          importedFunctionIdToFinalId.set(item.id, existingFunctionId);
+          incrementImportedQuantitativo(existingFunctionId, importedQuantitativo);
           skippedExistingCount += 1;
           return;
         }
 
-        if (importSeenKeys.has(key)) {
+        const seenFunctionId = importSeenKeys.get(key);
+        if (seenFunctionId) {
+          importedFunctionIdToFinalId.set(item.id, seenFunctionId);
+          incrementImportedQuantitativo(seenFunctionId, importedQuantitativo);
           skippedDuplicatedInFileCount += 1;
           return;
         }
 
-        importSeenKeys.add(key);
         let idCandidate = `func-import-${importBatchSeed}-${index + 1}`;
         let idRetry = 1;
         while (existingIds.has(idCandidate)) {
@@ -761,18 +787,170 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           idCandidate = `func-import-${importBatchSeed}-${index + 1}-${idRetry}`;
         }
         existingIds.add(idCandidate);
+        importSeenKeys.set(key, idCandidate);
+        existingFunctionIdByKey.set(key, idCandidate);
+        importedFunctionIdToFinalId.set(item.id, idCandidate);
+        incrementImportedQuantitativo(idCandidate, importedQuantitativo);
 
         importedUniqueFunctions.push({
           id: idCandidate,
           setor,
           funcao,
           descricao,
+          quantitativo: "0",
         });
       });
 
-      if (importedUniqueFunctions.length) {
-        setFunctionsData((prev) => [...prev, ...importedUniqueFunctions]);
+      const importedUniqueFunctionsWithQuantitativo = importedUniqueFunctions.map((item) => ({
+        ...item,
+        quantitativo: String(importedQuantitativoByFinalFunctionId.get(item.id) ?? 0),
+      }));
+
+      if (importedUniqueFunctionsWithQuantitativo.length || importedQuantitativoByFinalFunctionId.size) {
+        setFunctionsData((prev) => {
+          const updatedExisting = prev.map((item) => {
+            const importedQuantitativo = importedQuantitativoByFinalFunctionId.get(item.id);
+            if (!importedQuantitativo) return item;
+            const currentQuantitativo = parseNonNegativeInteger(item.quantitativo);
+            return {
+              ...item,
+              quantitativo: String(currentQuantitativo + importedQuantitativo),
+            };
+          });
+          return importedUniqueFunctionsWithQuantitativo.length
+            ? [...updatedExisting, ...importedUniqueFunctionsWithQuantitativo]
+            : updatedExisting;
+        });
       }
+
+      const importedAssignmentsByGhe = new Map<string, {
+        name: string;
+        totalByFunctionId: Map<string, number>;
+      }>();
+      imported.gheGroups.forEach((ghe) => {
+        const gheName = String(ghe.name || "").trim();
+        if (!gheName) return;
+        const normalizedName = normalizeGheName(gheName);
+        const existing =
+          importedAssignmentsByGhe.get(normalizedName) ??
+          {
+            name: gheName,
+            totalByFunctionId: new Map<string, number>(),
+          };
+
+        ghe.items.forEach((item) => {
+          const mappedFunctionId = importedFunctionIdToFinalId.get(item.functionId);
+          if (!mappedFunctionId) return;
+          const current = existing.totalByFunctionId.get(mappedFunctionId) ?? 0;
+          const next = current + parseNonNegativeInteger(item.funcionarios);
+          existing.totalByFunctionId.set(mappedFunctionId, next);
+        });
+
+        importedAssignmentsByGhe.set(normalizedName, existing);
+      });
+
+      let gheAssignmentsUpdatedCount = 0;
+      let createdGheCount = 0;
+      if (importedAssignmentsByGhe.size > 0) {
+        const existingGheIdSet = new Set<string>([
+          ...gheGroups.map((item) => item.id),
+          ...riskGheGroups.map((item) => item.id),
+        ]);
+        const createImportedGheId = () => {
+          let counter = 1;
+          let candidate = `ghe-import-${importBatchSeed}-${counter}`;
+          while (existingGheIdSet.has(candidate)) {
+            counter += 1;
+            candidate = `ghe-import-${importBatchSeed}-${counter}`;
+          }
+          existingGheIdSet.add(candidate);
+          return candidate;
+        };
+
+        const gheIndexByName = new Map<string, number>();
+        const nextGheGroups = gheGroups.map((group, index) => {
+          gheIndexByName.set(normalizeGheName(group.name), index);
+          return {
+            ...group,
+            items: group.items.map((item) => ({ ...item })),
+          };
+        });
+        const newRiskGhes: RiskGheGroup[] = [];
+
+        importedAssignmentsByGhe.forEach((assignment, normalizedGheName) => {
+          const targetIndex = gheIndexByName.get(normalizedGheName);
+          const parsedItems = Array.from(assignment.totalByFunctionId.entries()).map(
+            ([functionId, count]) => ({
+              functionId,
+              funcionarios: String(count),
+            })
+          );
+
+          if (targetIndex === undefined) {
+            if (!parsedItems.length) return;
+            const newGheId = createImportedGheId();
+            nextGheGroups.push({
+              id: newGheId,
+              name: assignment.name,
+              info: {
+                processo: "",
+                observacoes: "-",
+                ambiente: "A ser evidenciado na fase de reconhecimento",
+              },
+              items: parsedItems,
+            });
+            gheIndexByName.set(normalizedGheName, nextGheGroups.length - 1);
+            newRiskGhes.push({
+              id: newGheId,
+              name: assignment.name,
+              risks: [],
+            });
+            gheAssignmentsUpdatedCount += parsedItems.length;
+            createdGheCount += 1;
+            return;
+          }
+
+          const currentItems = nextGheGroups[targetIndex].items;
+          const itemIndexByFunctionId = new Map<string, number>();
+          currentItems.forEach((item, itemIndex) => {
+            itemIndexByFunctionId.set(item.functionId, itemIndex);
+          });
+
+          parsedItems.forEach((item) => {
+            const existingItemIndex = itemIndexByFunctionId.get(item.functionId);
+            if (existingItemIndex === undefined) {
+              currentItems.push(item);
+              itemIndexByFunctionId.set(item.functionId, currentItems.length - 1);
+              gheAssignmentsUpdatedCount += 1;
+              return;
+            }
+
+            const currentCount = parseNonNegativeInteger(
+              currentItems[existingItemIndex].funcionarios
+            );
+            const importedCount = parseNonNegativeInteger(item.funcionarios);
+            currentItems[existingItemIndex] = {
+              ...currentItems[existingItemIndex],
+              funcionarios: String(currentCount + importedCount),
+            };
+            gheAssignmentsUpdatedCount += 1;
+          });
+        });
+
+        if (gheAssignmentsUpdatedCount > 0 || createdGheCount > 0) {
+          setGheGroups(nextGheGroups);
+        }
+        if (newRiskGhes.length) {
+          setRiskGheGroups((prev) => [...prev, ...newRiskGhes]);
+        }
+      }
+
+      const gheImportSummary =
+        gheAssignmentsUpdatedCount > 0 || createdGheCount > 0
+          ? ` ${gheAssignmentsUpdatedCount} vínculo(s) de função/GHE atualizado(s)${
+              createdGheCount ? ` e ${createdGheCount} GHE(s) criado(s)` : ""
+            }.`
+          : "";
 
       setExcelImportFeedback({
         type: "success",
@@ -782,8 +960,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
                 skippedExistingCount || skippedDuplicatedInFileCount
                   ? ` (${skippedExistingCount} já existentes e ${skippedDuplicatedInFileCount} duplicadas no arquivo foram ignoradas)`
                   : ""
-              }.`
-            : "Nenhuma função nova foi adicionada. As funções da planilha já existem na lista geral.",
+              }.${gheImportSummary}`
+            : `Nenhuma função nova foi adicionada. As funções da planilha já existem na lista geral.${gheImportSummary}`,
       });
     } catch (error) {
       if (error instanceof DescricaoImportMissingRequiredFieldsError) {
