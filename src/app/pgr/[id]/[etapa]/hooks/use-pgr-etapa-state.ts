@@ -11,6 +11,7 @@ import {
 } from "../defaults";
 import type {
   AnexoItem,
+  ExcelImportFeedback,
   GheGroup,
   HistoryEntry,
   PgrFunction,
@@ -87,10 +88,9 @@ export function usePgrEtapaState({
   const [isPipefySyncing, setIsPipefySyncing] = useState(false);
   const [isImportingExcel, setIsImportingExcel] = useState(false);
   const [riskCatalogs, setRiskCatalogs] = useState<RiskCatalogPayload | null>(null);
-  const [excelImportFeedback, setExcelImportFeedback] = useState<null | {
-    type: "success" | "error";
-    message: string;
-  }>(null);
+  const [excelImportFeedback, setExcelImportFeedback] = useState<null | ExcelImportFeedback>(
+    null
+  );
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isGeneratingFakePdf, setIsGeneratingFakePdf] = useState(false);
   const [lastFakePdfAt, setLastFakePdfAt] = useState<string | null>(null);

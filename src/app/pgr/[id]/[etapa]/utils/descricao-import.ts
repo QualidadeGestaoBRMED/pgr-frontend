@@ -1,4 +1,10 @@
-import type { GheGroup, ParsedDescricaoImport, PgrFunction, RiskGheGroup } from "../types";
+import type {
+  ExcelImportMissingRequiredFieldRow,
+  GheGroup,
+  ParsedDescricaoImport,
+  PgrFunction,
+  RiskGheGroup,
+} from "../types";
 
 const normalizeExcelHeader = (value: string) =>
   value
@@ -29,6 +35,16 @@ const isExcelInstructionText = (value: string) => {
   ];
   return instructionTokens.some((token) => normalized.includes(token));
 };
+
+export class DescricaoImportMissingRequiredFieldsError extends Error {
+  missingRequiredFieldRows: ExcelImportMissingRequiredFieldRow[];
+
+  constructor(missingRequiredFieldRows: ExcelImportMissingRequiredFieldRow[]) {
+    super("Arquivo inválido: há linhas com campos obrigatórios ausentes.");
+    this.name = "DescricaoImportMissingRequiredFieldsError";
+    this.missingRequiredFieldRows = missingRequiredFieldRows;
+  }
+}
 
 export const parseDescricaoExcel = async (
   file: File
@@ -66,14 +82,27 @@ export const parseDescricaoExcel = async (
 
   const setorColumn = getColumn("Setor");
   const funcaoColumn = getColumn("Função", "Funcao");
-  const descricaoColumn = getColumn("Descrição da Função", "Descricao da Funcao");
+  const descricaoColumn = getColumn(
+    "Descrição da Atividade",
+    "Descricao da Atividade",
+    "Descrição da Função",
+    "Descricao da Funcao"
+  );
   const gheColumn = getColumn("GHE");
+  const funcionariosColumn = getColumn(
+    "Quantitativo de Funcionários",
+    "Quantitativo de Funcionarios",
+    "Quantidade de Funcionários",
+    "Quantidade de Funcionarios",
+    "Nº de Funcionários",
+    "No de Funcionarios",
+    "Numero de Funcionarios"
+  );
 
   const requiredColumns = [
     { label: "Setor", value: setorColumn },
     { label: "Função", value: funcaoColumn },
-    { label: "Descrição da Função", value: descricaoColumn },
-    { label: "GHE", value: gheColumn },
+    { label: "Descrição da Atividade", value: descricaoColumn },
   ];
   const missingColumns = requiredColumns
     .filter((column) => !column.value)
@@ -89,8 +118,9 @@ export const parseDescricaoExcel = async (
     { key: string; setor: string; funcao: string; descricao: string }
   >();
   const gheAssignments = new Map<string, Map<string, number>>();
+  const missingRequiredFieldRows: ExcelImportMissingRequiredFieldRow[] = [];
 
-  for (const row of rows) {
+  for (const [rowIndex, row] of rows.entries()) {
     const rawSetor = normalizeExcelCell(setorColumn ? row[setorColumn] : "");
     const rawFuncao = normalizeExcelCell(funcaoColumn ? row[funcaoColumn] : "");
     const rawDescricao = normalizeExcelCell(
@@ -99,8 +129,19 @@ export const parseDescricaoExcel = async (
     const setor = isExcelInstructionText(rawSetor) ? "" : rawSetor;
     const funcao = isExcelInstructionText(rawFuncao) ? "" : rawFuncao;
     const descricaoRaw = isExcelInstructionText(rawDescricao) ? "" : rawDescricao;
-    const descricao = descricaoRaw || funcao;
+    const descricao = descricaoRaw;
     const rawGheName = normalizeExcelCell(gheColumn ? row[gheColumn] : "");
+    const rawFuncionarios = normalizeExcelCell(
+      funcionariosColumn ? row[funcionariosColumn] : ""
+    );
+    const parsedFuncionarios = Number.parseInt(
+      rawFuncionarios.replace(/[^\d-]/g, ""),
+      10
+    );
+    const funcionariosCount =
+      Number.isFinite(parsedFuncionarios) && !Number.isNaN(parsedFuncionarios)
+        ? Math.max(0, parsedFuncionarios)
+        : 1;
     const sanitizedGhe = isExcelInstructionText(rawGheName) ? "" : rawGheName;
     const gheNumericMatch =
       sanitizedGhe.match(/^ghe\s*0*(\d+)$/i) ?? sanitizedGhe.match(/^0*(\d+)$/);
@@ -108,8 +149,20 @@ export const parseDescricaoExcel = async (
       ? `GHE ${Number.parseInt(gheNumericMatch[1], 10)}`
       : sanitizedGhe;
 
-    if (!setor && !funcao && !descricao && !gheName) continue;
-    if (!setor && !funcao && !descricao) continue;
+    const hasAnyRowData = Boolean(setor || funcao || descricaoRaw || gheName || rawFuncionarios);
+    if (!hasAnyRowData) continue;
+
+    const missingFields: string[] = [];
+    if (!setor) missingFields.push("Setor");
+    if (!funcao) missingFields.push("Função");
+    if (!descricao) missingFields.push("Descrição da Atividade");
+    if (missingFields.length) {
+      missingRequiredFieldRows.push({
+        lineNumber: rowIndex + 2,
+        missingFields,
+      });
+      continue;
+    }
 
     const baseKey = `${setor}|${funcao}|${descricao}`;
     const catalogKey = gheName ? `${gheName}|${baseKey}` : baseKey;
@@ -124,19 +177,17 @@ export const parseDescricaoExcel = async (
 
     if (gheName) {
       const bucket = gheAssignments.get(gheName) ?? new Map<string, number>();
-      bucket.set(catalogKey, (bucket.get(catalogKey) ?? 0) + 1);
+      bucket.set(catalogKey, (bucket.get(catalogKey) ?? 0) + funcionariosCount);
       gheAssignments.set(gheName, bucket);
     }
   }
 
-  if (!functionCatalog.size) {
-    throw new Error("Arquivo inválido: nenhuma função válida foi encontrada.");
+  if (missingRequiredFieldRows.length) {
+    throw new DescricaoImportMissingRequiredFieldsError(missingRequiredFieldRows);
   }
 
-  if (!gheAssignments.size) {
-    throw new Error(
-      "Arquivo inválido: nenhuma vinculação de GHE encontrada nas linhas importadas."
-    );
+  if (!functionCatalog.size) {
+    throw new Error("Arquivo inválido: nenhuma função válida foi encontrada.");
   }
 
   const sortedFunctionsBase = Array.from(functionCatalog.values()).sort((a, b) =>
@@ -160,7 +211,7 @@ export const parseDescricaoExcel = async (
   const gheNames = Array.from(gheAssignments.keys()).sort((a, b) =>
     a.localeCompare(b, "pt-BR", { sensitivity: "base", numeric: true })
   );
-  const normalizedGheNames = gheNames.length ? gheNames : ["GHE 1"];
+  const normalizedGheNames = gheNames;
   const gheGroups: GheGroup[] = normalizedGheNames.map((name, index) => {
     const assignment = gheAssignments.get(name);
     const items = assignment

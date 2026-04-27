@@ -114,6 +114,17 @@ export type ParsedDescricaoImport = {
   riskGheGroups: RiskGheGroup[];
 };
 
+export type ExcelImportMissingRequiredFieldRow = {
+  lineNumber: number;
+  missingFields: string[];
+};
+
+export type ExcelImportFeedback = {
+  type: "success" | "error";
+  message: string;
+  missingRequiredFieldRows?: ExcelImportMissingRequiredFieldRow[];
+};
+
 export type AnexoFile = {
   id: string;
   name: string;

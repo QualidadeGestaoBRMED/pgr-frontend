@@ -89,6 +89,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     setor: string;
   }>(null);
   const [isDeleteSelectedModalOpen, setIsDeleteSelectedModalOpen] = useState(false);
+  const [isExcelImportErrorModalOpen, setIsExcelImportErrorModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [, setTouchedInfoFields] = useState<Partial<
     Record<RequiredGheInfoField, boolean>
@@ -454,6 +455,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   }, [isManualFunctionModalOpen]);
 
   useEffect(() => {
+    if (excelImportFeedback?.type !== "error") return;
+    setIsExcelImportErrorModalOpen(true);
+  }, [excelImportFeedback]);
+
+  useEffect(() => {
     if (selectedLeftIds.length) return;
     setIsDeleteSelectedModalOpen(false);
   }, [selectedLeftIds.length]);
@@ -522,6 +528,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
         };
       }),
     [currentItems, functionMap]
+  );
+
+  const excelImportMissingRows = useMemo(
+    () => excelImportFeedback?.missingRequiredFieldRows ?? [],
+    [excelImportFeedback]
   );
 
   return (
@@ -1764,6 +1775,58 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         : infoModalMode === "next-existing"
                           ? "Salvar e ir para próximo GHE"
                           : "Salvar e continuar"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isExcelImportErrorModalOpen && excelImportFeedback?.type === "error" ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-2xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Erro na importação da planilha
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    {excelImportFeedback.message}
+                  </p>
+
+                  {excelImportMissingRows.length ? (
+                    <div className="mt-4">
+                      <p className="text-[12px] font-medium text-foreground">
+                        Campos obrigatórios ausentes por linha
+                      </p>
+                      <div className="mt-2 max-h-[260px] overflow-auto rounded-[10px] border border-border/60 bg-background/40">
+                        <ul className="divide-y divide-border/50">
+                          {excelImportMissingRows.map((row) => (
+                            <li
+                              key={`excel-missing-line-${row.lineNumber}`}
+                              className="px-3 py-2"
+                            >
+                              <p className="text-[13px] text-foreground">
+                                <span className="font-semibold">Linha {row.lineNumber}</span>:{" "}
+                                <span className="text-muted-foreground">
+                                  {row.missingFields.join(", ")}
+                                </span>
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsExcelImportErrorModalOpen(false)}
+                      className="btn-primary px-5"
+                    >
+                      Fechar
                     </button>
                   </div>
                 </div>

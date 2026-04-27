@@ -616,6 +616,7 @@ export function usePgrEtapaController({
       stepId: step.id,
       allGhesDescribed: derived.allGhesDescribed,
       lastCepLookupRef: refs.lastCepLookupRef,
+      functionsData: state.functionsData,
       planActionScope: state.planActionScope,
       riskGheGroups: state.riskGheGroups,
       planActionGheId: state.planActionGheId,

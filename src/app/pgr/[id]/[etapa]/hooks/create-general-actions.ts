@@ -1,9 +1,13 @@
 import { apiBlobGet, apiDelete, apiPost, apiPostForm } from "@/lib/api";
-import { parseDescricaoExcel } from "../utils/descricao-import";
+import {
+  DescricaoImportMissingRequiredFieldsError,
+  parseDescricaoExcel,
+} from "../utils/descricao-import";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type {
   AnexoFile,
   AnexoItem,
+  ExcelImportFeedback,
   GheRisk,
   HistoryEntry,
   ParsedDescricaoImport,
@@ -126,7 +130,7 @@ type GeneralActionsContext = {
     setHistory: React.Dispatch<React.SetStateAction<HistoryEntry[]>>;
     setLastGheNotice: React.Dispatch<React.SetStateAction<{ from: string; to: string } | null>>;
     setExcelImportFeedback: React.Dispatch<
-      React.SetStateAction<null | { type: "success" | "error"; message: string }>
+      React.SetStateAction<null | ExcelImportFeedback>
     >;
     setIsImportingExcel: React.Dispatch<React.SetStateAction<boolean>>;
     setAnexos: React.Dispatch<React.SetStateAction<AnexoItem[]>>;
@@ -138,6 +142,7 @@ type GeneralActionsContext = {
       empresa: string;
       contratanteByIndex: Record<string, string>;
     }>;
+    functionsData: PgrFunction[];
     planActionScope: "all" | "ghe" | "risk";
     riskGheGroups: RiskGheGroup[];
     planActionGheId: string;
@@ -186,15 +191,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setExtraEstabelecimentoFields,
     setFunctionsData,
     setGheGroups,
-    setCurrentGheId,
-    setCurrentRiskGheId,
-    setSelectedLeftIds,
-    setSelectedRightIds,
-    setGheSearch,
-    setSearchTerm,
-    setGheFilterId,
-    setHistory,
-    setLastGheNotice,
     setExcelImportFeedback,
     setIsImportingExcel,
     setAnexos,
@@ -204,6 +200,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
   const {
     lastCepLookupRef,
+    functionsData,
     planActionScope,
     riskGheGroups,
     planActionGheId,
@@ -726,24 +723,78 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setIsImportingExcel(true);
     try {
       const imported: ParsedDescricaoImport = await parseDescricaoExcel(file);
-      setFunctionsData(imported.functions);
-      setGheGroups(imported.gheGroups);
-      setCurrentGheId(imported.gheGroups[0]?.id ?? "ghe-1");
-      setRiskGheGroups(imported.riskGheGroups);
-      setCurrentRiskGheId(imported.riskGheGroups[0]?.id ?? "ghe-1");
-      setRemovedPlanRiskKeys([]);
-      setSelectedLeftIds([]);
-      setSelectedRightIds([]);
-      setGheSearch("");
-      setSearchTerm("");
-      setGheFilterId("all");
-      setHistory([]);
-      setLastGheNotice(null);
+
+      const normalizeFunctionKey = (setor: string, funcao: string) =>
+        `${setor.trim().toLowerCase()}||${funcao.trim().toLowerCase()}`;
+
+      const existingKeys = new Set(
+        functionsData.map((item) => normalizeFunctionKey(item.setor || "", item.funcao || ""))
+      );
+      const existingIds = new Set(functionsData.map((item) => item.id));
+      const importSeenKeys = new Set<string>();
+      const importedUniqueFunctions: PgrFunction[] = [];
+      let skippedExistingCount = 0;
+      let skippedDuplicatedInFileCount = 0;
+      const importBatchSeed = Date.now();
+
+      imported.functions.forEach((item, index) => {
+        const setor = String(item.setor || "").trim();
+        const funcao = String(item.funcao || "").trim();
+        const descricao = String(item.descricao || "").trim() || funcao;
+        const key = normalizeFunctionKey(setor, funcao);
+
+        if (existingKeys.has(key)) {
+          skippedExistingCount += 1;
+          return;
+        }
+
+        if (importSeenKeys.has(key)) {
+          skippedDuplicatedInFileCount += 1;
+          return;
+        }
+
+        importSeenKeys.add(key);
+        let idCandidate = `func-import-${importBatchSeed}-${index + 1}`;
+        let idRetry = 1;
+        while (existingIds.has(idCandidate)) {
+          idRetry += 1;
+          idCandidate = `func-import-${importBatchSeed}-${index + 1}-${idRetry}`;
+        }
+        existingIds.add(idCandidate);
+
+        importedUniqueFunctions.push({
+          id: idCandidate,
+          setor,
+          funcao,
+          descricao,
+        });
+      });
+
+      if (importedUniqueFunctions.length) {
+        setFunctionsData((prev) => [...prev, ...importedUniqueFunctions]);
+      }
+
       setExcelImportFeedback({
         type: "success",
-        message: `Planilha importada: ${imported.functions.length} funções e ${imported.gheGroups.length} GHEs.`,
+        message:
+          importedUniqueFunctions.length > 0
+            ? `Planilha importada: ${importedUniqueFunctions.length} funções adicionadas à lista geral${
+                skippedExistingCount || skippedDuplicatedInFileCount
+                  ? ` (${skippedExistingCount} já existentes e ${skippedDuplicatedInFileCount} duplicadas no arquivo foram ignoradas)`
+                  : ""
+              }.`
+            : "Nenhuma função nova foi adicionada. As funções da planilha já existem na lista geral.",
       });
     } catch (error) {
+      if (error instanceof DescricaoImportMissingRequiredFieldsError) {
+        setExcelImportFeedback({
+          type: "error",
+          message: "Arquivo inválido: há linhas com campos obrigatórios ausentes.",
+          missingRequiredFieldRows: error.missingRequiredFieldRows,
+        });
+        return;
+      }
+
       const rawMessage =
         error instanceof Error
           ? error.message
