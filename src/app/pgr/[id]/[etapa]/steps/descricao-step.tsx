@@ -81,11 +81,14 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const [isEditingGheName, setIsEditingGheName] = useState(false);
   const [editingGheName, setEditingGheName] = useState("");
   const [gheNameFeedback, setGheNameFeedback] = useState("");
+  const [isDeleteGheModalOpen, setIsDeleteGheModalOpen] = useState(false);
+  const [isDeleteGheFunctionsModalOpen, setIsDeleteGheFunctionsModalOpen] = useState(false);
   const [pendingRemoveFunction, setPendingRemoveFunction] = useState<null | {
     id: string;
     label: string;
     setor: string;
   }>(null);
+  const [isDeleteSelectedModalOpen, setIsDeleteSelectedModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [, setTouchedInfoFields] = useState<Partial<
     Record<RequiredGheInfoField, boolean>
@@ -125,6 +128,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     handleCreateNextGhe,
     handleRenameCurrentGhe,
     handleDeleteCurrentGhe,
+    handleDeleteCurrentGheAndFunctions,
     currentItems,
     functionMap,
     selectedRightIds,
@@ -318,14 +322,16 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     setGheNameFeedback("");
   };
 
-  const deleteCurrentGhe = () => {
+  const deleteCurrentGhe = (deleteFunctionsToo: boolean) => {
     if (gheGroups.length <= 1) {
       setGheNameFeedback("Não é possível excluir o único GHE.");
+      setIsDeleteGheModalOpen(false);
+      setIsDeleteGheFunctionsModalOpen(false);
       return;
     }
-    const confirmed = window.confirm(`Deseja excluir o ${currentGheName}?`);
-    if (!confirmed) return;
-    const didDelete = handleDeleteCurrentGhe();
+    const didDelete = deleteFunctionsToo
+      ? handleDeleteCurrentGheAndFunctions()
+      : handleDeleteCurrentGhe();
     if (!didDelete) {
       setGheNameFeedback("Não foi possível excluir o GHE.");
       return;
@@ -333,6 +339,8 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     setIsEditingGheName(false);
     setEditingGheName("");
     setGheNameFeedback("");
+    setIsDeleteGheModalOpen(false);
+    setIsDeleteGheFunctionsModalOpen(false);
   };
 
   const [leftVisibleCount, setLeftVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
@@ -446,9 +454,20 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   }, [isManualFunctionModalOpen]);
 
   useEffect(() => {
+    if (selectedLeftIds.length) return;
+    setIsDeleteSelectedModalOpen(false);
+  }, [selectedLeftIds.length]);
+
+  useEffect(() => {
     if (isEditingGheName) return;
     setEditingGheName(currentGheName);
   }, [currentGheName, isEditingGheName]);
+
+  useEffect(() => {
+    if (gheGroups.length > 1) return;
+    setIsDeleteGheModalOpen(false);
+    setIsDeleteGheFunctionsModalOpen(false);
+  }, [gheGroups.length]);
 
   useEffect(() => {
     if (!isInfoModalOpen) return;
@@ -478,6 +497,32 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     infoErrors[field]
       ? `${textareaBaseClass} border-rose-400 focus:ring-rose-500`
       : textareaBaseClass;
+
+  const selectedLeftFunctionsForDelete = useMemo(
+    () =>
+      selectedLeftIds.map((id) => {
+        const data = functionMap.get(id);
+        return {
+          id,
+          funcao: (data?.funcao || "").trim() || "Função não informada",
+          setor: (data?.setor || "").trim() || "Setor não informado",
+        };
+      }),
+    [functionMap, selectedLeftIds]
+  );
+
+  const currentGheFunctionsForDelete = useMemo(
+    () =>
+      currentItems.map((item) => {
+        const data = functionMap.get(item.functionId);
+        return {
+          id: item.functionId,
+          funcao: (data?.funcao || "").trim() || "Função não informada",
+          setor: (data?.setor || "").trim() || "Setor não informado",
+        };
+      }),
+    [currentItems, functionMap]
+  );
 
   return (
     <>
@@ -586,7 +631,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={deleteCurrentGhe}
+                        onClick={() => setIsDeleteGheModalOpen(true)}
                         className={`transition ${
                           gheGroups.length > 1
                             ? "text-muted-foreground hover:text-danger"
@@ -783,7 +828,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={deleteFunction}
+                    onClick={() => setIsDeleteSelectedModalOpen(true)}
                     disabled={!selectedLeftIds.length}
                     className={
                       selectedLeftIds.length
@@ -1095,6 +1140,181 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       className="btn-primary px-5"
                     >
                       Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isDeleteGheModalOpen ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-2xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Confirmar exclusão de GHE
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    Escolha como deseja excluir o{" "}
+                    <span className="font-semibold text-foreground">{currentGheName}</span>.
+                  </p>
+                  <p className="mt-2 text-[12px] text-muted-foreground">
+                    Este GHE possui{" "}
+                    <span className="font-semibold text-foreground">{currentItems.length}</span>{" "}
+                    {currentItems.length === 1 ? "função atribuída" : "funções atribuídas"}.
+                  </p>
+                  <div className="mt-6 overflow-x-auto">
+                    <div className="flex min-w-max items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteGheModalOpen(false)}
+                      className="btn-outline whitespace-nowrap px-4"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDeleteGheModalOpen(false);
+                        setIsDeleteGheFunctionsModalOpen(true);
+                      }}
+                      className="btn-primary whitespace-nowrap px-5"
+                    >
+                      Excluir GHE e as funções
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteCurrentGhe(false)}
+                      className="btn-primary whitespace-nowrap px-5"
+                    >
+                      Excluir GHE e manter as funções
+                    </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isDeleteGheFunctionsModalOpen ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Confirmar exclusão de GHE e funções
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    As funções abaixo serão excluídas junto com o{" "}
+                    <span className="font-semibold text-foreground">{currentGheName}</span>.
+                  </p>
+                  <div className="mt-4">
+                    <p className="text-[12px] font-medium text-foreground">
+                      Funções que serão excluídas
+                    </p>
+                    <div className="mt-2 max-h-[240px] overflow-auto rounded-[10px] border border-border/60 bg-background/40">
+                      {currentGheFunctionsForDelete.length ? (
+                        <ul className="divide-y divide-border/50">
+                          {currentGheFunctionsForDelete.map((item) => (
+                            <li key={item.id} className="px-3 py-2">
+                              <p className="text-[13px] text-foreground">
+                                <span className="font-semibold">{item.funcao}</span> -{" "}
+                                <span className="text-muted-foreground">
+                                  Setor {item.setor}
+                                </span>
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="px-3 py-3 text-[12px] text-muted-foreground">
+                          Nenhuma função atribuída a este GHE.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDeleteGheFunctionsModalOpen(false);
+                        setIsDeleteGheModalOpen(true);
+                      }}
+                      className="btn-outline px-4"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteCurrentGhe(true)}
+                      className="btn-primary px-5"
+                    >
+                      Excluir GHE e as funções
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isDeleteSelectedModalOpen ? (
+            <div className="fixed -inset-6 z-50">
+              <div className="absolute inset-0 bg-black/65" />
+              <div className="absolute inset-0 backdrop-blur-[2px]" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Confirmar exclusão
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    Deseja realmente excluir{" "}
+                    <span className="font-semibold text-foreground">
+                      {selectedLeftIds.length}
+                    </span>{" "}
+                    {selectedLeftIds.length === 1
+                      ? "função selecionada"
+                      : "funções selecionadas"}
+                    ?
+                  </p>
+                  <div className="mt-4">
+                    <p className="text-[12px] font-medium text-foreground">
+                      Funções que serão excluídas
+                    </p>
+                    <div className="mt-2 max-h-[240px] overflow-auto rounded-[10px] border border-border/60 bg-background/40">
+                      <ul className="divide-y divide-border/50">
+                        {selectedLeftFunctionsForDelete.map((item) => (
+                          <li key={item.id} className="px-3 py-2">
+                            <p className="text-[13px] text-foreground">
+                              <span className="font-semibold">{item.funcao}</span> -{" "}
+                              <span className="text-muted-foreground">
+                                Setor {item.setor}
+                              </span>
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteSelectedModalOpen(false)}
+                      className="btn-outline px-4"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteFunction();
+                        setIsDeleteSelectedModalOpen(false);
+                      }}
+                      className="btn-primary px-5"
+                    >
+                      Excluir selecionadas
                     </button>
                   </div>
                 </div>

@@ -84,7 +84,40 @@ const normalizeText = (value: string) =>
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const hasNumericToken = (value: string) => /\d/.test(value);
+const sanitizeNumericInput = (value: string) => {
+  const filtered = String(value || "").replace(/[^\d.,]/g, "");
+  const separatorIndex = filtered.search(/[.,]/);
+  if (separatorIndex === -1) return filtered;
+  const separator = filtered[separatorIndex];
+  const integerPart = filtered.slice(0, separatorIndex).replace(/[.,]/g, "");
+  const decimalPart = filtered.slice(separatorIndex + 1).replace(/[.,]/g, "");
+  return `${integerPart}${separator}${decimalPart}`;
+};
+const normalizeNumericInput = (value: string) =>
+  sanitizeNumericInput(value).replace(/[.,]$/, "");
+const isStrictNumericValue = (value: string) => /^\d+(?:[.,]\d+)?$/.test(value);
+
+const stripTrailingMeasuredUnit = (value: string, measuredUnit: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (!measuredUnit || isNaValue(measuredUnit)) return trimmed;
+  return trimmed
+    .replace(new RegExp(`\\s*${escapeRegExp(measuredUnit)}\\s*$`, "i"), "")
+    .trim();
+};
+const stripTrailingMeasuredUnits = (value: string, measuredUnits: string[]) =>
+  measuredUnits.reduce(
+    (acc, measuredUnit) => stripTrailingMeasuredUnit(acc, measuredUnit),
+    value
+  );
+const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) => ({
+  ...risk,
+  valorMedido: sanitizeNumericInput(
+    stripTrailingMeasuredUnits(String(risk.valorMedido || ""), measuredUnits)
+  ),
+  intensidade: stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits),
+  nivelAcao: stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
+});
 
 const createRiskId = () =>
   `risk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -639,6 +672,35 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       }
 
                       if (field !== "descricaoAgente") {
+                        if (field === "unidadeMedida") {
+                          const previousMeasuredUnit = String(risk.unidadeMedida || "").trim();
+                          const nextMeasuredUnit = String(value || "").trim();
+                          return sanitizeRiskMeasurementFields(
+                            {
+                              ...risk,
+                              unidadeMedida: value,
+                            },
+                            [previousMeasuredUnit, nextMeasuredUnit]
+                          );
+                        }
+
+                        if (
+                          field === "valorMedido" ||
+                          field === "intensidade" ||
+                          field === "nivelAcao"
+                        ) {
+                          const measuredUnits = [String(risk.unidadeMedida || "").trim()];
+                          const valueWithoutUnit = stripTrailingMeasuredUnits(
+                            value,
+                            measuredUnits
+                          );
+                          const sanitizedValue =
+                            field === "valorMedido"
+                              ? sanitizeNumericInput(valueWithoutUnit)
+                              : valueWithoutUnit;
+                          return { ...risk, [field]: sanitizedValue };
+                        }
+
                         return { ...risk, [field]: value };
                       }
 
@@ -666,7 +728,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         return nextRisk;
                       }
 
-                      return applyMissingRiskDefaults(nextRisk);
+                      const defaultedRisk = applyMissingRiskDefaults(nextRisk);
+                      return sanitizeRiskMeasurementFields(defaultedRisk, [
+                        String(defaultedRisk.unidadeMedida || "").trim(),
+                      ]);
                     })()
                   : risk
               ),
@@ -747,6 +812,36 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     window.addEventListener("mousedown", handleOutsideClick);
     return () => window.removeEventListener("mousedown", handleOutsideClick);
   }, [isCopyMenuOpen]);
+
+  useEffect(() => {
+    setRiskGheGroups((prev) => {
+      let hasChanges = false;
+      const next = prev.map((ghe) => {
+        let gheChanged = false;
+        const nextRisks = ghe.risks.map((risk) => {
+          const sanitizedRisk = sanitizeRiskMeasurementFields(risk, [
+            String(risk.unidadeMedida || "").trim(),
+          ]);
+          if (
+            sanitizedRisk.valorMedido !== String(risk.valorMedido || "") ||
+            sanitizedRisk.intensidade !== String(risk.intensidade || "") ||
+            sanitizedRisk.nivelAcao !== String(risk.nivelAcao || "")
+          ) {
+            gheChanged = true;
+            return sanitizedRisk;
+          }
+          return risk;
+        });
+        if (!gheChanged) return ghe;
+        hasChanges = true;
+        return {
+          ...ghe,
+          risks: nextRisks,
+        };
+      });
+      return hasChanges ? next : prev;
+    });
+  }, [riskGheGroups, setRiskGheGroups]);
 
   useEffect(() => {
     setVisibleRiskGheCount(PROGRESSIVE_BATCH_SIZE);
@@ -902,6 +997,45 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.descricaoAgente
             );
             const measuredUnit = String(risk.unidadeMedida || "").trim();
+            const measuredUnitPlaceholder =
+              measuredUnit && !isNaValue(measuredUnit)
+                ? measuredUnit
+                : "Unidade de Medida";
+            const sanitizedValorMedido = stripTrailingMeasuredUnits(
+              String(risk.valorMedido || ""),
+              [measuredUnit]
+            );
+            const numericValorMedido = sanitizeNumericInput(sanitizedValorMedido);
+            const sanitizedIntensidade = stripTrailingMeasuredUnits(
+              String(risk.intensidade || ""),
+              [measuredUnit]
+            );
+            const sanitizedNivelAcao = stripTrailingMeasuredUnits(
+              String(risk.nivelAcao || ""),
+              [measuredUnit]
+            );
+            const sanitizeOptionValues = (options: string[]) =>
+              Array.from(
+                new Set(
+                  options
+                    .map((option) => stripTrailingMeasuredUnits(option, [measuredUnit]).trim())
+                    .filter(Boolean)
+                )
+              );
+            const intensidadeOptions = sanitizeOptionValues(
+              getIntensidadeOptions(
+                risk.tipoAgente,
+                risk.descricaoAgente,
+                sanitizedIntensidade
+              )
+            );
+            const nivelAcaoOptions = sanitizeOptionValues(
+              getNivelAcaoOptions(
+                risk.tipoAgente,
+                risk.descricaoAgente,
+                sanitizedNivelAcao
+              )
+            );
             return (
               <div
                 key={risk.id}
@@ -1080,164 +1214,175 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       </div>
 
                     </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-4">
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Unidade de Medida *
-                        </label>
-                        <div className="mt-2">
-                          <SearchableSelect
-                            value={risk.unidadeMedida || ""}
-                            onChange={(value) => {
-                              handleRiskChange(risk.id, "unidadeMedida", value);
-                            }}
-                            options={getUnidadeMedidaOptions(
-                              risk.tipoAgente,
-                              risk.descricaoAgente,
-                              risk.unidadeMedida || ""
-                            ).map((option: string) => ({
-                              label: option,
-                              value: option,
-                            }))}
-                            buttonClassName={selectSmallClass}
-                            searchPlaceholder="Filtrar unidade"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Valor Medido *
-                        </label>
-                        <input
-                          className={inputBaseClass}
-                          value={risk.valorMedido || ""}
-                          onChange={(event) =>
-                            handleRiskChange(risk.id, "valorMedido", event.target.value)
-                          }
-                          onBlur={() => {
-                            if (!isQuantitativeEvaluation) return;
-                            const currentValue = String(risk.valorMedido || "").trim();
-                            if (!currentValue) return;
-
-                            const hasMeasuredUnit =
-                              measuredUnit && !isNaValue(measuredUnit);
-                            const valueWithoutUnit = hasMeasuredUnit
-                              ? currentValue
-                                  .replace(
-                                    new RegExp(escapeRegExp(measuredUnit), "ig"),
-                                    " "
-                                  )
-                                  .replace(/\s+/g, " ")
-                                  .trim()
-                              : currentValue;
-
-                            // Quantitativa exige valor numérico; evita estado "apenas unidade".
-                            if (!hasNumericToken(valueWithoutUnit)) {
-                              handleRiskChange(risk.id, "valorMedido", "");
-                              return;
-                            }
-
-                            if (!hasMeasuredUnit) return;
-                            if (normalizeText(currentValue).includes(normalizeText(measuredUnit))) {
-                              const normalized = `${valueWithoutUnit} ${measuredUnit}`
-                                .replace(/\s+/g, " ")
-                                .trim();
-                              if (normalized !== currentValue) {
-                                handleRiskChange(risk.id, "valorMedido", normalized);
-                              }
-                              return;
-                            }
-                            handleRiskChange(
-                              risk.id,
-                              "valorMedido",
-                              `${currentValue} ${measuredUnit}`.replace(/\s+/g, " ").trim()
-                            );
-                          }}
-                          disabled={!isQuantitativeEvaluation}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Limite de Tolerância *
-                        </label>
-                        {allowsCalculatedInputs ? (
-                          <input
-                            className={getRiskFieldClassName(
-                              risk.id,
-                              "intensidade",
-                              inputBaseClass
-                            )}
-                            value={risk.intensidade}
-                            onChange={(event) =>
-                              handleRiskChange(risk.id, "intensidade", event.target.value)
-                            }
-                            onBlur={() => markRiskTouched(risk.id, "intensidade")}
-                          />
-                        ) : (
+                    {isQuantitativeEvaluation ? (
+                      <div className="mt-4 grid gap-4 md:grid-cols-4">
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Unidade de Medida *
+                          </label>
                           <div className="mt-2">
                             <SearchableSelect
-                              value={risk.intensidade}
+                              value={risk.unidadeMedida || ""}
                               onChange={(value) => {
-                                markRiskTouched(risk.id, "intensidade");
-                                handleRiskChange(risk.id, "intensidade", value);
+                                handleRiskChange(risk.id, "unidadeMedida", value);
                               }}
-                              options={getIntensidadeOptions(
+                              options={getUnidadeMedidaOptions(
                                 risk.tipoAgente,
                                 risk.descricaoAgente,
-                                risk.intensidade
-                              ).map((option: string) => ({
-                                label: option,
-                                value: option,
-                              }))}
-                              buttonClassName={getRiskFieldClassName(
-                                risk.id,
-                                "intensidade",
-                                selectSmallClass
-                              )}
-                              searchPlaceholder="Filtrar intensidade"
-                            />
-                          </div>
-                        )}
-                        {getRiskFieldError(risk.id, "intensidade") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "intensidade")}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Nível de Ação *
-                        </label>
-                        {allowsCalculatedInputs ? (
-                          <input
-                            className={inputBaseClass}
-                            value={risk.nivelAcao || ""}
-                            onChange={(event) =>
-                              handleRiskChange(risk.id, "nivelAcao", event.target.value)
-                            }
-                          />
-                        ) : (
-                          <div className="mt-2">
-                            <SearchableSelect
-                              value={risk.nivelAcao || ""}
-                              onChange={(value) => {
-                                handleRiskChange(risk.id, "nivelAcao", value);
-                              }}
-                              options={getNivelAcaoOptions(
-                                risk.tipoAgente,
-                                risk.descricaoAgente,
-                                risk.nivelAcao || ""
+                                risk.unidadeMedida || ""
                               ).map((option: string) => ({
                                 label: option,
                                 value: option,
                               }))}
                               buttonClassName={selectSmallClass}
-                              searchPlaceholder="Filtrar nível de ação"
+                              searchPlaceholder="Filtrar unidade"
                             />
                           </div>
-                        )}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Valor Medido *
+                          </label>
+                          <input
+                            className={inputBaseClass}
+                            value={numericValorMedido}
+                            placeholder={measuredUnitPlaceholder}
+                            inputMode="decimal"
+                            onChange={(event) => {
+                              const nextValue = sanitizeNumericInput(event.target.value);
+                              handleRiskChange(risk.id, "valorMedido", nextValue);
+                            }}
+                            onBlur={() => {
+                              if (!isQuantitativeEvaluation) return;
+                              const currentValue = String(risk.valorMedido || "").trim();
+                              if (!currentValue) return;
+                              const valueWithoutUnit = stripTrailingMeasuredUnit(
+                                currentValue,
+                                measuredUnit
+                              );
+                              const normalizedNumericValue =
+                                normalizeNumericInput(valueWithoutUnit);
+
+                              if (!normalizedNumericValue) {
+                                handleRiskChange(risk.id, "valorMedido", "");
+                                return;
+                              }
+
+                              if (!isStrictNumericValue(normalizedNumericValue)) {
+                                handleRiskChange(risk.id, "valorMedido", "");
+                                return;
+                              }
+
+                              if (normalizedNumericValue !== currentValue) {
+                                handleRiskChange(
+                                  risk.id,
+                                  "valorMedido",
+                                  normalizedNumericValue
+                                );
+                              }
+                            }}
+                            disabled={!isQuantitativeEvaluation}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Limite de Tolerância *
+                          </label>
+                          {allowsCalculatedInputs ? (
+                            <input
+                              className={getRiskFieldClassName(
+                                risk.id,
+                                "intensidade",
+                                inputBaseClass
+                              )}
+                              value={sanitizedIntensidade}
+                              placeholder={measuredUnitPlaceholder}
+                              onChange={(event) =>
+                                handleRiskChange(risk.id, "intensidade", event.target.value)
+                              }
+                              onBlur={() => {
+                                const currentValue = String(risk.intensidade || "").trim();
+                                const sanitizedValue = stripTrailingMeasuredUnit(
+                                  currentValue,
+                                  measuredUnit
+                                );
+                                if (sanitizedValue !== currentValue) {
+                                  handleRiskChange(risk.id, "intensidade", sanitizedValue);
+                                }
+                                markRiskTouched(risk.id, "intensidade");
+                              }}
+                            />
+                          ) : (
+                            <div className="mt-2">
+                              <SearchableSelect
+                                value={sanitizedIntensidade}
+                                onChange={(value) => {
+                                  markRiskTouched(risk.id, "intensidade");
+                                  handleRiskChange(risk.id, "intensidade", value);
+                                }}
+                                placeholder={measuredUnitPlaceholder}
+                                options={intensidadeOptions.map((option: string) => ({
+                                  label: option,
+                                  value: option,
+                                }))}
+                                buttonClassName={getRiskFieldClassName(
+                                  risk.id,
+                                  "intensidade",
+                                  selectSmallClass
+                                )}
+                                searchPlaceholder="Filtrar intensidade"
+                              />
+                            </div>
+                          )}
+                          {getRiskFieldError(risk.id, "intensidade") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "intensidade")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Nível de Ação *
+                          </label>
+                          {allowsCalculatedInputs ? (
+                            <input
+                              className={inputBaseClass}
+                              value={sanitizedNivelAcao}
+                              placeholder={measuredUnitPlaceholder}
+                              onChange={(event) =>
+                                handleRiskChange(risk.id, "nivelAcao", event.target.value)
+                              }
+                              onBlur={() => {
+                                const currentValue = String(risk.nivelAcao || "").trim();
+                                const sanitizedValue = stripTrailingMeasuredUnit(
+                                  currentValue,
+                                  measuredUnit
+                                );
+                                if (sanitizedValue !== currentValue) {
+                                  handleRiskChange(risk.id, "nivelAcao", sanitizedValue);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="mt-2">
+                              <SearchableSelect
+                                value={sanitizedNivelAcao}
+                                onChange={(value) => {
+                                  handleRiskChange(risk.id, "nivelAcao", value);
+                                }}
+                                placeholder={measuredUnitPlaceholder}
+                                options={nivelAcaoOptions.map((option: string) => ({
+                                  label: option,
+                                  value: option,
+                                }))}
+                                buttonClassName={selectSmallClass}
+                                searchPlaceholder="Filtrar nível de ação"
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                     <div className="mt-4 grid gap-4 md:grid-cols-4">
                       <div>
                         <label className="text-[12px] font-medium text-foreground">

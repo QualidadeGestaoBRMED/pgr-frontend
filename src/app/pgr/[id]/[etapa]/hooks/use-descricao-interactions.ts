@@ -356,7 +356,7 @@ export function useDescricaoInteractions({
     return true;
   };
 
-  const handleDeleteCurrentGhe = () => {
+  const deleteCurrentGhe = (deleteAssignedFunctions: boolean) => {
     if (!currentGhe) return false;
     if (gheGroups.length <= 1) return false;
 
@@ -367,8 +367,25 @@ export function useDescricaoInteractions({
       null;
     if (!nextGhe) return false;
 
+    const assignedFunctionIds = currentGhe.items.map((item) => item.functionId);
     pushHistory();
-    setGheGroups((prev) => prev.filter((ghe) => ghe.id !== currentGhe.id));
+    if (deleteAssignedFunctions && assignedFunctionIds.length) {
+      setFunctionsData((prev) =>
+        prev.filter((item) => !assignedFunctionIds.includes(item.id))
+      );
+      setGheGroups((prev) =>
+        prev
+          .filter((ghe) => ghe.id !== currentGhe.id)
+          .map((ghe) => ({
+            ...ghe,
+            items: ghe.items.filter(
+              (item) => !assignedFunctionIds.includes(item.functionId)
+            ),
+          }))
+      );
+    } else {
+      setGheGroups((prev) => prev.filter((ghe) => ghe.id !== currentGhe.id));
+    }
     setRiskGheGroups((prev) => prev.filter((ghe) => ghe.id !== currentGhe.id));
     setCurrentGheId(nextGhe.id);
     setCurrentRiskGheId(nextGhe.id);
@@ -377,6 +394,9 @@ export function useDescricaoInteractions({
     setSelectedRightIds([]);
     return true;
   };
+
+  const handleDeleteCurrentGhe = () => deleteCurrentGhe(false);
+  const handleDeleteCurrentGheAndFunctions = () => deleteCurrentGhe(true);
 
   const handleOpenInfoForAdvance = () => {
     if (!canOpenInfoModal || !allGhesDescribed) return;
@@ -707,6 +727,7 @@ export function useDescricaoInteractions({
     handleCreateNextGhe,
     handleRenameCurrentGhe,
     handleDeleteCurrentGhe,
+    handleDeleteCurrentGheAndFunctions,
     handleOpenInfoForAdvance,
     handleConfirmInfoModal,
     handleSelectGhe,
