@@ -308,11 +308,15 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       try {
         const data = await apiGet<RiskCatalogPayload>(`/api/catalogs/risk?ts=${Date.now()}`);
         if (!active) return;
+        const hasMatrixData =
+          Array.isArray(data.riskMatrix?.qualitative) &&
+          data.riskMatrix.qualitative.length > 0 &&
+          Array.isArray(data.riskMatrix?.quantitative) &&
+          data.riskMatrix.quantitative.length > 0;
+
         const hasCatalogData =
-          Array.isArray(data.riskAgents) &&
-          data.riskAgents.length > 0 &&
-          Array.isArray(data.riskDescriptions) &&
-          data.riskDescriptions.length > 0;
+          (Array.isArray(data.riskAgents) && data.riskAgents.length > 0) ||
+          hasMatrixData;
 
         if (!hasCatalogData) {
           setRiskCatalogs(null);

@@ -488,7 +488,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
         intensidade: calculatedDefaultValue || firstTechnicalCriteria?.intensity || "",
         nivelAcao: firstTechnicalCriteria?.actionLevel || "",
-        severidade: firstTechnicalCriteria?.severity || "Média",
+        severidade: firstTechnicalCriteria?.severity || "3",
         probabilidade: "3",
         classificacao: "",
         medidasControle: controlMeasureDefaults.join(", "),
@@ -669,7 +669,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           (item) => item.severity
         )
       );
-      const options = optionsFromCriteria.length ? optionsFromCriteria : ["Média"];
+      const options = optionsFromCriteria.length ? optionsFromCriteria : ["3"];
       return withCurrentValue(options, currentValue);
     },
     [resolveTechnicalCriteriaOptions]
