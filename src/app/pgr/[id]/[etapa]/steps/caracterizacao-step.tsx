@@ -173,9 +173,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     getFontesOptions,
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
+    getHasQuantitativeCriteria,
     getMedidasControleOptions,
     getEpiOptions,
     getEpcOptions,
+    calculateRiskClassification,
     inputBaseClass,
     inputInlineClass,
     textareaBaseClass,
@@ -647,6 +649,24 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     value: string
   ) => {
     if (!currentRiskGhe) return;
+    const withComputedClassification = (nextRisk: GheRisk) => {
+      const hasSeverity = String(nextRisk.severidade || "").trim().length > 0;
+      const hasProbability = String(nextRisk.probabilidade || "").trim().length > 0;
+      if (!hasSeverity || !hasProbability) {
+        if (!nextRisk.classificacao) return nextRisk;
+        return { ...nextRisk, classificacao: "" };
+      }
+      const calculated = calculateRiskClassification(nextRisk);
+      const classificationName = String(calculated?.classification || "").trim();
+      if (!classificationName) {
+        if (!nextRisk.classificacao) return nextRisk;
+        return { ...nextRisk, classificacao: "" };
+      }
+      if (classificationName === String(nextRisk.classificacao || "").trim()) {
+        return nextRisk;
+      }
+      return { ...nextRisk, classificacao: classificationName };
+    };
     setRiskGheGroups((prev: RiskGheGroup[]) =>
       prev.map((ghe) =>
         ghe.id === currentRiskGhe.id
@@ -676,17 +696,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           epc: "",
                           epi: "",
                         };
-                        return nextRisk;
+                        return withComputedClassification(nextRisk);
                       }
 
                       if (field !== "descricaoAgente") {
+                        if (field === "classificacao") {
+                          return { ...risk, classificacao: value };
+                        }
+
                         if (field === "tipoAvaliacao") {
-                          return sanitizeRiskMeasurementFields(
+                          return withComputedClassification(
+                            sanitizeRiskMeasurementFields(
                             {
                               ...risk,
                               tipoAvaliacao: value,
                             },
                             parseCommaSeparatedValues(risk.unidadeMedida)
+                            )
                           );
                         }
 
@@ -695,12 +721,14 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             risk.unidadeMedida
                           );
                           const nextMeasuredUnits = parseCommaSeparatedValues(value);
-                          return sanitizeRiskMeasurementFields(
+                          return withComputedClassification(
+                            sanitizeRiskMeasurementFields(
                             {
                               ...risk,
                               unidadeMedida: value,
                             },
                             [...previousMeasuredUnits, ...nextMeasuredUnits]
+                            )
                           );
                         }
 
@@ -720,10 +748,13 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             field === "valorMedido"
                               ? sanitizeNumericInput(valueWithoutUnit)
                               : valueWithoutUnit;
-                          return { ...risk, [field]: sanitizedValue };
+                          return withComputedClassification({
+                            ...risk,
+                            [field]: sanitizedValue,
+                          });
                         }
 
-                        return { ...risk, [field]: value };
+                        return withComputedClassification({ ...risk, [field]: value });
                       }
 
                       const nextRisk = {
@@ -747,13 +778,15 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       };
 
                       if (!nextRisk.tipoAgente || !nextRisk.descricaoAgente) {
-                        return nextRisk;
+                        return withComputedClassification(nextRisk);
                       }
 
                       const defaultedRisk = applyMissingRiskDefaults(nextRisk);
-                      return sanitizeRiskMeasurementFields(
-                        defaultedRisk,
-                        parseCommaSeparatedValues(defaultedRisk.unidadeMedida)
+                      return withComputedClassification(
+                        sanitizeRiskMeasurementFields(
+                          defaultedRisk,
+                          parseCommaSeparatedValues(defaultedRisk.unidadeMedida)
+                        )
                       );
                     })()
                   : risk
@@ -1027,6 +1060,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const isMinimized = Boolean(minimizedRiskIds[risk.id]);
             const isQuantitativeEvaluation = normalizeText(risk.tipoAvaliacao).includes("quantit");
             const isQualitativeEvaluation = normalizeText(risk.tipoAvaliacao).includes("qualit");
+            const hasQuantitativeCriteria = getHasQuantitativeCriteria(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            );
             const selectedMeasuredUnits = parseMultiTextValues(risk.unidadeMedida || "");
             const measuredUnit = selectedMeasuredUnits[0] || "";
             const measuredUnitPlaceholder =
@@ -1591,15 +1628,38 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         <label className="text-[12px] font-medium text-foreground">
                           Tipo de Avaliação *
                         </label>
-                        <input
-                          className={getRiskFieldClassName(
-                            risk.id,
-                            "tipoAvaliacao",
-                            inputBaseClass
-                          )}
-                          value={risk.tipoAvaliacao}
-                          disabled
-                        />
+                        {hasQuantitativeCriteria ? (
+                          <div className="mt-2">
+                            <SearchableSelect
+                              value={risk.tipoAvaliacao}
+                              onChange={(value) => {
+                                markRiskTouched(risk.id, "tipoAvaliacao");
+                                handleRiskChange(risk.id, "tipoAvaliacao", value);
+                              }}
+                              options={["Qualitativa", "Quantitativa"]
+                                .map((option) => ({
+                                  label: option,
+                                  value: option,
+                                }))}
+                              buttonClassName={getRiskFieldClassName(
+                                risk.id,
+                                "tipoAvaliacao",
+                                selectSmallClass
+                              )}
+                              searchPlaceholder="Filtrar tipo"
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            className={getRiskFieldClassName(
+                              risk.id,
+                              "tipoAvaliacao",
+                              inputBaseClass
+                            )}
+                            value={risk.tipoAvaliacao}
+                            disabled
+                          />
+                        )}
                         {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
                           <p className="mt-1 text-[12px] text-danger">
                             {getRiskFieldError(risk.id, "tipoAvaliacao")}

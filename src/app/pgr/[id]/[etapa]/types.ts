@@ -79,6 +79,39 @@ export type RiskCatalogItem = {
   agent: number;
 };
 
+export type RiskMatrixTemplateItem = {
+  id: number;
+  name: string;
+  isActive?: boolean;
+};
+
+export type RiskMatrixQualitativeItem = {
+  id: number;
+  templateId: number;
+  severityValue: number;
+  probabilityValue: number;
+  classificationId: number;
+  classificationName: string;
+};
+
+export type RiskMatrixQuantitativeItem = {
+  id: number;
+  templateId: number;
+  qualitativeId: number;
+  qualitativeClassificationId?: number;
+  levelValue: number;
+  levelId: number;
+  classificationId: number;
+  classificationName: string;
+};
+
+export type RiskMatrixPayload = {
+  activeTemplateId?: number | null;
+  templates: RiskMatrixTemplateItem[];
+  qualitative: RiskMatrixQualitativeItem[];
+  quantitative: RiskMatrixQuantitativeItem[];
+};
+
 export type TechnicalCriteriaCatalogItem = {
   description: string;
   standard?: string;
@@ -91,6 +124,8 @@ export type TechnicalCriteriaCatalogItem = {
   propagation_path_children?: unknown;
   evaluationType?: string;
   evaluation_type?: string;
+  hasQuantitative?: boolean;
+  has_quantitative?: boolean;
   severity?: string | number | { value?: string | number; name?: string };
   limit?: string | number | null;
   toleranceLimit?: string | number | null;
@@ -119,6 +154,7 @@ export type RiskCatalogPayload = {
   propagationPaths: RiskCatalogItem[];
   healthDamages: RiskCatalogItem[];
   technicalCriteria: TechnicalCriteriaCatalogItem[];
+  riskMatrix?: RiskMatrixPayload;
 };
 
 export type ParsedDescricaoImport = {

@@ -17,6 +17,12 @@ const emptyPayload = {
   propagationPaths: [],
   healthDamages: [],
   technicalCriteria: [],
+  riskMatrix: {
+    activeTemplateId: null,
+    templates: [],
+    qualitative: [],
+    quantitative: [],
+  },
 };
 
 export async function GET(request: Request) {

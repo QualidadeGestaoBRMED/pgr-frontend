@@ -4,6 +4,7 @@ import type {
   RiskCatalogPayload,
   TechnicalCriteriaCatalogItem,
 } from "../types";
+import { useRiskClassification } from "./use-risk-classification";
 
 const normalizeCatalogToken = (value: string) =>
   value
@@ -146,6 +147,34 @@ const resolveEvaluationType = (item: TechnicalCriteriaCatalogItem) => {
   return hasToleranceLimit || hasActionLevel ? "Quantitativa" : "Qualitativa";
 };
 
+const resolveHasQuantitative = (item: TechnicalCriteriaCatalogItem) => {
+  const rawValue: unknown = item.hasQuantitative ?? item.has_quantitative;
+  if (typeof rawValue === "boolean") return rawValue;
+  if (typeof rawValue === "number") return rawValue !== 0;
+  if (typeof rawValue === "string") {
+    const normalized = rawValue.trim().toLowerCase();
+    return ["1", "true", "t", "yes", "y", "sim", "s"].includes(normalized);
+  }
+
+  const rawType = toSafeCatalogText(
+    item.evaluationType ?? item.evaluation_type
+  ).toLowerCase();
+  if (rawType.startsWith("quant")) return true;
+  if (rawType.startsWith("qual")) return false;
+
+  const toleranceLimit = item.toleranceLimit ?? item.tolerance_limit ?? item.limit;
+  const actionLevel = item.actionLevel ?? item.action_level;
+  const hasToleranceLimit =
+    toleranceLimit !== undefined &&
+    toleranceLimit !== null &&
+    toSafeCatalogText(toleranceLimit) !== "";
+  const hasActionLevel =
+    actionLevel !== undefined &&
+    actionLevel !== null &&
+    toSafeCatalogText(actionLevel) !== "";
+  return hasToleranceLimit || hasActionLevel;
+};
+
 const resolveIntensity = (item: TechnicalCriteriaCatalogItem) => {
   const toleranceLimit = item.toleranceLimit ?? item.tolerance_limit ?? item.limit;
   const limitText = toSafeCatalogText(toleranceLimit);
@@ -224,6 +253,7 @@ type TechnicalCriteriaResolved = {
   intensity: string;
   actionLevel: string;
   isCalculated: boolean;
+  hasQuantitative: boolean;
   severity: string;
   controlMeasureValues: string[];
   ppeValues: string[];
@@ -241,6 +271,7 @@ export const areStringArraysEqual = (a: string[] | undefined, b: string[] | unde
 };
 
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
+  const { calculateRiskClassification } = useRiskClassification(riskCatalogs);
   const normalizeAgentName = useCallback(
     (value: string) => normalizeCatalogToken((value || "").trim()),
     []
@@ -292,6 +323,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const propagationPath = propagationPathValues[0] || "";
       const unit = unitValues[0] || "";
       const evaluationType = resolveEvaluationType(item);
+      const hasQuantitative = resolveHasQuantitative(item);
       const intensity = resolveIntensity(item);
       const actionLevel = resolveActionLevel(item);
       const isCalculated = resolveIsCalculated(item);
@@ -306,6 +338,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         propagationPathValues.join("|"),
         unit,
         unitValues.join("|"),
+        hasQuantitative ? "1" : "0",
         controlMeasureValues.join("|"),
         ppeValues.join("|"),
         cpeValues.join("|"),
@@ -327,6 +360,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
               entry.propagationPathValues.join("|"),
               entry.unit,
               entry.unitValues.join("|"),
+              entry.hasQuantitative ? "1" : "0",
               entry.controlMeasureValues.join("|"),
               entry.ppeValues.join("|"),
               entry.cpeValues.join("|"),
@@ -348,6 +382,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           unit,
           unitValues,
           evaluationType,
+          hasQuantitative,
           intensity,
           actionLevel,
           isCalculated,
@@ -455,7 +490,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         nivelAcao: firstTechnicalCriteria?.actionLevel || "",
         severidade: firstTechnicalCriteria?.severity || "Média",
         probabilidade: "3",
-        classificacao: "Moderado",
+        classificacao: "",
         medidasControle: controlMeasureDefaults.join(", "),
         epc: cpeDefaults.join(", "),
         epi: ppeDefaults.join(", "),
@@ -476,6 +511,14 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const shouldUseDefaultPropagation =
         !normalizedRisk.meioPropagacao ||
         isGenericPropagationValue(normalizedRisk.meioPropagacao);
+      const classification = calculateRiskClassification({
+        severidade: normalizedRisk.severidade || defaults.severidade || "",
+        probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
+        tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
+        valorMedido: normalizedRisk.valorMedido || "",
+        intensidade: normalizedRisk.intensidade || defaults.intensidade || "",
+        nivelAcao: normalizedRisk.nivelAcao || defaults.nivelAcao || "",
+      });
       return {
         ...normalizedRisk,
         meioPropagacao: shouldUseDefaultPropagation
@@ -488,13 +531,17 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         nivelAcao: normalizedRisk.nivelAcao || defaults.nivelAcao || "",
         severidade: normalizedRisk.severidade || defaults.severidade || "",
         probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
-        classificacao: normalizedRisk.classificacao || defaults.classificacao || "",
+        classificacao:
+          classification?.classification ||
+          normalizedRisk.classificacao ||
+          defaults.classificacao ||
+          "",
         medidasControle: normalizedRisk.medidasControle || defaults.medidasControle || "",
         epc: normalizedRisk.epc || defaults.epc || "",
         epi: normalizedRisk.epi || defaults.epi || "",
       };
     },
-    [getRiskDefaults]
+    [calculateRiskClassification, getRiskDefaults]
   );
 
   const getDescricaoAgenteOptions = useCallback(
@@ -556,6 +603,14 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         : ["Qualitativa", "Quantitativa"];
       return withCurrentValue(options, currentValue);
     },
+    [resolveTechnicalCriteriaOptions]
+  );
+
+  const getHasQuantitativeCriteria = useCallback(
+    (tipoAgente: string, descricaoAgente: string) =>
+      resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).some(
+        (item) => item.hasQuantitative
+      ),
     [resolveTechnicalCriteriaOptions]
   );
 
@@ -669,10 +724,12 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getUnidadeMedidaOptions,
     getIntensidadeOptions,
     getIsCalculatedCriteria,
+    getHasQuantitativeCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
     getMedidasControleOptions,
     getEpiOptions,
     getEpcOptions,
+    calculateRiskClassification,
   };
 }
