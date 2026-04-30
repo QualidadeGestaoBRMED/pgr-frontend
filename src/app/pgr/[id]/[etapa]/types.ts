@@ -83,8 +83,12 @@ export type TechnicalCriteriaCatalogItem = {
   description: string;
   standard?: string;
   source?: string;
+  sourceChildren?: unknown;
+  source_children?: unknown;
   propagationPath?: string;
   propagation_path?: string;
+  propagationPathChildren?: unknown;
+  propagation_path_children?: unknown;
   evaluationType?: string;
   evaluation_type?: string;
   severity?: string | number | { value?: string | number; name?: string };
@@ -96,6 +100,14 @@ export type TechnicalCriteriaCatalogItem = {
   isCalculated?: boolean;
   is_calculated?: boolean;
   unit?: string;
+  unitChildren?: unknown;
+  unit_children?: unknown;
+  controlMeasureDescriptionChildren?: unknown;
+  control_measure_description_children?: unknown;
+  ppeChildren?: unknown;
+  ppe_children?: unknown;
+  cpeChildren?: unknown;
+  cpe_children?: unknown;
   agent: number | string;
 };
 

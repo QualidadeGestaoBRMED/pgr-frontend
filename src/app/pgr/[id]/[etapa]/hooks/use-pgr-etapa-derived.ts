@@ -127,6 +127,9 @@ export function usePgrEtapaDerived({
     getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
+    getMedidasControleOptions,
+    getEpiOptions,
+    getEpcOptions,
   } =
     useRiskCatalogHelpers(riskCatalogs);
 
@@ -551,6 +554,9 @@ export function usePgrEtapaDerived({
     getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
+    getMedidasControleOptions,
+    getEpiOptions,
+    getEpcOptions,
     diretrizOptions,
     estabelecimentoOptions,
     normalizedGheSearch,

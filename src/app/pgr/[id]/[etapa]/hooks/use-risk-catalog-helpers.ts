@@ -5,8 +5,6 @@ import type {
   TechnicalCriteriaCatalogItem,
 } from "../types";
 
-const DEFAULT_EPC_EPI_TEXT = "A ser evidenciado na fase de reconhecimento";
-
 const normalizeCatalogToken = (value: string) =>
   value
     .normalize("NFD")
@@ -56,6 +54,77 @@ const toSafeCatalogText = (value: unknown) => {
   return "";
 };
 
+const toValuesFromUnknown = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => toValuesFromUnknown(item));
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return [
+      toSafeCatalogText(record.name),
+      toSafeCatalogText(record.value),
+      toSafeCatalogText(record.source),
+      toSafeCatalogText(record.propagationPath ?? record.propagation_path),
+      toSafeCatalogText(record.unit),
+      toSafeCatalogText(record.source__name),
+      toSafeCatalogText(record.propagation_path__name),
+      toSafeCatalogText(record.unit__name),
+      ...toValuesFromUnknown(record.source_children),
+      ...toValuesFromUnknown(record.propagation_path_children),
+      ...toValuesFromUnknown(record.unit_children),
+      ...toValuesFromUnknown(record.sourceChildren),
+      ...toValuesFromUnknown(record.propagationPathChildren),
+      ...toValuesFromUnknown(record.unitChildren),
+    ].filter(Boolean);
+  }
+  const safe = toSafeCatalogText(value);
+  return safe ? [safe] : [];
+};
+
+const uniqueValues = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
+const resolveSourceValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.source),
+    ...toValuesFromUnknown(item.sourceChildren),
+    ...toValuesFromUnknown(item.source_children),
+  ]);
+
+const resolvePropagationPathValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues(
+    [
+      ...toValuesFromUnknown(item.propagationPath ?? item.propagation_path),
+      ...toValuesFromUnknown(item.propagationPathChildren),
+      ...toValuesFromUnknown(item.propagation_path_children),
+    ].filter((value) => !isGenericPropagationValue(value))
+  );
+
+const resolveUnitValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.unit),
+    ...toValuesFromUnknown(item.unitChildren),
+    ...toValuesFromUnknown(item.unit_children),
+  ]);
+
+const resolveControlMeasureValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.controlMeasureDescriptionChildren),
+    ...toValuesFromUnknown(item.control_measure_description_children),
+  ]);
+
+const resolvePpeValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.ppeChildren),
+    ...toValuesFromUnknown(item.ppe_children),
+  ]);
+
+const resolveCpeValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.cpeChildren),
+    ...toValuesFromUnknown(item.cpe_children),
+  ]);
+
 const resolveEvaluationType = (item: TechnicalCriteriaCatalogItem) => {
   const rawType = toSafeCatalogText(
     item.evaluationType ?? item.evaluation_type
@@ -80,7 +149,7 @@ const resolveEvaluationType = (item: TechnicalCriteriaCatalogItem) => {
 const resolveIntensity = (item: TechnicalCriteriaCatalogItem) => {
   const toleranceLimit = item.toleranceLimit ?? item.tolerance_limit ?? item.limit;
   const limitText = toSafeCatalogText(toleranceLimit);
-  const unitText = toSafeCatalogText(item.unit);
+  const unitText = resolveUnitValues(item)[0] || "";
   if (!limitText) return "N/A";
   return `${limitText}${unitText ? ` ${unitText}` : ""}`;
 };
@@ -88,7 +157,7 @@ const resolveIntensity = (item: TechnicalCriteriaCatalogItem) => {
 const resolveActionLevel = (item: TechnicalCriteriaCatalogItem) => {
   const rawActionLevel = item.actionLevel ?? item.action_level;
   const actionLevelText = toSafeCatalogText(rawActionLevel);
-  const unitText = toSafeCatalogText(item.unit);
+  const unitText = resolveUnitValues(item)[0] || "";
   if (!actionLevelText) return "Calculado";
   return `${actionLevelText}${unitText ? ` ${unitText}` : ""}`;
 };
@@ -146,13 +215,19 @@ type TechnicalCriteriaResolved = {
   description: string;
   descriptionToken: string;
   source: string;
+  sourceValues: string[];
   propagationPath: string;
+  propagationPathValues: string[];
   unit: string;
+  unitValues: string[];
   evaluationType: string;
   intensity: string;
   actionLevel: string;
   isCalculated: boolean;
   severity: string;
+  controlMeasureValues: string[];
+  ppeValues: string[];
+  cpeValues: string[];
 };
 
 export const hasMeaningfulSelections = (values: string[] | undefined) =>
@@ -163,63 +238,6 @@ export const areStringArraysEqual = (a: string[] | undefined, b: string[] | unde
   const right = Array.isArray(b) ? b : [];
   if (left.length !== right.length) return false;
   return left.every((value, index) => value === right[index]);
-};
-
-const deriveProtectionDefaults = (risk: GheRisk) => {
-  const tipo = normalizeCatalogToken(risk.tipoAgente);
-  const descricao = normalizeCatalogToken(risk.descricaoAgente);
-
-  const epc = new Set<string>();
-  const epi = new Set<string>();
-
-  const addEpc = (...items: string[]) => {
-    items.forEach((item) => epc.add(item));
-  };
-  const addEpi = (...items: string[]) => {
-    items.forEach((item) => epi.add(item));
-  };
-
-  if (tipo.includes("quim")) {
-    addEpc("Sistema de exaustão", "Ventilação local");
-    addEpi("Respirador (CA 67890)", "Óculos de proteção (CA 55555)");
-  }
-
-  if (tipo.includes("fis")) {
-    addEpc("Barreiras físicas");
-  }
-
-  if (tipo.includes("bio")) {
-    addEpc("Barreiras físicas");
-    addEpi("Respirador (CA 67890)", "Óculos de proteção (CA 55555)");
-  }
-
-  if (descricao.includes("ruido")) {
-    addEpc("Barreiras físicas");
-    addEpi("Protetor auricular (CA 44444)");
-  }
-
-  if (
-    descricao.includes("poeira") ||
-    descricao.includes("fum") ||
-    descricao.includes("vap") ||
-    descricao.includes("gas")
-  ) {
-    addEpc("Sistema de exaustão", "Ventilação local");
-    addEpi("Respirador (CA 67890)", "Óculos de proteção (CA 55555)");
-  }
-
-  if (descricao.includes("solda")) {
-    addEpi("Máscara de solda (CA 12345)", "Óculos de proteção (CA 55555)");
-    addEpc("Cortinas de proteção");
-  }
-
-  const nextEpc = Array.from(epc);
-  const nextEpi = Array.from(epi);
-
-  return {
-    epc: nextEpc.length ? nextEpc : [DEFAULT_EPC_EPI_TEXT],
-    epi: nextEpi.length ? nextEpi : [DEFAULT_EPC_EPI_TEXT],
-  };
 };
 
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
@@ -264,11 +282,15 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const descriptionToken = normalizeCatalogToken(description);
       if (!descriptionToken) return;
 
-      const source = toSafeCatalogText(item.source);
-      const propagationPath = toSafeCatalogText(
-        item.propagationPath ?? item.propagation_path
-      );
-      const unit = toSafeCatalogText(item.unit);
+      const sourceValues = resolveSourceValues(item);
+      const propagationPathValues = resolvePropagationPathValues(item);
+      const unitValues = resolveUnitValues(item);
+      const controlMeasureValues = resolveControlMeasureValues(item);
+      const ppeValues = resolvePpeValues(item);
+      const cpeValues = resolveCpeValues(item);
+      const source = sourceValues[0] || "";
+      const propagationPath = propagationPathValues[0] || "";
+      const unit = unitValues[0] || "";
       const evaluationType = resolveEvaluationType(item);
       const intensity = resolveIntensity(item);
       const actionLevel = resolveActionLevel(item);
@@ -279,8 +301,14 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const dedupeKey = [
         descriptionToken,
         source,
+        sourceValues.join("|"),
         propagationPath,
+        propagationPathValues.join("|"),
         unit,
+        unitValues.join("|"),
+        controlMeasureValues.join("|"),
+        ppeValues.join("|"),
+        cpeValues.join("|"),
         evaluationType,
         intensity,
         actionLevel,
@@ -294,8 +322,14 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
             [
               entry.descriptionToken,
               entry.source,
+              entry.sourceValues.join("|"),
               entry.propagationPath,
+              entry.propagationPathValues.join("|"),
               entry.unit,
+              entry.unitValues.join("|"),
+              entry.controlMeasureValues.join("|"),
+              entry.ppeValues.join("|"),
+              entry.cpeValues.join("|"),
               entry.evaluationType,
               entry.intensity,
               entry.actionLevel,
@@ -308,13 +342,19 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           description,
           descriptionToken,
           source,
+          sourceValues,
           propagationPath,
+          propagationPathValues,
           unit,
+          unitValues,
           evaluationType,
           intensity,
           actionLevel,
           isCalculated,
           severity,
+          controlMeasureValues,
+          ppeValues,
+          cpeValues,
         });
       }
       grouped.set(safeAgentId, current);
@@ -393,10 +433,15 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         (!firstTechnicalCriteria?.intensity || isNaSelection(firstTechnicalCriteria.intensity))
           ? "Calculado"
           : "";
-      const medidasControleDefault = risk.descricaoAgente
-        ? `Implementar medidas de prevenção e controle para exposição a ${risk.descricaoAgente}.`
-        : "";
-      const protectionDefaults = deriveProtectionDefaults(risk);
+      const controlMeasureDefaults = uniqueNonEmptyValues(
+        technicalCriteriaDefaults.map((item) => item.controlMeasureValues).flat()
+      );
+      const ppeDefaults = uniqueNonEmptyValues(
+        technicalCriteriaDefaults.map((item) => item.ppeValues).flat()
+      );
+      const cpeDefaults = uniqueNonEmptyValues(
+        technicalCriteriaDefaults.map((item) => item.cpeValues).flat()
+      );
       return {
         meioPropagacao:
           firstTechnicalCriteria?.propagationPath ||
@@ -411,9 +456,9 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         severidade: firstTechnicalCriteria?.severity || "Média",
         probabilidade: "3",
         classificacao: "Moderado",
-        medidasControle: medidasControleDefault,
-        epc: protectionDefaults.epc.join(", "),
-        epi: protectionDefaults.epi.join(", "),
+        medidasControle: controlMeasureDefaults.join(", "),
+        epc: cpeDefaults.join(", "),
+        epi: ppeDefaults.join(", "),
       };
     },
     [propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
@@ -471,8 +516,9 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
         resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
-          (item) => item.propagationPath
+          (item) => item.propagationPathValues
         )
+        .flat()
       );
       const agentId = resolveRiskAgentId(tipoAgente);
       const optionsFromCatalog = !agentId ? [] : propagationPathsByAgent.get(agentId) || [];
@@ -486,8 +532,9 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
         resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
-          (item) => item.source
+          (item) => item.sourceValues
         )
+        .flat()
       );
       const agentId = resolveRiskAgentId(tipoAgente);
       const optionsFromCatalog = !agentId ? [] : riskSourcesByAgent.get(agentId) || [];
@@ -516,8 +563,9 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
         resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
-          (item) => item.unit
+          (item) => item.unitValues
         )
+        .flat()
       );
       const options = optionsFromCriteria.length ? optionsFromCriteria : ["N/A"];
       return withCurrentValue(options, currentValue);
@@ -572,6 +620,45 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveTechnicalCriteriaOptions]
   );
 
+  const getMedidasControleOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.controlMeasureValues
+        )
+        .flat()
+      );
+      return withCurrentValue(optionsFromCriteria, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
+  const getEpiOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.ppeValues
+        )
+        .flat()
+      );
+      return withCurrentValue(optionsFromCriteria, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
+  const getEpcOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.cpeValues
+        )
+        .flat()
+      );
+      return withCurrentValue(optionsFromCriteria, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
   return {
     tipoAgenteOptions,
     applyMissingRiskDefaults,
@@ -584,5 +671,8 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getIsCalculatedCriteria,
     getNivelAcaoOptions,
     getSeveridadeOptions,
+    getMedidasControleOptions,
+    getEpiOptions,
+    getEpcOptions,
   };
 }
