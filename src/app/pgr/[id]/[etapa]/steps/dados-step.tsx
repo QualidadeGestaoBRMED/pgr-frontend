@@ -1,5 +1,9 @@
-import { useMemo, useState } from "react";
-import type { ContratanteDraft, DadosCadastraisDraft } from "./types";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  ContratanteDraft,
+  DadosCadastraisDraft,
+  ResponsavelCoordenacaoTecnicaDraft,
+} from "./types";
 import {
   isValidCnpj,
   isValidCpf,
@@ -11,6 +15,19 @@ import {
 type SearchableSelectOption = {
   label: string;
   value: string;
+};
+
+type PendingDeleteAction =
+  | { type: "contractor"; index: number }
+  | { type: "technical-coordinator"; index: number };
+
+type ResponsibleCoordinationCatalogItem = {
+  id: number;
+  name: string;
+  jobRole: string;
+  phone: string;
+  email: string;
+  cpf: string;
 };
 
 type SearchableSelectComponentProps = {
@@ -49,6 +66,14 @@ type DadosStepProps = {
   onAddContractor: () => void;
   onDuplicateContractor: (contractorIndex: number) => void;
   onRemoveContractor: (contractorIndex: number) => void;
+  technicalCoordinators: ResponsavelCoordenacaoTecnicaDraft[];
+  onTechnicalCoordinatorChange: (
+    coordinatorIndex: number,
+    field: keyof Omit<ResponsavelCoordenacaoTecnicaDraft, "id">,
+    value: string
+  ) => void;
+  onAddTechnicalCoordinator: () => void;
+  onRemoveTechnicalCoordinator: (coordinatorIndex: number) => void;
   onSelectEstabelecimento: (value: string) => void;
   onExtraFieldChange: (
     id: string,
@@ -76,6 +101,10 @@ export function DadosStep({
   onAddContractor,
   onDuplicateContractor,
   onRemoveContractor,
+  technicalCoordinators,
+  onTechnicalCoordinatorChange,
+  onAddTechnicalCoordinator,
+  onRemoveTechnicalCoordinator,
   onSelectEstabelecimento,
   onExtraFieldChange,
   onRemoveExtraField,
@@ -110,13 +139,28 @@ export function DadosStep({
     | "grauRisco"
     | "atividadePrincipal";
 
+  type RequiredResponsavelTecnicoField =
+    | "nome"
+    | "funcao"
+    | "telefone"
+    | "email"
+    | "cpf";
+
   const [, setTouchedFields] = useState<Partial<Record<RequiredDadosField, boolean>>>(
     {}
   );
   const [, setTouchedContractorFields] = useState<
     Record<string, Partial<Record<RequiredContratanteField, boolean>>>
   >({});
+  const [, setTouchedTechnicalCoordinatorFields] = useState<
+    Record<string, Partial<Record<RequiredResponsavelTecnicoField, boolean>>>
+  >({});
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [pendingDeleteAction, setPendingDeleteAction] =
+    useState<PendingDeleteAction | null>(null);
+  const [responsibleCoordinationCatalog, setResponsibleCoordinationCatalog] = useState<
+    ResponsibleCoordinationCatalogItem[]
+  >([]);
 
   const errors = useMemo<Record<RequiredDadosField, string>>(
     () => ({
@@ -216,6 +260,154 @@ export function DadosStep({
     return map;
   }, [contractors]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadResponsibleCoordinationCatalog = async () => {
+      try {
+        const response = await fetch("/api/catalogs/responsible-coordination", {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          responsibleCoordinations?: Array<Partial<ResponsibleCoordinationCatalogItem>>;
+        };
+        const rows = Array.isArray(payload.responsibleCoordinations)
+          ? payload.responsibleCoordinations
+          : [];
+        if (!isMounted) return;
+        setResponsibleCoordinationCatalog(
+          rows
+            .map((item) => ({
+              id: Number(item.id || 0),
+              name: String(item.name || "").trim(),
+              jobRole: String(item.jobRole || "").trim(),
+              phone: String(item.phone || "").trim(),
+              email: String(item.email || "").trim(),
+              cpf: String(item.cpf || "").trim(),
+            }))
+            .filter((item) => item.id > 0 && item.name)
+        );
+      } catch {
+        // Mantém fallback local quando o catálogo não puder ser carregado.
+      }
+    };
+
+    void loadResponsibleCoordinationCatalog();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const technicalCoordinatorProfiles = useMemo<
+    Array<
+      Pick<
+        ResponsavelCoordenacaoTecnicaDraft,
+        "nome" | "funcao" | "telefone" | "email" | "cpf"
+      >
+    >
+  >(() => {
+    if (responsibleCoordinationCatalog.length > 0) {
+      return responsibleCoordinationCatalog.map((item) => ({
+        nome: item.name,
+        funcao: item.jobRole,
+        telefone: item.phone,
+        email: item.email,
+        cpf: item.cpf,
+      }));
+    }
+
+    const profiles = new Map<
+      string,
+      Pick<
+        ResponsavelCoordenacaoTecnicaDraft,
+        "nome" | "funcao" | "telefone" | "email" | "cpf"
+      >
+    >();
+
+    const addProfile = (
+      profile: Pick<
+        ResponsavelCoordenacaoTecnicaDraft,
+        "nome" | "funcao" | "telefone" | "email" | "cpf"
+      >
+    ) => {
+      const key = profile.nome.trim().toLowerCase();
+      if (!key || profiles.has(key)) return;
+      profiles.set(key, profile);
+    };
+
+    if (dadosCadastrais.responsavelPgrNome.trim()) {
+      addProfile({
+        nome: dadosCadastrais.responsavelPgrNome,
+        funcao: dadosCadastrais.responsavelPgrFuncao,
+        telefone: dadosCadastrais.responsavelPgrTelefone,
+        email: dadosCadastrais.responsavelPgrEmail,
+        cpf: dadosCadastrais.responsavelPgrCpf,
+      });
+    }
+
+    technicalCoordinators.forEach((coordinator) => {
+      addProfile({
+        nome: coordinator.nome,
+        funcao: coordinator.funcao,
+        telefone: coordinator.telefone,
+        email: coordinator.email,
+        cpf: coordinator.cpf,
+      });
+    });
+
+    return Array.from(profiles.values());
+  }, [
+    responsibleCoordinationCatalog,
+    dadosCadastrais.responsavelPgrCpf,
+    dadosCadastrais.responsavelPgrEmail,
+    dadosCadastrais.responsavelPgrFuncao,
+    dadosCadastrais.responsavelPgrNome,
+    dadosCadastrais.responsavelPgrTelefone,
+    technicalCoordinators,
+  ]);
+
+  const technicalCoordinatorNameOptions = useMemo(
+    () =>
+      technicalCoordinatorProfiles.map((profile) => ({
+        label: profile.nome,
+        value: profile.nome,
+      })),
+    [technicalCoordinatorProfiles]
+  );
+
+  const technicalCoordinatorErrorsById = useMemo<
+    Record<string, Record<RequiredResponsavelTecnicoField, string>>
+  >(() => {
+    const map: Record<string, Record<RequiredResponsavelTecnicoField, string>> = {};
+    technicalCoordinators.forEach((coordinator, coordinatorIndex) => {
+      const coordinatorKey = String(
+        coordinator.id || `technical-coordinator-${coordinatorIndex}`
+      );
+      map[coordinatorKey] = {
+        nome: coordinator.nome.trim() ? "" : "Nome é obrigatório.",
+        funcao: coordinator.funcao.trim() ? "" : "Função é obrigatória.",
+        telefone: !coordinator.telefone.trim()
+          ? "Telefone é obrigatório."
+          : isValidPhoneBr(coordinator.telefone)
+            ? ""
+            : "Telefone inválido.",
+        email: !coordinator.email.trim()
+          ? "E-mail é obrigatório."
+          : isValidEmail(coordinator.email)
+            ? ""
+            : "E-mail inválido.",
+        cpf: !coordinator.cpf.trim()
+          ? "CPF é obrigatório."
+          : isValidCpf(coordinator.cpf)
+            ? ""
+            : "CPF inválido.",
+      };
+    });
+    return map;
+  }, [technicalCoordinators]);
+
   const markTouched = (field: RequiredDadosField) => {
     setTouchedFields((prev) => ({ ...prev, [field]: true }));
   };
@@ -233,16 +425,81 @@ export function DadosStep({
     }));
   };
 
+  const markTechnicalCoordinatorTouched = (
+    coordinatorKey: string,
+    field: RequiredResponsavelTecnicoField
+  ) => {
+    setTouchedTechnicalCoordinatorFields((prev) => ({
+      ...prev,
+      [coordinatorKey]: {
+        ...(prev[coordinatorKey] || {}),
+        [field]: true,
+      },
+    }));
+  };
+
   const getFieldClassName = (field: RequiredDadosField) =>
     errors[field]
       ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
       : inputBaseClass;
+
+  const getDisabledFieldClassName = (className: string) =>
+    `${className} cursor-not-allowed opacity-70`;
+
+  const handleTechnicalCoordinatorNameSelect = (
+    coordinatorIndex: number,
+    selectedName: string
+  ) => {
+    const selectedProfile = technicalCoordinatorProfiles.find(
+      (profile) => profile.nome === selectedName
+    );
+
+    onTechnicalCoordinatorChange(coordinatorIndex, "nome", selectedName);
+    onTechnicalCoordinatorChange(
+      coordinatorIndex,
+      "funcao",
+      selectedProfile?.funcao || ""
+    );
+    onTechnicalCoordinatorChange(
+      coordinatorIndex,
+      "telefone",
+      selectedProfile?.telefone || ""
+    );
+    onTechnicalCoordinatorChange(
+      coordinatorIndex,
+      "email",
+      selectedProfile?.email || ""
+    );
+    onTechnicalCoordinatorChange(
+      coordinatorIndex,
+      "cpf",
+      selectedProfile?.cpf || ""
+    );
+  };
+
+  const handleConfirmDelete = () => {
+    if (!pendingDeleteAction) return;
+    if (pendingDeleteAction.type === "contractor") {
+      onRemoveContractor(pendingDeleteAction.index);
+    } else {
+      onRemoveTechnicalCoordinator(pendingDeleteAction.index);
+    }
+    setPendingDeleteAction(null);
+  };
 
   const getContractorFieldClassName = (
     contractorKey: string,
     field: RequiredContratanteField
   ) =>
     contractorErrorsById[contractorKey]?.[field]
+      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
+      : inputBaseClass;
+
+  const getTechnicalCoordinatorFieldClassName = (
+    coordinatorKey: string,
+    field: RequiredResponsavelTecnicoField
+  ) =>
+    technicalCoordinatorErrorsById[coordinatorKey]?.[field]
       ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
       : inputBaseClass;
 
@@ -683,15 +940,12 @@ export function DadosStep({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Confirma a exclusão deste bloco de contratante?"
-                        )
-                      ) {
-                        onRemoveContractor(contractorIndex);
-                      }
-                    }}
+                    onClick={() =>
+                      setPendingDeleteAction({
+                        type: "contractor",
+                        index: contractorIndex,
+                      })
+                    }
                     className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
                     disabled={contractors.length <= 0}
                   >
@@ -1035,6 +1289,199 @@ export function DadosStep({
           </div>
         </div>
       </section>
+
+      <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h2 className="text-[16px] font-medium text-foreground">
+            Responsável na coordenação técnica:
+          </h2>
+          <button
+            type="button"
+            onClick={onAddTechnicalCoordinator}
+            className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
+          >
+            Adicionar responsável técnico
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-6">
+          {technicalCoordinators.map((coordinator, coordinatorIndex) => {
+            const coordinatorKey = String(
+              coordinator.id || `technical-coordinator-${coordinatorIndex}`
+            );
+
+            return (
+              <div
+                key={coordinator.id}
+                className="rounded-[12px] border border-border/60 bg-background/40 px-4 py-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Responsável técnico {coordinatorIndex + 1}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPendingDeleteAction({
+                        type: "technical-coordinator",
+                        index: coordinatorIndex,
+                      })
+                    }
+                    className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                    disabled={technicalCoordinators.length <= 1}
+                  >
+                    Excluir
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[1.6fr_1.2fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Nome *:
+                    </label>
+                    <div className="mt-2">
+                      <SearchableSelect
+                        value={coordinator.nome}
+                        onChange={(value) => {
+                          handleTechnicalCoordinatorNameSelect(coordinatorIndex, value);
+                          markTechnicalCoordinatorTouched(coordinatorKey, "nome");
+                        }}
+                        options={technicalCoordinatorNameOptions}
+                        buttonClassName={
+                          technicalCoordinatorErrorsById[coordinatorKey]?.nome
+                            ? `${selectBaseClass} border-rose-400 focus:ring-rose-500`
+                            : selectBaseClass
+                        }
+                        placeholder="Selecione"
+                        searchPlaceholder="Filtrar responsável"
+                      />
+                    </div>
+                    {technicalCoordinatorErrorsById[coordinatorKey]?.nome ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {technicalCoordinatorErrorsById[coordinatorKey].nome}
+                      </p>
+                    ) : null}
+                    {technicalCoordinatorNameOptions.length === 0 ? (
+                      <p className="mt-1 text-[12px] text-muted-foreground">
+                        Preencha o responsável do PGR para liberar opções.
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Função *:
+                    </label>
+                    <input
+                      className={getDisabledFieldClassName(
+                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "funcao")
+                      )}
+                      value={coordinator.funcao}
+                      disabled
+                      readOnly
+                    />
+                    {technicalCoordinatorErrorsById[coordinatorKey]?.funcao ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {technicalCoordinatorErrorsById[coordinatorKey].funcao}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Telefone *:
+                    </label>
+                    <input
+                      className={getDisabledFieldClassName(
+                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "telefone")
+                      )}
+                      value={coordinator.telefone}
+                      disabled
+                      readOnly
+                    />
+                    {technicalCoordinatorErrorsById[coordinatorKey]?.telefone ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {technicalCoordinatorErrorsById[coordinatorKey].telefone}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Email *:
+                    </label>
+                    <input
+                      className={getDisabledFieldClassName(
+                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "email")
+                      )}
+                      value={coordinator.email}
+                      disabled
+                      readOnly
+                    />
+                    {technicalCoordinatorErrorsById[coordinatorKey]?.email ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {technicalCoordinatorErrorsById[coordinatorKey].email}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      CPF *:
+                    </label>
+                    <input
+                      className={getDisabledFieldClassName(
+                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "cpf")
+                      )}
+                      value={coordinator.cpf}
+                      disabled
+                      readOnly
+                    />
+                    {technicalCoordinatorErrorsById[coordinatorKey]?.cpf ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {technicalCoordinatorErrorsById[coordinatorKey].cpf}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {pendingDeleteAction ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <h3 className="text-[18px] font-semibold text-foreground">
+                Confirmar exclusão
+              </h3>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                {pendingDeleteAction.type === "contractor"
+                  ? "Confirma a exclusão deste bloco de contratante?"
+                  : "Confirma a exclusão deste bloco de responsável técnico?"}
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteAction(null)}
+                  className="btn-outline px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="btn-primary px-5"
+                >
+                  Confirmar exclusão
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isResetModalOpen ? (
         <div className="fixed inset-0 z-50">

@@ -26,6 +26,15 @@ export type ContratanteDraft = {
   atividadePrincipal: string;
 };
 
+export type ResponsavelCoordenacaoTecnicaDraft = {
+  id: string;
+  nome: string;
+  funcao: string;
+  telefone: string;
+  email: string;
+  cpf: string;
+};
+
 export type DadosCadastraisDraft = {
   empresaRazaoSocial: string;
   empresaGrupo: string;
@@ -60,4 +69,5 @@ export type DadosCadastraisDraft = {
   responsavelPgrTelefone: string;
   responsavelPgrEmail: string;
   responsavelPgrCpf: string;
+  responsaveisCoordenacaoTecnica: ResponsavelCoordenacaoTecnicaDraft[];
 };

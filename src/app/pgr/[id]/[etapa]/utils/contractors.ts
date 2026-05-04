@@ -1,8 +1,21 @@
-import type { ContratanteDraft, DadosCadastraisDraft } from "../steps/types";
-import { maskCep, maskCnpj, normalizeRiskGrade } from "../validation/br-field-utils";
+import type {
+  ContratanteDraft,
+  DadosCadastraisDraft,
+  ResponsavelCoordenacaoTecnicaDraft,
+} from "../steps/types";
+import {
+  maskCep,
+  maskCnpj,
+  maskCpf,
+  maskPhoneBr,
+  normalizeEmail,
+  normalizeRiskGrade,
+} from "../validation/br-field-utils";
 
 const createContratanteId = () =>
   `contratante-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+const createResponsavelTecnicoId = () =>
+  `responsavel-tecnico-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
 export const createEmptyContratante = (): ContratanteDraft => ({
   id: createContratanteId(),
@@ -17,6 +30,16 @@ export const createEmptyContratante = (): ContratanteDraft => ({
   grauRisco: "",
   atividadePrincipal: "",
 });
+
+export const createEmptyResponsavelCoordenacaoTecnica =
+  (): ResponsavelCoordenacaoTecnicaDraft => ({
+    id: createResponsavelTecnicoId(),
+    nome: "",
+    funcao: "",
+    telefone: "",
+    email: "",
+    cpf: "",
+  });
 
 const isBlankContratante = (
   contratante: Pick<
@@ -85,14 +108,36 @@ export const normalizeContractors = (
   return [legacy];
 };
 
+export const normalizeResponsaveisCoordenacaoTecnica = (
+  dados: Partial<DadosCadastraisDraft>,
+): ResponsavelCoordenacaoTecnicaDraft[] => {
+  if (!Array.isArray(dados.responsaveisCoordenacaoTecnica)) {
+    return [createEmptyResponsavelCoordenacaoTecnica()];
+  }
+
+  const normalized = dados.responsaveisCoordenacaoTecnica.map((item, index) => ({
+    id: String(item.id || `responsavel-tecnico-${index + 1}`),
+    nome: String(item.nome || ""),
+    funcao: String(item.funcao || ""),
+    telefone: maskPhoneBr(String(item.telefone || "")),
+    email: normalizeEmail(String(item.email || "")),
+    cpf: maskCpf(String(item.cpf || "")),
+  }));
+
+  return normalized.length ? normalized : [createEmptyResponsavelCoordenacaoTecnica()];
+};
+
 export const syncLegacyContractorFields = (
   dados: DadosCadastraisDraft,
 ): DadosCadastraisDraft => {
   const normalizedContractors = normalizeContractors(dados);
+  const normalizedResponsaveisCoordenacaoTecnica =
+    normalizeResponsaveisCoordenacaoTecnica(dados);
   const first = normalizedContractors[0];
   return {
     ...dados,
     contratantes: normalizedContractors,
+    responsaveisCoordenacaoTecnica: normalizedResponsaveisCoordenacaoTecnica,
     contratanteNomeFantasia: first?.nomeFantasia || "",
     contratanteRazaoSocial: first?.razaoSocial || "",
     contratanteCnpj: first?.cnpj || "",

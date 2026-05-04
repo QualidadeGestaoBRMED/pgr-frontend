@@ -6,7 +6,10 @@ import type {
   PgrFunction,
   RiskGheGroup,
 } from "./types";
-import { createEmptyContratante } from "./utils/contractors";
+import {
+  createEmptyContratante,
+  createEmptyResponsavelCoordenacaoTecnica,
+} from "./utils/contractors";
 
 export const defaultHistorico: HistoricoData = {
   title: "Histórico de Versões",
@@ -89,6 +92,7 @@ export const initialDadosCadastrais: DadosCadastraisDraft = {
   responsavelPgrTelefone: "",
   responsavelPgrEmail: "",
   responsavelPgrCpf: "",
+  responsaveisCoordenacaoTecnica: [createEmptyResponsavelCoordenacaoTecnica()],
 };
 
 export const defaultAnexos: AnexoItem[] = [

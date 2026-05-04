@@ -35,6 +35,7 @@ type RequiredRiskField =
   | "meioPropagacao"
   | "fontes"
   | "unidadeMedida"
+  | "valorMedido"
   | "tipoAvaliacao"
   | "intensidade"
   | "severidade"
@@ -523,6 +524,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               ? ""
               : "Unidade de Medida é obrigatória."
             : "",
+          valorMedido: isQuantitativeEvaluation
+            ? hasValue(risk.valorMedido)
+              ? ""
+              : "Valor medido é obrigatório para avaliação quantitativa."
+            : "",
           tipoAvaliacao: hasValue(risk.tipoAvaliacao)
             ? ""
             : "Tipo de Avaliação é obrigatório.",
@@ -650,13 +656,53 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   ) => {
     if (!currentRiskGhe) return;
     const withComputedClassification = (nextRisk: GheRisk) => {
+      const isQuantitativeEvaluation = normalizeText(
+        String(nextRisk.tipoAvaliacao || "")
+      ).includes("quantit");
       const hasSeverity = String(nextRisk.severidade || "").trim().length > 0;
+      const calculated = calculateRiskClassification(nextRisk);
+
+      if (isQuantitativeEvaluation) {
+        if (!hasSeverity) {
+          const hadValues =
+            String(nextRisk.probabilidade || "").trim().length > 0 ||
+            String(nextRisk.classificacao || "").trim().length > 0;
+          if (!hadValues) return nextRisk;
+          return {
+            ...nextRisk,
+            probabilidade: "",
+            classificacao: "",
+          };
+        }
+
+        const probabilityFromLevel =
+          calculated?.quantitativeLevel !== undefined
+            ? String(calculated.quantitativeLevel)
+            : "";
+        const classificationName = String(calculated?.classification || "").trim();
+        const currentProbability = String(nextRisk.probabilidade || "").trim();
+        const currentClassification = String(nextRisk.classificacao || "").trim();
+
+        if (
+          probabilityFromLevel === currentProbability &&
+          classificationName === currentClassification
+        ) {
+          return nextRisk;
+        }
+
+        return {
+          ...nextRisk,
+          probabilidade: probabilityFromLevel,
+          classificacao: classificationName,
+        };
+      }
+
       const hasProbability = String(nextRisk.probabilidade || "").trim().length > 0;
       if (!hasSeverity || !hasProbability) {
         if (!nextRisk.classificacao) return nextRisk;
         return { ...nextRisk, classificacao: "" };
       }
-      const calculated = calculateRiskClassification(nextRisk);
+
       const classificationName = String(calculated?.classification || "").trim();
       if (!classificationName) {
         if (!nextRisk.classificacao) return nextRisk;
@@ -1083,6 +1129,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               String(risk.nivelAcao || ""),
               selectedMeasuredUnits
             );
+            const isMeasuredValueMissing =
+              isQuantitativeEvaluation && !String(numericValorMedido || "").trim();
             const sanitizeOptionValues = (options: string[]) =>
               Array.from(
                 new Set(
@@ -1537,9 +1585,17 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             Valor Medido *
                           </label>
                           <input
-                            className={inputBaseClass}
+                            className={getRiskFieldClassName(
+                              risk.id,
+                              "valorMedido",
+                              inputBaseClass
+                            )}
                             value={numericValorMedido}
-                            placeholder={measuredUnitPlaceholder}
+                            placeholder={
+                              isMeasuredValueMissing
+                                ? "Valor medido é obrigatório para avaliação quantitativa"
+                                : measuredUnitPlaceholder
+                            }
                             inputMode="decimal"
                             onChange={(event) => {
                               const nextValue = sanitizeNumericInput(event.target.value);
@@ -1576,6 +1632,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             }}
                             disabled={!isQuantitativeEvaluation}
                           />
+                          {getRiskFieldError(risk.id, "valorMedido") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "valorMedido")}
+                            </p>
+                          ) : null}
                         </div>
                         <div>
                           <label className="text-[12px] font-medium text-foreground">
@@ -1689,27 +1750,40 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         <label className="text-[12px] font-medium text-foreground">
                           Probabilidade *
                         </label>
-                        <div className="mt-2">
-                          <SearchableSelect
-                            value={risk.probabilidade}
-                            onChange={(value) => {
-                              markRiskTouched(risk.id, "probabilidade");
-                              markRiskTouched(risk.id, "severidade");
-                              markRiskTouched(risk.id, "classificacao");
-                              handleRiskChange(risk.id, "probabilidade", value);
-                            }}
-                            options={PROBABILIDADE_OPTIONS.map((option) => ({
-                              label: option,
-                              value: option,
-                            }))}
-                            buttonClassName={getRiskFieldClassName(
+                        {isQuantitativeEvaluation ? (
+                          <input
+                            className={getRiskFieldClassName(
                               risk.id,
                               "probabilidade",
-                              selectSmallClass
+                              inputBaseClass
                             )}
-                            searchPlaceholder="Filtrar probabilidade"
+                            value={risk.probabilidade}
+                            placeholder="Nível calculado"
+                            disabled
                           />
-                        </div>
+                        ) : (
+                          <div className="mt-2">
+                            <SearchableSelect
+                              value={risk.probabilidade}
+                              onChange={(value) => {
+                                markRiskTouched(risk.id, "probabilidade");
+                                markRiskTouched(risk.id, "severidade");
+                                markRiskTouched(risk.id, "classificacao");
+                                handleRiskChange(risk.id, "probabilidade", value);
+                              }}
+                              options={PROBABILIDADE_OPTIONS.map((option) => ({
+                                label: option,
+                                value: option,
+                              }))}
+                              buttonClassName={getRiskFieldClassName(
+                                risk.id,
+                                "probabilidade",
+                                selectSmallClass
+                              )}
+                              searchPlaceholder="Filtrar probabilidade"
+                            />
+                          </div>
+                        )}
                         {getRiskFieldError(risk.id, "probabilidade") ? (
                           <p className="mt-1 text-[12px] text-danger">
                             {getRiskFieldError(risk.id, "probabilidade")}

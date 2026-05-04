@@ -21,6 +21,10 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     onAddContractor={ctx.generalActions.handleAddContractor}
     onDuplicateContractor={ctx.generalActions.handleDuplicateContractor}
     onRemoveContractor={ctx.generalActions.handleRemoveContractor}
+    technicalCoordinators={ctx.dadosCadastrais.responsaveisCoordenacaoTecnica}
+    onTechnicalCoordinatorChange={ctx.generalActions.handleTechnicalCoordinatorChange}
+    onAddTechnicalCoordinator={ctx.generalActions.handleAddTechnicalCoordinator}
+    onRemoveTechnicalCoordinator={ctx.generalActions.handleRemoveTechnicalCoordinator}
     onSelectEstabelecimento={ctx.setEstabelecimentoSelecionado}
     onExtraFieldChange={ctx.generalActions.handleExtraEstabelecimentoFieldChange}
     onRemoveExtraField={ctx.generalActions.handleRemoveExtraField}

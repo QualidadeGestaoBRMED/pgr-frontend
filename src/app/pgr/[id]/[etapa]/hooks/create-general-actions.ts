@@ -25,7 +25,9 @@ import {
 } from "../validation/br-field-utils";
 import {
   createEmptyContratante,
+  createEmptyResponsavelCoordenacaoTecnica,
   normalizeContractors,
+  normalizeResponsaveisCoordenacaoTecnica,
   syncLegacyContractorFields,
 } from "../utils/contractors";
 
@@ -449,6 +451,63 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         });
       }
       return syncLegacyContractorFields({ ...prev, contratantes: next });
+    });
+  };
+
+  const handleTechnicalCoordinatorChange = (
+    coordinatorIndex: number,
+    field: keyof Omit<
+      DadosCadastraisDraft["responsaveisCoordenacaoTecnica"][number],
+      "id"
+    >,
+    value: string
+  ) => {
+    const normalizedValue = (() => {
+      switch (field) {
+        case "cpf":
+          return maskCpf(value);
+        case "telefone":
+          return maskPhoneBr(value);
+        case "email":
+          return normalizeEmail(value);
+        default:
+          return value;
+      }
+    })();
+
+    setDadosCadastrais((prev) => {
+      const coordinators = normalizeResponsaveisCoordenacaoTecnica(prev);
+      const safeIndex = Math.max(0, Math.min(coordinatorIndex, coordinators.length - 1));
+      const nextCoordinators = coordinators.map((coordinator, index) =>
+        index === safeIndex ? { ...coordinator, [field]: normalizedValue } : coordinator
+      );
+      return syncLegacyContractorFields({
+        ...prev,
+        responsaveisCoordenacaoTecnica: nextCoordinators,
+      });
+    });
+  };
+
+  const handleAddTechnicalCoordinator = () => {
+    setDadosCadastrais((prev) =>
+      syncLegacyContractorFields({
+        ...prev,
+        responsaveisCoordenacaoTecnica: [
+          ...normalizeResponsaveisCoordenacaoTecnica(prev),
+          createEmptyResponsavelCoordenacaoTecnica(),
+        ],
+      })
+    );
+  };
+
+  const handleRemoveTechnicalCoordinator = (coordinatorIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const coordinators = normalizeResponsaveisCoordenacaoTecnica(prev);
+      const next = coordinators.filter((_, index) => index !== coordinatorIndex);
+      return syncLegacyContractorFields({
+        ...prev,
+        responsaveisCoordenacaoTecnica: next,
+      });
     });
   };
 
@@ -1238,6 +1297,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleAddContractor,
     handleDuplicateContractor,
     handleRemoveContractor,
+    handleTechnicalCoordinatorChange,
+    handleAddTechnicalCoordinator,
+    handleRemoveTechnicalCoordinator,
     handleLoadPipefyMock,
     handleOpenPlanActionModal,
     handleChangePlanActionScope,

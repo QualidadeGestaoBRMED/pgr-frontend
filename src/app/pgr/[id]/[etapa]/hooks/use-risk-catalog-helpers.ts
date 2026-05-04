@@ -489,7 +489,11 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         intensidade: calculatedDefaultValue || firstTechnicalCriteria?.intensity || "",
         nivelAcao: firstTechnicalCriteria?.actionLevel || "",
         severidade: firstTechnicalCriteria?.severity || "3",
-        probabilidade: "3",
+        probabilidade:
+          firstTechnicalCriteria?.hasQuantitative ||
+          normalizeCatalogToken(firstTechnicalCriteria?.evaluationType || "").includes("quantit")
+            ? ""
+            : "3",
         classificacao: "",
         medidasControle: controlMeasureDefaults.join(", "),
         epc: cpeDefaults.join(", "),

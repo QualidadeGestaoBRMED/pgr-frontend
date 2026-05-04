@@ -123,13 +123,13 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
     return map;
   }, [riskMatrix]);
 
-  const qualitativeClassificationIdByQualitativeRowId = useMemo(() => {
+  const qualitativeSeverityByQualitativeRowId = useMemo(() => {
     const map = new Map<number, number>();
     (riskMatrix?.qualitative || []).forEach((item) => {
       const qualitativeRowId = parseInteger(item.id);
-      const classificationId = parseInteger(item.classificationId);
-      if (!qualitativeRowId || !classificationId) return;
-      map.set(qualitativeRowId, classificationId);
+      const severityValue = parseInteger(item.severityValue);
+      if (!qualitativeRowId || !severityValue) return;
+      map.set(qualitativeRowId, severityValue);
     });
     return map;
   }, [riskMatrix]);
@@ -148,11 +148,8 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
     (riskMatrix?.quantitative || []).forEach((item) => {
       const templateId = parseInteger(item.templateId);
       const qualitativeId = parseInteger(item.qualitativeId);
-      const qualitativeClassificationId = parseInteger(
-        item.qualitativeClassificationId
-      );
-      const resolvedClassificationIdFromQualitativeRow = qualitativeId
-        ? qualitativeClassificationIdByQualitativeRowId.get(qualitativeId) || null
+      const resolvedSeverityFromQualitativeRow = qualitativeId
+        ? qualitativeSeverityByQualitativeRowId.get(qualitativeId) || null
         : null;
       const levelValue = parseInteger(item.levelValue ?? item.levelId);
       const levelId = parseInteger(item.levelId ?? item.levelValue);
@@ -168,19 +165,18 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
         return;
       }
 
-      const qualitativeCandidates = [
-        qualitativeClassificationId,
-        resolvedClassificationIdFromQualitativeRow,
+      const severityCandidates = [
+        resolvedSeverityFromQualitativeRow,
         qualitativeId,
       ].filter((value): value is number => Boolean(value));
 
-      if (!qualitativeCandidates.length) {
+      if (!severityCandidates.length) {
         return;
       }
 
-      qualitativeCandidates.forEach((qualitativeCandidate) => {
+      severityCandidates.forEach((severityCandidate) => {
         // Eixo X esperado: nível calculado (1..5) => levelValue.
-        const keyByLevelValue = `${templateId}|${qualitativeCandidate}|${levelValue}`;
+        const keyByLevelValue = `${templateId}|${severityCandidate}|${levelValue}`;
         map.set(keyByLevelValue, {
           classificationId,
           classificationName,
@@ -190,7 +186,7 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
 
         // Compatibilidade com payloads legados que possam cruzar por levelId.
         if (levelId) {
-          const keyByLevelId = `${templateId}|${qualitativeCandidate}|${levelId}`;
+          const keyByLevelId = `${templateId}|${severityCandidate}|${levelId}`;
           map.set(keyByLevelId, {
             classificationId,
             classificationName,
@@ -202,27 +198,28 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
     });
 
     return map;
-  }, [qualitativeClassificationIdByQualitativeRowId, riskMatrix]);
+  }, [qualitativeSeverityByQualitativeRowId, riskMatrix]);
 
   const calculateRiskClassification = useCallback(
     (risk: Pick<GheRisk, "severidade" | "probabilidade" | "tipoAvaliacao" | "valorMedido" | "intensidade" | "nivelAcao">): RiskClassificationResult | null => {
       if (!activeTemplateId) return null;
 
       const severityValue = parseInteger(risk.severidade);
-      const probabilityValue = parseInteger(risk.probabilidade);
-      if (!severityValue || !probabilityValue) return null;
-
-      const qualitativeKey = `${activeTemplateId}|${severityValue}|${probabilityValue}`;
-      const qualitative = qualitativeByKey.get(qualitativeKey);
-      if (!qualitative) return null;
-
-      let finalResult: RiskClassificationResult = {
-        classification: qualitative.classificationName,
-        classificationId: qualitative.classificationId,
-        qualitativeId: qualitative.qualitativeId,
-      };
+      if (!severityValue) return null;
 
       if (!isQuantitativeEvaluation(risk.tipoAvaliacao)) {
+        const probabilityValue = parseInteger(risk.probabilidade);
+        if (!probabilityValue) return null;
+
+        const qualitativeKey = `${activeTemplateId}|${severityValue}|${probabilityValue}`;
+        const qualitative = qualitativeByKey.get(qualitativeKey);
+        if (!qualitative) return null;
+
+        const finalResult: RiskClassificationResult = {
+          classification: qualitative.classificationName,
+          classificationId: qualitative.classificationId,
+          qualitativeId: qualitative.qualitativeId,
+        };
         return finalResult;
       }
 
@@ -242,19 +239,17 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
         quantitativeInputs.toleranceLimit,
         quantitativeInputs.actionLevel
       );
-      // Mirrors backend behavior: qualitative step returns classification id,
-      // then this value is used as quantitative qualitative_id parameter.
-      const quantitativeKey = `${activeTemplateId}|${qualitative.classificationId}|${quantLevel}`;
+      // Nova regra: quantitativo cruza severidade x nível.
+      const quantitativeKey = `${activeTemplateId}|${severityValue}|${quantLevel}`;
       const quantitative = quantitativeByKey.get(quantitativeKey);
 
       if (!quantitative) {
         return null;
       }
 
-      finalResult = {
+      const finalResult: RiskClassificationResult = {
         classification: quantitative.classificationName,
         classificationId: quantitative.classificationId,
-        qualitativeId: qualitative.qualitativeId,
         levelId: quantitative.levelId,
         quantitativeLevel: quantLevel,
       };
