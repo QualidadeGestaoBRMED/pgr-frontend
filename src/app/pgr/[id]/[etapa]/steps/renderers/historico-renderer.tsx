@@ -10,5 +10,6 @@ export const renderHistoricoStep: StepRenderer = (ctx) => (
     isGeneratingFakePdf={ctx.isGeneratingFakePdf}
     onDownloadPdf={ctx.handleGenerateFakePdf}
     onStartNewVersion={ctx.handleStartNewVersion}
+    onChangeField={ctx.handleHistoricoChangeField}
   />
 );

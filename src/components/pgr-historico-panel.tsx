@@ -21,6 +21,11 @@ type PgrHistoricoPanelProps = {
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
+  onChangeField: (
+    changeId: string,
+    field: "company" | "analysis" | "change" | "reason" | "date",
+    value: string
+  ) => void;
 };
 
 export function PgrHistoricoPanel({
@@ -31,7 +36,23 @@ export function PgrHistoricoPanel({
   isGeneratingFakePdf,
   onDownloadPdf,
   onStartNewVersion,
+  onChangeField,
 }: PgrHistoricoPanelProps) {
+  const toTwoDigitCode = (value: string) => {
+    const digits = String(value || "").replace(/\D/g, "").slice(0, 2);
+    return digits;
+  };
+
+  const toDateInputValue = (value: string) => {
+    const safe = String(value || "").trim();
+    if (!safe) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(safe)) return safe;
+    const match = safe.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return "";
+    const [, dd, mm, yyyy] = match;
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const finalizedInfo =
     workflow.isLocked && workflow.finalizedAt
       ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
@@ -61,8 +82,7 @@ export function PgrHistoricoPanel({
             <button
               type="button"
               onClick={onStartNewVersion}
-              disabled={!workflow.isLocked}
-              className={!workflow.isLocked ? "btn-disabled px-4 py-2 text-[14px]" : "btn-primary px-4 py-2 text-[14px]"}
+              className="btn-primary px-4 py-2 text-[14px]"
             >
               <PencilLine className="h-4 w-4" />
               Iniciar nova versão
@@ -95,24 +115,62 @@ export function PgrHistoricoPanel({
         </h2>
         <div className="mt-4 overflow-x-auto">
           <div className="min-w-[720px]">
-            <div className="grid grid-cols-[2fr_1.6fr_1.4fr_1.2fr_0.8fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
+            <div className="grid grid-cols-[2.8fr_0.9fr_0.9fr_1.2fr_0.9fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
               <span>Empresa</span>
               <span>Análise</span>
               <span>Alteração</span>
               <span>Motivo</span>
-              <span>Data</span>
+              <span>Data de Emissão</span>
             </div>
             <div className="divide-y divide-border">
               {changes.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[2fr_1.6fr_1.4fr_1.2fr_0.8fr] gap-4 py-4 text-[13px] text-foreground"
+                  className="grid grid-cols-[2.8fr_0.9fr_0.9fr_1.2fr_0.9fr] gap-4 py-4 text-[13px] text-foreground"
                 >
-                  <span>{row.company}</span>
-                  <span>{row.analysis}</span>
-                  <span>{row.change}</span>
-                  <span>{row.reason}</span>
-                  <span>{row.date}</span>
+                  <input
+                    value={row.company}
+                    onChange={(event) =>
+                      onChangeField(row.id, "company", event.target.value)
+                    }
+                    className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <input
+                    value={row.analysis}
+                    onChange={(event) =>
+                      onChangeField(row.id, "analysis", toTwoDigitCode(event.target.value))
+                    }
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="00"
+                  />
+                  <input
+                    value={row.change}
+                    onChange={(event) =>
+                      onChangeField(row.id, "change", toTwoDigitCode(event.target.value))
+                    }
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="01"
+                  />
+                  <input
+                    value={row.reason}
+                    onChange={(event) =>
+                      onChangeField(row.id, "reason", event.target.value)
+                    }
+                    className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="Motivo"
+                  />
+                  <input
+                    type="date"
+                    value={toDateInputValue(row.date)}
+                    onChange={(event) =>
+                      onChangeField(row.id, "date", event.target.value)
+                    }
+                    className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
               ))}
             </div>

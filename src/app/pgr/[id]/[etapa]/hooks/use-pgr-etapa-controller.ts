@@ -388,29 +388,60 @@ export function usePgrEtapaController({
     ]
   );
 
-  const handleStartNewVersion = useCallback(async () => {
-    const updated = await apiPost<{
-      completedSteps: number;
-      historico: HistoricoData;
-      workflow: PersistedPgrState["workflow"];
-      meta?: { progressPercent?: number };
-    }>(`/api/v1/frontend/pgr/${params.id}/new-version`);
-    if (updated.workflow) {
-      setters.setWorkflow(updated.workflow);
-    }
-    if (typeof updated.completedSteps === "number") {
-      setters.setCompletedSteps(updated.completedSteps);
-    }
-    if (typeof updated.meta?.progressPercent === "number") {
-      setters.setProgressPercent(updated.meta.progressPercent);
-    } else {
-      setters.setProgressPercent(weightedProgressPercent);
-    }
-    if (updated.historico) {
-      setters.setHistoricoData(updated.historico);
-    }
-    router.push(`/pgr/${params.id}/inicio`);
-  }, [params.id, router, setters, weightedProgressPercent]);
+  const handleStartNewVersion = useCallback(() => {
+    const autoCompany =
+      state.dadosCadastrais.empresaNome ||
+      state.dadosCadastrais.empresaRazaoSocial ||
+      state.inicioDraft.companyName ||
+      "Empresa não informada";
+    const now = new Date();
+    const dateIso = now.toISOString().slice(0, 10);
+
+    setters.setHistoricoData((prev) => ({
+      ...prev,
+      changes: [
+        {
+          id: `change-${Date.now()}`,
+          company: autoCompany,
+          analysis: "",
+          change: "",
+          reason: "",
+          date: dateIso,
+        },
+        ...prev.changes,
+      ],
+    }));
+
+    setters.setWorkflow((prev) => ({
+      ...prev,
+      isLocked: false,
+      version: (prev.version || 0) + 1,
+      finalizedAt: null,
+      finalizedBy: null,
+      finalizedById: null,
+    }));
+  }, [
+    setters,
+    state.dadosCadastrais.empresaNome,
+    state.dadosCadastrais.empresaRazaoSocial,
+    state.inicioDraft.companyName,
+  ]);
+
+  const handleHistoricoChangeField = useCallback(
+    (
+      changeId: string,
+      field: "company" | "analysis" | "change" | "reason" | "date",
+      value: string
+    ) => {
+      setters.setHistoricoData((prev) => ({
+        ...prev,
+        changes: prev.changes.map((item) =>
+          item.id === changeId ? { ...item, [field]: value } : item
+        ),
+      }));
+    },
+    [setters]
+  );
 
   const handleResetInicioData = useCallback(() => {
     if (state.workflow.isLocked) return;
@@ -583,6 +614,7 @@ export function usePgrEtapaController({
       setInicioDraft: setters.setInicioDraft,
       setDadosCadastrais: setters.setDadosCadastrais,
       setCardMeta: setters.setCardMeta,
+      setHistoricoData: setters.setHistoricoData,
       setIsPipefySyncing: setters.setIsPipefySyncing,
       setPlanActionScope: setters.setPlanActionScope,
       setPlanActionGheId: setters.setPlanActionGheId,
@@ -806,6 +838,7 @@ export function usePgrEtapaController({
       handleGeneratePreviewPdf,
       handleGenerateFakePdf,
       handleStartNewVersion,
+      handleHistoricoChangeField,
       handleResetInicioData,
       handleResetDadosData,
       handleResetDescricaoData,

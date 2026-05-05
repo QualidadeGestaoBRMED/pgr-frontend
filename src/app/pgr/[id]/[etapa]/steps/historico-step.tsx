@@ -21,6 +21,11 @@ type HistoricoStepProps = {
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
+  onChangeField: (
+    changeId: string,
+    field: "company" | "analysis" | "change" | "reason" | "date",
+    value: string
+  ) => void;
 };
 
 export function HistoricoStep({
@@ -31,6 +36,7 @@ export function HistoricoStep({
   isGeneratingFakePdf,
   onDownloadPdf,
   onStartNewVersion,
+  onChangeField,
 }: HistoricoStepProps) {
   return (
     <PgrHistoricoPanel
@@ -41,6 +47,7 @@ export function HistoricoStep({
       isGeneratingFakePdf={isGeneratingFakePdf}
       onDownloadPdf={onDownloadPdf}
       onStartNewVersion={onStartNewVersion}
+      onChangeField={onChangeField}
     />
   );
 }

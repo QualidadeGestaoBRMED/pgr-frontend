@@ -108,6 +108,9 @@ type GeneralActionsContext = {
     setInicioDraft: React.Dispatch<React.SetStateAction<InicioDraft>>;
     setDadosCadastrais: React.Dispatch<React.SetStateAction<DadosCadastraisDraft>>;
     setCardMeta: React.Dispatch<React.SetStateAction<CardMeta>>;
+    setHistoricoData: React.Dispatch<
+      React.SetStateAction<PersistedPgrState["historicoData"]>
+    >;
     setIsPipefySyncing: React.Dispatch<React.SetStateAction<boolean>>;
     setPlanActionScope: React.Dispatch<React.SetStateAction<"all" | "ghe" | "risk">>;
     setPlanActionGheId: React.Dispatch<React.SetStateAction<string>>;
@@ -180,6 +183,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setInicioDraft,
     setDadosCadastrais,
     setCardMeta,
+    setHistoricoData,
     setIsPipefySyncing,
     setPlanActionScope,
     setPlanActionGheId,
@@ -536,12 +540,33 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         ...prev,
         ...normalizedInicioDraft,
       }));
-      setDadosCadastrais(
-        syncLegacyContractorFields({
-          ...initialDadosCadastrais,
-          ...(response.dadosCadastrais || {}),
-        })
-      );
+      const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
+      const fallbackCompany =
+        String(responseDados.empresaNome || "").trim() ||
+        String(responseDados.empresaRazaoSocial || "").trim() ||
+        String(normalizedInicioDraft.companyName || "").trim() ||
+        String(rawInicioDraft.companyName || "").trim();
+      const mergedDados = syncLegacyContractorFields({
+        ...initialDadosCadastrais,
+        ...responseDados,
+        empresaRazaoSocial:
+          String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
+        empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
+      });
+
+      setDadosCadastrais(mergedDados);
+      if (fallbackCompany) {
+        setHistoricoData((prev) => ({
+          ...prev,
+          changes: prev.changes.map((row) => {
+            const currentCompany = String(row.company || "").trim();
+            const isPlaceholder =
+              !currentCompany ||
+              currentCompany.toLowerCase() === "empresa não informada";
+            return isPlaceholder ? { ...row, company: fallbackCompany } : row;
+          }),
+        }));
+      }
       if (response.cardMeta) {
         setCardMeta({
           pipefyCardId:
