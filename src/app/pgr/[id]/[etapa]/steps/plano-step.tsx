@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { MinusCircle, Pencil } from "lucide-react";
+import { ChevronDown, MinusCircle, Pencil, Search } from "lucide-react";
 import { SearchableSelect, type SearchableSelectProps } from "./searchable-select";
 
 type PlanoStepProps = {
@@ -8,6 +8,7 @@ type PlanoStepProps = {
     inputBaseClass: string;
     textareaBaseClass: string;
     selectBaseClass: string;
+    defaultResponsibleActionName: string;
     handleResetPlanoData: () => void;
     planAction: { nr: string; vigencia: string };
     maskDate: (value: string) => string;
@@ -17,6 +18,7 @@ type PlanoStepProps = {
       gheId: string;
       riskId: string;
       gheName: string;
+      tipoAgente: string;
       descricaoAgente: string;
       classificacao: string;
       medidasPrevencao: string;
@@ -27,17 +29,21 @@ type PlanoStepProps = {
       gheId: string;
       riskId: string;
       gheName: string;
+      tipoAgente: string;
       descricaoAgente: string;
       classificacao: string;
       medidasPrevencao: string;
       groupTargets?: Array<{ gheId: string; riskId: string }>;
     }>;
-    editingMedidasId: string | null;
-    editingMedidasValue: string;
-    setEditingMedidasValue: Dispatch<SetStateAction<string>>;
-    handleEditMedidasSave: (
+    getActionDescriptionOptions: (
+      tipoAgente: string,
+      descricaoAgente: string,
+      currentValue: string
+    ) => string[];
+    handlePlanMedidasChange: (
       gheId: string,
       riskId: string,
+      value: string,
       groupTargets?: Array<{ gheId: string; riskId: string }>
     ) => void;
     handleDeleteMedidas: (
@@ -45,8 +51,6 @@ type PlanoStepProps = {
       riskId: string,
       groupTargets?: Array<{ gheId: string; riskId: string }>
     ) => void;
-    handleEditMedidasCancel: () => void;
-    handleEditMedidasStart: (rowId: string, value: string) => void;
     planTableCurrentPage: number;
     planTableTotalPages: number;
     setPlanTablePage: Dispatch<SetStateAction<number>>;
@@ -68,23 +72,35 @@ type PlanoStepProps = {
 };
 
 export function PlanoStep({ ctx }: PlanoStepProps) {
+  const normalizeText = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  const parseMultiTextValues = (value: string) =>
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const toMultiTextValue = (values: string[]) =>
+    Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
+
   const {
     inputBaseClass,
     textareaBaseClass,
     selectBaseClass,
+    defaultResponsibleActionName,
     handleResetPlanoData,
     planAction,
     maskDate,
     setPlanAction,
     planTableRows,
     planTableRowsPage,
-    editingMedidasId,
-    editingMedidasValue,
-    setEditingMedidasValue,
-    handleEditMedidasSave,
+    getActionDescriptionOptions,
+    handlePlanMedidasChange,
     handleDeleteMedidas,
-    handleEditMedidasCancel,
-    handleEditMedidasStart,
     planTableCurrentPage,
     planTableTotalPages,
     setPlanTablePage,
@@ -103,8 +119,11 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     setPlanActionDescription,
     handleSavePlanActionModal,
   } = ctx;
+  const tableControlClass =
+    "h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
+  const tableSelectClass = tableControlClass;
+  const tableInputClass = tableControlClass;
 
-  const [, setTouchedMedidasByRowId] = useState<Record<string, boolean>>({});
   const [, setTouchedPlanActionDescription] = useState(false);
   const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
   const [, setTouchedPlanActionGheSelection] = useState(false);
@@ -114,6 +133,25 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     riskId: string;
     groupTargets?: Array<{ gheId: string; riskId: string }>;
   }>(null);
+  const [tipoMedidaByRowId, setTipoMedidaByRowId] = useState<Record<string, string>>(
+    {}
+  );
+  const [responsavelAcaoByRowId, setResponsavelAcaoByRowId] = useState<
+    Record<string, string>
+  >({});
+  const [prazoAcaoByRowId, setPrazoAcaoByRowId] = useState<Record<string, string>>(
+    {}
+  );
+  const [acompanhamentoByRowId, setAcompanhamentoByRowId] = useState<
+    Record<string, string>
+  >({});
+  const [afericaoResultadoByRowId, setAfericaoResultadoByRowId] = useState<
+    Record<string, string>
+  >({});
+  const [openMedidasMultiSelectRowId, setOpenMedidasMultiSelectRowId] = useState<
+    string | null
+  >(null);
+  const [medidasMultiSelectQuery, setMedidasMultiSelectQuery] = useState("");
 
   useEffect(() => {
     if (!isPlanActionModalOpen) return;
@@ -152,18 +190,21 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     planActionGheOptions,
   ]);
 
-  const medidasErrorsByRowId = useMemo<Record<string, string>>(
-    () =>
-      Object.fromEntries(
-        planTableRows.map((row) => [
-          row.id,
-          row.medidasPrevencao.trim()
-            ? ""
-            : "Medidas de prevenção é obrigatório.",
-        ])
-      ),
-    [planTableRows]
-  );
+  useEffect(() => {
+    if (!openMedidasMultiSelectRowId) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-medidas-multiselect]")) return;
+      setOpenMedidasMultiSelectRowId(null);
+    };
+    window.addEventListener("mousedown", handleOutsideClick);
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
+  }, [openMedidasMultiSelectRowId]);
+
+  useEffect(() => {
+    if (!openMedidasMultiSelectRowId) return;
+    setMedidasMultiSelectQuery("");
+  }, [openMedidasMultiSelectRowId]);
 
   const planActionDescriptionError = planActionDescription.trim()
     ? ""
@@ -177,19 +218,16 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
       ? "Selecione ao menos um GHE."
       : "";
 
-  const markMedidasTouched = (rowId: string) => {
-    setTouchedMedidasByRowId((prev) => ({ ...prev, [rowId]: true }));
-  };
-
-  const getMedidasTextareaClassName = (rowId: string) =>
-    medidasErrorsByRowId[rowId]
-      ? `${textareaBaseClass} min-h-[96px] border-rose-400 focus:ring-rose-500`
-      : `${textareaBaseClass} min-h-[96px]`;
-
   const getPlanActionDescriptionClassName = () =>
     planActionDescriptionError
       ? `${textareaBaseClass} min-h-[120px] border-rose-400 focus:ring-rose-500`
       : `${textareaBaseClass} min-h-[120px]`;
+
+  const filterOptionsByQuery = (options: string[]) => {
+    const term = normalizeText(medidasMultiSelectQuery.trim());
+    if (!term) return options;
+    return options.filter((option) => normalizeText(option).includes(term));
+  };
 
   return (
     <>
@@ -285,7 +323,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
         {planTableRows.length ? (
           <div className="mt-4 space-y-3">
             <div className="max-h-[420px] overflow-auto rounded-[12px] border border-border/60">
-              <table className="min-w-[720px] w-full border-separate border-spacing-0 text-left text-[12px]">
+              <table className="min-w-[1950px] w-full border-separate border-spacing-0 text-left text-[12px]">
                 <thead className="bg-muted/60 text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-semibold">GHE</th>
@@ -293,111 +331,243 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       Descrição agente de risco
                     </th>
                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                      Classificação
+                      Prioridade
                     </th>
                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                      Medidas de prevenção *
+                      Tipo de Medidas de Prevenção
+                    </th>
+                    <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                      Medidas de Prevenção *
+                    </th>
+                    <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                      Prazo para Realização da Ação
+                    </th>
+                    <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                      Responsável pela Ação
+                    </th>
+                    <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                      Acompanhamentos das Medidas de Prevenção
+                    </th>
+                    <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                      Aferição de Resultados
+                    </th>
+                    <th className="border-l border-border/60 px-4 py-3 font-semibold">
+                      Ações
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {planTableRowsPage.map((row) => (
-                    <tr key={row.id} className="border-t border-border/60">
-                      <td className="px-4 py-3 text-foreground">{row.gheName}</td>
-                      <td className="border-l border-border/60 px-4 py-3 text-foreground">
+                    <tr key={row.id} className="border-t border-border/60 align-middle">
+                      <td className="px-4 py-3 text-foreground align-middle">{row.gheName}</td>
+                      <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
                         {row.descricaoAgente}
                       </td>
-                      <td className="border-l border-border/60 px-4 py-3 text-foreground">
+                      <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
                         {row.classificacao}
                       </td>
-                      <td className="border-l border-border/60 px-4 py-3 text-foreground">
-                        {editingMedidasId === row.id ? (
-                          <div className="space-y-2">
-                            <textarea
-                              className={getMedidasTextareaClassName(row.id)}
-                              value={editingMedidasValue}
-                              onChange={(event) =>
-                                setEditingMedidasValue(event.target.value)
-                              }
-                              onBlur={() => markMedidasTouched(row.id)}
-                              placeholder="Descreva as medidas de prevenção"
-                            />
-                            {medidasErrorsByRowId[row.id] ? (
-                              <p className="text-[12px] text-danger">
-                                {medidasErrorsByRowId[row.id]}
-                              </p>
-                            ) : null}
-                            <div className="flex flex-wrap items-center gap-2">
+                      <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
+                        <select
+                          className={`${tableSelectClass} min-w-[170px]`}
+                          value={tipoMedidaByRowId[row.id] || ""}
+                          onChange={(event) =>
+                            setTipoMedidaByRowId((prev) => ({
+                              ...prev,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Introduzir">Introduzir</option>
+                          <option value="Aprimorar">Aprimorar</option>
+                          <option value="Manter">Manter</option>
+                        </select>
+                      </td>
+                      <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
+                        <div className="group">
+                          {(() => {
+                            const medidasOptions = getActionDescriptionOptions(
+                              row.tipoAgente,
+                              row.descricaoAgente,
+                              ""
+                            );
+                            const selectedMedidas = parseMultiTextValues(
+                              row.medidasPrevencao || ""
+                            ).filter((item) => medidasOptions.includes(item));
+                            const filteredMedidasOptions =
+                              filterOptionsByQuery(medidasOptions);
+
+                            return (
+                              <div className="relative" data-medidas-multiselect>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    markMedidasTouched(row.id);
-                                    if (editingMedidasValue.trim().length === 0) return;
-                                    handleEditMedidasSave(
-                                      row.gheId,
-                                      row.riskId,
-                                      row.groupTargets
-                                    );
-                                  }}
-                                className="btn-primary px-3 py-1 text-[11px]"
-                              >
-                                Salvar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleEditMedidasCancel}
-                                className="btn-outline px-3 py-1 text-[11px]"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="group px-1 py-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <p
-                                className={`text-[12px] leading-relaxed ${
-                                  row.medidasPrevencao
-                                    ? "text-foreground"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {row.medidasPrevencao
-                                  ? row.medidasPrevencao
-                                  : "Sem medidas cadastradas."}
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
+                                  className={`${tableSelectClass} relative flex min-w-[260px] items-center pr-10 text-left`}
                                   onClick={() =>
-                                    handleEditMedidasStart(
-                                      row.id,
-                                      row.medidasPrevencao
+                                    setOpenMedidasMultiSelectRowId((prev) =>
+                                      prev === row.id ? null : row.id
                                     )
                                   }
-                                  className="text-muted-foreground transition hover:text-primary"
-                                  title="Editar medidas de prevenção"
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <span className="block min-w-0 truncate">
+                                      {selectedMedidas.length
+                                        ? selectedMedidas.join(", ")
+                                        : "Selecione medidas"}
+                                  </span>
+                                  <ChevronDown
+                                    className={`absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-transform ${
+                                      openMedidasMultiSelectRowId === row.id
+                                        ? "rotate-180"
+                                        : "rotate-0"
+                                    }`}
+                                  />
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPendingDeleteRow({
-                                      gheId: row.gheId,
-                                      riskId: row.riskId,
-                                      groupTargets: row.groupTargets,
-                                    });
-                                  }}
-                                  className="text-muted-foreground transition hover:text-primary"
-                                  title="Excluir ação"
-                                >
-                                  <MinusCircle className="h-4 w-4" />
-                                </button>
+                                {openMedidasMultiSelectRowId === row.id ? (
+                                  <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                                    <div className="relative mb-2">
+                                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                      <input
+                                        className={`${inputBaseClass} mt-0 h-[36px] pl-8`}
+                                        value={medidasMultiSelectQuery}
+                                        onChange={(event) =>
+                                          setMedidasMultiSelectQuery(event.target.value)
+                                        }
+                                        placeholder="Filtrar medidas"
+                                      />
+                                    </div>
+                                    <div className="max-h-44 space-y-1 overflow-auto">
+                                      {filteredMedidasOptions.length ? (
+                                        filteredMedidasOptions.map((option) => {
+                                          const isChecked =
+                                            selectedMedidas.includes(option);
+                                          return (
+                                            <label
+                                              key={`${row.id}-medidas-${option}`}
+                                              className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {
+                                                  const next = isChecked
+                                                    ? selectedMedidas.filter(
+                                                        (item) => item !== option
+                                                      )
+                                                    : [...selectedMedidas, option];
+                                                  handlePlanMedidasChange(
+                                                    row.gheId,
+                                                    row.riskId,
+                                                    toMultiTextValue(next),
+                                                    row.groupTargets
+                                                  );
+                                                }}
+                                              />
+                                              <span>{option}</span>
+                                            </label>
+                                          );
+                                        })
+                                      ) : (
+                                        <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                          Nenhuma medida encontrada.
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
-                            </div>
-                          </div>
-                        )}
+                            );
+                          })()}
+                        </div>
+                      </td>
+                      <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
+                        <input
+                          type="date"
+                          className={`${tableInputClass} min-w-[170px]`}
+                          value={prazoAcaoByRowId[row.id] || ""}
+                          onChange={(event) =>
+                            setPrazoAcaoByRowId((prev) => ({
+                              ...prev,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </td>
+                      <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
+                        <input
+                          className={`${tableInputClass} min-w-[220px]`}
+                          value={
+                            responsavelAcaoByRowId[row.id] ??
+                            defaultResponsibleActionName
+                          }
+                          onChange={(event) =>
+                            setResponsavelAcaoByRowId((prev) => ({
+                              ...prev,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Responsável pela ação"
+                        />
+                      </td>
+                      <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
+                        <select
+                          className={`${tableSelectClass} min-w-[180px]`}
+                          value={acompanhamentoByRowId[row.id] || ""}
+                          onChange={(event) =>
+                            setAcompanhamentoByRowId((prev) => ({
+                              ...prev,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Realizado">Realizado</option>
+                          <option value="Em andamento">Em andamento</option>
+                          <option value="Programado">Programado</option>
+                        </select>
+                      </td>
+                      <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
+                        <select
+                          className={`${tableSelectClass} min-w-[210px]`}
+                          value={afericaoResultadoByRowId[row.id] || ""}
+                          onChange={(event) =>
+                            setAfericaoResultadoByRowId((prev) => ({
+                              ...prev,
+                              [row.id]: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Eficaz">Eficaz</option>
+                          <option value="Ineficaz">Ineficaz</option>
+                          <option value="Aguardando realização da Ação">
+                            Aguardando realização da Ação
+                          </option>
+                        </select>
+                      </td>
+                      <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
+                        <div className="flex h-[36px] items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOpenMedidasMultiSelectRowId(row.id)}
+                            className="text-muted-foreground transition hover:text-primary"
+                            title="Editar medidas de prevenção"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingDeleteRow({
+                                gheId: row.gheId,
+                                riskId: row.riskId,
+                                groupTargets: row.groupTargets,
+                              });
+                            }}
+                            className="text-muted-foreground transition hover:text-primary"
+                            title="Excluir ação"
+                          >
+                            <MinusCircle className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

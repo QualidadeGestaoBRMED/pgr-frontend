@@ -766,6 +766,7 @@ export function usePgrEtapaController({
       getNivelAcaoOptions: derived.getNivelAcaoOptions,
       getSeveridadeOptions: derived.getSeveridadeOptions,
       getMedidasControleOptions: derived.getMedidasControleOptions,
+      getActionDescriptionOptions: derived.getActionDescriptionOptions,
       getEpiOptions: derived.getEpiOptions,
       getEpcOptions: derived.getEpcOptions,
       calculateRiskClassification: derived.calculateRiskClassification,

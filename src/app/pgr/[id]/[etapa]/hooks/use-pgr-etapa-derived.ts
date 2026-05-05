@@ -20,6 +20,7 @@ type PlanTableRow = {
   gheId: string;
   riskId: string;
   gheName: string;
+  tipoAgente: string;
   descricaoAgente: string;
   classificacao: string;
   medidasPrevencao: string;
@@ -129,6 +130,7 @@ export function usePgrEtapaDerived({
     getNivelAcaoOptions,
     getSeveridadeOptions,
     getMedidasControleOptions,
+    getActionDescriptionOptions,
     getEpiOptions,
     getEpcOptions,
     calculateRiskClassification,
@@ -256,6 +258,7 @@ export function usePgrEtapaDerived({
             gheId: ghe.id,
             riskId: risk.id,
             gheName: ghe.name,
+            tipoAgente: risk.tipoAgente || "",
             descricaoAgente: risk.descricaoAgente || "Não informado",
             classificacao: risk.classificacao || "Não informado",
             medidasPrevencao: risk.medidasControle || "",
@@ -279,6 +282,7 @@ export function usePgrEtapaDerived({
     rawPlanTableRows.forEach((row, index) => {
       const key = [
         row.descricaoAgente.trim().toLowerCase(),
+        row.tipoAgente.trim().toLowerCase(),
         row.classificacao.trim().toLowerCase(),
         row.medidasPrevencao.trim().toLowerCase(),
       ].join("||");
@@ -558,6 +562,7 @@ export function usePgrEtapaDerived({
     getNivelAcaoOptions,
     getSeveridadeOptions,
     getMedidasControleOptions,
+    getActionDescriptionOptions,
     getEpiOptions,
     getEpcOptions,
     calculateRiskClassification,

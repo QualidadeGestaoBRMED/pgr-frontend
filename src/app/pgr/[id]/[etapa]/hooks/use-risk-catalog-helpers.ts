@@ -114,6 +114,12 @@ const resolveControlMeasureValues = (item: TechnicalCriteriaCatalogItem) =>
     ...toValuesFromUnknown(item.control_measure_description_children),
   ]);
 
+const resolveActionDescriptionValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.actionDescriptionChildren),
+    ...toValuesFromUnknown(item.action_description_children),
+  ]);
+
 const resolvePpeValues = (item: TechnicalCriteriaCatalogItem) =>
   uniqueValues([
     ...toValuesFromUnknown(item.ppeChildren),
@@ -256,6 +262,7 @@ type TechnicalCriteriaResolved = {
   hasQuantitative: boolean;
   severity: string;
   controlMeasureValues: string[];
+  actionDescriptionValues: string[];
   ppeValues: string[];
   cpeValues: string[];
 };
@@ -317,6 +324,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const propagationPathValues = resolvePropagationPathValues(item);
       const unitValues = resolveUnitValues(item);
       const controlMeasureValues = resolveControlMeasureValues(item);
+      const actionDescriptionValues = resolveActionDescriptionValues(item);
       const ppeValues = resolvePpeValues(item);
       const cpeValues = resolveCpeValues(item);
       const source = sourceValues[0] || "";
@@ -340,6 +348,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         unitValues.join("|"),
         hasQuantitative ? "1" : "0",
         controlMeasureValues.join("|"),
+        actionDescriptionValues.join("|"),
         ppeValues.join("|"),
         cpeValues.join("|"),
         evaluationType,
@@ -362,6 +371,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
               entry.unitValues.join("|"),
               entry.hasQuantitative ? "1" : "0",
               entry.controlMeasureValues.join("|"),
+              entry.actionDescriptionValues.join("|"),
               entry.ppeValues.join("|"),
               entry.cpeValues.join("|"),
               entry.evaluationType,
@@ -388,6 +398,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           isCalculated,
           severity,
           controlMeasureValues,
+          actionDescriptionValues,
           ppeValues,
           cpeValues,
         });
@@ -692,6 +703,19 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveTechnicalCriteriaOptions]
   );
 
+  const getActionDescriptionOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.actionDescriptionValues
+        )
+        .flat()
+      );
+      return optionsFromCriteria;
+    },
+    [resolveTechnicalCriteriaOptions]
+  );
+
   const getEpiOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
@@ -732,6 +756,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getNivelAcaoOptions,
     getSeveridadeOptions,
     getMedidasControleOptions,
+    getActionDescriptionOptions,
     getEpiOptions,
     getEpcOptions,
     calculateRiskClassification,

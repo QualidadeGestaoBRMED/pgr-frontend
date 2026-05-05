@@ -1813,10 +1813,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       <p className="text-[13px] font-semibold text-foreground">
                         Medidas de prevenção
                       </p>
-                      <div className="mt-4 grid gap-4 md:grid-cols-4">
+                      <div className="mt-4 grid gap-4 md:grid-cols-3">
                         <div>
                           <label className="text-[12px] font-medium text-foreground">
-                            Medidas de Controle Administrativas e/ou de Engenharia *
+                            Medidas de Controle Administrativas e/ou de Engenharia
                           </label>
                           <div className="relative mt-2" data-multiselect>
                             <button
@@ -2064,16 +2064,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               {getRiskFieldError(risk.id, "epi")}
                             </p>
                           ) : null}
-                        </div>
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            CA
-                          </label>
-                          <textarea
-                            className={`${textareaBaseClass} min-h-[80px]`}
-                            value={caValues.join(", ")}
-                            disabled
-                          />
                         </div>
                       </div>
                     </div>

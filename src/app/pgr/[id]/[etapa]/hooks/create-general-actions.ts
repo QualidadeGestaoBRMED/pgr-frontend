@@ -592,7 +592,29 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionRiskId(ghe?.risks[0]?.id ?? "");
   };
 
-  const handlePlanMedidasChange = (gheId: string, riskId: string, value: string) => {
+  const handlePlanMedidasChange = (
+    gheId: string,
+    riskId: string,
+    value: string,
+    groupTargets?: Array<{ gheId: string; riskId: string }>
+  ) => {
+    if (Array.isArray(groupTargets) && groupTargets.length) {
+      const targetKeys = new Set(
+        groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
+      );
+      setRiskGheGroups((prev) =>
+        prev.map((ghe) => ({
+          ...ghe,
+          risks: ghe.risks.map((risk) =>
+            targetKeys.has(`${ghe.id}::${risk.id}`)
+              ? { ...risk, medidasControle: value }
+              : risk
+          ),
+        }))
+      );
+      return;
+    }
+
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         if (ghe.id !== gheId) return ghe;
@@ -622,21 +644,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     groupTargets?: Array<{ gheId: string; riskId: string }>
   ) => {
     const nextValue = ctx.current.editingMedidasValue.trim();
-    if (Array.isArray(groupTargets) && groupTargets.length) {
-      const targetKeys = new Set(groupTargets.map((target) => `${target.gheId}::${target.riskId}`));
-      setRiskGheGroups((prev) =>
-        prev.map((ghe) => ({
-          ...ghe,
-          risks: ghe.risks.map((risk) =>
-            targetKeys.has(`${ghe.id}::${risk.id}`)
-              ? { ...risk, medidasControle: nextValue }
-              : risk
-          ),
-        }))
-      );
-    } else {
-      handlePlanMedidasChange(gheId, riskId, nextValue);
-    }
+    handlePlanMedidasChange(gheId, riskId, nextValue, groupTargets);
     setEditingMedidasId(null);
     setEditingMedidasValue("");
   };
@@ -1304,6 +1312,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleOpenPlanActionModal,
     handleChangePlanActionScope,
     handlePlanActionGheChange,
+    handlePlanMedidasChange,
     handleEditMedidasStart,
     handleEditMedidasCancel,
     handleEditMedidasSave,
