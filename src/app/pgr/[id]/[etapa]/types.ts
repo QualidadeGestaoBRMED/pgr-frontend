@@ -85,6 +85,14 @@ export type RiskMatrixTemplateItem = {
   isActive?: boolean;
 };
 
+export type RiskMatrixExposureItem = {
+  id: number;
+  templateId: number;
+  value: number;
+  minLimit: number;
+  maxLimit: number;
+};
+
 export type RiskMatrixQualitativeItem = {
   id: number;
   templateId: number;
@@ -97,10 +105,22 @@ export type RiskMatrixQualitativeItem = {
 export type RiskMatrixQuantitativeItem = {
   id: number;
   templateId: number;
-  qualitativeId: number;
+  qualitativeId?: number;
   qualitativeClassificationId?: number;
+  severityValue?: number;
   levelValue: number;
   levelId: number;
+  classificationId: number;
+  classificationName: string;
+};
+
+export type RiskMatrixActionPlanItem = {
+  id: number;
+  templateId: number;
+  riskEvaluationClassificationId: number;
+  riskEvaluationClassificationName?: string;
+  exposureId: number;
+  exposureValue: number;
   classificationId: number;
   classificationName: string;
 };
@@ -108,8 +128,10 @@ export type RiskMatrixQuantitativeItem = {
 export type RiskMatrixPayload = {
   activeTemplateId?: number | null;
   templates: RiskMatrixTemplateItem[];
+  exposure?: RiskMatrixExposureItem[];
   qualitative: RiskMatrixQualitativeItem[];
   quantitative: RiskMatrixQuantitativeItem[];
+  actionPlan?: RiskMatrixActionPlanItem[];
 };
 
 export type TechnicalCriteriaCatalogItem = {

@@ -278,7 +278,12 @@ export const areStringArraysEqual = (a: string[] | undefined, b: string[] | unde
 };
 
 export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
-  const { calculateRiskClassification } = useRiskClassification(riskCatalogs);
+  const {
+    calculateRiskClassification,
+    calculateActionPlanClassification,
+    calculateExposureLevel,
+    calculateExposureFromWorkforceRatio,
+  } = useRiskClassification(riskCatalogs);
   const normalizeAgentName = useCallback(
     (value: string) => normalizeCatalogToken((value || "").trim()),
     []
@@ -760,5 +765,8 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getEpiOptions,
     getEpcOptions,
     calculateRiskClassification,
+    calculateActionPlanClassification,
+    calculateExposureLevel,
+    calculateExposureFromWorkforceRatio,
   };
 }

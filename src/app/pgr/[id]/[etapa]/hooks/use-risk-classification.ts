@@ -9,6 +9,24 @@ type RiskClassificationResult = {
   quantitativeLevel?: number;
 };
 
+type ActionPlanClassificationResult = {
+  classification: string;
+  classificationId?: number;
+  exposureValue?: number;
+  exposureId?: number;
+};
+
+type ExposureLevelInput = {
+  valorMedido?: string;
+  intensidade?: string;
+  nivelAcao?: string;
+};
+
+type ExposureByWorkforceResult = {
+  exposureId: number;
+  exposureValue: number;
+};
+
 const normalizeToken = (value: string) =>
   value
     .normalize("NFD")
@@ -123,6 +141,47 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
     return map;
   }, [riskMatrix]);
 
+  const exposureRangesByTemplate = useMemo(() => {
+    const map = new Map<
+      number,
+      Array<{ id: number; value: number; minLimit: number; maxLimit: number }>
+    >();
+
+    (riskMatrix?.exposure || []).forEach((item) => {
+      const templateId = parseInteger(item.templateId);
+      const id = parseInteger(item.id);
+      const value = parseInteger(item.value);
+      const minLimit = parseNumber(item.minLimit);
+      const maxLimit = parseNumber(item.maxLimit);
+
+      if (
+        !templateId ||
+        !id ||
+        !value ||
+        minLimit === null ||
+        maxLimit === null
+      ) {
+        return;
+      }
+
+      const current = map.get(templateId) || [];
+      current.push({ id, value, minLimit, maxLimit });
+      map.set(templateId, current);
+    });
+
+    map.forEach((ranges, templateId) => {
+      map.set(
+        templateId,
+        ranges.sort((a, b) => {
+          if (a.minLimit === b.minLimit) return a.maxLimit - b.maxLimit;
+          return a.minLimit - b.minLimit;
+        })
+      );
+    });
+
+    return map;
+  }, [riskMatrix]);
+
   const qualitativeSeverityByQualitativeRowId = useMemo(() => {
     const map = new Map<number, number>();
     (riskMatrix?.qualitative || []).forEach((item) => {
@@ -147,6 +206,7 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
 
     (riskMatrix?.quantitative || []).forEach((item) => {
       const templateId = parseInteger(item.templateId);
+      const severityValue = parseInteger(item.severityValue);
       const qualitativeId = parseInteger(item.qualitativeId);
       const resolvedSeverityFromQualitativeRow = qualitativeId
         ? qualitativeSeverityByQualitativeRowId.get(qualitativeId) || null
@@ -166,6 +226,7 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
       }
 
       const severityCandidates = [
+        severityValue,
         resolvedSeverityFromQualitativeRow,
         qualitativeId,
       ].filter((value): value is number => Boolean(value));
@@ -199,6 +260,49 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
 
     return map;
   }, [qualitativeSeverityByQualitativeRowId, riskMatrix]);
+
+  const actionPlanByKey = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        classificationId: number;
+        classificationName: string;
+        exposureId: number;
+        exposureValue: number;
+      }
+    >();
+
+    (riskMatrix?.actionPlan || []).forEach((item) => {
+      const templateId = parseInteger(item.templateId);
+      const riskEvaluationClassificationId = parseInteger(
+        item.riskEvaluationClassificationId
+      );
+      const exposureValue = parseInteger(item.exposureValue);
+      const exposureId = parseInteger(item.exposureId);
+      const classificationId = parseInteger(item.classificationId);
+      const classificationName = String(item.classificationName || "").trim();
+
+      if (
+        !templateId ||
+        !riskEvaluationClassificationId ||
+        !exposureValue ||
+        !classificationId ||
+        !classificationName
+      ) {
+        return;
+      }
+
+      const key = `${templateId}|${riskEvaluationClassificationId}|${exposureValue}`;
+      map.set(key, {
+        classificationId,
+        classificationName,
+        exposureId: exposureId || exposureValue,
+        exposureValue,
+      });
+    });
+
+    return map;
+  }, [riskMatrix]);
 
   const calculateRiskClassification = useCallback(
     (risk: Pick<GheRisk, "severidade" | "probabilidade" | "tipoAvaliacao" | "valorMedido" | "intensidade" | "nivelAcao">): RiskClassificationResult | null => {
@@ -259,8 +363,79 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
     [activeTemplateId, qualitativeByKey, quantitativeByKey]
   );
 
+  const calculateExposureLevel = useCallback(
+    (input: ExposureLevelInput): number | null => {
+      const quantitativeInputs = resolveQuantitativeLevelInputs(input);
+      if (!quantitativeInputs) return null;
+      return calculateQuantitativeLevel(
+        quantitativeInputs.measuredValue,
+        quantitativeInputs.toleranceLimit,
+        quantitativeInputs.actionLevel
+      );
+    },
+    []
+  );
+
+  const calculateExposureFromWorkforceRatio = useCallback(
+    (ratio: number | null | undefined): ExposureByWorkforceResult | null => {
+      if (!activeTemplateId) return null;
+      if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return null;
+
+      const ranges = exposureRangesByTemplate.get(activeTemplateId) || [];
+      if (!ranges.length) return null;
+
+      const normalizedRatio = Math.max(0, Math.min(1, ratio));
+      const directMatch = ranges.find(
+        (range) =>
+          normalizedRatio >= range.minLimit && normalizedRatio <= range.maxLimit
+      );
+      if (directMatch) {
+        return { exposureId: directMatch.id, exposureValue: directMatch.value };
+      }
+
+      if (normalizedRatio < ranges[0].minLimit) {
+        return { exposureId: ranges[0].id, exposureValue: ranges[0].value };
+      }
+
+      const last = ranges[ranges.length - 1];
+      return { exposureId: last.id, exposureValue: last.value };
+    },
+    [activeTemplateId, exposureRangesByTemplate]
+  );
+
+  const calculateActionPlanClassification = useCallback(
+    (params: {
+      riskEvaluationClassificationId?: number | string;
+      exposure?: number | string;
+    }): ActionPlanClassificationResult | null => {
+      if (!activeTemplateId) return null;
+
+      const riskEvaluationClassificationId = parseInteger(
+        params.riskEvaluationClassificationId
+      );
+      const exposureValue = parseInteger(params.exposure);
+
+      if (!riskEvaluationClassificationId || !exposureValue) return null;
+
+      const key = `${activeTemplateId}|${riskEvaluationClassificationId}|${exposureValue}`;
+      const result = actionPlanByKey.get(key);
+      if (!result) return null;
+
+      return {
+        classification: result.classificationName,
+        classificationId: result.classificationId,
+        exposureValue: result.exposureValue,
+        exposureId: result.exposureId,
+      };
+    },
+    [actionPlanByKey, activeTemplateId]
+  );
+
   return {
     calculateRiskClassification,
+    calculateExposureLevel,
+    calculateExposureFromWorkforceRatio,
+    calculateActionPlanClassification,
     activeTemplateId,
   };
 }

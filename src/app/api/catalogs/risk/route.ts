@@ -20,8 +20,10 @@ const emptyPayload = {
   riskMatrix: {
     activeTemplateId: null,
     templates: [],
+    exposure: [],
     qualitative: [],
     quantitative: [],
+    actionPlan: [],
   },
 };
 

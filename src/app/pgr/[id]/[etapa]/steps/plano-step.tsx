@@ -20,7 +20,9 @@ type PlanoStepProps = {
       gheName: string;
       tipoAgente: string;
       descricaoAgente: string;
+      prioridade: string;
       classificacao: string;
+      exposureValue?: number;
       medidasPrevencao: string;
       groupTargets?: Array<{ gheId: string; riskId: string }>;
     }>;
@@ -31,7 +33,9 @@ type PlanoStepProps = {
       gheName: string;
       tipoAgente: string;
       descricaoAgente: string;
+      prioridade: string;
       classificacao: string;
+      exposureValue?: number;
       medidasPrevencao: string;
       groupTargets?: Array<{ gheId: string; riskId: string }>;
     }>;
@@ -364,7 +368,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                         {row.descricaoAgente}
                       </td>
                       <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
-                        {row.classificacao}
+                        {row.prioridade}
                       </td>
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                         <select

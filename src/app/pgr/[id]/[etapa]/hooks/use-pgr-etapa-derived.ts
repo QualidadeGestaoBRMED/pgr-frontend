@@ -22,7 +22,9 @@ type PlanTableRow = {
   gheName: string;
   tipoAgente: string;
   descricaoAgente: string;
+  prioridade: string;
   classificacao: string;
+  exposureValue?: number;
   medidasPrevencao: string;
   groupTargets?: Array<{ gheId: string; riskId: string }>;
 };
@@ -134,6 +136,8 @@ export function usePgrEtapaDerived({
     getEpiOptions,
     getEpcOptions,
     calculateRiskClassification,
+    calculateActionPlanClassification,
+    calculateExposureFromWorkforceRatio,
   } =
     useRiskCatalogHelpers(riskCatalogs);
 
@@ -247,25 +251,90 @@ export function usePgrEtapaDerived({
     [gheGroups]
   );
 
+  const parseWorkersCount = (value: string) => {
+    const safeValue = String(value || "").replace(/\s+/g, "").replace(",", ".");
+    const parsed = Number.parseFloat(safeValue);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  };
+
+  const workersByGheId = useMemo(() => {
+    const map = new Map<string, number>();
+    gheGroups.forEach((ghe) => {
+      const total = ghe.items.reduce(
+        (acc, item) => acc + parseWorkersCount(item.funcionarios),
+        0
+      );
+      map.set(ghe.id, total);
+    });
+    return map;
+  }, [gheGroups]);
+
+  const totalWorkersAllGhes = useMemo(
+    () =>
+      Array.from(workersByGheId.values()).reduce(
+        (acc, count) => acc + (Number.isFinite(count) ? count : 0),
+        0
+      ),
+    [workersByGheId]
+  );
+
   const rawPlanTableRows = useMemo<PlanTableRow[]>(
     () => {
       const excludedKeys = new Set(removedPlanRiskKeys);
       return riskGheGroups.flatMap((ghe) =>
         ghe.risks
           .filter((risk) => !excludedKeys.has(`${ghe.id}::${risk.id}`))
-          .map((risk) => ({
-            id: `${ghe.id}-${risk.id}`,
-            gheId: ghe.id,
-            riskId: risk.id,
-            gheName: ghe.name,
-            tipoAgente: risk.tipoAgente || "",
-            descricaoAgente: risk.descricaoAgente || "Não informado",
-            classificacao: risk.classificacao || "Não informado",
-            medidasPrevencao: risk.medidasControle || "",
-          }))
+          .map((risk) => {
+            const riskCalculated = calculateRiskClassification({
+              severidade: risk.severidade,
+              probabilidade: risk.probabilidade,
+              tipoAvaliacao: risk.tipoAvaliacao,
+              valorMedido: risk.valorMedido,
+              intensidade: risk.intensidade,
+              nivelAcao: risk.nivelAcao,
+            });
+            const gheWorkers = workersByGheId.get(ghe.id) || 0;
+            const workforceRatio =
+              totalWorkersAllGhes > 0 ? gheWorkers / totalWorkersAllGhes : null;
+            const exposureFromWorkforce =
+              calculateExposureFromWorkforceRatio(workforceRatio);
+            const exposureValue = exposureFromWorkforce?.exposureValue;
+            const actionPlanCalculated =
+              riskCalculated?.classificationId && exposureValue
+                ? calculateActionPlanClassification({
+                    riskEvaluationClassificationId: riskCalculated.classificationId,
+                    exposure: exposureValue,
+                  })
+                : null;
+
+            return {
+              id: `${ghe.id}-${risk.id}`,
+              gheId: ghe.id,
+              riskId: risk.id,
+              gheName: ghe.name,
+              tipoAgente: risk.tipoAgente || "",
+              descricaoAgente: risk.descricaoAgente || "Não informado",
+              prioridade:
+                actionPlanCalculated?.classification ||
+                riskCalculated?.classification ||
+                risk.classificacao ||
+                "Não informado",
+              classificacao: risk.classificacao || "Não informado",
+              exposureValue,
+              medidasPrevencao: risk.medidasControle || "",
+            };
+          })
       );
     },
-    [riskGheGroups, removedPlanRiskKeys]
+    [
+      calculateActionPlanClassification,
+      calculateExposureFromWorkforceRatio,
+      calculateRiskClassification,
+      riskGheGroups,
+      removedPlanRiskKeys,
+      totalWorkersAllGhes,
+      workersByGheId,
+    ]
   );
 
   const planTableRows = useMemo<PlanTableRow[]>(() => {
@@ -283,7 +352,8 @@ export function usePgrEtapaDerived({
       const key = [
         row.descricaoAgente.trim().toLowerCase(),
         row.tipoAgente.trim().toLowerCase(),
-        row.classificacao.trim().toLowerCase(),
+        row.prioridade.trim().toLowerCase(),
+        String(row.exposureValue || ""),
         row.medidasPrevencao.trim().toLowerCase(),
       ].join("||");
       const existing = grouped.get(key);
