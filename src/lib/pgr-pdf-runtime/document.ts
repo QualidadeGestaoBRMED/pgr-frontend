@@ -632,6 +632,21 @@ function buildCoverPage(snapshot: RuntimeSnapshot): Content[] {
 }
 
 function buildUpdatePage(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState): Content[] {
+  const updateRows =
+    snapshot.updateHistory?.length
+      ? snapshot.updateHistory.map((item) => [
+          bodyCell(item.alteracao || "-", "tableBodyCellCenter"),
+          bodyCell(item.motivo || "-", "tableBodyCellCenter"),
+          bodyCell(item.data || snapshot.meta.generatedDate, "tableBodyCellCenter"),
+        ])
+      : [
+          [
+            bodyCell("00", "tableBodyCellCenter"),
+            bodyCell(snapshot.meta.revisionReason || "Elaboração inicial", "tableBodyCellCenter"),
+            bodyCell(snapshot.meta.generatedDate, "tableBodyCellCenter"),
+          ],
+        ];
+
   return [
     sectionTitle("Quadro de Atualizações do Programa"),
     {
@@ -648,11 +663,7 @@ function buildUpdatePage(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState):
         widths: resolveRuntimeTableWidths(pdfLayout, "update_table", [80, 190, 100]),
         body: [
           [tealHeaderCell("Alteração"), tealHeaderCell("Motivo da Revisão do PGR"), tealHeaderCell("Data")],
-          [
-            bodyCell("00", "tableBodyCellCenter"),
-            bodyCell(snapshot.meta.revisionReason || "Elaboração inicial", "tableBodyCellCenter"),
-            bodyCell(snapshot.meta.generatedDate, "tableBodyCellCenter"),
-          ],
+          ...updateRows,
         ],
       },
       layout: THIN_TABLE_LAYOUT,
@@ -685,16 +696,11 @@ function buildSummaryPage(layout?: LayoutContext): Content[] {
     { label: "19 - Índice de Anexos", targetId: "sec_19" },
     { label: "ANEXO A:\nINVENTÁRIO DE RISCOS OCUPACIONAIS", targetId: "annex_a", indent: 16 },
     {
-      label: "ANEXO B:\nDESCRIÇÃO DAS MEDIDAS DE PREVENÇÃO\nIMPLEMENTADAS",
+      label: "ANEXO B:\nPLANO DE AÇÃO\n(MEDIDAS DE PREVENÇÃO INTRODUZIDAS E APRIMORADAS)",
       targetId: "annex_b",
       indent: 16,
     },
-    {
-      label: "ANEXO C:\nPLANO DE AÇÃO\n(MEDIDAS DE PREVENÇÃO INTRODUZIDAS E APRIMORADAS)",
-      targetId: "annex_c",
-      indent: 16,
-    },
-    { label: "ANEXO D:\nART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", targetId: "annex_d", indent: 16 },
+    { label: "ANEXO C:\nART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", targetId: "annex_c", indent: 16 },
   ];
 
   return [
@@ -710,6 +716,9 @@ function buildIdentificationAndProgramPages(
   snapshot: RuntimeSnapshot,
   pdfLayout?: PdfLayoutState,
 ): Content[] {
+  const buildExtraRows = (items: Array<{ title: string; value: string }>): TableCell[][] =>
+    items.map((item) => [infoLabelCell(item.title || "Campo adicional"), bodyCell(item.value || "-")]);
+
   const commonInfoRows = (isCompany = true): TableCell[][] => {
     if (isCompany) {
       return [
@@ -719,6 +728,7 @@ function buildIdentificationAndProgramPages(
         [infoLabelCell("Atividade Principal"), bodyCell(snapshot.company.atividadePrincipal)],
         [infoLabelCell("Grau de Risco (Quadro I da NR-04)"), bodyCell(snapshot.company.grauRisco)],
         [infoLabelCell("Endereço"), bodyCell(snapshot.company.enderecoCompleto)],
+        ...buildExtraRows(snapshot.identificationExtras.empresa),
       ];
     }
 
@@ -728,8 +738,63 @@ function buildIdentificationAndProgramPages(
       [infoLabelCell("CNAE"), bodyCell(snapshot.establishment.cnae)],
       [infoLabelCell("Atividade Principal"), bodyCell(snapshot.establishment.atividadePrincipal)],
       [infoLabelCell("Grau de Risco (Quadro I da NR-04)"), bodyCell(snapshot.establishment.grauRisco)],
+      ...buildExtraRows(snapshot.identificationExtras.estabelecimento),
     ];
   };
+
+  const contractorSections: Content[] =
+    snapshot.contractors.length > 0
+      ? snapshot.contractors.flatMap((contractor, index) => [
+          {
+            text:
+              snapshot.contractors.length > 1
+                ? `Contratante ${index + 1}`
+                : "Contratante",
+            style: "bodyCapsTitleBlue",
+            margin: [0, index === 0 ? 0 : 12, 0, 8],
+          },
+          {
+            table: {
+              widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
+              body: [
+                [infoLabelCell("Nome Fantasia"), bodyCell(contractor.nomeFantasia)],
+                [infoLabelCell("Razão Social"), bodyCell(contractor.razaoSocial)],
+                [infoLabelCell("CNPJ"), bodyCell(contractor.cnpj)],
+                [infoLabelCell("CNAE"), bodyCell(contractor.cnae)],
+                [infoLabelCell("Atividade Principal"), bodyCell(contractor.atividadePrincipal)],
+                [infoLabelCell("Grau de Risco (Quadro I da NR-04)"), bodyCell(contractor.grauRisco)],
+                [
+                  infoLabelCell("Endereço"),
+                  bodyCell(
+                    [contractor.endereco, contractor.cidade, contractor.estado, contractor.cep]
+                      .filter(Boolean)
+                      .join(" - ")
+                  ),
+                ],
+                ...buildExtraRows(snapshot.identificationExtras.contratante),
+              ],
+            },
+            layout: THIN_TABLE_LAYOUT,
+          },
+        ])
+      : [
+          {
+            table: {
+              widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
+              body: [
+                [infoLabelCell("Nome Fantasia"), bodyCell("-")],
+                [infoLabelCell("Razão Social"), bodyCell("-")],
+                [infoLabelCell("CNPJ"), bodyCell("-")],
+                [infoLabelCell("CNAE"), bodyCell("-")],
+                [infoLabelCell("Atividade Principal"), bodyCell("-")],
+                [infoLabelCell("Grau de Risco (Quadro I da NR-04)"), bodyCell("-")],
+                [infoLabelCell("Endereço"), bodyCell("-")],
+                ...buildExtraRows(snapshot.identificationExtras.contratante),
+              ],
+            },
+            layout: THIN_TABLE_LAYOUT,
+          },
+        ];
 
   return [
     sectionTitle("1 - Identificação da Empresa", "sec_01"),
@@ -748,6 +813,8 @@ function buildIdentificationAndProgramPages(
       },
       layout: THIN_TABLE_LAYOUT,
     },
+    sectionTitle("Identificação da Contratante"),
+    ...contractorSections,
     sectionTitle("3 - Quantitativo Total de Empregados", "sec_03"),
     {
       table: {
@@ -1253,14 +1320,13 @@ function buildNarrativeCoreAndAnnexIndex(
     {
       table: {
         widths: resolveRuntimeTableWidths(pdfLayout, "index_anexos", [65, 165, 110]),
-        body: [
-          [tealHeaderCell("Anexo"), tealHeaderCell("Título"), tealHeaderCell("Data da Inclusão")],
-          [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.generatedDate)],
-          [bodyCell("B"), bodyCell("DESCRIÇÃO DAS MEDIDAS DE PREVENÇÃO IMPLEMENTADAS"), bodyCell(snapshot.meta.generatedDate)],
-          [bodyCell("C"), bodyCell("PLANO DE AÇÃO"), bodyCell(snapshot.meta.generatedDate)],
-          [bodyCell("D"), bodyCell("ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"), bodyCell(snapshot.meta.generatedDate)],
-        ],
-      },
+      body: [
+        [tealHeaderCell("Anexo"), tealHeaderCell("Título"), tealHeaderCell("Data da Inclusão")],
+        [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.generatedDate)],
+        [bodyCell("B"), bodyCell("PLANO DE AÇÃO"), bodyCell(snapshot.meta.generatedDate)],
+        [bodyCell("C"), bodyCell("ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"), bodyCell(snapshot.meta.generatedDate)],
+      ],
+    },
       layout: THIN_TABLE_LAYOUT,
     },
     { text: "", pageBreak: "after" },
@@ -1269,7 +1335,7 @@ function buildNarrativeCoreAndAnnexIndex(
   return content;
 }
 
-function buildAnnexCover(letter: "A" | "B" | "C" | "D", title: string, id?: string): Content[] {
+function buildAnnexCover(letter: "A" | "B" | "C", title: string, id?: string): Content[] {
   return [
     {
       stack: [
@@ -1346,14 +1412,14 @@ function buildAnnexReconhecimentoTable(
       ? ghe.riscos.map((risk) => [
           bodyCell(truncateText(risk.tipoAgente, 24)),
           bodyCell(truncateText(risk.descricaoAgente, 38)),
-          bodyCell(truncateText(risk.perigo, 32)),
           bodyCell(truncateText(risk.meioPropagacao, 30)),
-          bodyCell(truncateText(risk.perigo, 36)),
+          bodyCell(truncateText(risk.danosSaude, 42)),
           bodyCell(truncateText(risk.fontes, 42)),
           bodyCell(truncateText(risk.tipoAvaliacao, 25)),
-          bodyCell(truncateText(risk.intensidade, 26)),
-          bodyCell(""),
-          bodyCell(""),
+          bodyCell(truncateText(risk.valorMedido || risk.intensidade, 26)),
+          bodyCell(truncateText(risk.nivelAcao, 24)),
+          bodyCell(truncateText(risk.limiteTolerancia || risk.intensidade, 26)),
+          bodyCell(truncateText(risk.unidadeMedida, 24)),
           bodyCell(truncateText(risk.severidade, 22)),
           bodyCell(truncateText(risk.probabilidade, 24)),
           bodyCell(truncateText(risk.classificacao, 24)),
@@ -1363,30 +1429,18 @@ function buildAnnexReconhecimentoTable(
   return {
     table: {
       widths: resolveRuntimeTableWidths(pdfLayout, "annex_reconhecimento", [
-        6,
-        10,
-        7,
-        8,
-        12,
-        10,
-        7,
-        8,
-        7,
-        6,
-        6,
-        7,
-        6,
+        6, 10, 8, 12, 10, 8, 8, 7, 7, 6, 6, 7, 5,
       ]),
       body: [
         [{ text: `GHE ${index + 1} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 13 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         [
-          { text: "Análise dos Perigos", style: "annexHeaderCell", colSpan: 6, alignment: "center" },
+          { text: "Análise dos Perigos", style: "annexHeaderCell", colSpan: 5, alignment: "center" },
           {},
           {},
           {},
           {},
+          { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 5, alignment: "center" },
           {},
-          { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 4, alignment: "center" },
           {},
           {},
           {},
@@ -1397,12 +1451,12 @@ function buildAnnexReconhecimentoTable(
         [
           tealHeaderCell("Tipo de Agente"),
           tealHeaderCell("Descrição do Agente"),
-          tealHeaderCell("Perigo"),
           tealHeaderCell("Meio de Propagação"),
           tealHeaderCell("Possíveis lesões e agravos à Saúde"),
           tealHeaderCell("Fontes ou Circunstâncias"),
           tealHeaderCell("Tipo de Avaliação"),
           tealHeaderCell("Intensidade/Concentração"),
+          tealHeaderCell("Nível de Ação"),
           tealHeaderCell("Limite de Tolerância"),
           tealHeaderCell("Unidade de Medida"),
           tealHeaderCell("Severidade"),
@@ -1414,42 +1468,6 @@ function buildAnnexReconhecimentoTable(
     },
     layout: ANNEX_TABLE_LAYOUT,
     fontSize: 7.2,
-  };
-}
-
-function buildAnnexMeasuresTable(
-  ghe: RuntimeGhe,
-  id?: string,
-  pdfLayout?: PdfLayoutState,
-): Content {
-  const rows =
-    ghe.riscos.length > 0
-      ? ghe.riscos.map((risk) => [
-          bodyCell(ghe.nome),
-          bodyCell(truncateText(risk.descricaoAgente || risk.perigo, 55)),
-          bodyCell(truncateText(risk.medidasControle, 120)),
-          bodyCell(truncateText(risk.epc.join("; "), 55)),
-          bodyCell(truncateText(risk.epi.join("; "), 55)),
-        ])
-      : [[bodyCell(ghe.nome), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-")]];
-
-  return {
-    id,
-    table: {
-      widths: resolveRuntimeTableWidths(pdfLayout, "annex_medidas", [72, 85, 190, 85, 85]),
-      body: [
-        [{ text: "Medidas de Prevenção Implantadas", style: "annexBarCell", colSpan: 5 }, {}, {}, {}, {}],
-        [
-          tealHeaderCell("GHE"),
-          tealHeaderCell("Descrição Agente de Risco"),
-          tealHeaderCell("Descrição das Medidas de Controle Administrativas e/ou Engenharia"),
-          tealHeaderCell("EPC"),
-          tealHeaderCell("EPI"),
-        ],
-        ...rows,
-      ],
-    },
-    layout: ANNEX_TABLE_LAYOUT,
   };
 }
 
@@ -1492,15 +1510,14 @@ function buildAnnexPlanTable(
   };
 }
 
-function buildLandscapePage(
+function buildPortraitPage(
   content: Content,
   pageBreak: "before" | undefined,
-  pageSize?: "A3" | "A4",
 ): Content {
   return {
-    pageOrientation: "landscape",
+    pageOrientation: "portrait",
     pageBreak,
-    pageSize,
+    pageSize: "A4",
     margin: [0, 0, 0, 0],
     stack: [content],
   };
@@ -1513,47 +1530,37 @@ function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState
   snapshot.ghes.forEach((ghe, index) => {
     const firstPageBreak = index === 0 ? undefined : "before";
     content.push(
-      buildLandscapePage(
-        buildAnnexAmbienteTable(ghe, index, pdfLayout),
-        firstPageBreak,
-        "A3",
-      ),
-      buildLandscapePage(buildAnnexAtividadeTable(ghe, index, pdfLayout), "before", "A3"),
-      buildLandscapePage(
+      {
+        pageOrientation: "portrait",
+        pageSize: "A4",
+        pageBreak: firstPageBreak,
+        margin: [0, 0, 0, 0],
+        stack: [buildAnnexAmbienteTable(ghe, index, pdfLayout)],
+      },
+      buildPortraitPage(buildAnnexAtividadeTable(ghe, index, pdfLayout), "before"),
+      buildPortraitPage(
         buildAnnexReconhecimentoTable(ghe, index, pdfLayout),
         "before",
-        "A3",
       ),
-    );
-  });
-
-  content.push(
-    { text: "", pageOrientation: "portrait", pageBreak: "before" },
-    ...buildAnnexCover("B", "DESCRIÇÃO DAS MEDIDAS DE PREVENÇÃO IMPLEMENTADAS", "annex_b"),
-  );
-  snapshot.ghes.forEach((ghe, index) => {
-    content.push(
-      { text: "", pageBreak: index === 0 ? undefined : "before" },
-      buildAnnexMeasuresTable(ghe, index === 0 ? "annex_b_table" : undefined, pdfLayout),
     );
   });
 
   content.push(
     { text: "", pageBreak: "before" },
-    ...buildAnnexCover("C", "PLANO DE AÇÃO", "annex_c"),
+    ...buildAnnexCover("B", "PLANO DE AÇÃO", "annex_b"),
   );
   snapshot.ghes.forEach((ghe, index) => {
     content.push(
       { text: "", pageBreak: index === 0 ? undefined : "before" },
       {
-        pageOrientation: "landscape",
-        pageSize: "A3",
+        pageOrientation: "portrait",
+        pageSize: "A4",
         margin: [0, 0, 0, 0],
         stack: [
           buildAnnexPlanTable(
             ghe,
             snapshot.program.responsavelImplementacao,
-            index === 0 ? "annex_c_table" : undefined,
+            index === 0 ? "annex_b_table" : undefined,
             pdfLayout,
           ),
         ],
@@ -1563,7 +1570,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState
 
   content.push(
     { text: "", pageBreak: "before" },
-    ...buildAnnexCover("D", "ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", "annex_d"),
+    ...buildAnnexCover("C", "ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", "annex_c"),
   );
   content.push({
     table: {

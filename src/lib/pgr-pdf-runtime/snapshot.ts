@@ -1,9 +1,13 @@
 export type RuntimeRisk = {
   tipoAgente: string;
   descricaoAgente: string;
-  perigo: string;
   meioPropagacao: string;
+  danosSaude: string;
   fontes: string;
+  unidadeMedida: string;
+  valorMedido: string;
+  nivelAcao: string;
+  limiteTolerancia: string;
   tipoAvaliacao: string;
   intensidade: string;
   severidade: string;
@@ -42,6 +46,11 @@ export type RuntimeSnapshot = {
     anl: string;
     revisionReason: string;
   };
+  updateHistory: Array<{
+    alteracao: string;
+    motivo: string;
+    data: string;
+  }>;
   company: {
     name: string;
     razaoSocial: string;
@@ -57,6 +66,23 @@ export type RuntimeSnapshot = {
     cnae: string;
     atividadePrincipal: string;
     grauRisco: string;
+  };
+  contractors: Array<{
+    nomeFantasia: string;
+    razaoSocial: string;
+    cnpj: string;
+    cnae: string;
+    endereco: string;
+    cep: string;
+    cidade: string;
+    estado: string;
+    grauRisco: string;
+    atividadePrincipal: string;
+  }>;
+  identificationExtras: {
+    empresa: Array<{ title: string; value: string }>;
+    estabelecimento: Array<{ title: string; value: string }>;
+    contratante: Array<{ title: string; value: string }>;
   };
   program: {
     nr: string;
@@ -96,6 +122,24 @@ function formatDateOnly(value: string) {
   const match = normalized.match(/\d{2}\/\d{2}\/\d{4}/);
   if (match) return match[0];
   return new Date().toLocaleDateString("pt-BR");
+}
+
+function formatHistoryDate(value: unknown, fallbackDate: string) {
+  const normalized = sanitizeText(value);
+  if (!normalized) return fallbackDate;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(normalized)) return normalized;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    const [yyyy, mm, dd] = normalized.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  const ptDate = normalized.match(/\d{2}\/\d{2}\/\d{4}/);
+  if (ptDate?.[0]) return ptDate[0];
+  const isoDate = normalized.match(/\d{4}-\d{2}-\d{2}/);
+  if (isoDate?.[0]) {
+    const [yyyy, mm, dd] = isoDate[0].split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return fallbackDate;
 }
 
 function normalizeKey(value: unknown) {
@@ -175,25 +219,116 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
 
   const generatedDate = formatDateOnly(payload?.meta?.generatedAt);
   const vigencia = sanitizeText(planoAcao.vigencia) || generatedDate;
+  const extraFieldsRaw = Array.isArray(payload?.extraEstabelecimentoFields)
+    ? payload.extraEstabelecimentoFields
+    : [];
+  const identificationExtras = {
+    empresa: [] as Array<{ title: string; value: string }>,
+    estabelecimento: [] as Array<{ title: string; value: string }>,
+    contratante: [] as Array<{ title: string; value: string }>,
+  };
+  extraFieldsRaw.forEach((item: any) => {
+    const scope = sanitizeText(item?.scope).toLowerCase();
+    const title = sanitizeText(item?.title);
+    const value = sanitizeText(item?.value);
+    if (!title && !value) return;
+    if (scope === "estabelecimento") {
+      identificationExtras.estabelecimento.push({ title: title || "Campo adicional", value });
+      return;
+    }
+    if (scope === "contratante") {
+      identificationExtras.contratante.push({ title: title || "Campo adicional", value });
+      return;
+    }
+    identificationExtras.empresa.push({ title: title || "Campo adicional", value });
+  });
+  const historicoChanges = Array.isArray(historico?.changes) ? historico.changes : [];
+  const updateHistory = historicoChanges
+    .map((item: any) => ({
+      alteracao: sanitizeText(item?.change),
+      motivo: sanitizeText(item?.reason),
+      data: formatHistoryDate(item?.date, generatedDate),
+    }))
+    .filter((item) => item.alteracao || item.motivo || item.data);
 
-  const responsavelNome =
-    sanitizeText(dados.responsavelPgrNome) || sanitizeText(inicio.responsible) || "NÃO INFORMADO";
-  const responsavelFuncao = sanitizeText(dados.responsavelPgrFuncao) || "Responsável técnico";
-  const responsavelContato = [
+  const responsavelElaboracao = [
+    sanitizeText(inicio.responsible),
+    sanitizeText(inicio.email),
+  ]
+    .filter(Boolean)
+    .join(" - ") || "NÃO INFORMADO";
+
+  const coordenadoresRaw = Array.isArray(dados?.responsaveisCoordenacaoTecnica)
+    ? dados.responsaveisCoordenacaoTecnica
+    : [];
+  const coordenadoresFormatados = coordenadoresRaw
+    .map((item: any) => {
+      const nome = sanitizeText(item?.nome);
+      const funcao = sanitizeText(item?.funcao);
+      const telefone = sanitizeText(item?.telefone);
+      const email = sanitizeText(item?.email);
+      const cpf = sanitizeText(item?.cpf);
+      const contato = [telefone, email, cpf ? `CPF ${cpf}` : ""].filter(Boolean).join(" | ");
+      return [nome, funcao, contato].filter(Boolean).join(" - ");
+    })
+    .filter(Boolean);
+  const responsavelCoordenacao =
+    coordenadoresFormatados.join("; ") || "NÃO INFORMADO";
+
+  const responsavelImplementacaoNome = sanitizeText(dados.responsavelPgrNome);
+  const responsavelImplementacaoFuncao = sanitizeText(dados.responsavelPgrFuncao);
+  const responsavelImplementacaoContato = [
     sanitizeText(dados.responsavelPgrTelefone),
     sanitizeText(dados.responsavelPgrEmail),
-    sanitizeText(dados.responsavelPgrCpf) ? `CPF ${sanitizeText(dados.responsavelPgrCpf)}` : "",
+    sanitizeText(dados.responsavelPgrCpf)
+      ? `CPF ${sanitizeText(dados.responsavelPgrCpf)}`
+      : "",
   ]
     .filter(Boolean)
     .join(" | ");
-  const responsavelElaboracao = [responsavelNome, responsavelFuncao, responsavelContato]
+  const responsavelImplementacao = [
+    responsavelImplementacaoNome,
+    responsavelImplementacaoFuncao,
+    responsavelImplementacaoContato,
+  ]
     .filter(Boolean)
-    .join(" - ");
-  const responsavelCoordenacao =
-    [sanitizeText(inicio.responsible), sanitizeText(inicio.email)].filter(Boolean).join(" - ") ||
-    responsavelElaboracao;
-  const responsavelImplementacao =
-    sanitizeText(dados.responsavelPgrNome) || sanitizeText(inicio.responsible) || responsavelNome;
+    .join(" - ") || "NÃO INFORMADO";
+
+  const contractorsRaw = Array.isArray(dados?.contratantes) ? dados.contratantes : [];
+  const contractors = contractorsRaw
+    .map((item: any) => ({
+      nomeFantasia: sanitizeText(item?.nomeFantasia),
+      razaoSocial: sanitizeText(item?.razaoSocial),
+      cnpj: sanitizeText(item?.cnpj),
+      cnae: sanitizeText(item?.cnae),
+      endereco: sanitizeText(item?.endereco),
+      cep: sanitizeText(item?.cep),
+      cidade: sanitizeText(item?.cidade),
+      estado: sanitizeText(item?.estado),
+      grauRisco: sanitizeText(item?.grauRisco),
+      atividadePrincipal: sanitizeText(item?.atividadePrincipal),
+    }))
+    .filter((item: any) =>
+      Object.values(item).some((value) => sanitizeText(value))
+    );
+
+  if (!contractors.length) {
+    const legacyContractor = {
+      nomeFantasia: sanitizeText(dados?.contratanteNomeFantasia),
+      razaoSocial: sanitizeText(dados?.contratanteRazaoSocial),
+      cnpj: sanitizeText(dados?.contratanteCnpj),
+      cnae: sanitizeText(dados?.contratanteCnae),
+      endereco: sanitizeText(dados?.contratanteEndereco),
+      cep: sanitizeText(dados?.contratanteCep),
+      cidade: sanitizeText(dados?.contratanteCidade),
+      estado: sanitizeText(dados?.contratanteEstado),
+      grauRisco: sanitizeText(dados?.contratanteGrauRisco),
+      atividadePrincipal: sanitizeText(dados?.contratanteAtividadePrincipal),
+    };
+    if (Object.values(legacyContractor).some((value) => sanitizeText(value))) {
+      contractors.push(legacyContractor);
+    }
+  }
 
   const descricaoGhes = Array.isArray(descricao?.ghes) ? descricao.ghes : [];
   const caracterizacaoGhes = Array.isArray(caracterizacao?.ghes) ? caracterizacao.ghes : [];
@@ -206,9 +341,25 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       ? ghe.riscos.map((risk: any) => ({
           tipoAgente: sanitizeText(risk?.tipoAgente),
           descricaoAgente: sanitizeText(risk?.descricaoAgente),
-          perigo: sanitizeText(risk?.perigo),
           meioPropagacao: sanitizeText(risk?.meioPropagacao),
+          danosSaude: sanitizeText(
+            risk?.danosSaude ||
+              risk?.danos_saude ||
+              risk?.healthDamage ||
+              risk?.health_damage ||
+              risk?.perigo
+          ),
           fontes: sanitizeText(risk?.fontes),
+          unidadeMedida: sanitizeText(risk?.unidadeMedida || risk?.unidade_medida),
+          valorMedido: sanitizeText(risk?.valorMedido || risk?.valor_medido),
+          nivelAcao: sanitizeText(risk?.nivelAcao || risk?.nivel_acao),
+          limiteTolerancia: sanitizeText(
+            risk?.limiteTolerancia ||
+              risk?.limite_tolerancia ||
+              risk?.toleranceLimit ||
+              risk?.tolerance_limit ||
+              risk?.intensidade
+          ),
           tipoAvaliacao: sanitizeText(risk?.tipoAvaliacao),
           intensidade: sanitizeText(risk?.intensidade),
           severidade: sanitizeText(risk?.severidade),
@@ -302,6 +453,16 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       anl: resolveAnlValue(payload, historico),
       revisionReason: extractRevisionReason(historico),
     },
+    updateHistory:
+      updateHistory.length > 0
+        ? updateHistory
+        : [
+            {
+              alteracao: "00",
+              motivo: "Elaboração inicial",
+              data: generatedDate,
+            },
+          ],
     company: {
       name: companyName,
       razaoSocial: sanitizeText(dados?.empresaRazaoSocial) || companyName,
@@ -325,6 +486,8 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       atividadePrincipal: sanitizeText(dados?.estabelecimentoAtividadePrincipal),
       grauRisco: sanitizeText(dados?.estabelecimentoGrauRisco),
     },
+    contractors,
+    identificationExtras,
     program: {
       nr: sanitizeText(planoAcao?.nr) || "NR-01",
       vigencia,

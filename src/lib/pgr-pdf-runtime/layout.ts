@@ -52,7 +52,7 @@ export const PDF_LAYOUT_TABLES: PdfLayoutTableConfig[] = [
   {
     id: "annex_reconhecimento",
     label: "Anexo A - Reconhecimento",
-    defaultWeights: [6, 10, 7, 8, 12, 10, 7, 8, 7, 6, 6, 7, 6],
+    defaultWeights: [6, 10, 8, 12, 10, 8, 8, 7, 7, 6, 6, 7, 5],
   },
   {
     id: "annex_medidas",
@@ -68,7 +68,7 @@ export const PDF_LAYOUT_TABLES: PdfLayoutTableConfig[] = [
   },
   {
     id: "annex_d_status",
-    label: "Anexo D - Status",
+    label: "Anexo C - Status",
     defaultWeights: [85, 190, 90],
     columnLabels: ["Anexo", "Descricao", "Status"],
   },

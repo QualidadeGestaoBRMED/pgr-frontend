@@ -27,8 +27,23 @@ type BackendCaracterizacaoRisk = {
   id?: string;
   tipoAgente?: string;
   descricaoAgente?: string;
+  perigo?: string;
   meioPropagacao?: string;
   fontes?: string;
+  danosSaude?: string;
+  danos_saude?: string;
+  healthDamage?: string;
+  health_damage?: string;
+  unidadeMedida?: string;
+  unidade_medida?: string;
+  limiteTolerancia?: string;
+  limite_tolerancia?: string;
+  toleranceLimit?: string;
+  tolerance_limit?: string;
+  valorMedido?: string;
+  valor_medido?: string;
+  nivelAcao?: string;
+  nivel_acao?: string;
   tipoAvaliacao?: string;
   intensidade?: string;
   severidade?: string;
@@ -94,6 +109,12 @@ type BackendStateShape = {
         itens?: BackendNestedAnexoItem[];
       };
   anexoDiretriz?: string;
+  extraEstabelecimentoFields?: Array<{
+    id?: string;
+    title?: string;
+    value?: string;
+    scope?: "empresa" | "estabelecimento" | "contratante" | string;
+  }>;
   pdfLayout?: unknown;
 };
 
@@ -136,6 +157,11 @@ export type PgrDocxPayload = {
         descricaoAgente: string;
         meioPropagacao: string;
         fontes: string;
+        danosSaude?: string;
+        unidadeMedida?: string;
+        valorMedido?: string;
+        nivelAcao?: string;
+        limiteTolerancia?: string;
         tipoAvaliacao: string;
         intensidade: string;
         severidade: string;
@@ -172,6 +198,12 @@ export type PgrDocxPayload = {
       }>;
     }>;
   };
+  extraEstabelecimentoFields?: Array<{
+    id: string;
+    title: string;
+    value: string;
+    scope: "empresa" | "estabelecimento" | "contratante";
+  }>;
   pdfLayout: PdfLayoutState;
 };
 
@@ -194,6 +226,12 @@ export function buildPgrDocxPayload(input: {
   };
   anexos: AnexoItem[];
   anexoDiretriz: string;
+  extraEstabelecimentoFields?: Array<{
+    id: string;
+    title: string;
+    value: string;
+    scope: "empresa" | "estabelecimento" | "contratante";
+  }>;
   pdfLayout: PdfLayoutState;
 }): PgrDocxPayload {
   const functionById = new Map(input.functionsData.map((item) => [item.id, item]));
@@ -224,6 +262,17 @@ export function buildPgrDocxPayload(input: {
       descricaoAgente: risk.descricaoAgente,
       meioPropagacao: risk.meioPropagacao,
       fontes: risk.fontes,
+      danosSaude: (risk as unknown as { danosSaude?: string; healthDamage?: string }).danosSaude
+        || (risk as unknown as { danosSaude?: string; healthDamage?: string }).healthDamage
+        || (risk as unknown as { perigo?: string }).perigo
+        || "",
+      unidadeMedida: risk.unidadeMedida || "",
+      valorMedido: risk.valorMedido || "",
+      nivelAcao: risk.nivelAcao || "",
+      limiteTolerancia: (risk as unknown as { limiteTolerancia?: string; toleranceLimit?: string }).limiteTolerancia
+        || (risk as unknown as { limiteTolerancia?: string; toleranceLimit?: string }).toleranceLimit
+        || risk.intensidade
+        || "",
       tipoAvaliacao: risk.tipoAvaliacao,
       intensidade: risk.intensidade,
       severidade: risk.severidade,
@@ -289,6 +338,9 @@ export function buildPgrDocxPayload(input: {
         })),
       })),
     },
+    extraEstabelecimentoFields: Array.isArray(input.extraEstabelecimentoFields)
+      ? input.extraEstabelecimentoFields
+      : [],
     pdfLayout: normalizePdfLayoutState(input.pdfLayout || DEFAULT_PDF_LAYOUT_STATE),
   };
 }
@@ -354,6 +406,23 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           descricaoAgente: risk?.descricaoAgente || "",
           meioPropagacao: risk?.meioPropagacao || "",
           fontes: risk?.fontes || "",
+          danosSaude:
+            risk?.danosSaude ||
+            risk?.danos_saude ||
+            risk?.healthDamage ||
+            risk?.health_damage ||
+            risk?.perigo ||
+            "",
+          unidadeMedida: risk?.unidadeMedida || risk?.unidade_medida || "",
+          valorMedido: risk?.valorMedido || risk?.valor_medido || "",
+          nivelAcao: risk?.nivelAcao || risk?.nivel_acao || "",
+          limiteTolerancia:
+            risk?.limiteTolerancia ||
+            risk?.limite_tolerancia ||
+            risk?.toleranceLimit ||
+            risk?.tolerance_limit ||
+            risk?.intensidade ||
+            "",
           tipoAvaliacao: risk?.tipoAvaliacao || "",
           intensidade: risk?.intensidade || "",
           severidade: risk?.severidade || "",
@@ -418,6 +487,21 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     },
     anexos: Array.isArray(state.anexos) ? state.anexos : fallbackAnexos,
     anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Diretriz 1",
+    extraEstabelecimentoFields: Array.isArray(state.extraEstabelecimentoFields)
+      ? state.extraEstabelecimentoFields
+          .map((item) => ({
+            id: String(item?.id || "").trim(),
+            title: String(item?.title || "").trim(),
+            value: String(item?.value || "").trim(),
+            scope:
+              item?.scope === "empresa" ||
+              item?.scope === "estabelecimento" ||
+              item?.scope === "contratante"
+                ? item.scope
+                : "empresa",
+          }))
+          .filter((item) => item.title || item.value)
+      : [],
     pdfLayout: normalizePdfLayoutState(state.pdfLayout ?? DEFAULT_PDF_LAYOUT_STATE),
   });
 }

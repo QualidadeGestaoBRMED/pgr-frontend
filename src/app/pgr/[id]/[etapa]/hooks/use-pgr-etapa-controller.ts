@@ -183,6 +183,7 @@ export function usePgrEtapaController({
         planAction: state.planAction,
         anexos: state.anexos,
         anexoDiretriz: state.anexoDiretriz,
+        extraEstabelecimentoFields: state.extraEstabelecimentoFields,
         pdfLayout: state.pdfLayout,
       }),
     [
@@ -192,6 +193,7 @@ export function usePgrEtapaController({
       state.anexos,
       state.completedSteps,
       state.dadosCadastrais,
+      state.extraEstabelecimentoFields,
       state.functionsData,
       state.gheGroups,
       state.historicoData,

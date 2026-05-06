@@ -46,6 +46,7 @@ export type GheRisk = {
   descricaoAgente: string;
   meioPropagacao: string;
   fontes: string;
+  danosSaude?: string;
   unidadeMedida?: string;
   valorMedido?: string;
   tipoAvaliacao: string;
