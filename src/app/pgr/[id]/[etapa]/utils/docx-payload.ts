@@ -7,6 +7,15 @@ import {
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
 
+type ExtraFieldScope = "empresa" | "estabelecimento" | "contratante";
+
+const normalizeExtraScope = (scope: unknown): ExtraFieldScope => {
+  if (scope === "empresa" || scope === "estabelecimento" || scope === "contratante") {
+    return scope;
+  }
+  return "empresa";
+};
+
 type BackendDescricaoFunction = {
   setor?: string;
   funcao?: string;
@@ -202,7 +211,7 @@ export type PgrDocxPayload = {
     id: string;
     title: string;
     value: string;
-    scope: "empresa" | "estabelecimento" | "contratante";
+    scope: ExtraFieldScope;
   }>;
   pdfLayout: PdfLayoutState;
 };
@@ -230,7 +239,7 @@ export function buildPgrDocxPayload(input: {
     id: string;
     title: string;
     value: string;
-    scope: "empresa" | "estabelecimento" | "contratante";
+    scope: ExtraFieldScope;
   }>;
   pdfLayout: PdfLayoutState;
 }): PgrDocxPayload {
@@ -299,7 +308,6 @@ export function buildPgrDocxPayload(input: {
   );
 
   const totalArquivos = input.anexos.reduce((total, anexo) => total + anexo.files.length, 0);
-
   return {
     meta: {
       pgrId: input.pgrId,
@@ -339,7 +347,10 @@ export function buildPgrDocxPayload(input: {
       })),
     },
     extraEstabelecimentoFields: Array.isArray(input.extraEstabelecimentoFields)
-      ? input.extraEstabelecimentoFields
+      ? input.extraEstabelecimentoFields.map((item) => ({
+          ...item,
+          scope: normalizeExtraScope(item.scope),
+        }))
       : [],
     pdfLayout: normalizePdfLayoutState(input.pdfLayout || DEFAULT_PDF_LAYOUT_STATE),
   };
@@ -489,16 +500,11 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Diretriz 1",
     extraEstabelecimentoFields: Array.isArray(state.extraEstabelecimentoFields)
       ? state.extraEstabelecimentoFields
-          .map((item) => ({
+          .map((item): { id: string; title: string; value: string; scope: ExtraFieldScope } => ({
             id: String(item?.id || "").trim(),
             title: String(item?.title || "").trim(),
             value: String(item?.value || "").trim(),
-            scope:
-              item?.scope === "empresa" ||
-              item?.scope === "estabelecimento" ||
-              item?.scope === "contratante"
-                ? item.scope
-                : "empresa",
+            scope: normalizeExtraScope(item?.scope),
           }))
           .filter((item) => item.title || item.value)
       : [],

@@ -249,7 +249,10 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       motivo: sanitizeText(item?.reason),
       data: formatHistoryDate(item?.date, generatedDate),
     }))
-    .filter((item) => item.alteracao || item.motivo || item.data);
+    .filter(
+      (item: { alteracao: string; motivo: string; data: string }) =>
+        item.alteracao || item.motivo || item.data
+    );
 
   const responsavelElaboracao = [
     sanitizeText(inicio.responsible),
