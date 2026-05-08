@@ -390,44 +390,50 @@ export function usePgrEtapaController({
     ]
   );
 
-  const handleStartNewVersion = useCallback(() => {
-    const autoCompany =
-      state.dadosCadastrais.empresaNome ||
-      state.dadosCadastrais.empresaRazaoSocial ||
-      state.inicioDraft.companyName ||
-      "Empresa não informada";
-    const now = new Date();
-    const dateIso = now.toISOString().slice(0, 10);
+  const handleStartNewVersion = useCallback(async () => {
+    try {
+      if (refs.saveTimerRef.current) {
+        window.clearTimeout(refs.saveTimerRef.current);
+        refs.saveTimerRef.current = null;
+      }
 
-    setters.setHistoricoData((prev) => ({
-      ...prev,
-      changes: [
-        {
-          id: `change-${Date.now()}`,
-          company: autoCompany,
-          analysis: "",
-          change: "",
-          reason: "",
-          date: dateIso,
-        },
-        ...prev.changes,
-      ],
-    }));
+      const updatedState = await apiPost<{
+        completedSteps?: number;
+        historico?: HistoricoData;
+        workflow?: PersistedPgrState["workflow"];
+        meta?: { progressPercent?: number };
+      }>(`/api/v1/frontend/pgr/${params.id}/new-version`);
 
-    setters.setWorkflow((prev) => ({
-      ...prev,
-      isLocked: false,
-      version: (prev.version || 0) + 1,
-      finalizedAt: null,
-      finalizedBy: null,
-      finalizedById: null,
-    }));
-  }, [
-    setters,
-    state.dadosCadastrais.empresaNome,
-    state.dadosCadastrais.empresaRazaoSocial,
-    state.inicioDraft.companyName,
-  ]);
+      const refreshedState = await apiGet<{
+        completedSteps?: number;
+        historico?: HistoricoData;
+        workflow?: PersistedPgrState["workflow"];
+        meta?: { progressPercent?: number };
+      }>(`/api/v1/frontend/pgr/${params.id}/state`).catch(() => updatedState);
+
+      if (refreshedState?.workflow) {
+        setters.setWorkflow(refreshedState.workflow);
+      }
+      if (typeof refreshedState?.completedSteps === "number") {
+        setters.setCompletedSteps(refreshedState.completedSteps);
+      }
+      if (typeof refreshedState?.meta?.progressPercent === "number") {
+        setters.setProgressPercent(refreshedState.meta.progressPercent);
+      }
+      if (refreshedState?.historico) {
+        setters.setHistoricoData(refreshedState.historico);
+      }
+      router.push(`/pgr/${params.id}/inicio`);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível iniciar uma nova versão agora.";
+      if (typeof window !== "undefined") {
+        window.alert(message);
+      }
+    }
+  }, [params.id, refs.saveTimerRef, router, setters]);
 
   const handleHistoricoChangeField = useCallback(
     (

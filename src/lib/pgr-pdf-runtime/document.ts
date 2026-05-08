@@ -1329,13 +1329,45 @@ function buildNarrativeCoreAndAnnexIndex(
     {
       table: {
         widths: resolveRuntimeTableWidths(pdfLayout, "index_anexos", [65, 165, 110]),
-      body: [
-        [tealHeaderCell("Anexo"), tealHeaderCell("Título"), tealHeaderCell("Data da Inclusão")],
-        [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.generatedDate)],
-        [bodyCell("B"), bodyCell("PLANO DE AÇÃO"), bodyCell(snapshot.meta.generatedDate)],
-        [bodyCell("C"), bodyCell("ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"), bodyCell(snapshot.meta.generatedDate)],
-      ],
-    },
+        body: (() => {
+          const rows: TableCell[][] = [
+            [tealHeaderCell("Anexo"), tealHeaderCell("Título"), tealHeaderCell("Data da Inclusão")],
+            [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.generatedDate)],
+            [bodyCell("B"), bodyCell("PLANO DE AÇÃO"), bodyCell(snapshot.meta.generatedDate)],
+          ];
+
+          let nextCharCode = "C".charCodeAt(0);
+          const artItems = snapshot.annexes.artItems || [];
+          const otherItems = snapshot.annexes.otherItems || [];
+
+          if (artItems.length > 0) {
+            const orderedArtNames = artItems
+              .map((item) => item.titulo || item.arquivos.join("; "))
+              .filter(Boolean);
+            const artTitle = orderedArtNames.length
+              ? `ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA (${orderedArtNames.join(" | ")})`
+              : "ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA";
+            rows.push([
+              bodyCell(String.fromCharCode(nextCharCode)),
+              bodyCell(artTitle),
+              bodyCell(snapshot.meta.generatedDate),
+            ]);
+            nextCharCode += 1;
+          }
+
+          otherItems.forEach((item) => {
+            const displayTitle = item.titulo || item.arquivos.join("; ") || "Anexo sem título";
+            rows.push([
+              bodyCell(String.fromCharCode(nextCharCode)),
+              bodyCell(displayTitle),
+              bodyCell(snapshot.meta.generatedDate),
+            ]);
+            nextCharCode += 1;
+          });
+
+          return rows;
+        })(),
+      },
       layout: THIN_TABLE_LAYOUT,
     },
     { text: "", pageBreak: "after" },
@@ -1616,42 +1648,6 @@ function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState
     { text: "", pageBreak: "before" },
     ...buildAnnexCover("C", "ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", "annex_c"),
   );
-  content.push({
-    table: {
-      widths: resolveRuntimeTableWidths(pdfLayout, "annex_d_status", [85, 190, 90]),
-      body: [
-        [tealHeaderCell("Anexo"), tealHeaderCell("Descrição"), tealHeaderCell("Status")],
-        [
-          bodyCell("ART"),
-          bodyCell("Documento técnico de responsabilidade"),
-          bodyCell(snapshot.annexes.hasArtAnexo ? "Incluído" : "Não incluído"),
-        ],
-      ],
-    },
-    layout: THIN_TABLE_LAYOUT,
-  });
-
-  const annexItems = snapshot.annexes.items || [];
-  const annexRows =
-    annexItems.length > 0
-      ? annexItems.map((item) => [
-          bodyCell(item.titulo || "-"),
-          bodyCell(item.arquivos.length ? item.arquivos.join("; ") : "-"),
-        ])
-      : [[bodyCell("-"), bodyCell("Nenhum anexo informado")]];
-
-  content.push({
-    text: "Anexos Inseridos",
-    style: "bodyCapsTitleBlue",
-    margin: [0, 16, 0, 8],
-  });
-  content.push({
-    table: {
-      widths: resolveRuntimeTableWidths(pdfLayout, "annex_extra", [180, 190]),
-      body: [[tealHeaderCell("Título"), tealHeaderCell("Arquivos")], ...annexRows],
-    },
-    layout: THIN_TABLE_LAYOUT,
-  });
 
   return content;
 }

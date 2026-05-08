@@ -102,6 +102,14 @@ export type RuntimeSnapshot = {
     hasMedidas: boolean;
     hasPlano: boolean;
     hasArtAnexo: boolean;
+    artItems: Array<{
+      titulo: string;
+      arquivos: string[];
+    }>;
+    otherItems: Array<{
+      titulo: string;
+      arquivos: string[];
+    }>;
     items: Array<{
       titulo: string;
       arquivos: string[];
@@ -154,6 +162,25 @@ function normalizeKey(value: unknown) {
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
+}
+
+function normalizeForMatcher(value: unknown) {
+  return sanitizeText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function isArtText(value: unknown) {
+  const normalized = normalizeForMatcher(value);
+  if (!normalized) return false;
+  if (normalized.includes("ANOTACAO DE RESPONSABILIDADE TECNICA")) return true;
+  return /(^|[^A-Z0-9])ART([^A-Z0-9]|$)/.test(normalized);
+}
+
+function isArtAnnexItem(item: { titulo: string; arquivos: string[] }) {
+  if (isArtText(item.titulo)) return true;
+  return item.arquivos.some((fileName) => isArtText(fileName));
 }
 
 function formatAnl(value: unknown) {
@@ -467,12 +494,15 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
   );
 
   const anexoItems = Array.isArray(anexos?.itens) ? anexos.itens : [];
-  const hasArtAnexo = anexoItems.some(
-    (item: any) =>
-      /art/i.test(sanitizeText(item?.titulo)) &&
-      Array.isArray(item?.arquivos) &&
-      item.arquivos.length > 0
-  );
+  const normalizedAnexoItems = anexoItems.map((item: any) => ({
+    titulo: sanitizeText(item?.titulo),
+    arquivos: Array.isArray(item?.arquivos)
+      ? item.arquivos.map((file: any) => sanitizeText(file?.nome)).filter(Boolean)
+      : [],
+  }));
+  const artItems = normalizedAnexoItems.filter((item) => isArtAnnexItem(item));
+  const otherItems = normalizedAnexoItems.filter((item) => !isArtAnnexItem(item));
+  const hasArtAnexo = artItems.length > 0;
   const hasInventario = ghes.some((ghe) => ghe.funcoes.length > 0 || ghe.riscos.length > 0);
   const hasMedidas = ghes.some((ghe) => ghe.riscos.length > 0);
   const hasPlano = ghes.some((ghe) => ghe.planoItens.length > 0);
@@ -533,12 +563,9 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       hasMedidas,
       hasPlano,
       hasArtAnexo,
-      items: anexoItems.map((item: any) => ({
-        titulo: sanitizeText(item?.titulo),
-        arquivos: Array.isArray(item?.arquivos)
-          ? item.arquivos.map((file: any) => sanitizeText(file?.nome)).filter(Boolean)
-          : [],
-      })),
+      artItems,
+      otherItems,
+      items: normalizedAnexoItems,
     },
     ghes,
   };
