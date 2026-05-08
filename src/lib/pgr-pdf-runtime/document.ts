@@ -115,6 +115,15 @@ function tealHeaderCell(value: string): TableCell {
   return { text: value, style: "tealHeaderCell" };
 }
 
+function tealVerticalHeaderCell(value: string): TableCell {
+  return {
+    svg: buildVerticalLabelSvg(value, 30, 120, 10, 500),
+    style: "tealHeaderCell",
+    alignment: "center",
+    valign: "middle",
+  };
+}
+
 function sectionTitle(value: string, id?: string): Content {
   return { text: value, style: "sectionTitle", margin: [0, 16, 0, 8], id };
 }
@@ -1415,6 +1424,9 @@ function buildAnnexReconhecimentoTable(
           bodyCell(truncateText(risk.meioPropagacao, 30)),
           bodyCell(truncateText(risk.danosSaude, 42)),
           bodyCell(truncateText(risk.fontes, 42)),
+          bodyCell(truncateText(risk.medidasControle, 42)),
+          bodyCell(truncateText(risk.epc.join(", "), 36)),
+          bodyCell(truncateText(risk.epi.join(", "), 36)),
           bodyCell(truncateText(risk.tipoAvaliacao, 25)),
           bodyCell(truncateText(risk.valorMedido || risk.intensidade, 26)),
           bodyCell(truncateText(risk.nivelAcao, 24)),
@@ -1424,19 +1436,27 @@ function buildAnnexReconhecimentoTable(
           bodyCell(truncateText(risk.probabilidade, 24)),
           bodyCell(truncateText(risk.classificacao, 24)),
         ])
-      : [[bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-")]];
+      : [[bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-")]];
 
   return {
     table: {
       widths: resolveRuntimeTableWidths(pdfLayout, "annex_reconhecimento", [
-        6, 10, 8, 12, 10, 8, 8, 7, 7, 6, 6, 7, 5,
+        7, 16, 9, 15, 11, 16, 5, 5, 8, 9, 6, 8, 6, 5, 5, 7,
       ]),
       body: [
-        [{ text: `GHE ${index + 1} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 13 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
+        [{ text: `GHE ${index + 1} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 16 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         [
           { text: "Análise dos Perigos", style: "annexHeaderCell", colSpan: 5, alignment: "center" },
           {},
           {},
+          {},
+          {},
+          {
+            text: "Descrição das medidas de prevenção implementadas",
+            style: "annexHeaderCell",
+            colSpan: 3,
+            alignment: "center",
+          },
           {},
           {},
           { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 5, alignment: "center" },
@@ -1449,19 +1469,22 @@ function buildAnnexReconhecimentoTable(
           {},
         ],
         [
-          tealHeaderCell("Tipo de Agente"),
-          tealHeaderCell("Descrição do Agente"),
-          tealHeaderCell("Meio de Propagação"),
-          tealHeaderCell("Possíveis lesões e agravos à Saúde"),
-          tealHeaderCell("Fontes ou Circunstâncias"),
-          tealHeaderCell("Tipo de Avaliação"),
-          tealHeaderCell("Intensidade/Concentração"),
-          tealHeaderCell("Nível de Ação"),
-          tealHeaderCell("Limite de Tolerância"),
-          tealHeaderCell("Unidade de Medida"),
-          tealHeaderCell("Severidade"),
-          tealHeaderCell("Probabilidade"),
-          tealHeaderCell("Classificação de Risco"),
+          tealVerticalHeaderCell("Tipo de Agente"),
+          tealVerticalHeaderCell("Descrição do Agente"),
+          tealVerticalHeaderCell("Meio de Propagação"),
+          tealVerticalHeaderCell("Possíveis lesões e agravos à Saúde"),
+          tealVerticalHeaderCell("Fontes ou Circunstâncias"),
+          tealVerticalHeaderCell("Administrativas e/ou Engenharia"),
+          tealVerticalHeaderCell("EPC"),
+          tealVerticalHeaderCell("EPI"),
+          tealVerticalHeaderCell("Tipo de Avaliação"),
+          tealVerticalHeaderCell("Intensidade/Concentração"),
+          tealVerticalHeaderCell("Nível de Ação"),
+          tealVerticalHeaderCell("Limite de Tolerância"),
+          tealVerticalHeaderCell("Unidade de Medida"),
+          tealVerticalHeaderCell("Severidade"),
+          tealVerticalHeaderCell("Probabilidade"),
+          tealVerticalHeaderCell("Classificação de Risco"),
         ],
         ...rows,
       ],
@@ -1523,6 +1546,19 @@ function buildPortraitPage(
   };
 }
 
+function buildLandscapePage(
+  content: Content,
+  pageBreak: "before" | undefined,
+): Content {
+  return {
+    pageOrientation: "landscape",
+    pageBreak,
+    pageSize: "A4",
+    margin: [0, 0, 0, 0],
+    stack: [content],
+  };
+}
+
 function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState): Content[] {
   const content: Content[] = [];
 
@@ -1538,7 +1574,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState
         stack: [buildAnnexAmbienteTable(ghe, index, pdfLayout)],
       },
       buildPortraitPage(buildAnnexAtividadeTable(ghe, index, pdfLayout), "before"),
-      buildPortraitPage(
+      buildLandscapePage(
         buildAnnexReconhecimentoTable(ghe, index, pdfLayout),
         "before",
       ),

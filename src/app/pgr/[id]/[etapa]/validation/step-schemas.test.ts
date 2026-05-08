@@ -122,7 +122,7 @@ describe("step schemas", () => {
 
     expect(isGheInfoComplete(gheInfo)).toBe(true);
     expect(isRiskComplete(risk)).toBe(true);
-    expect(isRiskComplete({ ...risk, epc: "" })).toBe(false);
+    expect(isRiskComplete({ ...risk, epc: "", epi: "" })).toBe(true);
   });
 
   it("accepts UI risk payload shape without perigo and with string epc/epi", () => {

@@ -22,6 +22,9 @@ type RevisaoStepProps = {
   onResetData: () => void;
 };
 
+const isOptionalEpiEpcIssue = (issue: string) =>
+  /\b(?:EPI|EPC)\s+é\s+obrigatório\b/i.test(String(issue || ""));
+
 export function RevisaoStep({
   pgrId,
   completedSteps,
@@ -48,7 +51,9 @@ export function RevisaoStep({
             typeof stepStatusById?.[item.id] === "boolean"
               ? Boolean(stepStatusById[item.id])
               : fallbackByProgress;
-          const missingItems = missingFieldsByStep?.[item.id] ?? [];
+          const missingItems = (missingFieldsByStep?.[item.id] ?? []).filter(
+            (issue) => !isOptionalEpiEpcIssue(issue)
+          );
           return {
             id: item.id,
             title: item.title,
@@ -71,7 +76,12 @@ export function RevisaoStep({
     [reviewItems]
   );
   const missingFields = useMemo(
-    () => (openMissingStepId ? missingFieldsByStep?.[openMissingStepId] ?? [] : []),
+    () =>
+      openMissingStepId
+        ? (missingFieldsByStep?.[openMissingStepId] ?? []).filter(
+            (issue) => !isOptionalEpiEpcIssue(issue)
+          )
+        : [],
     [missingFieldsByStep, openMissingStepId]
   );
   const missingStepTitle = useMemo(

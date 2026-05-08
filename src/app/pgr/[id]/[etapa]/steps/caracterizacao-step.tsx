@@ -543,8 +543,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           medidasControle: hasValue(risk.medidasControle)
             ? ""
             : "Medidas de Controle é obrigatório.",
-          epc: hasValue(risk.epc) ? "" : "EPC é obrigatório.",
-          epi: hasValue(risk.epi) ? "" : "EPI é obrigatório.",
+          epc: "",
+          epi: "",
         };
       });
     });
@@ -1903,7 +1903,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         </div>
                         <div>
                           <label className="text-[12px] font-medium text-foreground">
-                            EPC *
+                            EPC
                           </label>
                           <div className="relative mt-2" data-multiselect>
                             <button
@@ -1985,7 +1985,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         </div>
                         <div>
                           <label className="text-[12px] font-medium text-foreground">
-                            EPI *
+                            EPI
                           </label>
                           <div className="relative mt-2" data-multiselect>
                             <button

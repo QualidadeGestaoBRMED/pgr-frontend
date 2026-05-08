@@ -33,11 +33,8 @@ const riskGradeField = (label: string) =>
 const cpfField = (label: string) =>
   requiredText(label).refine((value) => isValidCpf(value), `${label} inválido`);
 
-const stringOrArrayField = (label: string) =>
-  z.union([
-    requiredText(label),
-    z.array(z.string().trim().min(1)).min(1, `${label} é obrigatório`),
-  ]);
+const optionalStringOrArrayField = () =>
+  z.union([z.string(), z.array(z.string())]).optional();
 
 export const inicioDraftSchema = z.object({
   documentTitle: requiredText("Título do documento"),
@@ -97,8 +94,8 @@ export const gheRiskSchema = z.object({
   probabilidade: requiredText("Probabilidade"),
   classificacao: requiredText("Classificação"),
   medidasControle: requiredText("Medidas de controle"),
-  epc: stringOrArrayField("EPC"),
-  epi: stringOrArrayField("EPI"),
+  epc: optionalStringOrArrayField(),
+  epi: optionalStringOrArrayField(),
 });
 
 export function isInicioDraftComplete(input: InicioDraft): boolean {
