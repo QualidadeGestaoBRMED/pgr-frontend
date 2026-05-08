@@ -494,12 +494,19 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
   );
 
   const anexoItems = Array.isArray(anexos?.itens) ? anexos.itens : [];
-  const normalizedAnexoItems = anexoItems.map((item: any) => ({
-    titulo: sanitizeText(item?.titulo),
-    arquivos: Array.isArray(item?.arquivos)
-      ? item.arquivos.map((file: any) => sanitizeText(file?.nome)).filter(Boolean)
-      : [],
-  }));
+  const normalizedAnexoItems: RuntimeSnapshot["annexes"]["items"] = anexoItems.map(
+    (item: unknown) => {
+      const parsedItem = (item ?? {}) as { titulo?: unknown; arquivos?: unknown[] };
+      return {
+        titulo: sanitizeText(parsedItem.titulo),
+        arquivos: Array.isArray(parsedItem.arquivos)
+          ? parsedItem.arquivos
+              .map((file: unknown) => sanitizeText((file as { nome?: unknown })?.nome))
+              .filter(Boolean)
+          : [],
+      };
+    }
+  );
   const artItems = normalizedAnexoItems.filter((item) => isArtAnnexItem(item));
   const otherItems = normalizedAnexoItems.filter((item) => !isArtAnnexItem(item));
   const hasArtAnexo = artItems.length > 0;
