@@ -35,6 +35,11 @@ export type RuntimeGhe = {
     risco: string;
     classificacao: string;
     medidas: string;
+    tipoMedida: string;
+    prazoAcao: string;
+    responsavelAcao: string;
+    acompanhamento: string;
+    afericaoResultado: string;
   }>;
 };
 
@@ -379,7 +384,19 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
     if (nomeKey) riscosByGheNome.set(nomeKey, riscos);
   });
 
-  const planoByGhe = new Map<string, Array<{ risco: string; classificacao: string; medidas: string }>>();
+  const planoByGhe = new Map<
+    string,
+    Array<{
+      risco: string;
+      classificacao: string;
+      medidas: string;
+      tipoMedida: string;
+      prazoAcao: string;
+      responsavelAcao: string;
+      acompanhamento: string;
+      afericaoResultado: string;
+    }>
+  >();
   planoItens.forEach((item: any) => {
     const key = normalizeKey(item?.ghe);
     if (!key) return;
@@ -388,6 +405,18 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       risco: sanitizeText(item?.risco),
       classificacao: sanitizeText(item?.classificacao),
       medidas: sanitizeText(item?.medidas),
+      tipoMedida: sanitizeText(
+        item?.tipoMedida ||
+          item?.tipo_medida ||
+          item?.tipoMedidasPrevencao ||
+          item?.tipo_medidas_prevencao
+      ),
+      prazoAcao: sanitizeText(item?.prazoAcao || item?.prazo_acao),
+      responsavelAcao: sanitizeText(item?.responsavelAcao || item?.responsavel_acao),
+      acompanhamento: sanitizeText(item?.acompanhamento),
+      afericaoResultado: sanitizeText(
+        item?.afericaoResultado || item?.afericao_resultado
+      ),
     });
     planoByGhe.set(key, current);
   });

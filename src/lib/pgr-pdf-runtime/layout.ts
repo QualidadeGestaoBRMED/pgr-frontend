@@ -63,8 +63,18 @@ export const PDF_LAYOUT_TABLES: PdfLayoutTableConfig[] = [
   {
     id: "annex_plano",
     label: "Anexo C - Plano de acao",
-    defaultWeights: [65, 95, 54, 190, 90, 70],
-    columnLabels: ["GHE", "Risco", "Prioridade", "Acao", "Responsavel", "Status"],
+    defaultWeights: [52, 88, 50, 66, 150, 70, 85, 95, 85],
+    columnLabels: [
+      "GHE",
+      "Perigo/Fator",
+      "Prioridade",
+      "Tipo de medida",
+      "Medidas",
+      "Prazo",
+      "Responsavel",
+      "Acompanhamento",
+      "Afericao",
+    ],
   },
   {
     id: "annex_d_status",

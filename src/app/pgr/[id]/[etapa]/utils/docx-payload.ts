@@ -192,6 +192,11 @@ export type PgrDocxPayload = {
       medidas: string;
       epc: string;
       epi: string;
+      tipoMedida: string;
+      prazoAcao: string;
+      responsavelAcao: string;
+      acompanhamento: string;
+      afericaoResultado: string;
     }>;
   };
   anexos: {
@@ -304,6 +309,11 @@ export function buildPgrDocxPayload(input: {
         medidas: risk.medidasControle,
         epc: risk.epc,
         epi: risk.epi,
+        tipoMedida: "",
+        prazoAcao: "",
+        responsavelAcao: "",
+        acompanhamento: "",
+        afericaoResultado: "",
       }))
   );
 

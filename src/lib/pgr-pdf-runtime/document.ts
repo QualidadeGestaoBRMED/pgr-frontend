@@ -1506,25 +1506,33 @@ function buildAnnexPlanTable(
           bodyCell(ghe.nome),
           bodyCell(truncateText(item.risco, 65)),
           bodyCell(truncateText(item.classificacao, 24)),
+          bodyCell(truncateText(item.tipoMedida || "-", 42)),
           bodyCell(truncateText(item.medidas, 125)),
-          bodyCell(truncateText(responsible, 55)),
-          bodyCell("Pendente"),
+          bodyCell(truncateText(item.prazoAcao || "-", 40), "tableBodyCellCenter"),
+          bodyCell(truncateText(item.responsavelAcao || responsible || "-", 55)),
+          bodyCell(truncateText(item.acompanhamento || "-", 62)),
+          bodyCell(truncateText(item.afericaoResultado || "-", 62)),
         ])
-      : [[bodyCell(ghe.nome), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell(truncateText(responsible, 55)), bodyCell("Pendente")]];
+      : [[bodyCell(ghe.nome), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell(truncateText(responsible || "-", 55)), bodyCell("-"), bodyCell("-")]];
 
   return {
     id,
     table: {
-      widths: resolveRuntimeTableWidths(pdfLayout, "annex_plano", [65, 95, 54, 190, 90, 70]),
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_plano", [
+        52, 88, 50, 66, 150, 70, 85, 95, 85,
+      ]),
       body: [
-        [{ text: "Plano de Ação", style: "annexBarCell", colSpan: 6 }, {}, {}, {}, {}, {}],
+        [{ text: "Plano de Ação", style: "annexBarCell", colSpan: 9 }, {}, {}, {}, {}, {}, {}, {}, {}],
         [
           tealHeaderCell("GHE"),
-          tealHeaderCell("Perigo/Fator de Risco"),
+          tealHeaderCell("Perigo ou Fator de Risco Ocupacional"),
           tealHeaderCell("Prioridade"),
-          tealHeaderCell("Medidas de Prevenção/Ação"),
-          tealHeaderCell("Responsável"),
-          tealHeaderCell("Status"),
+          tealHeaderCell("Tipo de Medidas de Prevenção"),
+          tealHeaderCell("Medidas de Prevenção"),
+          tealHeaderCell("Prazo para Realização da Ação"),
+          tealHeaderCell("Responsável pela Ação"),
+          tealHeaderCell("Acompanhamentos das Medidas de Prevenção"),
+          tealHeaderCell("Aferição de Resultados"),
         ],
         ...rows,
       ],
