@@ -127,6 +127,8 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     "h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
   const tableSelectClass = tableControlClass;
   const tableInputClass = tableControlClass;
+  const defaultAcompanhamento = "Programado";
+  const defaultAfericaoResultado = "Aguardando realização da Ação";
 
   const [, setTouchedPlanActionDescription] = useState(false);
   const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
@@ -514,7 +516,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                         <select
                           className={`${tableSelectClass} min-w-[180px]`}
-                          value={acompanhamentoByRowId[row.id] || ""}
+                          value={acompanhamentoByRowId[row.id] ?? defaultAcompanhamento}
                           onChange={(event) =>
                             setAcompanhamentoByRowId((prev) => ({
                               ...prev,
@@ -531,7 +533,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                         <select
                           className={`${tableSelectClass} min-w-[210px]`}
-                          value={afericaoResultadoByRowId[row.id] || ""}
+                          value={afericaoResultadoByRowId[row.id] ?? defaultAfericaoResultado}
                           onChange={(event) =>
                             setAfericaoResultadoByRowId((prev) => ({
                               ...prev,

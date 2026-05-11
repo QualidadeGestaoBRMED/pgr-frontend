@@ -1131,6 +1131,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             );
             const isMeasuredValueMissing =
               isQuantitativeEvaluation && !String(numericValorMedido || "").trim();
+            const qualitativeMeasuredValueLabel =
+              "Aguardando Avaliação Quantitativa";
             const sanitizeOptionValues = (options: string[]) =>
               Array.from(
                 new Set(
@@ -1498,219 +1500,311 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       </div>
 
                     </div>
-                    {isQuantitativeEvaluation ? (
-                      <div className="mt-4 grid gap-4 md:grid-cols-4">
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            Unidade de Medida *
-                          </label>
-                          <div className="mt-2">
-                            <div className="relative" data-multiselect>
-                              <button
-                                type="button"
-                                className={`${selectSmallClass} flex items-center justify-between text-left`}
-                                onClick={() =>
-                                  setOpenMultiSelect((prev) =>
-                                    prev?.riskId === risk.id &&
-                                    prev.field === "unidadeMedida"
-                                      ? null
-                                      : { riskId: risk.id, field: "unidadeMedida" }
-                                  )
-                                }
-                              >
-                                <span className="truncate">
-                                  {selectedMeasuredUnits.length
-                                    ? selectedMeasuredUnits.join(", ")
-                                    : "Selecione as unidades"}
-                                </span>
-                                <ChevronDown
-                                  className={`h-4 w-4 transition-transform ${
-                                    openMultiSelect?.riskId === risk.id &&
-                                    openMultiSelect.field === "unidadeMedida"
-                                      ? "rotate-180"
-                                      : "rotate-0"
-                                  }`}
-                                />
-                              </button>
-                              {openMultiSelect?.riskId === risk.id &&
-                              openMultiSelect.field === "unidadeMedida" ? (
-                                <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
-                                  <div className="relative mb-2">
-                                    <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <input
-                                      className={`${inputInlineClass} pl-8`}
-                                      value={multiSelectQuery}
-                                      onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                      placeholder="Filtrar unidade"
-                                    />
+                    {hasQuantitativeCriteria ? (
+                      <>
+                        <div className="mt-4 grid gap-4 md:grid-cols-4">
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Unidade de Medida *
+                            </label>
+                            <div className="mt-2">
+                              <div className="relative" data-multiselect>
+                                <button
+                                  type="button"
+                                  className={`${selectSmallClass} flex items-center justify-between text-left`}
+                                  onClick={() =>
+                                    setOpenMultiSelect((prev) =>
+                                      prev?.riskId === risk.id &&
+                                      prev.field === "unidadeMedida"
+                                        ? null
+                                        : { riskId: risk.id, field: "unidadeMedida" }
+                                    )
+                                  }
+                                >
+                                  <span className="truncate">
+                                    {selectedMeasuredUnits.length
+                                      ? selectedMeasuredUnits.join(", ")
+                                      : "Selecione as unidades"}
+                                  </span>
+                                  <ChevronDown
+                                    className={`h-4 w-4 transition-transform ${
+                                      openMultiSelect?.riskId === risk.id &&
+                                      openMultiSelect.field === "unidadeMedida"
+                                        ? "rotate-180"
+                                        : "rotate-0"
+                                    }`}
+                                  />
+                                </button>
+                                {openMultiSelect?.riskId === risk.id &&
+                                openMultiSelect.field === "unidadeMedida" ? (
+                                  <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                                    <div className="relative mb-2">
+                                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                      <input
+                                        className={`${inputInlineClass} pl-8`}
+                                        value={multiSelectQuery}
+                                        onChange={(event) => setMultiSelectQuery(event.target.value)}
+                                        placeholder="Filtrar unidade"
+                                      />
+                                    </div>
+                                    <div className="max-h-44 space-y-1 overflow-auto">
+                                      {filteredUnidadeMedidaOptions.length ? (
+                                        filteredUnidadeMedidaOptions.map((option) => {
+                                          const isChecked = selectedMeasuredUnits.includes(option);
+                                          return (
+                                            <label
+                                              key={`${risk.id}-unidade-${option}`}
+                                              className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {
+                                                  markRiskTouched(risk.id, "unidadeMedida");
+                                                  handleToggleRiskMultiSelect(
+                                                    risk.id,
+                                                    "unidadeMedida",
+                                                    option
+                                                  );
+                                                }}
+                                              />
+                                              <span>{option}</span>
+                                            </label>
+                                          );
+                                        })
+                                      ) : (
+                                        <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                          Nenhuma unidade encontrada.
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="max-h-44 space-y-1 overflow-auto">
-                                    {filteredUnidadeMedidaOptions.length ? (
-                                      filteredUnidadeMedidaOptions.map((option) => {
-                                        const isChecked = selectedMeasuredUnits.includes(option);
-                                        return (
-                                          <label
-                                            key={`${risk.id}-unidade-${option}`}
-                                            className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
-                                          >
-                                            <input
-                                              type="checkbox"
-                                              checked={isChecked}
-                                              onChange={() => {
-                                                markRiskTouched(risk.id, "unidadeMedida");
-                                                handleToggleRiskMultiSelect(
-                                                  risk.id,
-                                                  "unidadeMedida",
-                                                  option
-                                                );
-                                              }}
-                                            />
-                                            <span>{option}</span>
-                                          </label>
-                                        );
-                                      })
-                                    ) : (
-                                      <p className="px-2 py-1 text-[12px] text-muted-foreground">
-                                        Nenhuma unidade encontrada.
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : null}
+                                ) : null}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            Valor Medido *
-                          </label>
-                          <input
-                            className={getRiskFieldClassName(
-                              risk.id,
-                              "valorMedido",
-                              inputBaseClass
-                            )}
-                            value={numericValorMedido}
-                            placeholder={
-                              isMeasuredValueMissing
-                                ? "Valor medido é obrigatório para avaliação quantitativa"
-                                : measuredUnitPlaceholder
-                            }
-                            inputMode="decimal"
-                            onChange={(event) => {
-                              const nextValue = sanitizeNumericInput(event.target.value);
-                              handleRiskChange(risk.id, "valorMedido", nextValue);
-                            }}
-                            onBlur={() => {
-                              if (!isQuantitativeEvaluation) return;
-                              const currentValue = String(risk.valorMedido || "").trim();
-                              if (!currentValue) return;
-                              const valueWithoutUnit = stripTrailingMeasuredUnit(
-                                currentValue,
-                                measuredUnit
-                              );
-                              const normalizedNumericValue =
-                                normalizeNumericInput(valueWithoutUnit);
-
-                              if (!normalizedNumericValue) {
-                                handleRiskChange(risk.id, "valorMedido", "");
-                                return;
-                              }
-
-                              if (!isStrictNumericValue(normalizedNumericValue)) {
-                                handleRiskChange(risk.id, "valorMedido", "");
-                                return;
-                              }
-
-                              if (normalizedNumericValue !== currentValue) {
-                                handleRiskChange(
-                                  risk.id,
-                                  "valorMedido",
-                                  normalizedNumericValue
-                                );
-                              }
-                            }}
-                            disabled={!isQuantitativeEvaluation}
-                          />
-                          {getRiskFieldError(risk.id, "valorMedido") ? (
-                            <p className="mt-1 text-[12px] text-danger">
-                              {getRiskFieldError(risk.id, "valorMedido")}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            Limite de Tolerância *
-                          </label>
-                          <input
-                            className={getRiskFieldClassName(
-                              risk.id,
-                              "intensidade",
-                              inputBaseClass
-                            )}
-                            value={sanitizedIntensidade}
-                            placeholder={measuredUnitPlaceholder}
-                            disabled
-                          />
-                          {getRiskFieldError(risk.id, "intensidade") ? (
-                            <p className="mt-1 text-[12px] text-danger">
-                              {getRiskFieldError(risk.id, "intensidade")}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            Nível de Ação *
-                          </label>
-                          <input
-                            className={inputBaseClass}
-                            value={sanitizedNivelAcao}
-                            placeholder={measuredUnitPlaceholder}
-                            disabled
-                          />
-                        </div>
-                      </div>
-                    ) : isQualitativeEvaluation ? (
-                      <div className="mt-4 grid gap-4 md:grid-cols-4">
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            Valor Medido *
-                          </label>
-                          <input
-                            className={inputBaseClass}
-                            value="N/A"
-                            disabled
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                    <div className="mt-4 grid gap-4 md:grid-cols-4">
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Tipo de Avaliação *
-                        </label>
-                        {hasQuantitativeCriteria ? (
-                          <div className="mt-2">
-                            <SearchableSelect
-                              value={risk.tipoAvaliacao}
-                              onChange={(value) => {
-                                markRiskTouched(risk.id, "tipoAvaliacao");
-                                handleRiskChange(risk.id, "tipoAvaliacao", value);
-                              }}
-                              options={["Qualitativa", "Quantitativa"]
-                                .map((option) => ({
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Tipo de Avaliação *
+                            </label>
+                            <div className="mt-2">
+                              <SearchableSelect
+                                value={risk.tipoAvaliacao}
+                                onChange={(value) => {
+                                  markRiskTouched(risk.id, "tipoAvaliacao");
+                                  handleRiskChange(risk.id, "tipoAvaliacao", value);
+                                }}
+                                options={["Qualitativa", "Quantitativa"].map((option) => ({
                                   label: option,
                                   value: option,
                                 }))}
-                              buttonClassName={getRiskFieldClassName(
+                                buttonClassName={getRiskFieldClassName(
+                                  risk.id,
+                                  "tipoAvaliacao",
+                                  selectSmallClass
+                                )}
+                                searchPlaceholder="Filtrar tipo"
+                              />
+                            </div>
+                            {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
+                              <p className="mt-1 text-[12px] text-danger">
+                                {getRiskFieldError(risk.id, "tipoAvaliacao")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Limite de Tolerância *
+                            </label>
+                            <input
+                              className={getRiskFieldClassName(
                                 risk.id,
-                                "tipoAvaliacao",
-                                selectSmallClass
+                                "intensidade",
+                                inputBaseClass
                               )}
-                              searchPlaceholder="Filtrar tipo"
+                              value={sanitizedIntensidade}
+                              placeholder={measuredUnitPlaceholder}
+                              disabled
+                            />
+                            {getRiskFieldError(risk.id, "intensidade") ? (
+                              <p className="mt-1 text-[12px] text-danger">
+                                {getRiskFieldError(risk.id, "intensidade")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Nível de Ação *
+                            </label>
+                            <input
+                              className={inputBaseClass}
+                              value={sanitizedNivelAcao}
+                              placeholder={measuredUnitPlaceholder}
+                              disabled
                             />
                           </div>
-                        ) : (
+                        </div>
+                        <div className="mt-4 grid gap-4 md:grid-cols-4">
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Valor Medido *
+                            </label>
+                            {isQualitativeEvaluation ? (
+                              <input
+                                className={inputBaseClass}
+                                value={qualitativeMeasuredValueLabel}
+                                disabled
+                              />
+                            ) : (
+                              <input
+                                className={getRiskFieldClassName(
+                                  risk.id,
+                                  "valorMedido",
+                                  inputBaseClass
+                                )}
+                                value={numericValorMedido}
+                                placeholder={
+                                  isMeasuredValueMissing
+                                    ? "Valor medido é obrigatório para avaliação quantitativa"
+                                    : measuredUnitPlaceholder
+                                }
+                                inputMode="decimal"
+                                onChange={(event) => {
+                                  const nextValue = sanitizeNumericInput(event.target.value);
+                                  handleRiskChange(risk.id, "valorMedido", nextValue);
+                                }}
+                                onBlur={() => {
+                                  if (!isQuantitativeEvaluation) return;
+                                  const currentValue = String(risk.valorMedido || "").trim();
+                                  if (!currentValue) return;
+                                  const valueWithoutUnit = stripTrailingMeasuredUnit(
+                                    currentValue,
+                                    measuredUnit
+                                  );
+                                  const normalizedNumericValue =
+                                    normalizeNumericInput(valueWithoutUnit);
+
+                                  if (!normalizedNumericValue) {
+                                    handleRiskChange(risk.id, "valorMedido", "");
+                                    return;
+                                  }
+
+                                  if (!isStrictNumericValue(normalizedNumericValue)) {
+                                    handleRiskChange(risk.id, "valorMedido", "");
+                                    return;
+                                  }
+
+                                  if (normalizedNumericValue !== currentValue) {
+                                    handleRiskChange(
+                                      risk.id,
+                                      "valorMedido",
+                                      normalizedNumericValue
+                                    );
+                                  }
+                                }}
+                                disabled={!isQuantitativeEvaluation}
+                              />
+                            )}
+                            {isQuantitativeEvaluation &&
+                            getRiskFieldError(risk.id, "valorMedido") ? (
+                              <p className="mt-1 text-[12px] text-danger">
+                                {getRiskFieldError(risk.id, "valorMedido")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Severidade *
+                            </label>
+                            <input
+                              className={getRiskFieldClassName(
+                                risk.id,
+                                "severidade",
+                                inputBaseClass
+                              )}
+                              value={risk.severidade}
+                              disabled
+                            />
+                            {getRiskFieldError(risk.id, "severidade") ? (
+                              <p className="mt-1 text-[12px] text-danger">
+                                {getRiskFieldError(risk.id, "severidade")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Probabilidade *
+                            </label>
+                            {isQuantitativeEvaluation ? (
+                              <input
+                                className={getRiskFieldClassName(
+                                  risk.id,
+                                  "probabilidade",
+                                  inputBaseClass
+                                )}
+                                value={risk.probabilidade}
+                                placeholder="Nível calculado"
+                                disabled
+                              />
+                            ) : (
+                              <div className="mt-2">
+                                <SearchableSelect
+                                  value={risk.probabilidade}
+                                  onChange={(value) => {
+                                    markRiskTouched(risk.id, "probabilidade");
+                                    markRiskTouched(risk.id, "severidade");
+                                    markRiskTouched(risk.id, "classificacao");
+                                    handleRiskChange(risk.id, "probabilidade", value);
+                                  }}
+                                  options={PROBABILIDADE_OPTIONS.map((option) => ({
+                                    label: option,
+                                    value: option,
+                                  }))}
+                                  buttonClassName={getRiskFieldClassName(
+                                    risk.id,
+                                    "probabilidade",
+                                    selectSmallClass
+                                  )}
+                                  searchPlaceholder="Filtrar probabilidade"
+                                />
+                              </div>
+                            )}
+                            {getRiskFieldError(risk.id, "probabilidade") ? (
+                              <p className="mt-1 text-[12px] text-danger">
+                                {getRiskFieldError(risk.id, "probabilidade")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Classificação de Risco *
+                            </label>
+                            <input
+                              className={getRiskFieldClassName(
+                                risk.id,
+                                "classificacao",
+                                inputBaseClass
+                              )}
+                              value={risk.classificacao}
+                              onChange={(event) =>
+                                handleRiskChange(risk.id, "classificacao", event.target.value)
+                              }
+                              disabled
+                            />
+                            {getRiskFieldError(risk.id, "classificacao") ? (
+                              <p className="mt-1 text-[12px] text-danger">
+                                {getRiskFieldError(risk.id, "classificacao")}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mt-4 grid gap-4 md:grid-cols-4">
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Tipo de Avaliação *
+                          </label>
                           <input
                             className={getRiskFieldClassName(
                               risk.id,
@@ -1720,48 +1814,35 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             value={risk.tipoAvaliacao}
                             disabled
                           />
-                        )}
-                        {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "tipoAvaliacao")}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Severidade *
-                        </label>
-                        <input
-                          className={getRiskFieldClassName(
-                            risk.id,
-                            "severidade",
-                            inputBaseClass
-                          )}
-                          value={risk.severidade}
-                          disabled
-                        />
-                        {getRiskFieldError(risk.id, "severidade") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "severidade")}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Probabilidade *
-                        </label>
-                        {isQuantitativeEvaluation ? (
+                          {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "tipoAvaliacao")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Severidade *
+                          </label>
                           <input
                             className={getRiskFieldClassName(
                               risk.id,
-                              "probabilidade",
+                              "severidade",
                               inputBaseClass
                             )}
-                            value={risk.probabilidade}
-                            placeholder="Nível calculado"
+                            value={risk.severidade}
                             disabled
                           />
-                        ) : (
+                          {getRiskFieldError(risk.id, "severidade") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "severidade")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Probabilidade *
+                          </label>
                           <div className="mt-2">
                             <SearchableSelect
                               value={risk.probabilidade}
@@ -1783,32 +1864,36 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               searchPlaceholder="Filtrar probabilidade"
                             />
                           </div>
-                        )}
-                        {getRiskFieldError(risk.id, "probabilidade") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "probabilidade")}
-                          </p>
-                        ) : null}
-                      </div>              
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Classificação de Risco *
-                        </label>
-                        <input
-                          className={getRiskFieldClassName(risk.id, "classificacao", inputBaseClass)}
-                          value={risk.classificacao}
-                          onChange={(event) =>
-                            handleRiskChange(risk.id, "classificacao", event.target.value)
-                          }
-                          disabled
-                        />
-                        {getRiskFieldError(risk.id, "classificacao") ? (
-                          <p className="mt-1 text-[12px] text-danger">
-                            {getRiskFieldError(risk.id, "classificacao")}
-                          </p>
-                        ) : null}
+                          {getRiskFieldError(risk.id, "probabilidade") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "probabilidade")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Classificação de Risco *
+                          </label>
+                          <input
+                            className={getRiskFieldClassName(
+                              risk.id,
+                              "classificacao",
+                              inputBaseClass
+                            )}
+                            value={risk.classificacao}
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "classificacao", event.target.value)
+                            }
+                            disabled
+                          />
+                          {getRiskFieldError(risk.id, "classificacao") ? (
+                            <p className="mt-1 text-[12px] text-danger">
+                              {getRiskFieldError(risk.id, "classificacao")}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div className="mt-8">
                       <p className="text-[13px] font-semibold text-foreground">
                         Medidas de prevenção

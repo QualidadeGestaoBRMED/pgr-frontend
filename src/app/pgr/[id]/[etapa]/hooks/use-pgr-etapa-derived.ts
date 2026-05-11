@@ -53,6 +53,17 @@ const compareGheTokens = (a: string, b: string) => {
   return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
 };
 
+const isModerateOrHigherPriority = (priority: string) => {
+  const normalizedPriority = normalizeText(priority).trim();
+  if (!normalizedPriority) return false;
+  return (
+    normalizedPriority.includes("moderad") ||
+    normalizedPriority.includes("alta") ||
+    normalizedPriority.includes("alto") ||
+    normalizedPriority.includes("critic")
+  );
+};
+
 const getRiskContentKey = (risk: RiskGheGroup["risks"][number]) =>
   [
     risk.tipoAgente,
@@ -337,8 +348,16 @@ export function usePgrEtapaDerived({
     ]
   );
 
+  const rawPlanTableRowsForPlan = useMemo<PlanTableRow[]>(
+    () =>
+      rawPlanTableRows.filter((row) =>
+        isModerateOrHigherPriority(row.prioridade)
+      ),
+    [rawPlanTableRows]
+  );
+
   const planTableRows = useMemo<PlanTableRow[]>(() => {
-    if (!rawPlanTableRows.length) return rawPlanTableRows;
+    if (!rawPlanTableRowsForPlan.length) return rawPlanTableRowsForPlan;
 
     const grouped = new Map<
       string,
@@ -348,7 +367,7 @@ export function usePgrEtapaDerived({
       }
     >();
 
-    rawPlanTableRows.forEach((row, index) => {
+    rawPlanTableRowsForPlan.forEach((row, index) => {
       const key = [
         row.descricaoAgente.trim().toLowerCase(),
         row.tipoAgente.trim().toLowerCase(),
@@ -386,7 +405,7 @@ export function usePgrEtapaDerived({
           })),
         };
       });
-  }, [rawPlanTableRows]);
+  }, [rawPlanTableRowsForPlan]);
 
   const isInicioComplete = isInicioDraftComplete(inicioDraft);
   const isDadosComplete = isDadosCadastraisComplete(dadosCadastrais);
@@ -429,9 +448,11 @@ export function usePgrEtapaDerived({
     isCaracterizacaoComplete && !hasDuplicatedRiskStructure;
 
   const isPlanoComplete = useMemo(() => {
-    if (!rawPlanTableRows.length) return false;
-    return rawPlanTableRows.every((row) => row.medidasPrevencao.trim().length > 0);
-  }, [rawPlanTableRows]);
+    if (!rawPlanTableRowsForPlan.length) return false;
+    return rawPlanTableRowsForPlan.every(
+      (row) => row.medidasPrevencao.trim().length > 0
+    );
+  }, [rawPlanTableRowsForPlan]);
 
   // Histórico é uma etapa sempre considerada completa por regra de negócio.
   const isHistoricoComplete = true;
@@ -491,10 +512,10 @@ export function usePgrEtapaDerived({
     }
 
     const missingPlano: string[] = [];
-    if (!rawPlanTableRows.length) {
+    if (!rawPlanTableRowsForPlan.length) {
       missingPlano.push("Adicionar riscos na etapa de caracterização.");
     } else {
-      rawPlanTableRows.forEach((row) => {
+      rawPlanTableRowsForPlan.forEach((row) => {
         if (row.medidasPrevencao.trim().length > 0) return;
         missingPlano.push(
           `${row.gheName}: preencher medidas de prevenção para ${row.descricaoAgente}.`
@@ -521,7 +542,7 @@ export function usePgrEtapaDerived({
     gheGroups,
     inicioDraft,
     isAnexosComplete,
-    rawPlanTableRows,
+    rawPlanTableRowsForPlan,
     remainingCount,
     riskGheGroups,
     hasDuplicatedRiskStructure,
