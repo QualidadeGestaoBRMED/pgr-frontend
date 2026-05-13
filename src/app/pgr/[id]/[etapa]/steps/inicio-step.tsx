@@ -1,4 +1,3 @@
-import { LoaderCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { InicioDraft, InicioDraftEditableField } from "./types";
 import { isValidCnpj, isValidEmail } from "../validation/br-field-utils";
@@ -8,7 +7,6 @@ type InicioStepProps = {
   isPipefySyncing: boolean;
   inputBaseClass: string;
   textareaBaseClass: string;
-  onLoadPipefyMock: () => void;
   onClearData: () => void;
   onDraftChange: (field: InicioDraftEditableField, value: string) => void;
 };
@@ -18,7 +16,6 @@ export function InicioStep({
   isPipefySyncing,
   inputBaseClass,
   textareaBaseClass,
-  onLoadPipefyMock,
   onClearData,
   onDraftChange,
 }: InicioStepProps) {
@@ -103,26 +100,12 @@ export function InicioStep({
             <p className="text-[12px] text-muted-foreground">
               {inicioDraft.syncedAt
                 ? `Última sincronização via API: ${inicioDraft.syncedAt}`
-                : "Sem sincronização ainda. Use a integração para preencher rapidamente."}
+                : "Sem sincronização ainda. Os dados serão carregados automaticamente ao abrir o card."}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onLoadPipefyMock}
-              disabled={isPipefySyncing}
-              className={isPipefySyncing ? "btn-disabled px-4" : "btn-primary px-4"}
-            >
-              {isPipefySyncing ? (
-                <>
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  Sincronizando...
-                </>
-              ) : (
-                "Carregar dados do Pipefy"
-              )}
-            </button>
-          </div>
+          {isPipefySyncing ? (
+            <p className="text-[12px] text-muted-foreground">Sincronizando dados do Pipefy...</p>
+          ) : null}
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">

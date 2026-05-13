@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, notFound } from "next/navigation";
 import { apiBlob, apiGet, apiPost, apiPut } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
@@ -693,6 +693,26 @@ export function usePgrEtapaController({
       handleAdvanceApiSync,
     },
   });
+
+  const autoPipefySyncCardRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (state.isStateLoading) return;
+    if (state.isPipefySyncing) return;
+    if (state.inicioDraft.syncedAt) return;
+    if (autoPipefySyncCardRef.current === params.id) return;
+
+    autoPipefySyncCardRef.current = params.id;
+    void generalActions.handleLoadPipefyMock().catch(() => {
+      // Mantém silencioso: usuário pode continuar preenchendo manualmente.
+    });
+  }, [
+    generalActions,
+    params.id,
+    state.inicioDraft.syncedAt,
+    state.isPipefySyncing,
+    state.isStateLoading,
+  ]);
 
   const descricaoInteractions = useDescricaoInteractions({
     currentGhe: derived.currentGhe,
