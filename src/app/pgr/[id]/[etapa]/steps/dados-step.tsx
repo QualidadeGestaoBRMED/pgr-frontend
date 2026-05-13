@@ -204,17 +204,17 @@ export function DadosStep({
         ? ""
         : "Função do responsável é obrigatória.",
       responsavelPgrTelefone: !dadosCadastrais.responsavelPgrTelefone.trim()
-        ? "Telefone do responsável é obrigatório."
+        ? ""
         : isValidPhoneBr(dadosCadastrais.responsavelPgrTelefone)
           ? ""
           : "Telefone do responsável inválido.",
       responsavelPgrEmail: !dadosCadastrais.responsavelPgrEmail.trim()
-        ? "E-mail do responsável é obrigatório."
+        ? ""
         : isValidEmail(dadosCadastrais.responsavelPgrEmail)
           ? ""
           : "E-mail do responsável inválido.",
       responsavelPgrCpf: !dadosCadastrais.responsavelPgrCpf.trim()
-        ? "CPF do responsável é obrigatório."
+        ? ""
         : isValidCpf(dadosCadastrais.responsavelPgrCpf)
           ? ""
           : "CPF do responsável inválido.",
@@ -1243,7 +1243,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Telefone *:
+              Telefone:
             </label>
             <input
               className={getFieldClassName("responsavelPgrTelefone")}
@@ -1259,7 +1259,7 @@ export function DadosStep({
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Email *:
+              Email:
             </label>
             <input
               className={getFieldClassName("responsavelPgrEmail")}
@@ -1274,7 +1274,7 @@ export function DadosStep({
             ) : null}
           </div>
           <div>
-            <label className="text-[12px] font-medium text-foreground">CPF *:</label>
+            <label className="text-[12px] font-medium text-foreground">CPF:</label>
             <input
               className={getFieldClassName("responsavelPgrCpf")}
               value={dadosCadastrais.responsavelPgrCpf}

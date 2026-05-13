@@ -14,7 +14,7 @@ import {
 import type { HistoricoData } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { slugify, truncatePreview } from "../utils/text";
-import { buildPgrDocxPayload, buildPgrDocxPayloadFromBackendState } from "../utils/docx-payload";
+import { buildPgrDocxPayload } from "../utils/docx-payload";
 import { computeWeightedProgressPercent } from "../utils/progress";
 import { createGeneralActions } from "./create-general-actions";
 import { useDescricaoInteractions } from "./use-descricao-interactions";
@@ -145,6 +145,44 @@ export function usePgrEtapaController({
     setRuntimeCachedStateFn: setRuntimeCachedState,
   });
 
+  useEffect(() => {
+    if (state.workflow.version !== 1) return;
+    if (state.historicoData.changes.length > 0) return;
+
+    const companyFallback =
+      String(state.dadosCadastrais.empresaNome || "").trim() ||
+      String(state.dadosCadastrais.empresaRazaoSocial || "").trim() ||
+      String(state.inicioDraft.companyName || "").trim() ||
+      "Empresa não informada";
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    setters.setHistoricoData((prev) => {
+      if (prev.changes.length > 0) return prev;
+      return {
+        ...prev,
+        changes: [
+          {
+            id: `historico-v1-${Date.now()}`,
+            company: companyFallback,
+            analysis: "01",
+            change: "01",
+            reason: "Elaboração inicial",
+            date: todayIso,
+            status: state.workflow.isLocked ? "Documento finalizado" : "Em edição",
+          },
+        ],
+      };
+    });
+  }, [
+    setters,
+    state.dadosCadastrais.empresaNome,
+    state.dadosCadastrais.empresaRazaoSocial,
+    state.historicoData.changes.length,
+    state.inicioDraft.companyName,
+    state.workflow.isLocked,
+    state.workflow.version,
+  ]);
+
   const cycleTime = useCycleTimeTracker({
     pgrId: params.id,
     stepId: step.id,
@@ -213,7 +251,6 @@ export function usePgrEtapaController({
   const handleGenerateFakePdf = useCallback(async () => {
     setters.setIsGeneratingFakePdf(true);
     try {
-      const generatedAt = new Date().toLocaleString("pt-BR");
       const statePayload = {
         completedSteps: state.completedSteps,
         meta: {
@@ -241,20 +278,7 @@ export function usePgrEtapaController({
       await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
         // segue com payload local se a persistência imediata falhar
       });
-
-      const backendState = await apiGet<unknown>(`/api/v1/frontend/pgr/${params.id}/state`).catch(
-        () => statePayload
-      );
-
-      const payloadFromBackend = buildPgrDocxPayloadFromBackendState({
-        pgrId: params.id,
-        generatedAt,
-        totalSteps: pgrSteps.length,
-        backendState,
-      });
-      payloadFromBackend.pdfLayout = state.pdfLayout;
-
-      const blob = await apiBlob(`/api/pgr/generate-pdf`, payloadFromBackend);
+      const blob = await apiBlob(`/api/v1/frontend/pgr/${params.id}/generate-pdf-python-v2`);
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       const fileBase =
@@ -324,7 +348,6 @@ export function usePgrEtapaController({
 
   const handleGeneratePreviewPdf = useCallback(
     async (layoutOverride?: PdfLayoutState) => {
-      const generatedAt = new Date().toLocaleString("pt-BR");
       const effectiveLayout = layoutOverride ?? state.pdfLayout;
       const statePayload = {
         completedSteps: state.completedSteps,
@@ -353,18 +376,7 @@ export function usePgrEtapaController({
       await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
         // segue com payload local quando houver falha pontual de rede
       });
-
-      const backendState = await apiGet<unknown>(`/api/v1/frontend/pgr/${params.id}/state`).catch(
-        () => statePayload
-      );
-      const payloadFromBackend = buildPgrDocxPayloadFromBackendState({
-        pgrId: params.id,
-        generatedAt,
-        totalSteps: pgrSteps.length,
-        backendState,
-      });
-      payloadFromBackend.pdfLayout = effectiveLayout;
-      const blob = await apiBlob(`/api/pgr/generate-pdf`, payloadFromBackend);
+      const blob = await apiBlob(`/api/v1/frontend/pgr/${params.id}/generate-pdf-python-v2`);
       return window.URL.createObjectURL(blob);
     },
     [
@@ -438,7 +450,7 @@ export function usePgrEtapaController({
   const handleHistoricoChangeField = useCallback(
     (
       changeId: string,
-      field: "company" | "analysis" | "change" | "reason" | "date",
+      field: "company" | "analysis" | "change" | "reason" | "date" | "status",
       value: string
     ) => {
       setters.setHistoricoData((prev) => ({
@@ -520,6 +532,11 @@ export function usePgrEtapaController({
         risks: ghe.risks.map((risk) => ({
           ...risk,
           medidasControle: "",
+          tipoMedida: "",
+          prazoAcao: "",
+          responsavelAcao: "",
+          acompanhamento: "",
+          afericaoResultado: "",
         })),
       }))
     );

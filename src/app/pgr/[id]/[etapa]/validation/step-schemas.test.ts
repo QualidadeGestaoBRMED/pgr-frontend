@@ -69,9 +69,16 @@ describe("step schemas", () => {
       responsavelPgrCpf: "529.982.247-25",
     };
 
-    const invalid = { ...complete, responsavelPgrEmail: "" };
+    const completeWithOptionalContactsEmpty = {
+      ...complete,
+      responsavelPgrTelefone: "",
+      responsavelPgrEmail: "",
+      responsavelPgrCpf: "",
+    };
+    const invalid = { ...complete, responsavelPgrEmail: "email-invalido" };
 
     expect(isDadosCadastraisComplete(complete as never)).toBe(true);
+    expect(isDadosCadastraisComplete(completeWithOptionalContactsEmpty as never)).toBe(true);
     expect(isDadosCadastraisComplete(invalid as never)).toBe(false);
   });
 

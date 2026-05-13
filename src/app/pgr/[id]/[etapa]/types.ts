@@ -5,6 +5,7 @@ export type HistoricoChange = {
   change: string;
   reason: string;
   date: string;
+  status?: string;
 };
 
 export type CycleTimeData = {
@@ -58,6 +59,11 @@ export type GheRisk = {
   medidasControle: string;
   epc: string;
   epi: string;
+  tipoMedida?: string;
+  prazoAcao?: string;
+  responsavelAcao?: string;
+  acompanhamento?: string;
+  afericaoResultado?: string;
 };
 
 export type RiskGheGroup = {

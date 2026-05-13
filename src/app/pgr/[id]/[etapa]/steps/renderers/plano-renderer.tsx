@@ -18,6 +18,7 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       planTableRows: ctx.planTableRows,
       planTableRowsPage: ctx.planTableRowsPage,
       getActionDescriptionOptions: ctx.getActionDescriptionOptions,
+      handlePlanRiskFieldChange: ctx.generalActions.handlePlanRiskFieldChange,
       handlePlanMedidasChange: ctx.generalActions.handlePlanMedidasChange,
       handleDeleteMedidas: ctx.generalActions.handleDeleteMedidas,
       planTableCurrentPage: ctx.planTableCurrentPage,

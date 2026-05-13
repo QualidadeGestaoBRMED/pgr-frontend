@@ -124,6 +124,20 @@ function sanitizeText(value: unknown) {
     .trim();
 }
 
+function normalizeRevisionReason(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeText(item))
+      .filter(Boolean)
+      .join("; ");
+  }
+  return String(value ?? "")
+    .split(/\r?\n|;/g)
+    .map((item) => sanitizeText(item))
+    .filter(Boolean)
+    .join("; ");
+}
+
 function toNumber(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const parsed = Number.parseInt(String(value ?? "").replace(/\D+/g, ""), 10);
@@ -228,7 +242,7 @@ function extractRevisionReason(historico: any) {
     return "Elaboração inicial";
   }
   const latest = historico.changes[historico.changes.length - 1] || {};
-  return sanitizeText(latest?.reason) || sanitizeText(latest?.analysis) || "Atualização do PGR";
+  return normalizeRevisionReason(latest?.reason) || sanitizeText(latest?.analysis) || "Atualização do PGR";
 }
 
 export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
@@ -278,7 +292,7 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
   const updateHistory = historicoChanges
     .map((item: any) => ({
       alteracao: sanitizeText(item?.change),
-      motivo: sanitizeText(item?.reason),
+      motivo: normalizeRevisionReason(item?.reason),
       data: formatHistoryDate(item?.date, generatedDate),
     }))
     .filter(

@@ -26,6 +26,11 @@ type PlanTableRow = {
   classificacao: string;
   exposureValue?: number;
   medidasPrevencao: string;
+  tipoMedida?: string;
+  prazoAcao?: string;
+  responsavelAcao?: string;
+  acompanhamento?: string;
+  afericaoResultado?: string;
   groupTargets?: Array<{ gheId: string; riskId: string }>;
 };
 
@@ -333,6 +338,11 @@ export function usePgrEtapaDerived({
               classificacao: risk.classificacao || "Não informado",
               exposureValue,
               medidasPrevencao: risk.medidasControle || "",
+              tipoMedida: risk.tipoMedida || "",
+              prazoAcao: risk.prazoAcao || "",
+              responsavelAcao: risk.responsavelAcao || "",
+              acompanhamento: risk.acompanhamento || "",
+              afericaoResultado: risk.afericaoResultado || "",
             };
           })
       );

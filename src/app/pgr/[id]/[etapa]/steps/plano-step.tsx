@@ -24,6 +24,11 @@ type PlanoStepProps = {
       classificacao: string;
       exposureValue?: number;
       medidasPrevencao: string;
+      tipoMedida?: string;
+      prazoAcao?: string;
+      responsavelAcao?: string;
+      acompanhamento?: string;
+      afericaoResultado?: string;
       groupTargets?: Array<{ gheId: string; riskId: string }>;
     }>;
     planTableRowsPage: Array<{
@@ -37,6 +42,11 @@ type PlanoStepProps = {
       classificacao: string;
       exposureValue?: number;
       medidasPrevencao: string;
+      tipoMedida?: string;
+      prazoAcao?: string;
+      responsavelAcao?: string;
+      acompanhamento?: string;
+      afericaoResultado?: string;
       groupTargets?: Array<{ gheId: string; riskId: string }>;
     }>;
     getActionDescriptionOptions: (
@@ -47,6 +57,18 @@ type PlanoStepProps = {
     handlePlanMedidasChange: (
       gheId: string,
       riskId: string,
+      value: string,
+      groupTargets?: Array<{ gheId: string; riskId: string }>
+    ) => void;
+    handlePlanRiskFieldChange: (
+      gheId: string,
+      riskId: string,
+      field:
+        | "tipoMedida"
+        | "prazoAcao"
+        | "responsavelAcao"
+        | "acompanhamento"
+        | "afericaoResultado",
       value: string,
       groupTargets?: Array<{ gheId: string; riskId: string }>
     ) => void;
@@ -103,6 +125,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     planTableRows,
     planTableRowsPage,
     getActionDescriptionOptions,
+    handlePlanRiskFieldChange,
     handlePlanMedidasChange,
     handleDeleteMedidas,
     planTableCurrentPage,
@@ -375,13 +398,21 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                         <select
                           className={`${tableSelectClass} min-w-[170px]`}
-                          value={tipoMedidaByRowId[row.id] || ""}
-                          onChange={(event) =>
+                          value={tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? ""}
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setTipoMedidaByRowId((prev) => ({
                               ...prev,
-                              [row.id]: event.target.value,
-                            }))
-                          }
+                              [row.id]: value,
+                            }));
+                            handlePlanRiskFieldChange(
+                              row.gheId,
+                              row.riskId,
+                              "tipoMedida",
+                              value,
+                              row.groupTargets
+                            );
+                          }}
                         >
                           <option value="">Selecione</option>
                           <option value="Introduzir">Introduzir</option>
@@ -488,13 +519,21 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                         <input
                           type="date"
                           className={`${tableInputClass} min-w-[170px]`}
-                          value={prazoAcaoByRowId[row.id] || ""}
-                          onChange={(event) =>
+                          value={prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""}
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setPrazoAcaoByRowId((prev) => ({
                               ...prev,
-                              [row.id]: event.target.value,
-                            }))
-                          }
+                              [row.id]: value,
+                            }));
+                            handlePlanRiskFieldChange(
+                              row.gheId,
+                              row.riskId,
+                              "prazoAcao",
+                              value,
+                              row.groupTargets
+                            );
+                          }}
                         />
                       </td>
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
@@ -502,27 +541,48 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                           className={`${tableInputClass} min-w-[220px]`}
                           value={
                             responsavelAcaoByRowId[row.id] ??
+                            row.responsavelAcao ??
                             defaultResponsibleActionName
                           }
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setResponsavelAcaoByRowId((prev) => ({
                               ...prev,
-                              [row.id]: event.target.value,
-                            }))
-                          }
+                              [row.id]: value,
+                            }));
+                            handlePlanRiskFieldChange(
+                              row.gheId,
+                              row.riskId,
+                              "responsavelAcao",
+                              value,
+                              row.groupTargets
+                            );
+                          }}
                           placeholder="Responsável pela ação"
                         />
                       </td>
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                         <select
                           className={`${tableSelectClass} min-w-[180px]`}
-                          value={acompanhamentoByRowId[row.id] ?? defaultAcompanhamento}
-                          onChange={(event) =>
+                          value={
+                            acompanhamentoByRowId[row.id] ??
+                            row.acompanhamento ??
+                            defaultAcompanhamento
+                          }
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setAcompanhamentoByRowId((prev) => ({
                               ...prev,
-                              [row.id]: event.target.value,
-                            }))
-                          }
+                              [row.id]: value,
+                            }));
+                            handlePlanRiskFieldChange(
+                              row.gheId,
+                              row.riskId,
+                              "acompanhamento",
+                              value,
+                              row.groupTargets
+                            );
+                          }}
                         >
                           <option value="">Selecione</option>
                           <option value="Realizado">Realizado</option>
@@ -533,13 +593,25 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                         <select
                           className={`${tableSelectClass} min-w-[210px]`}
-                          value={afericaoResultadoByRowId[row.id] ?? defaultAfericaoResultado}
-                          onChange={(event) =>
+                          value={
+                            afericaoResultadoByRowId[row.id] ??
+                            row.afericaoResultado ??
+                            defaultAfericaoResultado
+                          }
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setAfericaoResultadoByRowId((prev) => ({
                               ...prev,
-                              [row.id]: event.target.value,
-                            }))
-                          }
+                              [row.id]: value,
+                            }));
+                            handlePlanRiskFieldChange(
+                              row.gheId,
+                              row.riskId,
+                              "afericaoResultado",
+                              value,
+                              row.groupTargets
+                            );
+                          }}
                         >
                           <option value="">Selecione</option>
                           <option value="Eficaz">Eficaz</option>

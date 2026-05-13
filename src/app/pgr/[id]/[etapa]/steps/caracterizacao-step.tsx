@@ -64,6 +64,12 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const hasOptionInsensitive = (options: string[], value: string) => {
+  const normalizedValue = normalizeText(value.trim());
+  if (!normalizedValue) return false;
+  return options.some((option) => normalizeText(option) === normalizedValue);
+};
+
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -93,9 +99,11 @@ const stripTrailingMeasuredUnits = (value: string, measuredUnits: string[]) =>
     (acc, measuredUnit) => stripTrailingMeasuredUnit(acc, measuredUnit),
     value
   );
+const MULTI_VALUE_SEPARATOR = "; ";
+
 const parseCommaSeparatedValues = (value: string | undefined | null) =>
   String(value || "")
-    .split(",")
+    .split(/[,\n;]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -872,7 +880,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const next = current.includes(safeOption)
               ? current.filter((item) => item !== safeOption)
               : [...current, safeOption];
-            const nextValue = next.join(", ");
+            const nextValue = next.join(MULTI_VALUE_SEPARATOR);
             if (field === "unidadeMedida") {
               return sanitizeRiskMeasurementFields(
                 { ...risk, unidadeMedida: nextValue },
@@ -1162,6 +1170,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             );
             const selectedFontes = parseMultiTextValues(risk.fontes);
             const filteredFontesOptions = filterOptionsByQuery(fontesOptions);
+            const customFonteValue = multiSelectQuery.trim();
+            const canAddCustomFonte =
+              !!customFonteValue &&
+              !hasOptionInsensitive(fontesOptions, customFonteValue) &&
+              !hasOptionInsensitive(selectedFontes, customFonteValue);
             const medidasControleOptions = Array.from(
               new Set([
                 ...getMedidasControleOptions(
@@ -1176,6 +1189,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const filteredMedidasControleOptions = filterOptionsByQuery(
               medidasControleOptions
             );
+            const customMedidaValue = multiSelectQuery.trim();
+            const canAddCustomMedida =
+              !!customMedidaValue &&
+              !hasOptionInsensitive(medidasControleOptions, customMedidaValue) &&
+              !hasOptionInsensitive(selectedMedidasControle, customMedidaValue);
             const epcOptions = Array.from(
               new Set([
                 ...getEpcOptions(risk.tipoAgente, risk.descricaoAgente, ""),
@@ -1184,6 +1202,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             );
             const selectedEpc = parseMultiTextValues(normalizeMultiTextValue(risk.epc));
             const filteredEpcOptions = filterOptionsByQuery(epcOptions);
+            const customEpcValue = multiSelectQuery.trim();
+            const canAddCustomEpc =
+              !!customEpcValue &&
+              !hasOptionInsensitive(epcOptions, customEpcValue) &&
+              !hasOptionInsensitive(selectedEpc, customEpcValue);
             const epiOptions = Array.from(
               new Set([
                 ...getEpiOptions(risk.tipoAgente, risk.descricaoAgente, ""),
@@ -1192,6 +1215,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             );
             const selectedEpi = parseMultiTextValues(normalizeMultiTextValue(risk.epi));
             const filteredEpiOptions = filterOptionsByQuery(epiOptions);
+            const customEpiValue = multiSelectQuery.trim();
+            const canAddCustomEpi =
+              !!customEpiValue &&
+              !hasOptionInsensitive(epiOptions, customEpiValue) &&
+              !hasOptionInsensitive(selectedEpi, customEpiValue);
             const caValues = Array.from(
               new Set(
                 selectedEpi
@@ -1455,9 +1483,47 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                   className={`${inputInlineClass} pl-8`}
                                   value={multiSelectQuery}
                                   onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                  placeholder="Filtrar fonte"
+                                  onKeyDown={(event) => {
+                                    if (!canAddCustomFonte || event.key !== "Enter") return;
+                                    event.preventDefault();
+                                    markRiskTouched(risk.id, "fontes");
+                                    handleToggleRiskMultiSelect(
+                                      risk.id,
+                                      "fontes",
+                                      customFonteValue
+                                    );
+                                    setMultiSelectQuery("");
+                                  }}
+                                  placeholder="Filtrar ou adicionar fonte"
                                 />
                               </div>
+                              {customFonteValue ? (
+                                canAddCustomFonte ? (
+                                  <button
+                                    type="button"
+                                    className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                    onClick={() => {
+                                      markRiskTouched(risk.id, "fontes");
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "fontes",
+                                        customFonteValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                  >
+                                    {`Adicionar "${customFonteValue}"`}
+                                  </button>
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Esta fonte já existe na lista.
+                                  </p>
+                                )
+                              ) : (
+                                <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                  Digite para adicionar uma nova fonte.
+                                </p>
+                              )}
                               <div className="max-h-44 space-y-1 overflow-auto">
                                 {filteredFontesOptions.length ? (
                                   filteredFontesOptions.map((option) => {
@@ -1943,9 +2009,47 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     className={`${inputInlineClass} pl-8`}
                                     value={multiSelectQuery}
                                     onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                    placeholder="Filtrar medida"
+                                    onKeyDown={(event) => {
+                                      if (!canAddCustomMedida || event.key !== "Enter") return;
+                                      event.preventDefault();
+                                      markRiskTouched(risk.id, "medidasControle");
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "medidasControle",
+                                        customMedidaValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                    placeholder="Filtrar ou adicionar medida"
                                   />
                                 </div>
+                                {customMedidaValue ? (
+                                  canAddCustomMedida ? (
+                                    <button
+                                      type="button"
+                                      className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                      onClick={() => {
+                                        markRiskTouched(risk.id, "medidasControle");
+                                        handleToggleRiskMultiSelect(
+                                          risk.id,
+                                          "medidasControle",
+                                          customMedidaValue
+                                        );
+                                        setMultiSelectQuery("");
+                                      }}
+                                    >
+                                      {`Adicionar "${customMedidaValue}"`}
+                                    </button>
+                                  ) : (
+                                    <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                      Esta medida já existe na lista.
+                                    </p>
+                                  )
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Digite para adicionar uma nova medida.
+                                  </p>
+                                )}
                                 <div className="max-h-44 space-y-1 overflow-auto">
                                   {filteredMedidasControleOptions.length ? (
                                     filteredMedidasControleOptions.map((option) => {
@@ -2029,9 +2133,47 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     className={`${inputInlineClass} pl-8`}
                                     value={multiSelectQuery}
                                     onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                    placeholder="Filtrar EPC"
+                                    onKeyDown={(event) => {
+                                      if (!canAddCustomEpc || event.key !== "Enter") return;
+                                      event.preventDefault();
+                                      markRiskTouched(risk.id, "epc");
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "epc",
+                                        customEpcValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                    placeholder="Filtrar ou adicionar EPC"
                                   />
                                 </div>
+                                {customEpcValue ? (
+                                  canAddCustomEpc ? (
+                                    <button
+                                      type="button"
+                                      className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                      onClick={() => {
+                                        markRiskTouched(risk.id, "epc");
+                                        handleToggleRiskMultiSelect(
+                                          risk.id,
+                                          "epc",
+                                          customEpcValue
+                                        );
+                                        setMultiSelectQuery("");
+                                      }}
+                                    >
+                                      {`Adicionar "${customEpcValue}"`}
+                                    </button>
+                                  ) : (
+                                    <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                      Este EPC já existe na lista.
+                                    </p>
+                                  )
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Digite para adicionar um novo EPC.
+                                  </p>
+                                )}
                                 <div className="max-h-44 space-y-1 overflow-auto">
                                   {filteredEpcOptions.length ? (
                                     filteredEpcOptions.map((option) => {
@@ -2111,9 +2253,47 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     className={`${inputInlineClass} pl-8`}
                                     value={multiSelectQuery}
                                     onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                    placeholder="Filtrar EPI"
+                                    onKeyDown={(event) => {
+                                      if (!canAddCustomEpi || event.key !== "Enter") return;
+                                      event.preventDefault();
+                                      markRiskTouched(risk.id, "epi");
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "epi",
+                                        customEpiValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                    placeholder="Filtrar ou adicionar EPI"
                                   />
                                 </div>
+                                {customEpiValue ? (
+                                  canAddCustomEpi ? (
+                                    <button
+                                      type="button"
+                                      className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                      onClick={() => {
+                                        markRiskTouched(risk.id, "epi");
+                                        handleToggleRiskMultiSelect(
+                                          risk.id,
+                                          "epi",
+                                          customEpiValue
+                                        );
+                                        setMultiSelectQuery("");
+                                      }}
+                                    >
+                                      {`Adicionar "${customEpiValue}"`}
+                                    </button>
+                                  ) : (
+                                    <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                      Este EPI já existe na lista.
+                                    </p>
+                                  )
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Digite para adicionar um novo EPI.
+                                  </p>
+                                )}
                                 <div className="max-h-44 space-y-1 overflow-auto">
                                   {filteredEpiOptions.length ? (
                                     filteredEpiOptions.map((option) => {

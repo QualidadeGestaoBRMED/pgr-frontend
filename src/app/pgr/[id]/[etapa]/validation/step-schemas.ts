@@ -24,6 +24,12 @@ const emailField = (label: string) =>
 const phoneField = (label: string) =>
   requiredText(label).refine((value) => isValidPhoneBr(value), `${label} inválido`);
 
+const optionalPhoneField = (label: string) =>
+  z
+    .string()
+    .trim()
+    .refine((value) => !value || isValidPhoneBr(value), `${label} inválido`);
+
 const riskGradeField = (label: string) =>
   requiredText(label).refine(
     (value) => isValidRiskGrade(value),
@@ -32,6 +38,18 @@ const riskGradeField = (label: string) =>
 
 const cpfField = (label: string) =>
   requiredText(label).refine((value) => isValidCpf(value), `${label} inválido`);
+
+const optionalCpfField = (label: string) =>
+  z
+    .string()
+    .trim()
+    .refine((value) => !value || isValidCpf(value), `${label} inválido`);
+
+const optionalEmailField = (label: string) =>
+  z
+    .string()
+    .trim()
+    .refine((value) => !value || isValidEmail(value), `${label} inválido`);
 
 const optionalStringOrArrayField = () =>
   z.union([z.string(), z.array(z.string())]).optional();
@@ -71,9 +89,9 @@ export const dadosCadastraisSchema = z.object({
   contratantes: z.array(contratanteSchema),
   responsavelPgrNome: requiredText("Nome do responsável PGR"),
   responsavelPgrFuncao: requiredText("Função do responsável PGR"),
-  responsavelPgrTelefone: phoneField("Telefone do responsável PGR"),
-  responsavelPgrEmail: emailField("E-mail do responsável PGR"),
-  responsavelPgrCpf: cpfField("CPF do responsável PGR"),
+  responsavelPgrTelefone: optionalPhoneField("Telefone do responsável PGR"),
+  responsavelPgrEmail: optionalEmailField("E-mail do responsável PGR"),
+  responsavelPgrCpf: optionalCpfField("CPF do responsável PGR"),
 });
 
 export const gheInfoSchema = z.object({

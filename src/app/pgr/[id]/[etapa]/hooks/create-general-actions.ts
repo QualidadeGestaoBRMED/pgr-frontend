@@ -617,9 +617,16 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionRiskId(ghe?.risks[0]?.id ?? "");
   };
 
-  const handlePlanMedidasChange = (
+  const handlePlanRiskFieldChange = (
     gheId: string,
     riskId: string,
+    field:
+      | "medidasControle"
+      | "tipoMedida"
+      | "prazoAcao"
+      | "responsavelAcao"
+      | "acompanhamento"
+      | "afericaoResultado",
     value: string,
     groupTargets?: Array<{ gheId: string; riskId: string }>
   ) => {
@@ -632,7 +639,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           ...ghe,
           risks: ghe.risks.map((risk) =>
             targetKeys.has(`${ghe.id}::${risk.id}`)
-              ? { ...risk, medidasControle: value }
+              ? { ...risk, [field]: value }
               : risk
           ),
         }))
@@ -646,10 +653,25 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         return {
           ...ghe,
           risks: ghe.risks.map((risk) =>
-            risk.id === riskId ? { ...risk, medidasControle: value } : risk
+            risk.id === riskId ? { ...risk, [field]: value } : risk
           ),
         };
       })
+    );
+  };
+
+  const handlePlanMedidasChange = (
+    gheId: string,
+    riskId: string,
+    value: string,
+    groupTargets?: Array<{ gheId: string; riskId: string }>
+  ) => {
+    handlePlanRiskFieldChange(
+      gheId,
+      riskId,
+      "medidasControle",
+      value,
+      groupTargets
     );
   };
 
@@ -1337,6 +1359,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleOpenPlanActionModal,
     handleChangePlanActionScope,
     handlePlanActionGheChange,
+    handlePlanRiskFieldChange,
     handlePlanMedidasChange,
     handleEditMedidasStart,
     handleEditMedidasCancel,

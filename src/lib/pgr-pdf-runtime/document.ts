@@ -69,6 +69,33 @@ function truncateHeaderField(value: unknown, maxLength: number) {
   return truncateText(value, maxLength);
 }
 
+function textOrDash(value: unknown, maxLength?: number) {
+  const text = maxLength !== undefined ? truncateText(value, maxLength) : sanitizeText(value);
+  return text || "-";
+}
+
+function joinOrDash(values: unknown, separator = ", ", maxLength?: number) {
+  if (!Array.isArray(values)) return "-";
+  const normalized = values
+    .map((item) => sanitizeText(item))
+    .filter(Boolean)
+    .join(separator);
+  if (!normalized) return "-";
+  return maxLength !== undefined ? textOrDash(normalized, maxLength) : normalized;
+}
+
+function formatGheLabel(value: unknown, index?: number) {
+  const text = sanitizeText(value);
+  const source = text || (typeof index === "number" ? `GHE ${index + 1}` : "");
+  const match = source.match(/GHE\s*(\d+)/i);
+  if (match?.[1]) {
+    const parsed = Number.parseInt(match[1], 10);
+    if (Number.isFinite(parsed)) return `GHE ${String(parsed).padStart(2, "0")}`;
+  }
+  if (source) return source;
+  return "-";
+}
+
 function toUpper(value: unknown) {
   return sanitizeText(value).toLocaleUpperCase("pt-BR");
 }
@@ -115,10 +142,23 @@ function tealHeaderCell(value: string): TableCell {
   return { text: value, style: "tealHeaderCell" };
 }
 
-function tealVerticalHeaderCell(value: string): TableCell {
+function tealVerticalHeaderCell(
+  value: string,
+  options?: {
+    width?: number;
+    height?: number;
+    fontSize?: number;
+    fontWeight?: number;
+    style?: string;
+  },
+): TableCell {
+  const width = options?.width ?? 30;
+  const height = options?.height ?? 120;
+  const fontSize = options?.fontSize ?? 10;
+  const fontWeight = options?.fontWeight ?? 500;
   return {
-    svg: buildVerticalLabelSvg(value, 30, 120, 10, 500),
-    style: "tealHeaderCell",
+    svg: buildVerticalLabelSvg(value, width, height, fontSize, fontWeight),
+    style: options?.style ?? "tealHeaderCell",
     alignment: "center",
     valign: "middle",
   };
@@ -641,9 +681,26 @@ function buildCoverPage(snapshot: RuntimeSnapshot): Content[] {
 }
 
 function buildUpdatePage(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState): Content[] {
+  const sortedUpdateHistory = [...(snapshot.updateHistory || [])].sort((left, right) => {
+    const leftText = sanitizeText(left?.alteracao);
+    const rightText = sanitizeText(right?.alteracao);
+    const leftNumber = Number.parseInt((leftText.match(/\d+/)?.[0] || ""), 10);
+    const rightNumber = Number.parseInt((rightText.match(/\d+/)?.[0] || ""), 10);
+    const hasLeftNumber = Number.isFinite(leftNumber);
+    const hasRightNumber = Number.isFinite(rightNumber);
+
+    if (hasLeftNumber && hasRightNumber) {
+      if (leftNumber !== rightNumber) return leftNumber - rightNumber;
+      return leftText.localeCompare(rightText, "pt-BR", { sensitivity: "base" });
+    }
+    if (hasLeftNumber) return -1;
+    if (hasRightNumber) return 1;
+    return leftText.localeCompare(rightText, "pt-BR", { sensitivity: "base" });
+  });
+
   const updateRows =
-    snapshot.updateHistory?.length
-      ? snapshot.updateHistory.map((item) => [
+    sortedUpdateHistory.length
+      ? sortedUpdateHistory.map((item) => [
           bodyCell(item.alteracao || "-", "tableBodyCellCenter"),
           bodyCell(item.motivo || "-", "tableBodyCellCenter"),
           bodyCell(item.data || snapshot.meta.generatedDate, "tableBodyCellCenter"),
@@ -1379,13 +1436,15 @@ function buildNarrativeCoreAndAnnexIndex(
 function buildAnnexCover(letter: "A" | "B" | "C", title: string, id?: string): Content[] {
   return [
     {
+      pageOrientation: "portrait",
+      pageSize: "A4",
+      margin: [0, 0, 0, 0],
+      pageBreak: "after",
       stack: [
         { text: `ANEXO ${letter}:`, style: "annexCoverTitle", margin: [0, 165, 0, 6], id },
         { text: title, style: "annexCoverSubtitle" },
       ],
-      margin: [0, 0, 0, 0],
     },
-    { text: "", pageBreak: "after" },
   ];
 }
 
@@ -1394,6 +1453,7 @@ function buildAnnexAmbienteTable(
   index: number,
   pdfLayout?: PdfLayoutState,
 ): Content {
+  const gheLabel = formatGheLabel(ghe.nome, index);
   const ambienteRows =
     ghe.funcoes.length > 0
       ? ghe.funcoes.slice(0, 6).map((funcao) => [bodyCell(funcao.setor), bodyCell(truncateText(ghe.ambiente || funcao.descricaoAtividades, 220))])
@@ -1404,7 +1464,7 @@ function buildAnnexAmbienteTable(
       headerRows: 0,
       widths: resolveRuntimeTableWidths(pdfLayout, "annex_ambiente", [130, 190]),
       body: [
-        [{ text: `GHE ${index + 1} - Descrição do Ambiente`, style: "annexBarCell", colSpan: 2 }, {}],
+        [{ text: `${gheLabel} - Descrição do Ambiente`, style: "annexBarCell", colSpan: 2 }, {}],
         [{ text: "Descrição sucinta do processo produtivo do GHE", style: "annexLeftHeaderCell" }, bodyCell(truncateText(ghe.processo, 220))],
         [{ text: "Observações sobre o GHE", style: "annexLeftHeaderCell" }, bodyCell(truncateText(ghe.observacoes, 220))],
         [{ text: "Setor", style: "annexHeaderCell" }, { text: "Descrição do Ambiente de Trabalho", style: "annexHeaderCell" }],
@@ -1420,6 +1480,7 @@ function buildAnnexAtividadeTable(
   index: number,
   pdfLayout?: PdfLayoutState,
 ): Content {
+  const gheLabel = formatGheLabel(ghe.nome, index);
   const rows =
     ghe.funcoes.length > 0
       ? ghe.funcoes.map((funcao) => [
@@ -1434,7 +1495,7 @@ function buildAnnexAtividadeTable(
     table: {
       widths: resolveRuntimeTableWidths(pdfLayout, "annex_atividade", [70, 90, 190, 95]),
       body: [
-        [{ text: `GHE ${index + 1} - Descrição de Atividade`, style: "annexBarCell", colSpan: 4 }, {}, {}, {}],
+        [{ text: `${gheLabel} - Descrição de Atividade`, style: "annexBarCell", colSpan: 4 }, {}, {}, {}],
         [tealHeaderCell("Setor"), tealHeaderCell("Função"), tealHeaderCell("Descrição da Atividade"), tealHeaderCell("Total de Trabalhadores")],
         ...rows,
       ],
@@ -1448,37 +1509,58 @@ function buildAnnexReconhecimentoTable(
   index: number,
   pdfLayout?: PdfLayoutState,
 ): Content {
+  const gheLabel = formatGheLabel(ghe.nome, index);
   const rows =
     ghe.riscos.length > 0
       ? ghe.riscos.map((risk) => [
-          bodyCell(truncateText(risk.tipoAgente, 24)),
-          bodyCell(truncateText(risk.descricaoAgente, 38)),
-          bodyCell(truncateText(risk.meioPropagacao, 30)),
-          bodyCell(truncateText(risk.danosSaude, 42)),
-          bodyCell(truncateText(risk.fontes, 42)),
-          bodyCell(truncateText(risk.medidasControle, 42)),
-          bodyCell(truncateText(risk.epc.join(", "), 36)),
-          bodyCell(truncateText(risk.epi.join(", "), 36)),
-          bodyCell(truncateText(risk.tipoAvaliacao, 25)),
-          bodyCell(truncateText(risk.valorMedido || risk.intensidade, 26)),
-          bodyCell(truncateText(risk.nivelAcao, 24)),
-          bodyCell(truncateText(risk.limiteTolerancia || risk.intensidade, 26)),
-          bodyCell(truncateText(risk.unidadeMedida, 24)),
-          bodyCell(truncateText(risk.severidade, 22)),
-          bodyCell(truncateText(risk.probabilidade, 24)),
-          bodyCell(truncateText(risk.classificacao, 24)),
+          bodyCell(textOrDash(risk.tipoAgente, 24), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.descricaoAgente, 38), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.meioPropagacao, 30), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.danosSaude, 42), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.fontes, 42), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.medidasControle, 42), "tableBodyCellCenter"),
+          bodyCell(joinOrDash(risk.epc, ", ", 36), "tableBodyCellCenter"),
+          bodyCell(joinOrDash(risk.epi, ", ", 36), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.tipoAvaliacao, 25), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.valorMedido || risk.intensidade, 26), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.nivelAcao, 24), "tableBodyCellCenter"),
+          bodyCell(
+            textOrDash(risk.limiteTolerancia || risk.intensidade, 26),
+            "tableBodyCellCenter",
+          ),
+          bodyCell(textOrDash(risk.unidadeMedida, 24), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.severidade, 22), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.probabilidade, 24), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.classificacao, 24), "tableBodyCellCenter"),
         ])
-      : [[bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-")]];
+      : [[
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+        ]];
 
   return {
     table: {
       widths: resolveRuntimeTableWidths(pdfLayout, "annex_reconhecimento", [
-        7, 16, 9, 15, 11, 16, 5, 5, 8, 9, 6, 8, 6, 5, 5, 7,
+        9, 16, 11, 15, 13, 16, 7, 5, 10, 11, 6, 10, 8, 6, 6, 9,
       ]),
       body: [
-        [{ text: `GHE ${index + 1} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 16 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
+        [{ text: `${gheLabel} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 16 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         [
-          { text: "Análise dos Perigos", style: "annexHeaderCell", colSpan: 5, alignment: "center" },
+          { text: "Análise dos Perigos", style: "annexHeaderCell", colSpan: 5, alignment: "center", valign: "middle" },
           {},
           {},
           {},
@@ -1488,35 +1570,48 @@ function buildAnnexReconhecimentoTable(
             style: "annexHeaderCell",
             colSpan: 3,
             alignment: "center",
+            valign: "middle",
           },
           {},
           {},
-          { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 5, alignment: "center" },
+          { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 5, alignment: "center", valign: "middle" },
           {},
           {},
           {},
           {},
-          { text: "Avaliação do Risco", style: "annexHeaderCell", colSpan: 3, alignment: "center" },
+          { text: "Avaliação do Risco", style: "annexHeaderCell", colSpan: 3, alignment: "center", valign: "middle" },
           {},
           {},
         ],
         [
-          tealVerticalHeaderCell("Tipo de Agente"),
-          tealVerticalHeaderCell("Descrição do Agente"),
-          tealVerticalHeaderCell("Meio de Propagação"),
-          tealVerticalHeaderCell("Possíveis lesões e agravos à Saúde"),
-          tealVerticalHeaderCell("Fontes ou Circunstâncias"),
-          tealVerticalHeaderCell("Administrativas e/ou Engenharia"),
-          tealVerticalHeaderCell("EPC"),
-          tealVerticalHeaderCell("EPI"),
-          tealVerticalHeaderCell("Tipo de Avaliação"),
-          tealVerticalHeaderCell("Intensidade/Concentração"),
-          tealVerticalHeaderCell("Nível de Ação"),
-          tealVerticalHeaderCell("Limite de Tolerância"),
-          tealVerticalHeaderCell("Unidade de Medida"),
-          tealVerticalHeaderCell("Severidade"),
-          tealVerticalHeaderCell("Probabilidade"),
-          tealVerticalHeaderCell("Classificação de Risco"),
+          tealHeaderCell("Tipo de Agente"),
+          tealHeaderCell("Descrição do Agente"),
+          tealHeaderCell("Meio de Propagação"),
+          tealHeaderCell("Possíveis lesões e agravos à Saúde"),
+          tealHeaderCell("Fontes ou Circunstâncias"),
+          tealHeaderCell("Administrativas e/ou Engenharia"),
+          tealHeaderCell("EPC"),
+          tealHeaderCell("EPI"),
+          tealHeaderCell("Tipo de Avaliação"),
+          tealHeaderCell("Intensidade/Concentração"),
+          tealHeaderCell("Nível de Ação"),
+          tealHeaderCell("Limite de Tolerância"),
+          tealHeaderCell("Unidade de Medida"),
+          tealVerticalHeaderCell("Severidade", {
+            width: 34,
+            height: 140,
+            fontSize: 9.3,
+            fontWeight: 400,
+            style: "annexHeaderCell",
+          }),
+          tealVerticalHeaderCell("Probabilidade", {
+            width: 34,
+            height: 140,
+            fontSize: 9.3,
+            fontWeight: 400,
+            style: "annexHeaderCell",
+          }),
+          tealHeaderCell("Classificação de Risco"),
         ],
         ...rows,
       ],
@@ -1528,24 +1623,36 @@ function buildAnnexReconhecimentoTable(
 
 function buildAnnexPlanTable(
   ghe: RuntimeGhe,
+  index: number,
   responsible: string,
   id?: string,
   pdfLayout?: PdfLayoutState,
 ): Content {
+  const gheLabel = formatGheLabel(ghe.nome, index);
   const rows =
     ghe.planoItens.length > 0
       ? ghe.planoItens.map((item) => [
-          bodyCell(ghe.nome),
-          bodyCell(truncateText(item.risco, 65)),
-          bodyCell(truncateText(item.classificacao, 24)),
-          bodyCell(truncateText(item.tipoMedida || "-", 42)),
-          bodyCell(truncateText(item.medidas, 125)),
-          bodyCell(truncateText(item.prazoAcao || "-", 40), "tableBodyCellCenter"),
-          bodyCell(truncateText(item.responsavelAcao || responsible || "-", 55)),
-          bodyCell(truncateText(item.acompanhamento || "-", 62)),
-          bodyCell(truncateText(item.afericaoResultado || "-", 62)),
+          bodyCell(gheLabel, "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.risco, 65), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.classificacao, 24), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.tipoMedida, 42), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.medidas, 125), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.prazoAcao, 40), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.responsavelAcao || responsible, 55), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.acompanhamento, 62), "tableBodyCellCenter"),
+          bodyCell(textOrDash(item.afericaoResultado, 62), "tableBodyCellCenter"),
         ])
-      : [[bodyCell(ghe.nome), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell("-"), bodyCell(truncateText(responsible || "-", 55)), bodyCell("-"), bodyCell("-")]];
+      : [[
+          bodyCell(gheLabel, "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell(textOrDash(responsible, 55), "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+          bodyCell("-", "tableBodyCellCenter"),
+        ]];
 
   return {
     id,
@@ -1635,6 +1742,7 @@ function buildAnnexContent(snapshot: RuntimeSnapshot, pdfLayout?: PdfLayoutState
         stack: [
           buildAnnexPlanTable(
             ghe,
+            index,
             snapshot.program.responsavelImplementacao,
             index === 0 ? "annex_b_table" : undefined,
             pdfLayout,
@@ -1837,6 +1945,7 @@ function buildStyles(): StyleDictionary {
       color: COLORS.text,
       fontSize: 10,
       alignment: "center",
+      valign: "middle",
     },
     tealHeaderCell: {
       font: "WorkSansMedium",
@@ -1844,6 +1953,7 @@ function buildStyles(): StyleDictionary {
       fillColor: COLORS.teal,
       fontSize: 10,
       alignment: "center",
+      valign: "middle",
     },
     matrixHeaderCell: {
       font: "WorkSansMedium",
@@ -2088,6 +2198,7 @@ function buildStyles(): StyleDictionary {
       fillColor: COLORS.tealDark,
       fontSize: 9.6,
       alignment: "center",
+      valign: "middle",
     },
     annexHeaderCell: {
       font: "WorkSansLight",
@@ -2095,6 +2206,7 @@ function buildStyles(): StyleDictionary {
       fillColor: COLORS.teal,
       fontSize: 9.3,
       alignment: "center",
+      valign: "middle",
     },
     annexLeftHeaderCell: {
       font: "WorkSansLight",

@@ -8,8 +8,9 @@ type HistoricoStepProps = {
     company: string;
     analysis: string;
     change: string;
-    reason: string;
+    reason: string | string[];
     date: string;
+    status?: string;
   }>;
   workflow: {
     isLocked: boolean;
@@ -23,7 +24,7 @@ type HistoricoStepProps = {
   onStartNewVersion: () => void;
   onChangeField: (
     changeId: string,
-    field: "company" | "analysis" | "change" | "reason" | "date",
+    field: "company" | "analysis" | "change" | "reason" | "date" | "status",
     value: string
   ) => void;
 };
