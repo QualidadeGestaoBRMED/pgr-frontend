@@ -278,7 +278,13 @@ export function usePgrEtapaController({
       await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
         // segue com payload local se a persistência imediata falhar
       });
-      const blob = await apiBlob(`/api/v1/frontend/pgr/${params.id}/generate-pdf-python-v2`);
+      const blob = await apiBlob("/api/pgr/generate-pdf", {
+        ...docxPayload,
+        meta: {
+          ...docxPayload.meta,
+          generatedAt: new Date().toLocaleString("pt-BR"),
+        },
+      });
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       const fileBase =
@@ -344,6 +350,7 @@ export function usePgrEtapaController({
     state.pdfLayout,
     state.removedPlanRiskKeys,
     state.riskGheGroups,
+    docxPayload,
   ]);
 
   const handleGeneratePreviewPdf = useCallback(
@@ -376,7 +383,14 @@ export function usePgrEtapaController({
       await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
         // segue com payload local quando houver falha pontual de rede
       });
-      const blob = await apiBlob(`/api/v1/frontend/pgr/${params.id}/generate-pdf-python-v2`);
+      const blob = await apiBlob("/api/pgr/generate-pdf", {
+        ...docxPayload,
+        pdfLayout: effectiveLayout,
+        meta: {
+          ...docxPayload.meta,
+          generatedAt: new Date().toLocaleString("pt-BR"),
+        },
+      });
       return window.URL.createObjectURL(blob);
     },
     [
@@ -399,6 +413,7 @@ export function usePgrEtapaController({
       state.removedPlanRiskKeys,
       state.riskGheGroups,
       weightedProgressPercent,
+      docxPayload,
     ]
   );
 
