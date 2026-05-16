@@ -12,6 +12,8 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
         ctx.dadosCadastrais.empresaNome ||
         "",
       handleResetPlanoData: ctx.handleResetPlanoData,
+      historicoChanges: ctx.historicoData.changes,
+      workflowVersion: ctx.workflow.version,
       planAction: ctx.planAction,
       maskDate: ctx.generalActions.maskDate,
       setPlanAction: ctx.setPlanAction,

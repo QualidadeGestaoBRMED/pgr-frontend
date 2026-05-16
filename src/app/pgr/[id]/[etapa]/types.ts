@@ -57,6 +57,7 @@ export type GheRisk = {
   probabilidade: string;
   classificacao: string;
   medidasControle: string;
+  normas?: string;
   epc: string;
   epi: string;
   tipoMedida?: string;
@@ -179,6 +180,7 @@ export type TechnicalCriteriaCatalogItem = {
 
 export type RiskCatalogPayload = {
   riskAgents: Array<{ id: number; name: string }>;
+  standards?: Array<{ id?: number; name: string }>;
   riskDescriptions: RiskCatalogItem[];
   hazards: RiskCatalogItem[];
   riskSources: RiskCatalogItem[];

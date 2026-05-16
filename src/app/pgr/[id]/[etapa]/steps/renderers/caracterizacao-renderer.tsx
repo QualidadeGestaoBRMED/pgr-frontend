@@ -21,6 +21,7 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   getNivelAcaoOptions: ctx.getNivelAcaoOptions,
   getSeveridadeOptions: ctx.getSeveridadeOptions,
   getMedidasControleOptions: ctx.getMedidasControleOptions,
+  getNormasOptions: ctx.getNormasOptions,
   getEpiOptions: ctx.getEpiOptions,
   getEpcOptions: ctx.getEpcOptions,
   calculateRiskClassification: ctx.calculateRiskClassification,

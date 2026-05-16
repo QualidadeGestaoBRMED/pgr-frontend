@@ -10,6 +10,12 @@ type PlanoStepProps = {
     selectBaseClass: string;
     defaultResponsibleActionName: string;
     handleResetPlanoData: () => void;
+    historicoChanges: Array<{
+      date: string;
+      analysis?: string;
+      change?: string;
+    }>;
+    workflowVersion: number;
     planAction: { nr: string; vigencia: string };
     maskDate: (value: string) => string;
     setPlanAction: Dispatch<SetStateAction<{ nr: string; vigencia: string }>>;
@@ -113,12 +119,65 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   const toMultiTextValue = (values: string[]) =>
     Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
 
+  const parseHistoricoDate = (raw: string) => {
+    const value = String(raw || "").trim();
+    if (!value) return null;
+    const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (isoMatch) {
+      const date = new Date(Date.UTC(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])));
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const brMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}(?::\d{2})?)?$/);
+    if (brMatch) {
+      const date = new Date(Date.UTC(Number(brMatch[3]), Number(brMatch[2]) - 1, Number(brMatch[1])));
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+  };
+
+  const extractVersionNumber = (raw: string) => {
+    const value = String(raw || "").trim();
+    if (!value) return null;
+    const normalized = value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    const versionMatch = normalized.match(/(?:versao|v)\s*0*(\d{1,4})/);
+    if (versionMatch) {
+      const parsed = Number(versionMatch[1]);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+    const pureDigitsMatch = normalized.match(/^0*(\d{1,4})$/);
+    if (pureDigitsMatch) {
+      const parsed = Number(pureDigitsMatch[1]);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+    return null;
+  };
+
+  const toIsoDate = (date: Date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const addDays = (date: Date, days: number) => {
+    const next = new Date(date.getTime());
+    next.setUTCDate(next.getUTCDate() + days);
+    return next;
+  };
+
+
   const {
     inputBaseClass,
     textareaBaseClass,
     selectBaseClass,
     defaultResponsibleActionName,
     handleResetPlanoData,
+    historicoChanges,
+    workflowVersion,
     planAction,
     maskDate,
     setPlanAction,
@@ -181,6 +240,72 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     string | null
   >(null);
   const [medidasMultiSelectQuery, setMedidasMultiSelectQuery] = useState("");
+
+  const dataEmissaoBase = useMemo(() => {
+    const currentVersion = Math.max(1, Number(workflowVersion || 1));
+    const normalizedChanges = historicoChanges
+      .map((item) => ({
+        date: parseHistoricoDate(item.date),
+        analysisVersion: extractVersionNumber(item.analysis || ""),
+        changeVersion: extractVersionNumber(item.change || ""),
+      }))
+      .filter((item): item is {
+        date: Date;
+        analysisVersion: number | null;
+        changeVersion: number | null;
+      } => Boolean(item.date));
+
+    const matchedCurrentVersion = normalizedChanges.filter(
+      (item) =>
+        item.analysisVersion === currentVersion ||
+        item.changeVersion === currentVersion
+    );
+
+    if (matchedCurrentVersion.length > 0) {
+      const mostRecentCurrentVersion = matchedCurrentVersion.sort(
+        (a, b) => b.date.getTime() - a.date.getTime()
+      )[0];
+      return mostRecentCurrentVersion?.date ?? null;
+    }
+
+    const mostRecentAnyVersion = normalizedChanges.sort(
+      (a, b) => b.date.getTime() - a.date.getTime()
+    )[0];
+    return mostRecentAnyVersion?.date ?? null;
+  }, [historicoChanges, workflowVersion]);
+
+  useEffect(() => {
+    if (!dataEmissaoBase) return;
+    const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
+      const text = normalizeText(`${prioridade} ${classificacao}`);
+      if (text.includes("critic")) return 30;
+      if (text.includes("alt")) return 90;
+      if (text.includes("moderad")) return 180;
+      return null;
+    };
+
+    planTableRows.forEach((row) => {
+      const hasExistingPrazo = Boolean(
+        String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
+      );
+      if (hasExistingPrazo) return;
+
+      const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
+      if (!days) return;
+      const prazoCalculado = toIsoDate(addDays(dataEmissaoBase, days));
+
+      setPrazoAcaoByRowId((prev) =>
+        prev[row.id] ? prev : { ...prev, [row.id]: prazoCalculado }
+      );
+      handlePlanRiskFieldChange(
+        row.gheId,
+        row.riskId,
+        "prazoAcao",
+        prazoCalculado,
+        row.groupTargets
+      );
+    });
+  }, [dataEmissaoBase, handlePlanRiskFieldChange, planTableRows, prazoAcaoByRowId]);
 
   useEffect(() => {
     if (!isPlanActionModalOpen) return;

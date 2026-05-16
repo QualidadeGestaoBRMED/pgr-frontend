@@ -830,7 +830,13 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     );
   };
 
-  const handleDescricaoExcelChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const importDescricaoExcel = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    options: {
+      countMode: "quantitativo" | "line";
+      importLabel: string;
+    }
+  ) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -838,7 +844,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setExcelImportFeedback(null);
     setIsImportingExcel(true);
     try {
-      const imported: ParsedDescricaoImport = await parseDescricaoExcel(file);
+      const imported: ParsedDescricaoImport = await parseDescricaoExcel(file, {
+        countMode: options.countMode,
+      });
 
       const normalizeFunctionKey = (setor: string, funcao: string) =>
         `${setor.trim().toLowerCase()}||${funcao.trim().toLowerCase()}`;
@@ -1070,12 +1078,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         type: "success",
         message:
           importedUniqueFunctions.length > 0
-            ? `Planilha importada: ${importedUniqueFunctions.length} funções adicionadas à lista geral${
+            ? `${options.importLabel}: ${importedUniqueFunctions.length} funções adicionadas à lista geral${
                 skippedExistingCount || skippedDuplicatedInFileCount
                   ? ` (${skippedExistingCount} já existentes e ${skippedDuplicatedInFileCount} duplicadas no arquivo foram ignoradas)`
                   : ""
               }.${gheImportSummary}`
-            : `Nenhuma função nova foi adicionada. As funções da planilha já existem na lista geral.${gheImportSummary}`,
+            : `Nenhuma função nova foi adicionada. As funções da ${options.importLabel.toLowerCase()} já existem na lista geral.${gheImportSummary}`,
       });
     } catch (error) {
       if (error instanceof DescricaoImportMissingRequiredFieldsError) {
@@ -1101,6 +1109,22 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     } finally {
       setIsImportingExcel(false);
     }
+  };
+
+  const handleDescricaoExcelChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    await importDescricaoExcel(event, {
+      countMode: "quantitativo",
+      importLabel: "Planilha importada",
+    });
+  };
+
+  const handleDescricaoExcelAtivosChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    await importDescricaoExcel(event, {
+      countMode: "line",
+      importLabel: "Planilha de ativos importada",
+    });
   };
 
   const handleAddManualFunction = (payload: {
@@ -1371,6 +1395,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleExtraEstabelecimentoFieldChange,
     handleRemoveExtraField,
     handleDescricaoExcelChange,
+    handleDescricaoExcelAtivosChange,
     handleAddManualFunction,
     maskDate,
     handleAnexoFiles,

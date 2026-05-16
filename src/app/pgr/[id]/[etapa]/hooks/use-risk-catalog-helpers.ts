@@ -120,6 +120,19 @@ const resolveActionDescriptionValues = (item: TechnicalCriteriaCatalogItem) =>
     ...toValuesFromUnknown(item.action_description_children),
   ]);
 
+const resolveStandardValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.standard),
+    ...toValuesFromUnknown(
+      (item as TechnicalCriteriaCatalogItem & { standardChildren?: unknown })
+        .standardChildren
+    ),
+    ...toValuesFromUnknown(
+      (item as TechnicalCriteriaCatalogItem & { standard_children?: unknown })
+        .standard_children
+    ),
+  ]);
+
 const resolvePpeValues = (item: TechnicalCriteriaCatalogItem) =>
   uniqueValues([
     ...toValuesFromUnknown(item.ppeChildren),
@@ -249,6 +262,7 @@ const buildCatalogValuesByAgent = (
 type TechnicalCriteriaResolved = {
   description: string;
   descriptionToken: string;
+  standardValues: string[];
   source: string;
   sourceValues: string[];
   propagationPath: string;
@@ -315,6 +329,16 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [riskCatalogs]
   );
 
+  const standardsCatalogValues = useMemo(
+    () =>
+      uniqueNonEmptyValues(
+        (riskCatalogs?.standards || []).map((item) =>
+          toSafeCatalogText((item as { name?: unknown }).name)
+        )
+      ),
+    [riskCatalogs]
+  );
+
   const technicalCriteriaByAgent = useMemo(() => {
     const grouped = new Map<number, TechnicalCriteriaResolved[]>();
     (riskCatalogs?.technicalCriteria || []).forEach((item: TechnicalCriteriaCatalogItem) => {
@@ -326,6 +350,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       if (!descriptionToken) return;
 
       const sourceValues = resolveSourceValues(item);
+      const standardValues = resolveStandardValues(item);
       const propagationPathValues = resolvePropagationPathValues(item);
       const unitValues = resolveUnitValues(item);
       const controlMeasureValues = resolveControlMeasureValues(item);
@@ -347,6 +372,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         descriptionToken,
         source,
         sourceValues.join("|"),
+        standardValues.join("|"),
         propagationPath,
         propagationPathValues.join("|"),
         unit,
@@ -370,6 +396,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
               entry.descriptionToken,
               entry.source,
               entry.sourceValues.join("|"),
+              entry.standardValues.join("|"),
               entry.propagationPath,
               entry.propagationPathValues.join("|"),
               entry.unit,
@@ -390,6 +417,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         current.push({
           description,
           descriptionToken,
+          standardValues,
           source,
           sourceValues,
           propagationPath,
@@ -708,6 +736,22 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveTechnicalCriteriaOptions]
   );
 
+  const getNormasOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.standardValues
+        )
+        .flat()
+      );
+      const options = optionsFromCriteria.length
+        ? optionsFromCriteria
+        : standardsCatalogValues;
+      return withCurrentValue(options, currentValue);
+    },
+    [resolveTechnicalCriteriaOptions, standardsCatalogValues]
+  );
+
   const getActionDescriptionOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
@@ -761,6 +805,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getNivelAcaoOptions,
     getSeveridadeOptions,
     getMedidasControleOptions,
+    getNormasOptions,
     getActionDescriptionOptions,
     getEpiOptions,
     getEpcOptions,

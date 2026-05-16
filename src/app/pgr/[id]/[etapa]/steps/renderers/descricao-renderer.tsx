@@ -15,6 +15,7 @@ export const buildDescricaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
   isGheListView: ctx.isGheListView,
   importExcelInputRef: ctx.importExcelInputRef,
   handleDescricaoExcelChange: ctx.generalActions.handleDescricaoExcelChange,
+  handleDescricaoExcelAtivosChange: ctx.generalActions.handleDescricaoExcelAtivosChange,
   handleAddManualFunction: ctx.generalActions.handleAddManualFunction,
   isImportingExcel: ctx.isImportingExcel,
   excelImportFeedback: ctx.excelImportFeedback,

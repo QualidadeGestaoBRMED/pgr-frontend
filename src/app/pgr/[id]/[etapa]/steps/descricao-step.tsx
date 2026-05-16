@@ -89,6 +89,10 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     setor: string;
   }>(null);
   const [isDeleteSelectedModalOpen, setIsDeleteSelectedModalOpen] = useState(false);
+  const [isExcelImportTypeModalOpen, setIsExcelImportTypeModalOpen] = useState(false);
+  const [excelImportMode, setExcelImportMode] = useState<"total-geral" | "planilha-ativos">(
+    "total-geral"
+  );
   const [isExcelImportErrorModalOpen, setIsExcelImportErrorModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [, setTouchedInfoFields] = useState<Partial<
@@ -109,6 +113,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     isGheListView,
     importExcelInputRef,
     handleDescricaoExcelChange,
+    handleDescricaoExcelAtivosChange,
     handleAddManualFunction,
     isImportingExcel,
     excelImportFeedback,
@@ -167,6 +172,23 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     handleConfirmInfoModal,
     infoModalMode,
   } = ctx;
+
+  const openExcelImportTypeModal = () => {
+    if (isImportingExcel) return;
+    setIsExcelImportTypeModalOpen(true);
+  };
+
+  const handleImportTotalGeral = () => {
+    setExcelImportMode("total-geral");
+    setIsExcelImportTypeModalOpen(false);
+    importExcelInputRef.current?.click();
+  };
+
+  const handleImportPlanilhaAtivos = () => {
+    setExcelImportMode("planilha-ativos");
+    setIsExcelImportTypeModalOpen(false);
+    importExcelInputRef.current?.click();
+  };
 
   const addInlineEdit = (functionIds: string[]) => {
     const validIds = functionIds.filter((id) => functionMap.has(id));
@@ -681,7 +703,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => importExcelInputRef.current?.click()}
+                  onClick={openExcelImportTypeModal}
                   disabled={isImportingExcel}
                   className={isImportingExcel ? "btn-disabled px-4" : "btn-primary px-4"}
                 >
@@ -693,7 +715,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   type="file"
                   accept=".xlsx,.xls,.csv"
                   className="hidden"
-                  onChange={handleDescricaoExcelChange}
+                  onChange={
+                    excelImportMode === "planilha-ativos"
+                      ? handleDescricaoExcelAtivosChange
+                      : handleDescricaoExcelChange
+                  }
                 />
               </div>
             </div>
@@ -1775,6 +1801,45 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         : infoModalMode === "next-existing"
                           ? "Salvar e ir para próximo GHE"
                           : "Salvar e continuar"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isExcelImportTypeModalOpen ? (
+            <div className="fixed inset-0 z-50">
+              <div className="absolute inset-0 bg-black/55" />
+              <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+                <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                  <h3 className="text-[18px] font-semibold text-foreground">
+                    Confirmar importação
+                  </h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    Escolha qual tipo de planilha deseja importar.
+                  </p>
+                  <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsExcelImportTypeModalOpen(false)}
+                      className="btn-outline px-4"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleImportPlanilhaAtivos}
+                      className="btn-outline px-4"
+                    >
+                      Planilha de ativos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleImportTotalGeral}
+                      className="btn-primary px-5"
+                    >
+                      Total geral
                     </button>
                   </div>
                 </div>

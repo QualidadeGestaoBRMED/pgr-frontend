@@ -46,9 +46,15 @@ export class DescricaoImportMissingRequiredFieldsError extends Error {
   }
 }
 
+type ParseDescricaoExcelOptions = {
+  countMode?: "quantitativo" | "line";
+};
+
 export const parseDescricaoExcel = async (
-  file: File
+  file: File,
+  options: ParseDescricaoExcelOptions = {}
 ): Promise<ParsedDescricaoImport> => {
+  const countMode = options.countMode ?? "quantitativo";
   const XLSX = await import("xlsx");
   const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
   const firstSheetName = workbook.SheetNames[0];
@@ -140,10 +146,12 @@ export const parseDescricaoExcel = async (
       rawFuncionarios.replace(/[^\d-]/g, ""),
       10
     );
-    const funcionariosCount =
+    const funcionariosByQuantitativo =
       Number.isFinite(parsedFuncionarios) && !Number.isNaN(parsedFuncionarios)
         ? Math.max(0, parsedFuncionarios)
         : 0;
+    const funcionariosCount =
+      countMode === "line" ? 1 : funcionariosByQuantitativo;
     const sanitizedGhe = isExcelInstructionText(rawGheName) ? "" : rawGheName;
     const gheNumericMatch =
       sanitizedGhe.match(/^ghe\s*0*(\d+)$/i) ?? sanitizedGhe.match(/^0*(\d+)$/);

@@ -140,6 +140,7 @@ const isSameRiskContent = (a: GheRisk, b: GheRisk) =>
   a.probabilidade === b.probabilidade &&
   a.classificacao === b.classificacao &&
   a.medidasControle === b.medidasControle &&
+  (a.normas || "") === (b.normas || "") &&
   normalizeMultiTextValue(a.epc) === normalizeMultiTextValue(b.epc) &&
   normalizeMultiTextValue(a.epi) === normalizeMultiTextValue(b.epi);
 
@@ -158,6 +159,7 @@ const getRiskContentKey = (risk: GheRisk) =>
     risk.probabilidade,
     risk.classificacao,
     risk.medidasControle,
+    risk.normas || "",
     normalizeMultiTextValue(risk.epc),
     normalizeMultiTextValue(risk.epi),
   ]
@@ -184,6 +186,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     getUnidadeMedidaOptions,
     getHasQuantitativeCriteria,
     getMedidasControleOptions,
+    getNormasOptions,
     getEpiOptions,
     getEpcOptions,
     calculateRiskClassification,
@@ -213,7 +216,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "fontes"
       | "meioPropagacao"
       | "unidadeMedida"
-      | "medidasControle";
+      | "medidasControle"
+      | "normas";
   }>(null);
   const [multiSelectQuery, setMultiSelectQuery] = useState("");
   const [, setTouchedRiskFields] = useState<
@@ -599,6 +603,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       probabilidade: "",
       classificacao: "",
       medidasControle: "",
+      normas: "",
       epc: "",
       epi: "",
     };
@@ -658,6 +663,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "probabilidade"
       | "classificacao"
       | "medidasControle"
+      | "normas"
       | "epi"
       | "epc",
     value: string
@@ -747,6 +753,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           probabilidade: "",
                           classificacao: "",
                           medidasControle: "",
+                          normas: "",
                           epc: "",
                           epi: "",
                         };
@@ -827,6 +834,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         probabilidade: "",
                         classificacao: "",
                         medidasControle: "",
+                        normas: "",
                         epc: "",
                         epi: "",
                       };
@@ -861,7 +869,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "unidadeMedida"
       | "epc"
       | "epi"
-      | "medidasControle",
+      | "medidasControle"
+      | "normas",
     option: string
   ) => {
     if (!currentRiskGhe) return;
@@ -908,6 +917,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     const clonedRisks = source.risks.map((risk: GheRisk) => ({
       ...risk,
       medidasControle: risk.medidasControle ?? "",
+      normas: risk.normas ?? "",
       epc: normalizeMultiTextValue(risk.epc),
       epi: normalizeMultiTextValue(risk.epi),
       id: createRiskId(),
@@ -1194,6 +1204,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               !!customMedidaValue &&
               !hasOptionInsensitive(medidasControleOptions, customMedidaValue) &&
               !hasOptionInsensitive(selectedMedidasControle, customMedidaValue);
+            const normasOptions = Array.from(
+              new Set([
+                ...getNormasOptions(
+                  risk.tipoAgente,
+                  risk.descricaoAgente,
+                  ""
+                ),
+                ...parseMultiTextValues(risk.normas),
+              ])
+            );
+            const selectedNormas = parseMultiTextValues(risk.normas);
+            const filteredNormasOptions = filterOptionsByQuery(normasOptions);
+            const customNormaValue = multiSelectQuery.trim();
+            const canAddCustomNorma =
+              !!customNormaValue &&
+              !hasOptionInsensitive(normasOptions, customNormaValue) &&
+              !hasOptionInsensitive(selectedNormas, customNormaValue);
             const epcOptions = Array.from(
               new Set([
                 ...getEpcOptions(risk.tipoAgente, risk.descricaoAgente, ""),
@@ -1964,7 +1991,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       <p className="text-[13px] font-semibold text-foreground">
                         Medidas de prevenção
                       </p>
-                      <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <div className="mt-4 grid gap-4 md:grid-cols-4">
                         <div>
                           <label className="text-[12px] font-medium text-foreground">
                             Medidas de Controle Administrativas e/ou de Engenharia
@@ -2089,6 +2116,118 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               {getRiskFieldError(risk.id, "medidasControle")}
                             </p>
                           ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            Normas
+                          </label>
+                          <div className="relative mt-2" data-multiselect>
+                            <button
+                              type="button"
+                              className={`${selectSmallClass} flex items-center justify-between text-left`}
+                              onClick={() =>
+                                setOpenMultiSelect((prev) =>
+                                  prev?.riskId === risk.id && prev.field === "normas"
+                                    ? null
+                                    : { riskId: risk.id, field: "normas" }
+                                )
+                              }
+                            >
+                              <span className="truncate">
+                                {selectedNormas.length
+                                  ? selectedNormas.join(", ")
+                                  : "Selecione as normas"}
+                              </span>
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform ${
+                                  openMultiSelect?.riskId === risk.id &&
+                                  openMultiSelect.field === "normas"
+                                    ? "rotate-180"
+                                    : "rotate-0"
+                                }`}
+                              />
+                            </button>
+                            {openMultiSelect?.riskId === risk.id &&
+                            openMultiSelect.field === "normas" ? (
+                              <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                                <div className="relative mb-2">
+                                  <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                  <input
+                                    className={`${inputInlineClass} pl-8`}
+                                    value={multiSelectQuery}
+                                    onChange={(event) => setMultiSelectQuery(event.target.value)}
+                                    onKeyDown={(event) => {
+                                      if (!canAddCustomNorma || event.key !== "Enter") return;
+                                      event.preventDefault();
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "normas",
+                                        customNormaValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                    placeholder="Filtrar ou adicionar norma"
+                                  />
+                                </div>
+                                {customNormaValue ? (
+                                  canAddCustomNorma ? (
+                                    <button
+                                      type="button"
+                                      className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                      onClick={() => {
+                                        handleToggleRiskMultiSelect(
+                                          risk.id,
+                                          "normas",
+                                          customNormaValue
+                                        );
+                                        setMultiSelectQuery("");
+                                      }}
+                                    >
+                                      {`Adicionar "${customNormaValue}"`}
+                                    </button>
+                                  ) : (
+                                    <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                      Esta norma já existe na lista.
+                                    </p>
+                                  )
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Digite para adicionar uma nova norma.
+                                  </p>
+                                )}
+                                <div className="max-h-44 space-y-1 overflow-auto">
+                                  {filteredNormasOptions.length ? (
+                                    filteredNormasOptions.map((option) => {
+                                      const isChecked = selectedNormas.includes(option);
+                                      return (
+                                        <label
+                                          key={`${risk.id}-normas-${option}`}
+                                          className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => {
+                                              handleToggleRiskMultiSelect(
+                                                risk.id,
+                                                "normas",
+                                                option
+                                              );
+                                            }}
+                                          />
+                                          <span>{option}</span>
+                                        </label>
+                                      );
+                                    })
+                                  ) : (
+                                    <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                      Nenhuma norma encontrada.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                         <div>
                           <label className="text-[12px] font-medium text-foreground">
