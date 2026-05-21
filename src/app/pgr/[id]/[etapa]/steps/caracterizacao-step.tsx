@@ -1717,7 +1717,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               )}
                               value={sanitizedIntensidade}
                               placeholder={measuredUnitPlaceholder}
-                              disabled
+                              onChange={(event) => {
+                                markRiskTouched(risk.id, "intensidade");
+                                handleRiskChange(risk.id, "intensidade", event.target.value);
+                              }}
                             />
                             {getRiskFieldError(risk.id, "intensidade") ? (
                               <p className="mt-1 text-[12px] text-danger">
@@ -1733,7 +1736,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               className={inputBaseClass}
                               value={sanitizedNivelAcao}
                               placeholder={measuredUnitPlaceholder}
-                              disabled
+                              onChange={(event) => {
+                                handleRiskChange(risk.id, "nivelAcao", event.target.value);
+                              }}
                             />
                           </div>
                         </div>
