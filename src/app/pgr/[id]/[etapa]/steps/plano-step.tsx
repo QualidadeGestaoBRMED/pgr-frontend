@@ -100,10 +100,45 @@ type PlanoStepProps = {
     planActionDescription: string;
     setPlanActionDescription: Dispatch<SetStateAction<string>>;
     handleSavePlanActionModal: (options?: { riskIds?: string[]; gheIds?: string[] }) => void;
+    handleCreateNrPlanRows: (nr: string, actions: string[]) => void;
   };
 };
 
 export function PlanoStep({ ctx }: PlanoStepProps) {
+  const nrActionPresets: Record<string, string[]> = {
+    "NR-01": [
+      "Antecipação dos riscos no local de trabalho",
+      "Reconhecimento dos riscos no local de trabalho",
+      "Implantar Procedimento para Fluxo de Atendimento à Emergências e Investigação de Acidentes de Trabalho.",
+      "Implementar Matriz de Capacitação para acompanhamento de todos os treinamentos legais vigentes para atendimentos aos requisitos legais",
+      "Divulgar o PGR a todos os colaboradores da empresa, conforme o item 1.4.1 da NR 01",
+    ],
+    "NR-18": [
+      "Projeto/layout da área de vivência do canteiro de obras e de eventual frente de trabalho",
+      "Plano de atendimento à emergências",
+      "Projetos dos sistemas de proteção coletiva",
+      "Projetos dos sistemas de proteção individual contra quedas (SPIQ)",
+      "Projeto elétrico das instalações temporárias",
+      "Relação dos equipamentos de proteção individual (EPI) e suas respectivas especificações técnicas",
+      "Matriz de EPI x função",
+      "Procedimento de investigação de acidentes",
+      "Anotação de responsabilidade técnica",
+    ],
+    "NR-29": [
+      "Fornecer as informações dos riscos ocupacionais sob a gestão da empresa que possam impactar as atividades da administração portuária e do OGMO",
+      "Informar as medidas de prevenção para os operadores portuários, tomadores de serviço, empregadores e OGMO que atuem em suas dependências",
+      "Elaborar, manter de forma acessível aos trabalhadores e anexar no PGR os procedimentos relacionados ao subitem 29.4.6 da NR-29",
+    ],
+    "NR-30": [
+      "Procedimentos de segurança nas atividades de manutenção em embarcação em operação",
+      "Orientação aos trabalhadores quanto aos procedimentos a serem adotados na ocorrência de condições climáticas extremas e interrupção das atividades nessas situações",
+      "Procedimentos de acesso seguro à embarcação atracada e fundeada",
+      "Procedimentos seguros de movimentação de carga",
+      "Procedimentos de segurança nas atividades que envolvam outras embarcações, balsas, plataformas de petróleo e demais unidades marítimas;",
+      "Procedimentos de segurança nas manobras de atracação e fundeio",
+    ],
+  };
+
   const normalizeText = (value: string) =>
     value
       .normalize("NFD")
@@ -112,7 +147,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
 
   const parseMultiTextValues = (value: string) =>
     value
-      .split(",")
+      .split(/[\n,;]+/)
       .map((item) => item.trim())
       .filter(Boolean);
 
@@ -204,6 +239,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     planActionDescription,
     setPlanActionDescription,
     handleSavePlanActionModal,
+    handleCreateNrPlanRows,
   } = ctx;
   const tableControlClass =
     "h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
@@ -383,6 +419,12 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     return options.filter((option) => normalizeText(option).includes(term));
   };
 
+  const handleNrPresetClick = (nr: string) => {
+    setPlanAction((prev) => ({ ...prev, nr }));
+    const presetActions = nrActionPresets[nr] ?? [];
+    handleCreateNrPlanRows(nr, presetActions);
+  };
+
   return (
     <>
       <section className="px-2">
@@ -421,13 +463,15 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                 "NR-12",
                 "NR-17",
                 "NR-18",
+                "NR-29",
+                "NR-30",
                 "NR-33",
                 "NR-35",
               ].map((nr) => (
                 <button
                   key={nr}
                   type="button"
-                  onClick={() => setPlanAction((prev) => ({ ...prev, nr }))}
+                  onClick={() => handleNrPresetClick(nr)}
                   className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${
                     planAction.nr === nr
                       ? "border-primary/60 bg-primary/10 text-primary"
@@ -476,7 +520,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
 
         {planTableRows.length ? (
           <div className="mt-4 space-y-3">
-            <div className="max-h-[420px] overflow-auto rounded-[12px] border border-border/60">
+            <div className="max-h-[620px] overflow-auto rounded-[12px] border border-border/60">
               <table className="min-w-[1950px] w-full border-separate border-spacing-0 text-left text-[12px]">
                 <thead className="bg-muted/60 text-muted-foreground">
                   <tr>
@@ -555,9 +599,12 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                             );
                             const selectedMedidas = parseMultiTextValues(
                               row.medidasPrevencao || ""
-                            ).filter((item) => medidasOptions.includes(item));
+                            );
+                            const mergedMedidasOptions = Array.from(
+                              new Set([...medidasOptions, ...selectedMedidas])
+                            );
                             const filteredMedidasOptions =
-                              filterOptionsByQuery(medidasOptions);
+                              filterOptionsByQuery(mergedMedidasOptions);
 
                             return (
                               <div className="relative" data-medidas-multiselect>

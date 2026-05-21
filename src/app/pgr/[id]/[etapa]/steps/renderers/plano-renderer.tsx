@@ -40,6 +40,7 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       planActionDescription: ctx.planActionDescription,
       setPlanActionDescription: ctx.setPlanActionDescription,
       handleSavePlanActionModal: ctx.generalActions.handleSavePlanActionModal,
+      handleCreateNrPlanRows: ctx.generalActions.handleCreateNrPlanRows,
     }}
   />
 );

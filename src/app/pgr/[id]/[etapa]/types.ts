@@ -65,6 +65,7 @@ export type GheRisk = {
   responsavelAcao?: string;
   acompanhamento?: string;
   afericaoResultado?: string;
+  nrPreset?: boolean;
 };
 
 export type RiskGheGroup = {

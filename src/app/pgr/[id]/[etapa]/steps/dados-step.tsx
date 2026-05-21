@@ -25,6 +25,7 @@ type ResponsibleCoordinationCatalogItem = {
   id: number;
   name: string;
   jobRole: string;
+  registroProfissional?: string;
   phone: string;
   email: string;
   cpf: string;
@@ -283,6 +284,7 @@ export function DadosStep({
               id: Number(item.id || 0),
               name: String(item.name || "").trim(),
               jobRole: String(item.jobRole || "").trim(),
+              registroProfissional: String(item.registroProfissional || "").trim(),
               phone: String(item.phone || "").trim(),
               email: String(item.email || "").trim(),
               cpf: String(item.cpf || "").trim(),
@@ -304,7 +306,7 @@ export function DadosStep({
     Array<
       Pick<
         ResponsavelCoordenacaoTecnicaDraft,
-        "nome" | "funcao" | "telefone" | "email" | "cpf"
+        "nome" | "funcao" | "registroProfissional" | "telefone" | "email" | "cpf"
       >
     >
   >(() => {
@@ -312,6 +314,7 @@ export function DadosStep({
       return responsibleCoordinationCatalog.map((item) => ({
         nome: item.name,
         funcao: item.jobRole,
+        registroProfissional: item.registroProfissional || "",
         telefone: item.phone,
         email: item.email,
         cpf: item.cpf,
@@ -322,14 +325,14 @@ export function DadosStep({
       string,
       Pick<
         ResponsavelCoordenacaoTecnicaDraft,
-        "nome" | "funcao" | "telefone" | "email" | "cpf"
+        "nome" | "funcao" | "registroProfissional" | "telefone" | "email" | "cpf"
       >
     >();
 
     const addProfile = (
       profile: Pick<
         ResponsavelCoordenacaoTecnicaDraft,
-        "nome" | "funcao" | "telefone" | "email" | "cpf"
+        "nome" | "funcao" | "registroProfissional" | "telefone" | "email" | "cpf"
       >
     ) => {
       const key = profile.nome.trim().toLowerCase();
@@ -341,6 +344,7 @@ export function DadosStep({
       addProfile({
         nome: dadosCadastrais.responsavelPgrNome,
         funcao: dadosCadastrais.responsavelPgrFuncao,
+        registroProfissional: "",
         telefone: dadosCadastrais.responsavelPgrTelefone,
         email: dadosCadastrais.responsavelPgrEmail,
         cpf: dadosCadastrais.responsavelPgrCpf,
@@ -351,6 +355,7 @@ export function DadosStep({
       addProfile({
         nome: coordinator.nome,
         funcao: coordinator.funcao,
+        registroProfissional: coordinator.registroProfissional || "",
         telefone: coordinator.telefone,
         email: coordinator.email,
         cpf: coordinator.cpf,
@@ -459,6 +464,11 @@ export function DadosStep({
       coordinatorIndex,
       "funcao",
       selectedProfile?.funcao || ""
+    );
+    onTechnicalCoordinatorChange(
+      coordinatorIndex,
+      "registroProfissional",
+      selectedProfile?.registroProfissional || ""
     );
     onTechnicalCoordinatorChange(
       coordinatorIndex,
@@ -1334,7 +1344,7 @@ export function DadosStep({
                   </button>
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-[1.6fr_1.2fr]">
+                <div className="mt-4 grid gap-4 md:grid-cols-[1.6fr_1.1fr_1.1fr]">
                   <div>
                     <label className="text-[12px] font-medium text-foreground">
                       Nome *:
@@ -1384,6 +1394,17 @@ export function DadosStep({
                         {technicalCoordinatorErrorsById[coordinatorKey].funcao}
                       </p>
                     ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Registro Profissional:
+                    </label>
+                    <input
+                      className={getDisabledFieldClassName(inputBaseClass)}
+                      value={coordinator.registroProfissional || ""}
+                      disabled
+                      readOnly
+                    />
                   </div>
                 </div>
 

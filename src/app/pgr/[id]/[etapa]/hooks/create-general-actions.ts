@@ -790,6 +790,104 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setIsPlanActionModalOpen(false);
   };
 
+  const handleCreateNrPlanRows = (nr: string, actions: string[]) => {
+    const normalizedNr = String(nr || "").trim();
+    const normalizedActions = Array.from(
+      new Set(
+        actions
+          .map((item) => String(item || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (!normalizedNr) return;
+
+    const toKey = (value: string) =>
+      value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+
+    const globalGheId = "__ghe_todos__";
+    const nowSeed = Date.now();
+
+    setRiskGheGroups((prev) => {
+      const existingGroup = prev.find((ghe) => ghe.id === globalGheId);
+      const baseGroup: RiskGheGroup = existingGroup ?? {
+        id: globalGheId,
+        name: "Todos",
+        risks: [],
+      };
+
+      const isPresetRisk = (risk: GheRisk) => {
+        if (risk.nrPreset) return true;
+        if (String(risk.id || "").startsWith("nr-")) return true;
+        const hasGeneralSignature =
+          toKey(risk.tipoAgente || "") === toKey("Medidas Gerais") &&
+          toKey(risk.descricaoAgente || "") === toKey("Medidas Gerais") &&
+          toKey(risk.classificacao || "") === toKey("Risco Moderado");
+        const hasNrLabel = /^NR[-\s]?\d+/i.test(String(risk.normas || "").trim());
+        return hasGeneralSignature && hasNrLabel;
+      };
+
+      const preservedRisks = baseGroup.risks.filter((risk) => !isPresetRisk(risk));
+
+      const existingRiskKeys = new Set(
+        preservedRisks.map((risk) =>
+          [toKey(risk.descricaoAgente), toKey(risk.medidasControle), toKey(risk.normas || "")]
+            .join("||")
+        )
+      );
+
+      const createdRisks: GheRisk[] = [];
+      normalizedActions.forEach((medida, index) => {
+        const key = [toKey("Medidas Gerais"), toKey(medida), toKey(normalizedNr)].join("||");
+        if (existingRiskKeys.has(key)) return;
+        existingRiskKeys.add(key);
+        createdRisks.push({
+          id: `nr-${normalizedNr.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${nowSeed}-${index + 1}`,
+          tipoAgente: "Medidas Gerais",
+          descricaoAgente: "Medidas Gerais",
+          meioPropagacao: "Nao aplicavel",
+          fontes: "Gestao",
+          danosSaude: "Nao aplicavel",
+          unidadeMedida: "Nao aplicavel",
+          valorMedido: "",
+          tipoAvaliacao: "Qualitativa",
+          intensidade: "Nao aplicavel",
+          nivelAcao: "Nao aplicavel",
+          severidade: "Nao aplicavel",
+          probabilidade: "Nao aplicavel",
+          classificacao: "Risco Moderado",
+          medidasControle: medida,
+          normas: normalizedNr,
+          epc: "",
+          epi: "",
+          tipoMedida: "",
+          prazoAcao: "",
+          responsavelAcao: "",
+          acompanhamento: "",
+          afericaoResultado: "",
+          nrPreset: true,
+        });
+      });
+
+      const nextGroup: RiskGheGroup = {
+        ...baseGroup,
+        risks: [...preservedRisks, ...createdRisks],
+      };
+
+      if (existingGroup) {
+        if (!nextGroup.risks.length) {
+          return prev.filter((ghe) => ghe.id !== globalGheId);
+        }
+        return prev.map((ghe) => (ghe.id === globalGheId ? nextGroup : ghe));
+      }
+      if (!createdRisks.length) return prev;
+      return [...prev, nextGroup];
+    });
+  };
+
   const handleAdvance = () => {
     if (ctx.current.stepId === "descricao" && !ctx.current.allGhesDescribed) return;
     const nextCompleted = Math.max(completedSteps, currentIndex + 1);
@@ -1390,6 +1488,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleEditMedidasSave,
     handleDeleteMedidas,
     handleSavePlanActionModal,
+    handleCreateNrPlanRows,
     handleAdvance,
     handleAddExtraField,
     handleExtraEstabelecimentoFieldChange,

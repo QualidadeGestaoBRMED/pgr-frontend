@@ -30,6 +30,7 @@ export type ResponsavelCoordenacaoTecnicaDraft = {
   id: string;
   nome: string;
   funcao: string;
+  registroProfissional: string;
   telefone: string;
   email: string;
   cpf: string;

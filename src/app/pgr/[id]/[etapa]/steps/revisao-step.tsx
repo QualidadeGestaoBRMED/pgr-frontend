@@ -222,6 +222,9 @@ export function RevisaoStep({
                   </>
                 )}
               </button>
+              <button type="button" disabled className="btn-disabled px-5">
+                Finalizar PGR
+              </button>
             </div>
           </div>
         </div>

@@ -31,7 +31,6 @@ const isExcelInstructionText = (value: string) => {
     "apenasnumeros",
     "formato",
     "paraestrangeiros",
-    "inclu",
   ];
   return instructionTokens.some((token) => normalized.includes(token));
 };
