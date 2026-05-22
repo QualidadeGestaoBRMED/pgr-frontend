@@ -12,9 +12,11 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
       workflow={ctx.workflow}
       lastFakePdfAt={ctx.lastFakePdfAt}
       isGeneratingFakePdf={ctx.isGeneratingFakePdf}
+      isFinalizingPgr={ctx.isFinalizingPgr}
       onEditStep={(stepId) => ctx.router.push(`/pgr/${ctx.params.id}/${stepId}`)}
       onOpenPreview={() => ctx.setIsPreviewModalOpen(true)}
       onGenerateFakePdf={ctx.handleGenerateFakePdf}
+      onFinalizePgr={ctx.handleFinalizePgr}
       onResetData={ctx.handleResetAllData}
     />
     <RevisaoPreviewModal

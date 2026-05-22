@@ -93,6 +93,7 @@ export function usePgrEtapaState({
   );
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isGeneratingFakePdf, setIsGeneratingFakePdf] = useState(false);
+  const [isFinalizingPgr, setIsFinalizingPgr] = useState(false);
   const [lastFakePdfAt, setLastFakePdfAt] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState(
@@ -226,6 +227,7 @@ export function usePgrEtapaState({
       excelImportFeedback,
       isPreviewModalOpen,
       isGeneratingFakePdf,
+      isFinalizingPgr,
       lastFakePdfAt,
       searchTerm,
       estabelecimentoSelecionado,
@@ -278,6 +280,7 @@ export function usePgrEtapaState({
       setExcelImportFeedback,
       setIsPreviewModalOpen,
       setIsGeneratingFakePdf,
+      setIsFinalizingPgr,
       setLastFakePdfAt,
       setSearchTerm,
       setEstabelecimentoSelecionado,

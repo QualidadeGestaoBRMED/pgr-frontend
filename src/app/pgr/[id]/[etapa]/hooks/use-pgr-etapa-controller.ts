@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, notFound } from "next/navigation";
-import { apiBlob, apiGet, apiPost, apiPut } from "@/lib/api";
+import { apiBlob, apiBlobGet, apiGet, apiPost, apiPostForm, apiPut } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import {
   defaultAnexos,
@@ -26,6 +26,151 @@ import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
 import { useCycleTimeTracker } from "./use-cycle-time-tracker";
 import { setRuntimeCachedState } from "../state/runtime-cache";
 import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
+
+const PGR_EXPORT_POLL_INTERVAL_MS = 2000;
+const PGR_EXPORT_POLL_TIMEOUT_MS = 120000;
+const PIPEFY_ORGANIZATION_ID = "300527823";
+const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
+
+type ExternalJobStartResponse = {
+  job_id?: string;
+  jobId?: string;
+  id?: string;
+};
+
+type ExternalJobStatusResponse = {
+  status?: string;
+  state?: string;
+  message?: string;
+  detail?: string;
+  error?: string;
+};
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+
+const normalizeJobStatus = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+const extractJobId = (payload: ExternalJobStartResponse) =>
+  String(payload.job_id ?? payload.jobId ?? payload.id ?? "").trim();
+
+const extractJobStatus = (payload: ExternalJobStatusResponse) =>
+  normalizeJobStatus(payload.status ?? payload.state);
+
+const extractJobError = (payload: ExternalJobStatusResponse) =>
+  String(payload.error ?? payload.detail ?? payload.message ?? "").trim();
+
+async function startExternalExportJob(
+  pgrId: string,
+  kind: "pdf" | "xlsx",
+  payload: unknown
+): Promise<string> {
+  const data = await apiPost<ExternalJobStartResponse>(
+    `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/start`,
+    payload
+  );
+  const jobId = extractJobId(data);
+  if (!jobId) {
+    throw new Error(`API não retornou job_id para ${kind.toUpperCase()}.`);
+  }
+  return jobId;
+}
+
+async function buildExternalExportRequestPayload(pgrId: string) {
+  return apiPost<Record<string, unknown>>(
+    `/api/v1/frontend/pgr/${pgrId}/pdf-service-payload`
+  );
+}
+
+async function waitForExternalExportCompletion(
+  pgrId: string,
+  kind: "pdf" | "xlsx",
+  jobId: string
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= PGR_EXPORT_POLL_TIMEOUT_MS) {
+    const data = await apiGet<ExternalJobStatusResponse>(
+      `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}`
+    );
+    const status = extractJobStatus(data);
+    if (status === "completed") return;
+    if (status === "failed" || status === "error" || status === "cancelled") {
+      throw new Error(
+        extractJobError(data) || `Geração de ${kind.toUpperCase()} falhou.`
+      );
+    }
+
+    await sleep(PGR_EXPORT_POLL_INTERVAL_MS);
+  }
+
+  throw new Error(`Tempo limite excedido na geração de ${kind.toUpperCase()}.`);
+}
+
+async function downloadExternalExport(
+  pgrId: string,
+  kind: "pdf" | "xlsx",
+  jobId: string
+): Promise<Blob> {
+  return apiBlobGet(`/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}/download`);
+}
+
+const triggerBlobDownload = (blob: Blob, filename: string) => {
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => {
+    window.URL.revokeObjectURL(objectUrl);
+  }, 200);
+};
+
+async function attachGeneratedFilesAndMarkPipefy(args: {
+  pgrId: string;
+  pdfBlob: Blob;
+  xlsxBlob: Blob;
+  pdfFilename: string;
+  xlsxFilename: string;
+}) {
+  const candidatePaths = [
+    `/api/frontend/pgr/${args.pgrId}/pipefy/attach-files-and-mark`,
+    `/api/v1/frontend/pgr/${args.pgrId}/pipefy/attach-files-and-mark`,
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const path of candidatePaths) {
+    try {
+      const formData = new FormData();
+      formData.append("pdf_file", args.pdfBlob, args.pdfFilename);
+      formData.append("xlsx_file", args.xlsxBlob, args.xlsxFilename);
+      formData.append("organizationId", PIPEFY_ORGANIZATION_ID);
+      formData.append("checkboxFieldLabel", PIPEFY_CHECKBOX_FIELD_LABEL);
+      await apiPostForm<{ ok: boolean }>(path, formData);
+      return;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      lastError = err;
+      const rawMessage = err.message.toLowerCase();
+      const isNotFound =
+        rawMessage.includes("404") ||
+        rawMessage.includes("not found") ||
+        rawMessage.includes("não encontrado");
+      if (!isNotFound || path === candidatePaths[candidatePaths.length - 1]) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Falha ao anexar arquivos no Pipefy.");
+}
 
 export function usePgrEtapaController({
   params,
@@ -248,6 +393,119 @@ export function usePgrEtapaController({
     [docxPayload]
   );
 
+  const handleFinalizePgr = useCallback(async () => {
+    if (!state.lastFakePdfAt) {
+      if (typeof window !== "undefined") {
+        window.alert("Gere os arquivos (PDF e XLSX) antes de finalizar o PGR.");
+      }
+      return;
+    }
+
+    setters.setIsFinalizingPgr(true);
+    try {
+      const statePayload = {
+        completedSteps: state.completedSteps,
+        meta: {
+          pgrId: params.id,
+          progressPercent: weightedProgressPercent,
+        },
+        inicioDraft: state.inicioDraft,
+        dadosCadastrais: state.dadosCadastrais,
+        cardMeta: state.cardMeta,
+        historico: state.historicoData,
+        functions: state.functionsData,
+        extraEstabelecimentoFields: state.extraEstabelecimentoFields,
+        estabelecimentoSelecionado: state.estabelecimentoSelecionado,
+        planAction: state.planAction,
+        removedPlanRiskKeys: state.removedPlanRiskKeys,
+        anexos: state.anexos,
+        anexoDiretriz: state.anexoDiretriz,
+        gheGroups: state.gheGroups,
+        currentGheId: state.currentGheId,
+        riskGheGroups: state.riskGheGroups,
+        currentRiskGheId: state.currentRiskGheId,
+        pdfLayout: state.pdfLayout,
+      };
+
+      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
+        // segue com payload local se a persistência imediata falhar
+      });
+
+      const exportPayload = await buildExternalExportRequestPayload(params.id);
+      const fileBase =
+        slugify(state.inicioDraft.companyName) || `pgr-${slugify(params.id) || "documento"}`;
+
+      const pdfJobId = await startExternalExportJob(params.id, "pdf", exportPayload);
+      await waitForExternalExportCompletion(params.id, "pdf", pdfJobId);
+      const pdfBlob = await downloadExternalExport(params.id, "pdf", pdfJobId);
+
+      const xlsxJobId = await startExternalExportJob(params.id, "xlsx", exportPayload);
+      await waitForExternalExportCompletion(params.id, "xlsx", xlsxJobId);
+      const xlsxBlob = await downloadExternalExport(params.id, "xlsx", xlsxJobId);
+
+      await attachGeneratedFilesAndMarkPipefy({
+        pgrId: params.id,
+        pdfBlob,
+        xlsxBlob,
+        pdfFilename: `${fileBase}-pgr.pdf`,
+        xlsxFilename: `${fileBase}-pgr.xlsx`,
+      });
+
+      const finalizedState = await apiPost<{
+        completedSteps: number;
+        historico: HistoricoData;
+        workflow: PersistedPgrState["workflow"];
+        meta?: { progressPercent?: number };
+      }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
+      if (finalizedState?.workflow) {
+        setters.setWorkflow(finalizedState.workflow);
+      }
+      if (typeof finalizedState?.completedSteps === "number") {
+        setters.setCompletedSteps(finalizedState.completedSteps);
+      }
+      if (typeof finalizedState?.meta?.progressPercent === "number") {
+        setters.setProgressPercent(finalizedState.meta.progressPercent);
+      } else if (finalizedState?.workflow?.isLocked) {
+        setters.setProgressPercent(100);
+      }
+      if (finalizedState?.historico) {
+        setters.setHistoricoData(finalizedState.historico);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível finalizar o PGR agora.";
+      if (typeof window !== "undefined") {
+        window.alert(message);
+      }
+    } finally {
+      setters.setIsFinalizingPgr(false);
+    }
+  }, [
+    params.id,
+    setters,
+    state.anexoDiretriz,
+    state.anexos,
+    state.cardMeta,
+    state.completedSteps,
+    state.currentGheId,
+    state.currentRiskGheId,
+    state.dadosCadastrais,
+    state.estabelecimentoSelecionado,
+    state.extraEstabelecimentoFields,
+    state.functionsData,
+    state.gheGroups,
+    state.historicoData,
+    state.inicioDraft,
+    state.lastFakePdfAt,
+    state.pdfLayout,
+    state.planAction,
+    state.removedPlanRiskKeys,
+    state.riskGheGroups,
+    weightedProgressPercent,
+  ]);
+
   const handleGenerateFakePdf = useCallback(async () => {
     setters.setIsGeneratingFakePdf(true);
     try {
@@ -278,51 +536,26 @@ export function usePgrEtapaController({
       await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
         // segue com payload local se a persistência imediata falhar
       });
-      const blob = await apiBlob("/api/pgr/generate-pdf", {
-        ...docxPayload,
-        meta: {
-          ...docxPayload.meta,
-          generatedAt: new Date().toLocaleString("pt-BR"),
-        },
-      });
-      const objectUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const exportPayload = await buildExternalExportRequestPayload(params.id);
       const fileBase =
         slugify(state.inicioDraft.companyName) || `pgr-${slugify(params.id) || "documento"}`;
-      link.href = objectUrl;
-      link.download = `${fileBase}-pgr.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+
+      const pdfJobId = await startExternalExportJob(params.id, "pdf", exportPayload);
+      await waitForExternalExportCompletion(params.id, "pdf", pdfJobId);
+      const pdfBlob = await downloadExternalExport(params.id, "pdf", pdfJobId);
+      triggerBlobDownload(pdfBlob, `${fileBase}-pgr.pdf`);
+
+      const xlsxJobId = await startExternalExportJob(params.id, "xlsx", exportPayload);
+      await waitForExternalExportCompletion(params.id, "xlsx", xlsxJobId);
+      const xlsxBlob = await downloadExternalExport(params.id, "xlsx", xlsxJobId);
+      triggerBlobDownload(xlsxBlob, `${fileBase}-pgr.xlsx`);
+
       setters.setLastFakePdfAt(new Date().toLocaleString("pt-BR"));
-      const finalizedState = await apiPost<{
-        completedSteps: number;
-        historico: HistoricoData;
-        workflow: PersistedPgrState["workflow"];
-        meta?: { progressPercent?: number };
-      }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
-      if (finalizedState?.workflow) {
-        setters.setWorkflow(finalizedState.workflow);
-      }
-      if (typeof finalizedState?.completedSteps === "number") {
-        setters.setCompletedSteps(finalizedState.completedSteps);
-      }
-      if (typeof finalizedState?.meta?.progressPercent === "number") {
-        setters.setProgressPercent(finalizedState.meta.progressPercent);
-      } else if (finalizedState?.workflow?.isLocked) {
-        setters.setProgressPercent(100);
-      }
-      if (finalizedState?.historico) {
-        setters.setHistoricoData(finalizedState.historico);
-      }
-      window.setTimeout(() => {
-        window.URL.revokeObjectURL(objectUrl);
-      }, 200);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "Não foi possível finalizar/baixar o PDF agora.";
+          : "Não foi possível gerar/baixar os arquivos agora.";
       if (typeof window !== "undefined") {
         window.alert(message);
       }
@@ -350,7 +583,6 @@ export function usePgrEtapaController({
     state.pdfLayout,
     state.removedPlanRiskKeys,
     state.riskGheGroups,
-    docxPayload,
   ]);
 
   const handleGeneratePreviewPdf = useCallback(
@@ -891,6 +1123,7 @@ export function usePgrEtapaController({
       dragOverAnexoId: state.dragOverAnexoId,
       lastFakePdfAt: state.lastFakePdfAt,
       isGeneratingFakePdf: state.isGeneratingFakePdf,
+      isFinalizingPgr: state.isFinalizingPgr,
       stepStatusById: derived.stepStatusById,
       missingFieldsByStep: derived.missingFieldsByStep,
       isPreviewModalOpen: state.isPreviewModalOpen,
@@ -898,6 +1131,7 @@ export function usePgrEtapaController({
       fakePreviewLines,
       handleGeneratePreviewPdf,
       handleGenerateFakePdf,
+      handleFinalizePgr,
       handleStartNewVersion,
       handleHistoricoChangeField,
       handleResetInicioData,

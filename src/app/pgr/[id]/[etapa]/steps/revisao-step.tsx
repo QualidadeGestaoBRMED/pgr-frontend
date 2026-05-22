@@ -16,9 +16,11 @@ type RevisaoStepProps = {
   };
   lastFakePdfAt: string | null;
   isGeneratingFakePdf: boolean;
+  isFinalizingPgr: boolean;
   onEditStep: (stepId: string) => void;
   onOpenPreview: () => void;
   onGenerateFakePdf: () => void;
+  onFinalizePgr: () => void;
   onResetData: () => void;
 };
 
@@ -33,9 +35,11 @@ export function RevisaoStep({
   workflow,
   lastFakePdfAt,
   isGeneratingFakePdf,
+  isFinalizingPgr,
   onEditStep,
   onOpenPreview,
   onGenerateFakePdf,
+  onFinalizePgr,
   onResetData,
 }: RevisaoStepProps) {
   const [openMissingStepId, setOpenMissingStepId] = useState<string | null>(null);
@@ -71,7 +75,7 @@ export function RevisaoStep({
           ...item,
           missingItems: item.missingItems.length
             ? item.missingItems
-            : ["Concluir esta etapa para liberar a geração do PDF."],
+            : ["Concluir esta etapa para liberar a geração dos arquivos."],
         })),
     [reviewItems]
   );
@@ -172,11 +176,11 @@ export function RevisaoStep({
               <p className="text-[12px] text-muted-foreground">
                 {workflow.isLocked
                   ? "Documento finalizado. Para editar novamente, inicie uma nova versão no Histórico."
-                  : "Gere o PDF final no template base do PGR."}
+                  : "Gere os arquivos finais (PDF e XLSX) no template base do PGR."}
               </p>
               {lastFakePdfAt ? (
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Último PDF gerado em {lastFakePdfAt}
+                  Última geração realizada em {lastFakePdfAt}
                 </p>
               ) : null}
               <p className="mt-1 text-[11px] text-muted-foreground">PGR: {pgrId}</p>
@@ -207,8 +211,12 @@ export function RevisaoStep({
                   }
                   onGenerateFakePdf();
                 }}
-                disabled={isGeneratingFakePdf}
-                className={isGeneratingFakePdf ? "btn-disabled px-5" : "btn-primary px-5"}
+                disabled={isGeneratingFakePdf || isFinalizingPgr}
+                className={
+                  isGeneratingFakePdf || isFinalizingPgr
+                    ? "btn-disabled px-5"
+                    : "btn-primary px-5"
+                }
               >
                 {isGeneratingFakePdf ? (
                   <>
@@ -218,12 +226,30 @@ export function RevisaoStep({
                 ) : (
                   <>
                     <FileDown className="h-4 w-4" />
-                    Gerar PDF
+                    Gerar Arquivos
                   </>
                 )}
               </button>
-              <button type="button" disabled className="btn-disabled px-5">
-                Finalizar PGR
+              <button
+                type="button"
+                onClick={onFinalizePgr}
+                disabled={
+                  workflow.isLocked || !lastFakePdfAt || isGeneratingFakePdf || isFinalizingPgr
+                }
+                className={
+                  workflow.isLocked || !lastFakePdfAt || isGeneratingFakePdf || isFinalizingPgr
+                    ? "btn-disabled px-5"
+                    : "btn-primary px-5"
+                }
+              >
+                {isFinalizingPgr ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Finalizando...
+                  </>
+                ) : (
+                  "Finalizar PGR"
+                )}
               </button>
             </div>
           </div>
@@ -279,7 +305,7 @@ export function RevisaoStep({
                     Pendências de preenchimento
                   </h3>
                   <p className="mt-1 text-[13px] text-muted-foreground">
-                    Complete os itens abaixo para liberar a geração do PDF.
+                    Complete os itens abaixo para liberar a geração dos arquivos.
                   </p>
                 </div>
                 <button
