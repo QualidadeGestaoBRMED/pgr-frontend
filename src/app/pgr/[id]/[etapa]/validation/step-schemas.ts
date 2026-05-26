@@ -18,6 +18,12 @@ const requiredText = (label: string) =>
 const cnpjField = (label: string) =>
   requiredText(label).refine((value) => isValidCnpj(value), `${label} inválido`);
 
+const optionalCnpjField = (label: string) =>
+  z
+    .string()
+    .trim()
+    .refine((value) => !value || isValidCnpj(value), `${label} inválido`);
+
 const emailField = (label: string) =>
   requiredText(label).refine((value) => isValidEmail(value), `${label} inválido`);
 
@@ -35,6 +41,15 @@ const riskGradeField = (label: string) =>
     (value) => isValidRiskGrade(value),
     `${label} deve ser inteiro entre 1 e 4`,
   );
+
+const optionalRiskGradeField = (label: string) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || isValidRiskGrade(value),
+      `${label} deve ser inteiro entre 1 e 4`,
+    );
 
 const cpfField = (label: string) =>
   requiredText(label).refine((value) => isValidCpf(value), `${label} inválido`);
@@ -63,17 +78,17 @@ export const inicioDraftSchema = z.object({
 });
 
 const contratanteSchema: z.ZodType<ContratanteDraft> = z.object({
-  id: requiredText("ID do contratante"),
-  nomeFantasia: requiredText("Nome fantasia da contratante"),
-  razaoSocial: requiredText("Razão social da contratante"),
-  cnpj: cnpjField("CNPJ da contratante"),
-  cnae: requiredText("CNAE da contratante"),
-  endereco: requiredText("Endereço da contratante"),
-  cep: requiredText("CEP da contratante"),
-  cidade: requiredText("Cidade da contratante"),
-  estado: requiredText("Estado da contratante"),
-  grauRisco: riskGradeField("Grau de risco da contratante"),
-  atividadePrincipal: requiredText("Atividade principal da contratante"),
+  id: z.string().trim().min(1, "ID do contratante é obrigatório"),
+  nomeFantasia: z.string().trim(),
+  razaoSocial: z.string().trim(),
+  cnpj: optionalCnpjField("CNPJ da contratante"),
+  cnae: z.string().trim(),
+  endereco: z.string().trim(),
+  cep: z.string().trim(),
+  cidade: z.string().trim(),
+  estado: z.string().trim(),
+  grauRisco: optionalRiskGradeField("Grau de risco da contratante"),
+  atividadePrincipal: z.string().trim(),
 });
 
 export const dadosCadastraisSchema = z.object({
