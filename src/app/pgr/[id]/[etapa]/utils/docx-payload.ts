@@ -72,6 +72,7 @@ type BackendCaracterizacaoGhe = {
 type BackendNestedAnexoFile = {
   id?: string;
   nome?: string;
+  data?: string;
   url?: string;
 };
 
@@ -465,6 +466,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           ? item.arquivos.map((file, fileIndex: number) => ({
               id: file?.id || `file-${index + 1}-${fileIndex + 1}`,
               name: file?.nome || "",
+              date: file?.data || "",
               url: file?.url,
             }))
           : [],

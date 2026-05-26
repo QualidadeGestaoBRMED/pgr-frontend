@@ -19,6 +19,7 @@ export const renderAnexosStep: StepRenderer = (ctx) => (
       handleRenameAnexoTitle: ctx.generalActions.handleRenameAnexoTitle,
       handleMoveAnexo: ctx.generalActions.handleMoveAnexo,
       handleAnexoFileRename: ctx.generalActions.handleAnexoFileRename,
+      handleAnexoFileDateChange: ctx.generalActions.handleAnexoFileDateChange,
       handleAnexoFileRemove: ctx.generalActions.handleAnexoFileRemove,
       handleAnexoFileDownload: ctx.generalActions.handleAnexoFileDownload,
       handleAddAnexo: ctx.generalActions.handleAddAnexo,

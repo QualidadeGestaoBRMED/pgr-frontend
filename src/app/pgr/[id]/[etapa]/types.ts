@@ -211,6 +211,7 @@ export type ExcelImportFeedback = {
 export type AnexoFile = {
   id: string;
   name: string;
+  date?: string;
   url?: string;
   originalName?: string;
   sizeBytes?: number;

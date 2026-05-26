@@ -1328,6 +1328,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           file: {
             id: string;
             name: string;
+            date?: string;
             originalName: string;
             sizeBytes: number;
             uploadedAt: string;
@@ -1340,6 +1341,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         const uploadedFile: AnexoFile = {
           ...response.file,
           name: response.file.name,
+          date: response.file.date || response.file.uploadedAt?.slice(0, 10) || "",
         };
         setAnexos((prev) =>
           prev.map((anexo) =>
@@ -1362,6 +1364,21 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
               ...anexo,
               files: anexo.files.map((file) =>
                 file.id === fileId ? { ...file, name: value } : file
+              ),
+            }
+          : anexo
+      )
+    );
+  };
+
+  const handleAnexoFileDateChange = (anexoId: string, fileId: string, value: string) => {
+    setAnexos((prev) =>
+      prev.map((anexo) =>
+        anexo.id === anexoId
+          ? {
+              ...anexo,
+              files: anexo.files.map((file) =>
+                file.id === fileId ? { ...file, date: value } : file
               ),
             }
           : anexo
@@ -1499,6 +1516,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     maskDate,
     handleAnexoFiles,
     handleAnexoFileRename,
+    handleAnexoFileDateChange,
     handleAnexoFileRemove,
     handleAnexoFileDownload,
     handleAddAnexo,

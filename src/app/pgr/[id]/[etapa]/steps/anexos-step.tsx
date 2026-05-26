@@ -12,7 +12,7 @@ type AnexosStepProps = {
     anexos: Array<{
       id: string;
       title: string;
-      files: Array<{ id: string; name: string }>;
+      files: Array<{ id: string; name: string; date?: string }>;
     }>;
     handleAnexoDragStart: (anexoId: string) => void;
     handleAnexoDragOver: (event: DragEvent, anexoId: string) => void;
@@ -23,6 +23,7 @@ type AnexosStepProps = {
     handleRenameAnexoTitle: (anexoId: string, value: string) => void;
     handleMoveAnexo: (anexoId: string, direction: "up" | "down") => void;
     handleAnexoFileRename: (anexoId: string, fileId: string, value: string) => void;
+    handleAnexoFileDateChange: (anexoId: string, fileId: string, value: string) => void;
     handleAnexoFileRemove: (anexoId: string, fileId: string) => void;
     handleAnexoFileDownload: (fileId: string, fileName: string) => void;
     handleAddAnexo: () => void;
@@ -46,6 +47,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
     handleRenameAnexoTitle,
     handleMoveAnexo,
     handleAnexoFileRename,
+    handleAnexoFileDateChange,
     handleAnexoFileRemove,
     handleAnexoFileDownload,
     handleAddAnexo,
@@ -192,17 +194,32 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       key={file.id}
                       className="flex flex-wrap items-center gap-3 rounded-[10px] border border-border/60 bg-card px-3 py-2"
                     >
-                      <input
-                        className={`${inputInlineClass} max-w-[320px]`}
-                        value={file.name}
-                        onChange={(event) =>
-                          handleAnexoFileRename(
-                            anexo.id,
-                            file.id,
-                            event.target.value
-                          )
-                        }
-                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          className={`${inputInlineClass} max-w-[320px]`}
+                          value={file.name}
+                          onChange={(event) =>
+                            handleAnexoFileRename(
+                              anexo.id,
+                              file.id,
+                              event.target.value
+                            )
+                          }
+                        />
+                        <input
+                          type="date"
+                          className={`${inputInlineClass} w-[170px]`}
+                          aria-label="Data do anexo"
+                          value={typeof file.date === "string" ? file.date : ""}
+                          onChange={(event) =>
+                            handleAnexoFileDateChange(
+                              anexo.id,
+                              file.id,
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={() =>
