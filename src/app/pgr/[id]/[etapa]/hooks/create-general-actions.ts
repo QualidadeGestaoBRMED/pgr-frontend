@@ -1444,6 +1444,21 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     ]);
   };
 
+  const handleRemoveAnexo = (anexoId: string) => {
+    if (anexoId === "anexo-art") return;
+    setAnexos((prev) => {
+      const target = prev.find((anexo) => anexo.id === anexoId);
+      if (target?.files?.length) {
+        target.files.forEach((file) => {
+          void apiDelete<{ ok: boolean }>(`/api/v1/frontend/pgr/${params.id}/attachments/${file.id}`).catch(
+            () => ({ ok: false })
+          );
+        });
+      }
+      return prev.filter((anexo) => anexo.id !== anexoId);
+    });
+  };
+
   const handleMoveAnexo = (anexoId: string, direction: "up" | "down") => {
     setAnexos((prev) => {
       const index = prev.findIndex((item) => item.id === anexoId);
@@ -1533,6 +1548,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleAnexoFileRemove,
     handleAnexoFileDownload,
     handleAddAnexo,
+    handleRemoveAnexo,
     handleMoveAnexo,
     handleRenameAnexoTitle,
     handleAnexoDragStart,

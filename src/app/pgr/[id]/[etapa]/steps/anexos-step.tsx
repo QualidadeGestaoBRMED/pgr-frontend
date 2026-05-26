@@ -27,6 +27,7 @@ type AnexosStepProps = {
     handleAnexoFileRemove: (anexoId: string, fileId: string) => void;
     handleAnexoFileDownload: (fileId: string, fileName: string) => void;
     handleAddAnexo: () => void;
+    handleRemoveAnexo: (anexoId: string) => void;
   };
 };
 
@@ -51,6 +52,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
     handleAnexoFileRemove,
     handleAnexoFileDownload,
     handleAddAnexo,
+    handleRemoveAnexo,
   } = ctx;
 
   const [hasTriedAttachmentAction, setHasTriedAttachmentAction] = useState(false);
@@ -150,13 +152,27 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <input
-                  className={`${inputInlineClass} max-w-[320px]`}
-                  value={anexo.title}
-                  onChange={(event) =>
-                    handleRenameAnexoTitle(anexo.id, event.target.value)
-                  }
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    className={`${inputInlineClass} w-auto min-w-[180px] max-w-[420px]`}
+                    size={Math.max(18, Math.min(48, (anexo.title || "").length + 2))}
+                    value={anexo.title}
+                    onChange={(event) =>
+                      handleRenameAnexoTitle(anexo.id, event.target.value)
+                    }
+                  />
+                  <input
+                    type="date"
+                    className="h-[36px] w-[130px] rounded-[8px] border border-border bg-muted px-3 text-center text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    aria-label="Data do anexo"
+                    value={typeof anexo.files[0]?.date === "string" ? anexo.files[0].date : ""}
+                    onChange={(event) => {
+                      anexo.files.forEach((file) => {
+                        handleAnexoFileDateChange(anexo.id, file.id, event.target.value);
+                      });
+                    }}
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -184,6 +200,18 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       }
                     />
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAnexo(anexo.id)}
+                    disabled={anexo.id === "anexo-art"}
+                    className={
+                      anexo.id === "anexo-art"
+                        ? "btn-disabled px-3 py-1 text-[12px]"
+                        : "btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                    }
+                  >
+                    Remover anexo
+                  </button>
                 </div>
               </div>
 
@@ -200,19 +228,6 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                           value={file.name}
                           onChange={(event) =>
                             handleAnexoFileRename(
-                              anexo.id,
-                              file.id,
-                              event.target.value
-                            )
-                          }
-                        />
-                        <input
-                          type="date"
-                          className={`${inputInlineClass} w-[170px]`}
-                          aria-label="Data do anexo"
-                          value={typeof file.date === "string" ? file.date : ""}
-                          onChange={(event) =>
-                            handleAnexoFileDateChange(
                               anexo.id,
                               file.id,
                               event.target.value

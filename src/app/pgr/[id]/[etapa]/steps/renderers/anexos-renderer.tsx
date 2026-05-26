@@ -23,6 +23,7 @@ export const renderAnexosStep: StepRenderer = (ctx) => (
       handleAnexoFileRemove: ctx.generalActions.handleAnexoFileRemove,
       handleAnexoFileDownload: ctx.generalActions.handleAnexoFileDownload,
       handleAddAnexo: ctx.generalActions.handleAddAnexo,
+      handleRemoveAnexo: ctx.generalActions.handleRemoveAnexo,
     }}
   />
 );
