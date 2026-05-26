@@ -348,6 +348,60 @@ export function usePgrEtapaController({
     });
   }, [params.id, weightedProgressPercent]);
 
+  const buildStatePayload = useCallback(
+    (layoutOverride?: PdfLayoutState) => ({
+      completedSteps: state.completedSteps,
+      meta: {
+        pgrId: params.id,
+        progressPercent: weightedProgressPercent,
+      },
+      inicioDraft: state.inicioDraft,
+      dadosCadastrais: state.dadosCadastrais,
+      cardMeta: state.cardMeta,
+      historico: state.historicoData,
+      functions: state.functionsData,
+      extraEstabelecimentoFields: state.extraEstabelecimentoFields,
+      estabelecimentoSelecionado: state.estabelecimentoSelecionado,
+      planAction: state.planAction,
+      removedPlanRiskKeys: state.removedPlanRiskKeys,
+      anexos: state.anexos,
+      anexoDiretriz: state.anexoDiretriz,
+      gheGroups: state.gheGroups,
+      currentGheId: state.currentGheId,
+      riskGheGroups: state.riskGheGroups,
+      currentRiskGheId: state.currentRiskGheId,
+      pdfLayout: layoutOverride ?? state.pdfLayout,
+    }),
+    [
+      params.id,
+      state.anexoDiretriz,
+      state.anexos,
+      state.cardMeta,
+      state.completedSteps,
+      state.currentGheId,
+      state.currentRiskGheId,
+      state.dadosCadastrais,
+      state.estabelecimentoSelecionado,
+      state.extraEstabelecimentoFields,
+      state.functionsData,
+      state.gheGroups,
+      state.historicoData,
+      state.inicioDraft,
+      state.pdfLayout,
+      state.planAction,
+      state.removedPlanRiskKeys,
+      state.riskGheGroups,
+      weightedProgressPercent,
+    ]
+  );
+
+  const persistStateNow = useCallback(
+    async (layoutOverride?: PdfLayoutState) => {
+      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, buildStatePayload(layoutOverride));
+    },
+    [buildStatePayload, params.id]
+  );
+
   const docxPayload = useMemo(
     () =>
       buildPgrDocxPayload({
@@ -403,33 +457,7 @@ export function usePgrEtapaController({
 
     setters.setIsFinalizingPgr(true);
     try {
-      const statePayload = {
-        completedSteps: state.completedSteps,
-        meta: {
-          pgrId: params.id,
-          progressPercent: weightedProgressPercent,
-        },
-        inicioDraft: state.inicioDraft,
-        dadosCadastrais: state.dadosCadastrais,
-        cardMeta: state.cardMeta,
-        historico: state.historicoData,
-        functions: state.functionsData,
-        extraEstabelecimentoFields: state.extraEstabelecimentoFields,
-        estabelecimentoSelecionado: state.estabelecimentoSelecionado,
-        planAction: state.planAction,
-        removedPlanRiskKeys: state.removedPlanRiskKeys,
-        anexos: state.anexos,
-        anexoDiretriz: state.anexoDiretriz,
-        gheGroups: state.gheGroups,
-        currentGheId: state.currentGheId,
-        riskGheGroups: state.riskGheGroups,
-        currentRiskGheId: state.currentRiskGheId,
-        pdfLayout: state.pdfLayout,
-      };
-
-      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
-        // segue com payload local se a persistência imediata falhar
-      });
+      await persistStateNow();
 
       const exportPayload = await buildExternalExportRequestPayload(params.id);
       const fileBase =
@@ -483,59 +511,17 @@ export function usePgrEtapaController({
       setters.setIsFinalizingPgr(false);
     }
   }, [
+    persistStateNow,
     params.id,
     setters,
-    state.anexoDiretriz,
-    state.anexos,
-    state.cardMeta,
-    state.completedSteps,
-    state.currentGheId,
-    state.currentRiskGheId,
-    state.dadosCadastrais,
-    state.estabelecimentoSelecionado,
-    state.extraEstabelecimentoFields,
-    state.functionsData,
-    state.gheGroups,
-    state.historicoData,
     state.inicioDraft,
     state.lastFakePdfAt,
-    state.pdfLayout,
-    state.planAction,
-    state.removedPlanRiskKeys,
-    state.riskGheGroups,
-    weightedProgressPercent,
   ]);
 
   const handleGenerateFakePdf = useCallback(async () => {
     setters.setIsGeneratingFakePdf(true);
     try {
-      const statePayload = {
-        completedSteps: state.completedSteps,
-        meta: {
-          pgrId: params.id,
-          progressPercent: weightedProgressPercent,
-        },
-        inicioDraft: state.inicioDraft,
-        dadosCadastrais: state.dadosCadastrais,
-        cardMeta: state.cardMeta,
-        historico: state.historicoData,
-        functions: state.functionsData,
-        extraEstabelecimentoFields: state.extraEstabelecimentoFields,
-        estabelecimentoSelecionado: state.estabelecimentoSelecionado,
-        planAction: state.planAction,
-        removedPlanRiskKeys: state.removedPlanRiskKeys,
-        anexos: state.anexos,
-        anexoDiretriz: state.anexoDiretriz,
-        gheGroups: state.gheGroups,
-        currentGheId: state.currentGheId,
-        riskGheGroups: state.riskGheGroups,
-        currentRiskGheId: state.currentRiskGheId,
-        pdfLayout: state.pdfLayout,
-      };
-
-      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
-        // segue com payload local se a persistência imediata falhar
-      });
+      await persistStateNow();
       const exportPayload = await buildExternalExportRequestPayload(params.id);
       const fileBase =
         slugify(state.inicioDraft.companyName) || `pgr-${slugify(params.id) || "documento"}`;
@@ -563,58 +549,16 @@ export function usePgrEtapaController({
       setters.setIsGeneratingFakePdf(false);
     }
   }, [
+    persistStateNow,
     params.id,
     setters,
-    state.anexoDiretriz,
-    state.anexos,
-    state.cardMeta,
-    state.completedSteps,
-    weightedProgressPercent,
-    state.currentGheId,
-    state.currentRiskGheId,
-    state.dadosCadastrais,
-    state.estabelecimentoSelecionado,
-    state.extraEstabelecimentoFields,
-    state.functionsData,
-    state.gheGroups,
-    state.historicoData,
     state.inicioDraft,
-    state.planAction,
-    state.pdfLayout,
-    state.removedPlanRiskKeys,
-    state.riskGheGroups,
   ]);
 
   const handleGeneratePreviewPdf = useCallback(
     async (layoutOverride?: PdfLayoutState) => {
       const effectiveLayout = layoutOverride ?? state.pdfLayout;
-      const statePayload = {
-        completedSteps: state.completedSteps,
-        meta: {
-          pgrId: params.id,
-          progressPercent: weightedProgressPercent,
-        },
-        inicioDraft: state.inicioDraft,
-        dadosCadastrais: state.dadosCadastrais,
-        cardMeta: state.cardMeta,
-        historico: state.historicoData,
-        functions: state.functionsData,
-        extraEstabelecimentoFields: state.extraEstabelecimentoFields,
-        estabelecimentoSelecionado: state.estabelecimentoSelecionado,
-        planAction: state.planAction,
-        removedPlanRiskKeys: state.removedPlanRiskKeys,
-        anexos: state.anexos,
-        anexoDiretriz: state.anexoDiretriz,
-        gheGroups: state.gheGroups,
-        currentGheId: state.currentGheId,
-        riskGheGroups: state.riskGheGroups,
-        currentRiskGheId: state.currentRiskGheId,
-        pdfLayout: effectiveLayout,
-      };
-
-      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, statePayload).catch(() => {
-        // segue com payload local quando houver falha pontual de rede
-      });
+      await persistStateNow(effectiveLayout);
       const blob = await apiBlob("/api/pgr/generate-pdf", {
         ...docxPayload,
         pdfLayout: effectiveLayout,
@@ -626,25 +570,8 @@ export function usePgrEtapaController({
       return window.URL.createObjectURL(blob);
     },
     [
-      params.id,
-      state.anexoDiretriz,
-      state.anexos,
-      state.cardMeta,
-      state.completedSteps,
-      state.currentGheId,
-      state.currentRiskGheId,
-      state.dadosCadastrais,
-      state.estabelecimentoSelecionado,
-      state.extraEstabelecimentoFields,
-      state.functionsData,
-      state.gheGroups,
-      state.historicoData,
-      state.inicioDraft,
-      state.planAction,
       state.pdfLayout,
-      state.removedPlanRiskKeys,
-      state.riskGheGroups,
-      weightedProgressPercent,
+      persistStateNow,
       docxPayload,
     ]
   );
@@ -938,6 +865,7 @@ export function usePgrEtapaController({
     },
     helpers: {
       handleAdvanceApiSync,
+      persistStateNow: () => persistStateNow(),
     },
   });
 

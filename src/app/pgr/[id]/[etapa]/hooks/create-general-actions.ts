@@ -167,6 +167,7 @@ type GeneralActionsContext = {
   };
   helpers: {
     handleAdvanceApiSync: (nextCompleted: number) => void;
+    persistStateNow: () => Promise<void>;
   };
 };
 
@@ -223,7 +224,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     draggedAnexoId,
   } = current;
 
-  const { handleAdvanceApiSync } = helpers;
+  const { handleAdvanceApiSync, persistStateNow } = helpers;
 
   const handleInicioDraftChange = (field: keyof InicioDraft, value: string) => {
     const normalizedValue =
@@ -888,8 +889,20 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     });
   };
 
-  const handleAdvance = () => {
+  const handleAdvance = async () => {
     if (ctx.current.stepId === "descricao" && !ctx.current.allGhesDescribed) return;
+    try {
+      await persistStateNow();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar os dados antes de avançar.";
+      if (typeof window !== "undefined") {
+        window.alert(message);
+      }
+      return;
+    }
     const nextCompleted = Math.max(completedSteps, currentIndex + 1);
     setCompletedSteps(nextCompleted);
     handleAdvanceApiSync(nextCompleted);
