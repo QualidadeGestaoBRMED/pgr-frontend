@@ -64,6 +64,13 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const getRiskDescriptionKey = (tipoAgente: string, descricaoAgente: string) => {
+  const normalizedTipoAgente = normalizeText(String(tipoAgente || "").trim());
+  const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || "").trim());
+  if (!normalizedTipoAgente || !normalizedDescricaoAgente) return "";
+  return `${normalizedTipoAgente}::${normalizedDescricaoAgente}`;
+};
+
 const hasOptionInsensitive = (options: string[], value: string) => {
   const normalizedValue = normalizeText(value.trim());
   if (!normalizedValue) return false;
@@ -517,16 +524,37 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     };
 
     const map: Record<string, Record<RequiredRiskField, string>> = {};
+    const duplicateCountByGhe = new Map<string, Map<string, number>>();
+
+    riskGheGroups.forEach((ghe) => {
+      const countByDescriptionKey = new Map<string, number>();
+      ghe.risks.forEach((risk) => {
+        const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
+        if (!descriptionKey) return;
+        countByDescriptionKey.set(
+          descriptionKey,
+          (countByDescriptionKey.get(descriptionKey) || 0) + 1
+        );
+      });
+      duplicateCountByGhe.set(ghe.id, countByDescriptionKey);
+    });
+
     riskGheGroups.forEach((ghe) => {
       ghe.risks.forEach((risk) => {
         const isQuantitativeEvaluation = normalizeText(
           String(risk.tipoAvaliacao || "")
         ).includes("quantit");
+        const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
+        const isDuplicateDescription =
+          !!descriptionKey &&
+          (duplicateCountByGhe.get(ghe.id)?.get(descriptionKey) || 0) > 1;
         map[risk.id] = {
           tipoAgente: hasValue(risk.tipoAgente) ? "" : "Tipo de Agente é obrigatório.",
-          descricaoAgente: hasValue(risk.descricaoAgente)
-            ? ""
-            : "Descrição do Agente é obrigatória.",
+          descricaoAgente: !hasValue(risk.descricaoAgente)
+            ? "Descrição do Agente é obrigatória."
+            : isDuplicateDescription
+              ? "Este risco já foi cadastrado neste GHE."
+              : "",
           meioPropagacao: hasValue(risk.meioPropagacao)
             ? ""
             : "Meio de Propagação é obrigatório.",
@@ -1088,12 +1116,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       return;
     }
     let addedCount = 0;
+    const sourceRiskDescriptionKey = getRiskDescriptionKey(
+      sourceRisk.tipoAgente,
+      sourceRisk.descricaoAgente
+    );
 
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         if (!targetGheIds.includes(ghe.id)) return ghe;
-        const hasSameRisk = ghe.risks.some((risk) => isSameRiskContent(risk, sourceRisk));
-        if (hasSameRisk) return ghe;
+        const hasSameRiskDescription =
+          !!sourceRiskDescriptionKey &&
+          ghe.risks.some(
+            (risk) =>
+              getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente) ===
+              sourceRiskDescriptionKey
+          );
+        const hasSameRiskContent = ghe.risks.some((risk) => isSameRiskContent(risk, sourceRisk));
+        if (hasSameRiskDescription || hasSameRiskContent) return ghe;
         addedCount += 1;
         return {
           ...ghe,
@@ -1268,6 +1307,33 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               ])
             );
             const filteredUnidadeMedidaOptions = filterOptionsByQuery(unidadeMedidaOptions);
+            const descricaoAgenteOptions = getDescricaoAgenteOptions(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            ).map((option: string) => {
+              const optionDescriptionKey = getRiskDescriptionKey(risk.tipoAgente, option);
+              const isAlreadyRegisteredInGhe =
+                !!optionDescriptionKey &&
+                currentRiskGhe?.risks.some(
+                  (currentRisk) =>
+                    currentRisk.id !== risk.id &&
+                    getRiskDescriptionKey(
+                      currentRisk.tipoAgente,
+                      currentRisk.descricaoAgente
+                    ) === optionDescriptionKey
+                );
+
+              return {
+                label: isAlreadyRegisteredInGhe
+                  ? `${option} (já cadastrado neste GHE)`
+                  : option,
+                value: option,
+                disabled: isAlreadyRegisteredInGhe,
+                disabledReason: isAlreadyRegisteredInGhe
+                  ? "Este risco já foi cadastrado neste GHE."
+                  : undefined,
+              };
+            });
             return (
               <div
                 key={risk.id}
@@ -1357,13 +1423,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               markRiskTouched(risk.id, "descricaoAgente");
                               handleRiskChange(risk.id, "descricaoAgente", value);
                             }}
-                            options={getDescricaoAgenteOptions(
-                              risk.tipoAgente,
-                              risk.descricaoAgente
-                            ).map((option: string) => ({
-                              label: option,
-                              value: option,
-                            }))}
+                            options={descricaoAgenteOptions}
                             buttonClassName={getRiskFieldClassName(
                               risk.id,
                               "descricaoAgente",

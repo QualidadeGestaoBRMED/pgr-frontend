@@ -4,6 +4,8 @@ import { ChevronDown } from "lucide-react";
 export type SearchableSelectOption = {
   label: string;
   value: string;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 export type SearchableSelectProps = {
@@ -91,11 +93,18 @@ export function SearchableSelect({
                 <button
                   key={option.value}
                   type="button"
+                  disabled={option.disabled}
+                  title={option.disabled ? option.disabledReason || "Opção indisponível" : undefined}
                   onClick={() => {
+                    if (option.disabled) return;
                     onChange(option.value);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center justify-between rounded-[8px] px-2 py-1 text-[12px] text-foreground hover:bg-muted/60 ${
+                  className={`flex w-full items-center justify-between rounded-[8px] px-2 py-1 text-[12px] text-foreground ${
+                    option.disabled
+                      ? "cursor-not-allowed opacity-60"
+                      : "hover:bg-muted/60"
+                  } ${
                     option.value === value ? "bg-muted/60" : ""
                   }`}
                 >
