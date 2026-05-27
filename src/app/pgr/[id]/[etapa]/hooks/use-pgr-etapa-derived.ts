@@ -58,6 +58,9 @@ const compareGheTokens = (a: string, b: string) => {
   return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
 };
 
+const isGeneralMeasuresPlanRow = (row: PlanTableRow) =>
+  normalizeText(row.descricaoAgente).trim() === "medidas gerais";
+
 const isModerateOrHigherPriority = (priority: string) => {
   const normalizedPriority = normalizeText(priority).trim();
   if (!normalizedPriority) return false;
@@ -394,7 +397,7 @@ export function usePgrEtapaDerived({
       existing.rows.push(row);
     });
 
-    return Array.from(grouped.values())
+    const groupedRows = Array.from(grouped.values())
       .sort((a, b) => a.firstIndex - b.firstIndex)
       .map(({ rows }) => {
         if (rows.length === 1) return rows[0];
@@ -416,6 +419,16 @@ export function usePgrEtapaDerived({
           })),
         };
       });
+
+    return groupedRows
+      .map((row, index) => ({ row, index }))
+      .sort((a, b) => {
+        const aPriority = isGeneralMeasuresPlanRow(a.row) ? 0 : 1;
+        const bPriority = isGeneralMeasuresPlanRow(b.row) ? 0 : 1;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return a.index - b.index;
+      })
+      .map(({ row }) => row);
   }, [rawPlanTableRowsForPlan]);
 
   const isInicioComplete = isInicioDraftComplete(inicioDraft);
