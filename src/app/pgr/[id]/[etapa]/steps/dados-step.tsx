@@ -104,7 +104,6 @@ export function DadosStep({
   onRemoveContractor,
   technicalCoordinators,
   onTechnicalCoordinatorChange,
-  onAddTechnicalCoordinator,
   onRemoveTechnicalCoordinator,
   onSelectEstabelecimento,
   onExtraFieldChange,
@@ -576,6 +575,19 @@ export function DadosStep({
       onCepBlur(scope, value);
     }
   };
+
+  const technicalCoordinator = technicalCoordinators[0] ?? {
+    id: "technical-coordinator-0",
+    nome: "",
+    funcao: "",
+    registroProfissional: "",
+    telefone: "",
+    email: "",
+    cpf: "",
+  };
+  const technicalCoordinatorKey = String(
+    technicalCoordinator.id || "technical-coordinator-0"
+  );
 
   return (
     <>
@@ -1301,172 +1313,129 @@ export function DadosStep({
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 className="text-[16px] font-medium text-foreground">
-            Responsável na coordenação técnica:
-          </h2>
-          <button
-            type="button"
-            onClick={onAddTechnicalCoordinator}
-            className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
-          >
-            Adicionar responsável técnico
-          </button>
+        <h2 className="text-[16px] font-medium text-foreground">
+          Responsável na coordenação técnica:
+        </h2>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-[1.6fr_1.1fr_1.1fr]">
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Nome *:
+            </label>
+            <div className="mt-2">
+              <SearchableSelect
+                value={technicalCoordinator.nome}
+                onChange={(value) => {
+                  handleTechnicalCoordinatorNameSelect(0, value);
+                  markTechnicalCoordinatorTouched(technicalCoordinatorKey, "nome");
+                }}
+                options={technicalCoordinatorNameOptions}
+                buttonClassName={
+                  technicalCoordinatorErrorsById[technicalCoordinatorKey]?.nome
+                    ? `${selectBaseClass} border-rose-400 focus:ring-rose-500`
+                    : selectBaseClass
+                }
+                placeholder="Selecione"
+                searchPlaceholder="Filtrar responsável"
+              />
+            </div>
+            {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.nome ? (
+              <p className="mt-1 text-[12px] text-danger">
+                {technicalCoordinatorErrorsById[technicalCoordinatorKey].nome}
+              </p>
+            ) : null}
+            {technicalCoordinatorNameOptions.length === 0 ? (
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Preencha o responsável do PGR para liberar opções.
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Função *:
+            </label>
+            <input
+              className={getDisabledFieldClassName(
+                getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "funcao")
+              )}
+              value={technicalCoordinator.funcao}
+              disabled
+              readOnly
+            />
+            {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.funcao ? (
+              <p className="mt-1 text-[12px] text-danger">
+                {technicalCoordinatorErrorsById[technicalCoordinatorKey].funcao}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Registro Profissional:
+            </label>
+            <input
+              className={getDisabledFieldClassName(inputBaseClass)}
+              value={technicalCoordinator.registroProfissional || ""}
+              disabled
+              readOnly
+            />
+          </div>
         </div>
 
-        <div className="mt-6 space-y-6">
-          {technicalCoordinators.map((coordinator, coordinatorIndex) => {
-            const coordinatorKey = String(
-              coordinator.id || `technical-coordinator-${coordinatorIndex}`
-            );
-
-            return (
-              <div
-                key={coordinator.id}
-                className="rounded-[12px] border border-border/60 bg-background/40 px-4 py-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-[13px] font-semibold text-foreground">
-                    Responsável técnico {coordinatorIndex + 1}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPendingDeleteAction({
-                        type: "technical-coordinator",
-                        index: coordinatorIndex,
-                      })
-                    }
-                    className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
-                    disabled={technicalCoordinators.length <= 1}
-                  >
-                    Excluir
-                  </button>
-                </div>
-
-                <div className="mt-4 grid gap-4 md:grid-cols-[1.6fr_1.1fr_1.1fr]">
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      Nome *:
-                    </label>
-                    <div className="mt-2">
-                      <SearchableSelect
-                        value={coordinator.nome}
-                        onChange={(value) => {
-                          handleTechnicalCoordinatorNameSelect(coordinatorIndex, value);
-                          markTechnicalCoordinatorTouched(coordinatorKey, "nome");
-                        }}
-                        options={technicalCoordinatorNameOptions}
-                        buttonClassName={
-                          technicalCoordinatorErrorsById[coordinatorKey]?.nome
-                            ? `${selectBaseClass} border-rose-400 focus:ring-rose-500`
-                            : selectBaseClass
-                        }
-                        placeholder="Selecione"
-                        searchPlaceholder="Filtrar responsável"
-                      />
-                    </div>
-                    {technicalCoordinatorErrorsById[coordinatorKey]?.nome ? (
-                      <p className="mt-1 text-[12px] text-danger">
-                        {technicalCoordinatorErrorsById[coordinatorKey].nome}
-                      </p>
-                    ) : null}
-                    {technicalCoordinatorNameOptions.length === 0 ? (
-                      <p className="mt-1 text-[12px] text-muted-foreground">
-                        Preencha o responsável do PGR para liberar opções.
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      Função *:
-                    </label>
-                    <input
-                      className={getDisabledFieldClassName(
-                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "funcao")
-                      )}
-                      value={coordinator.funcao}
-                      disabled
-                      readOnly
-                    />
-                    {technicalCoordinatorErrorsById[coordinatorKey]?.funcao ? (
-                      <p className="mt-1 text-[12px] text-danger">
-                        {technicalCoordinatorErrorsById[coordinatorKey].funcao}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      Registro Profissional:
-                    </label>
-                    <input
-                      className={getDisabledFieldClassName(inputBaseClass)}
-                      value={coordinator.registroProfissional || ""}
-                      disabled
-                      readOnly
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      Telefone *:
-                    </label>
-                    <input
-                      className={getDisabledFieldClassName(
-                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "telefone")
-                      )}
-                      value={coordinator.telefone}
-                      disabled
-                      readOnly
-                    />
-                    {technicalCoordinatorErrorsById[coordinatorKey]?.telefone ? (
-                      <p className="mt-1 text-[12px] text-danger">
-                        {technicalCoordinatorErrorsById[coordinatorKey].telefone}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      Email *:
-                    </label>
-                    <input
-                      className={getDisabledFieldClassName(
-                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "email")
-                      )}
-                      value={coordinator.email}
-                      disabled
-                      readOnly
-                    />
-                    {technicalCoordinatorErrorsById[coordinatorKey]?.email ? (
-                      <p className="mt-1 text-[12px] text-danger">
-                        {technicalCoordinatorErrorsById[coordinatorKey].email}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      CPF *:
-                    </label>
-                    <input
-                      className={getDisabledFieldClassName(
-                        getTechnicalCoordinatorFieldClassName(coordinatorKey, "cpf")
-                      )}
-                      value={coordinator.cpf}
-                      disabled
-                      readOnly
-                    />
-                    {technicalCoordinatorErrorsById[coordinatorKey]?.cpf ? (
-                      <p className="mt-1 text-[12px] text-danger">
-                        {technicalCoordinatorErrorsById[coordinatorKey].cpf}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Telefone *:
+            </label>
+            <input
+              className={getDisabledFieldClassName(
+                getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "telefone")
+              )}
+              value={technicalCoordinator.telefone}
+              disabled
+              readOnly
+            />
+            {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.telefone ? (
+              <p className="mt-1 text-[12px] text-danger">
+                {technicalCoordinatorErrorsById[technicalCoordinatorKey].telefone}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Email *:
+            </label>
+            <input
+              className={getDisabledFieldClassName(
+                getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "email")
+              )}
+              value={technicalCoordinator.email}
+              disabled
+              readOnly
+            />
+            {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.email ? (
+              <p className="mt-1 text-[12px] text-danger">
+                {technicalCoordinatorErrorsById[technicalCoordinatorKey].email}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              CPF *:
+            </label>
+            <input
+              className={getDisabledFieldClassName(
+                getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "cpf")
+              )}
+              value={technicalCoordinator.cpf}
+              disabled
+              readOnly
+            />
+            {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.cpf ? (
+              <p className="mt-1 text-[12px] text-danger">
+                {technicalCoordinatorErrorsById[technicalCoordinatorKey].cpf}
+              </p>
+            ) : null}
+          </div>
         </div>
       </section>
 

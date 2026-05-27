@@ -126,7 +126,11 @@ export const normalizeResponsaveisCoordenacaoTecnica = (
     cpf: maskCpf(String(item.cpf || "")),
   }));
 
-  return normalized.length ? normalized : [createEmptyResponsavelCoordenacaoTecnica()];
+  // Regra de negócio: apenas um responsável técnico por documento.
+  const firstCoordinator = normalized[0];
+  return firstCoordinator
+    ? [firstCoordinator]
+    : [createEmptyResponsavelCoordenacaoTecnica()];
 };
 
 export const syncLegacyContractorFields = (

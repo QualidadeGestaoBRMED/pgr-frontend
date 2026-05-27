@@ -494,15 +494,16 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAddTechnicalCoordinator = () => {
-    setDadosCadastrais((prev) =>
-      syncLegacyContractorFields({
+    setDadosCadastrais((prev) => {
+      const coordinators = normalizeResponsaveisCoordenacaoTecnica(prev);
+      if (coordinators.length >= 1) {
+        return prev;
+      }
+      return syncLegacyContractorFields({
         ...prev,
-        responsaveisCoordenacaoTecnica: [
-          ...normalizeResponsaveisCoordenacaoTecnica(prev),
-          createEmptyResponsavelCoordenacaoTecnica(),
-        ],
-      })
-    );
+        responsaveisCoordenacaoTecnica: [createEmptyResponsavelCoordenacaoTecnica()],
+      });
+    });
   };
 
   const handleRemoveTechnicalCoordinator = (coordinatorIndex: number) => {
