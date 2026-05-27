@@ -65,6 +65,29 @@ const extractJobStatus = (payload: ExternalJobStatusResponse) =>
 const extractJobError = (payload: ExternalJobStatusResponse) =>
   String(payload.error ?? payload.detail ?? payload.message ?? "").trim();
 
+const extractHistoricoNumericCode = (value: string) => {
+  const match = String(value || "").match(/(\d{1,4})/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  const parsed = Number(match[1]);
+  if (!Number.isFinite(parsed) || parsed <= 0) return Number.MAX_SAFE_INTEGER;
+  return parsed;
+};
+
+const sortHistoricoChanges = <T extends { id: string; analysis: string; change: string }>(
+  changes: T[]
+) =>
+  [...changes].sort((a, b) => {
+    const analysisA = extractHistoricoNumericCode(a.analysis);
+    const analysisB = extractHistoricoNumericCode(b.analysis);
+    if (analysisA !== analysisB) return analysisA - analysisB;
+
+    const changeA = extractHistoricoNumericCode(a.change);
+    const changeB = extractHistoricoNumericCode(b.change);
+    if (changeA !== changeB) return changeA - changeB;
+
+    return String(a.id).localeCompare(String(b.id));
+  });
+
 async function startExternalExportJob(
   pgrId: string,
   kind: "pdf" | "xlsx",
@@ -629,8 +652,10 @@ export function usePgrEtapaController({
     ) => {
       setters.setHistoricoData((prev) => ({
         ...prev,
-        changes: prev.changes.map((item) =>
-          item.id === changeId ? { ...item, [field]: value } : item
+        changes: sortHistoricoChanges(
+          prev.changes.map((item) =>
+            item.id === changeId ? { ...item, [field]: value } : item
+          )
         ),
       }));
     },

@@ -77,6 +77,13 @@ export function PgrHistoricoPanel({
     return `${yyyy}-${mm}-${dd}`;
   };
 
+  const extractNumber = (value: string) => {
+    const match = String(value || "").match(/(\d{1,4})/);
+    if (!match) return null;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+
   const finalizedInfo =
     workflow.isLocked && workflow.finalizedAt
       ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
@@ -95,10 +102,48 @@ export function PgrHistoricoPanel({
     [changes]
   );
 
-  const resolveStatusValue = (value: string | undefined) => {
+  const sortedChanges = useMemo(() => {
+    return [...changes].sort((a, b) => {
+      const analysisA = extractNumber(a.analysis) ?? Number.MAX_SAFE_INTEGER;
+      const analysisB = extractNumber(b.analysis) ?? Number.MAX_SAFE_INTEGER;
+      if (analysisA !== analysisB) return analysisA - analysisB;
+
+      const changeA = extractNumber(a.change) ?? Number.MAX_SAFE_INTEGER;
+      const changeB = extractNumber(b.change) ?? Number.MAX_SAFE_INTEGER;
+      if (changeA !== changeB) return changeA - changeB;
+
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }, [changes]);
+
+  const latestChangeKey = useMemo(() => {
+    if (!sortedChanges.length) return null;
+    const last = sortedChanges[sortedChanges.length - 1];
+    return {
+      analysis: extractNumber(last.analysis) ?? 1,
+      change: extractNumber(last.change) ?? 1,
+    };
+  }, [sortedChanges]);
+
+  const resolveStatusValue = (
+    value: string | undefined,
+    analysisValue: string,
+    changeValue: string
+  ) => {
     const normalized = String(value || "").trim();
     if (statusOptions.includes(normalized)) return normalized;
-    return workflow.isLocked ? "Documento finalizado" : "Em edição";
+
+    const analysisNumber = extractNumber(analysisValue) ?? 1;
+    const changeNumber = extractNumber(changeValue) ?? 1;
+    const isLatest =
+      !!latestChangeKey &&
+      analysisNumber === latestChangeKey.analysis &&
+      changeNumber === latestChangeKey.change;
+
+    if (isLatest) {
+      return workflow.isLocked ? "Documento finalizado" : "Em edição";
+    }
+    return "Documento finalizado";
   };
 
   useEffect(() => {
@@ -215,7 +260,7 @@ export function PgrHistoricoPanel({
               <span className="text-center">Status</span>
             </div>
             <div className="divide-y divide-border">
-              {changes.map((row) => (
+              {sortedChanges.map((row) => (
                 <div
                   key={row.id}
                   className="grid grid-cols-[2.8fr_0.9fr_0.9fr_1.2fr_0.9fr_1fr] gap-4 py-4 text-[13px] text-foreground"
@@ -362,7 +407,7 @@ export function PgrHistoricoPanel({
                     className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-center text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <input
-                    value={resolveStatusValue(row.status)}
+                    value={resolveStatusValue(row.status, row.analysis, row.change)}
                     disabled
                     readOnly
                     className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-center text-[12px] text-foreground opacity-70"
