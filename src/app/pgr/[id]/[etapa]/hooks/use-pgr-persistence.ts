@@ -443,10 +443,30 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         const loadedAnexoDiretriz = state.anexoDiretriz || "Diretriz 1";
         const loadedGheGroups = state.gheGroups?.length ? state.gheGroups : gheGroups;
         const loadedCurrentGheId = state.currentGheId || loadedGheGroups[0]?.id || currentGheId;
+        const normalizeHydratedRisk = (risk: GheRisk) => {
+          const rawRisk = risk as GheRisk & {
+            danos_saude?: string;
+            healthDamage?: string;
+            "Danos à saude"?: string;
+            "Danos à saúde"?: string;
+          };
+          return {
+            ...risk,
+            danosSaude:
+              rawRisk.danosSaude ||
+              rawRisk.danos_saude ||
+              rawRisk.healthDamage ||
+              rawRisk["Danos à saude"] ||
+              rawRisk["Danos à saúde"] ||
+              "",
+          };
+        };
         const loadedRiskGheGroups = state.riskGheGroups?.length
           ? state.riskGheGroups.map((ghe) => ({
               ...ghe,
-              risks: (ghe.risks || []).map((risk) => applyMissingRiskDefaults(risk)),
+              risks: (ghe.risks || []).map((risk) =>
+                applyMissingRiskDefaults(normalizeHydratedRisk(risk))
+              ),
             }))
           : riskGheGroups;
         const loadedCurrentRiskGheId =

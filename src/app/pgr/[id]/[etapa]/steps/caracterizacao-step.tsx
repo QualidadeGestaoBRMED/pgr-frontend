@@ -136,6 +136,7 @@ const createRiskId = () =>
 const isSameRiskContent = (a: GheRisk, b: GheRisk) =>
   a.tipoAgente === b.tipoAgente &&
   a.descricaoAgente === b.descricaoAgente &&
+  (a.danosSaude || "") === (b.danosSaude || "") &&
   a.meioPropagacao === b.meioPropagacao &&
   a.fontes === b.fontes &&
   (a.unidadeMedida || "") === (b.unidadeMedida || "") &&
@@ -155,6 +156,7 @@ const getRiskContentKey = (risk: GheRisk) =>
   [
     risk.tipoAgente,
     risk.descricaoAgente,
+    risk.danosSaude || "",
     risk.meioPropagacao,
     risk.fontes,
     risk.unidadeMedida || "",
@@ -189,6 +191,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
     getFontesOptions,
+    getDanosSaudeOptions,
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getHasQuantitativeCriteria,
@@ -220,6 +223,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field:
       | "epc"
       | "epi"
+      | "danosSaude"
       | "fontes"
       | "meioPropagacao"
       | "unidadeMedida"
@@ -620,6 +624,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       id: createRiskId(),
       tipoAgente: "",
       descricaoAgente: "",
+      danosSaude: "",
       meioPropagacao: "",
       fontes: "",
       unidadeMedida: "",
@@ -680,6 +685,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field:
       | "tipoAgente"
       | "descricaoAgente"
+      | "danosSaude"
       | "meioPropagacao"
       | "fontes"
       | "unidadeMedida"
@@ -770,6 +776,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           // Ao trocar o agente, zera campos dependentes para evitar
                           // combinações inválidas (ex.: descrição de outro agente).
                           descricaoAgente: "",
+                          danosSaude: "",
                           meioPropagacao: "",
                           fontes: "",
                           unidadeMedida: "",
@@ -851,6 +858,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         descricaoAgente: value,
                         // Ao trocar a descrição, limpa os campos técnicos para
                         // não reaproveitar valores do item anterior.
+                        danosSaude: "",
                         meioPropagacao: "",
                         fontes: "",
                         unidadeMedida: "",
@@ -893,6 +901,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     riskId: string,
     field:
       | "fontes"
+      | "danosSaude"
       | "meioPropagacao"
       | "unidadeMedida"
       | "epc"
@@ -1224,6 +1233,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               !!customFonteValue &&
               !hasOptionInsensitive(fontesOptions, customFonteValue) &&
               !hasOptionInsensitive(selectedFontes, customFonteValue);
+            const danosSaudeOptions = Array.from(
+              new Set([
+                ...getDanosSaudeOptions(risk.tipoAgente, ""),
+                ...parseMultiTextValues(String(risk.danosSaude || "")),
+              ])
+            );
+            const selectedDanosSaude = parseMultiTextValues(String(risk.danosSaude || ""));
+            const filteredDanosSaudeOptions = filterOptionsByQuery(danosSaudeOptions);
+            const customDanosSaudeValue = multiSelectQuery.trim();
+            const canAddCustomDanosSaude =
+              !!customDanosSaudeValue &&
+              !hasOptionInsensitive(danosSaudeOptions, customDanosSaudeValue) &&
+              !hasOptionInsensitive(selectedDanosSaude, customDanosSaudeValue);
             const medidasControleOptions = Array.from(
               new Set([
                 ...getMedidasControleOptions(
@@ -1382,7 +1404,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   </div>
                 ) : (
                   <>
-                    <div className="mt-4 grid gap-4 md:grid-cols-4">
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
                           Tipo de Agente *
@@ -1438,6 +1460,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </p>
                         ) : null}
                       </div>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-4">
                       <div>
                         <label className="text-[12px] font-medium text-foreground">
                           Meio de Propagação *
@@ -1650,6 +1674,230 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             {getRiskFieldError(risk.id, "fontes")}
                           </p>
                         ) : null}
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Possiveis Agravos
+                        </label>
+                        <div className="relative mt-2" data-multiselect>
+                          <button
+                            type="button"
+                            className={`${selectSmallClass} flex items-center justify-between text-left`}
+                            onClick={() =>
+                              setOpenMultiSelect((prev) =>
+                                prev?.riskId === risk.id && prev.field === "danosSaude"
+                                  ? null
+                                  : { riskId: risk.id, field: "danosSaude" }
+                              )
+                            }
+                          >
+                            <span className="truncate">
+                              {selectedDanosSaude.length
+                                ? selectedDanosSaude.join(", ")
+                                : "Selecione os agravos"}
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${
+                                openMultiSelect?.riskId === risk.id &&
+                                openMultiSelect.field === "danosSaude"
+                                  ? "rotate-180"
+                                  : "rotate-0"
+                              }`}
+                            />
+                          </button>
+                          {openMultiSelect?.riskId === risk.id &&
+                          openMultiSelect.field === "danosSaude" ? (
+                            <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                              <div className="relative mb-2">
+                                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                  className={`${inputInlineClass} pl-8`}
+                                  value={multiSelectQuery}
+                                  onChange={(event) => setMultiSelectQuery(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (!canAddCustomDanosSaude || event.key !== "Enter") return;
+                                    event.preventDefault();
+                                    handleToggleRiskMultiSelect(
+                                      risk.id,
+                                      "danosSaude",
+                                      customDanosSaudeValue
+                                    );
+                                    setMultiSelectQuery("");
+                                  }}
+                                  placeholder="Filtrar ou adicionar agravo"
+                                />
+                              </div>
+                              {customDanosSaudeValue ? (
+                                canAddCustomDanosSaude ? (
+                                  <button
+                                    type="button"
+                                    className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                    onClick={() => {
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "danosSaude",
+                                        customDanosSaudeValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                  >
+                                    {`Adicionar "${customDanosSaudeValue}"`}
+                                  </button>
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Este agravo já existe na lista.
+                                  </p>
+                                )
+                              ) : (
+                                <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                  Digite para adicionar um novo agravo.
+                                </p>
+                              )}
+                              <div className="max-h-44 space-y-1 overflow-auto">
+                                {filteredDanosSaudeOptions.length ? (
+                                  filteredDanosSaudeOptions.map((option) => {
+                                    const isChecked = selectedDanosSaude.includes(option);
+                                    return (
+                                      <label
+                                        key={`${risk.id}-danos-saude-${option}`}
+                                        className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            handleToggleRiskMultiSelect(
+                                              risk.id,
+                                              "danosSaude",
+                                              option
+                                            );
+                                          }}
+                                        />
+                                        <span>{option}</span>
+                                      </label>
+                                    );
+                                  })
+                                ) : (
+                                  <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                    Nenhum agravo encontrado.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[12px] font-medium text-foreground">
+                          Normas
+                        </label>
+                        <div className="relative mt-2" data-multiselect>
+                          <button
+                            type="button"
+                            className={`${selectSmallClass} flex items-center justify-between text-left`}
+                            onClick={() =>
+                              setOpenMultiSelect((prev) =>
+                                prev?.riskId === risk.id && prev.field === "normas"
+                                  ? null
+                                  : { riskId: risk.id, field: "normas" }
+                              )
+                            }
+                          >
+                            <span className="truncate">
+                              {selectedNormas.length
+                                ? selectedNormas.join(", ")
+                                : "Selecione as normas"}
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${
+                                openMultiSelect?.riskId === risk.id &&
+                                openMultiSelect.field === "normas"
+                                  ? "rotate-180"
+                                  : "rotate-0"
+                              }`}
+                            />
+                          </button>
+                          {openMultiSelect?.riskId === risk.id &&
+                          openMultiSelect.field === "normas" ? (
+                            <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                              <div className="relative mb-2">
+                                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                  className={`${inputInlineClass} pl-8`}
+                                  value={multiSelectQuery}
+                                  onChange={(event) => setMultiSelectQuery(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (!canAddCustomNorma || event.key !== "Enter") return;
+                                    event.preventDefault();
+                                    handleToggleRiskMultiSelect(
+                                      risk.id,
+                                      "normas",
+                                      customNormaValue
+                                    );
+                                    setMultiSelectQuery("");
+                                  }}
+                                  placeholder="Filtrar ou adicionar norma"
+                                />
+                              </div>
+                              {customNormaValue ? (
+                                canAddCustomNorma ? (
+                                  <button
+                                    type="button"
+                                    className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                    onClick={() => {
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "normas",
+                                        customNormaValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                  >
+                                    {`Adicionar "${customNormaValue}"`}
+                                  </button>
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Esta norma já existe na lista.
+                                  </p>
+                                )
+                              ) : (
+                                <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                  Digite para adicionar uma nova norma.
+                                </p>
+                              )}
+                              <div className="max-h-44 space-y-1 overflow-auto">
+                                {filteredNormasOptions.length ? (
+                                  filteredNormasOptions.map((option) => {
+                                    const isChecked = selectedNormas.includes(option);
+                                    return (
+                                      <label
+                                        key={`${risk.id}-normas-${option}`}
+                                        className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            handleToggleRiskMultiSelect(
+                                              risk.id,
+                                              "normas",
+                                              option
+                                            );
+                                          }}
+                                        />
+                                        <span>{option}</span>
+                                      </label>
+                                    );
+                                  })
+                                ) : (
+                                  <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                    Nenhuma norma encontrada.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
 
                     </div>
@@ -2057,7 +2305,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         Medidas de prevenção
                       </p>
                       <div className="mt-4 grid gap-4 md:grid-cols-4">
-                        <div>
+                        <div className="md:col-span-2">
                           <label className="text-[12px] font-medium text-foreground">
                             Medidas de Controle Administrativas e/ou de Engenharia
                           </label>
@@ -2181,118 +2429,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               {getRiskFieldError(risk.id, "medidasControle")}
                             </p>
                           ) : null}
-                        </div>
-                        <div>
-                          <label className="text-[12px] font-medium text-foreground">
-                            Normas
-                          </label>
-                          <div className="relative mt-2" data-multiselect>
-                            <button
-                              type="button"
-                              className={`${selectSmallClass} flex items-center justify-between text-left`}
-                              onClick={() =>
-                                setOpenMultiSelect((prev) =>
-                                  prev?.riskId === risk.id && prev.field === "normas"
-                                    ? null
-                                    : { riskId: risk.id, field: "normas" }
-                                )
-                              }
-                            >
-                              <span className="truncate">
-                                {selectedNormas.length
-                                  ? selectedNormas.join(", ")
-                                  : "Selecione as normas"}
-                              </span>
-                              <ChevronDown
-                                className={`h-4 w-4 transition-transform ${
-                                  openMultiSelect?.riskId === risk.id &&
-                                  openMultiSelect.field === "normas"
-                                    ? "rotate-180"
-                                    : "rotate-0"
-                                }`}
-                              />
-                            </button>
-                            {openMultiSelect?.riskId === risk.id &&
-                            openMultiSelect.field === "normas" ? (
-                              <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
-                                <div className="relative mb-2">
-                                  <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                  <input
-                                    className={`${inputInlineClass} pl-8`}
-                                    value={multiSelectQuery}
-                                    onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                    onKeyDown={(event) => {
-                                      if (!canAddCustomNorma || event.key !== "Enter") return;
-                                      event.preventDefault();
-                                      handleToggleRiskMultiSelect(
-                                        risk.id,
-                                        "normas",
-                                        customNormaValue
-                                      );
-                                      setMultiSelectQuery("");
-                                    }}
-                                    placeholder="Filtrar ou adicionar norma"
-                                  />
-                                </div>
-                                {customNormaValue ? (
-                                  canAddCustomNorma ? (
-                                    <button
-                                      type="button"
-                                      className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
-                                      onClick={() => {
-                                        handleToggleRiskMultiSelect(
-                                          risk.id,
-                                          "normas",
-                                          customNormaValue
-                                        );
-                                        setMultiSelectQuery("");
-                                      }}
-                                    >
-                                      {`Adicionar "${customNormaValue}"`}
-                                    </button>
-                                  ) : (
-                                    <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
-                                      Esta norma já existe na lista.
-                                    </p>
-                                  )
-                                ) : (
-                                  <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
-                                    Digite para adicionar uma nova norma.
-                                  </p>
-                                )}
-                                <div className="max-h-44 space-y-1 overflow-auto">
-                                  {filteredNormasOptions.length ? (
-                                    filteredNormasOptions.map((option) => {
-                                      const isChecked = selectedNormas.includes(option);
-                                      return (
-                                        <label
-                                          key={`${risk.id}-normas-${option}`}
-                                          className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => {
-                                              handleToggleRiskMultiSelect(
-                                                risk.id,
-                                                "normas",
-                                                option
-                                              );
-                                            }}
-                                          />
-                                          <span>{option}</span>
-                                        </label>
-                                      );
-                                    })
-                                  ) : (
-                                    <p className="px-2 py-1 text-[12px] text-muted-foreground">
-                                      Nenhuma norma encontrada.
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
                         </div>
                         <div>
                           <label className="text-[12px] font-medium text-foreground">

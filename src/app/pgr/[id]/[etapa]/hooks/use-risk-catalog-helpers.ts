@@ -328,6 +328,10 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     () => buildCatalogValuesByAgent(riskCatalogs?.propagationPaths || []),
     [riskCatalogs]
   );
+  const healthDamagesByAgent = useMemo(
+    () => buildCatalogValuesByAgent(riskCatalogs?.healthDamages || []),
+    [riskCatalogs]
+  );
 
   const standardsCatalogValues = useMemo(
     () =>
@@ -639,6 +643,15 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
   );
 
+  const getDanosSaudeOptions = useCallback(
+    (tipoAgente: string, currentValue: string) => {
+      const agentId = resolveRiskAgentId(tipoAgente);
+      const optionsFromCatalog = !agentId ? [] : healthDamagesByAgent.get(agentId) || [];
+      return withCurrentValue(optionsFromCatalog, currentValue);
+    },
+    [healthDamagesByAgent, resolveRiskAgentId]
+  );
+
   const getTipoAvaliacaoOptions = useCallback(
     (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
       const optionsFromCriteria = uniqueNonEmptyValues(
@@ -797,6 +810,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getDescricaoAgenteOptions,
     getMeioPropagacaoOptions,
     getFontesOptions,
+    getDanosSaudeOptions,
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getIntensidadeOptions,

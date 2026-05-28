@@ -1035,6 +1035,7 @@ export function usePgrEtapaController({
       getDescricaoAgenteOptions: derived.getDescricaoAgenteOptions,
       getMeioPropagacaoOptions: derived.getMeioPropagacaoOptions,
       getFontesOptions: derived.getFontesOptions,
+      getDanosSaudeOptions: derived.getDanosSaudeOptions,
       getTipoAvaliacaoOptions: derived.getTipoAvaliacaoOptions,
       getUnidadeMedidaOptions: derived.getUnidadeMedidaOptions,
       getIntensidadeOptions: derived.getIntensidadeOptions,
