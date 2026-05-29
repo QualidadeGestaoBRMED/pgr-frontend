@@ -63,6 +63,20 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
   );
   const showAttachmentError = hasTriedAttachmentAction && !hasAnyAttachment;
 
+  const toDateInputValue = (value: string | undefined) => {
+    const safe = String(value || "").trim();
+    if (!safe) return "";
+    const isoMatch = safe.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const [, yyyy, mm, dd] = isoMatch;
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    const brMatch = safe.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!brMatch) return "";
+    const [, dd, mm, yyyy] = brMatch;
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const handleAttachmentInput = (anexoId: string, files: FileList | null) => {
     setHasTriedAttachmentAction(true);
     handleAnexoFiles(anexoId, files);
@@ -165,7 +179,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                     type="date"
                     className="h-[36px] w-[130px] rounded-[8px] border border-border bg-muted px-3 text-center text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     aria-label="Data do anexo"
-                    value={typeof anexo.files[0]?.date === "string" ? anexo.files[0].date : ""}
+                    value={toDateInputValue(anexo.files[0]?.date)}
                     onChange={(event) => {
                       anexo.files.forEach((file) => {
                         handleAnexoFileDateChange(anexo.id, file.id, event.target.value);

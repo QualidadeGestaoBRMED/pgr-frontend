@@ -1311,11 +1311,23 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const toDateInputValue = (value: string) => {
     const safe = String(value || "").trim();
     if (!safe) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(safe)) return safe;
-    const match = safe.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const isoMatch = safe.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const [, yyyy, mm, dd] = isoMatch;
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    const match = safe.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
     if (!match) return "";
     const [, dd, mm, yyyy] = match;
     return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const toDateBrValue = (value: string) => {
+    const iso = toDateInputValue(value);
+    if (!iso) return "";
+    const [yyyy, mm, dd] = iso.split("-");
+    if (!yyyy || !mm || !dd) return "";
+    return `${dd}/${mm}/${yyyy}`;
   };
 
   const resolveCurrentRevisionEmissionDate = () => {
@@ -1332,7 +1344,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
       return String(a.id).localeCompare(String(b.id));
     });
-    return toDateInputValue(String(sorted[sorted.length - 1]?.date || ""));
+    return toDateBrValue(String(sorted[sorted.length - 1]?.date || ""));
   };
 
   const handleAnexoFiles = (anexoId: string, files: FileList | null) => {
@@ -1349,6 +1361,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         const formData = new FormData();
         formData.append("anexoId", anexoId);
         formData.append("file", file);
+        if (currentRevisionDate) {
+          formData.append("revisionDate", currentRevisionDate);
+        }
 
         const response = await apiPostForm<{
           ok: boolean;
@@ -1370,8 +1385,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           name: response.file.name,
           date:
             currentRevisionDate ||
-            response.file.date ||
-            response.file.uploadedAt?.slice(0, 10) ||
+            toDateBrValue(response.file.date || "") ||
+            toDateBrValue(response.file.uploadedAt || "") ||
             "",
         };
         setAnexos((prev) =>
@@ -1403,13 +1418,14 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAnexoFileDateChange = (anexoId: string, fileId: string, value: string) => {
+    const normalizedDate = value ? toDateBrValue(value) : "";
     setAnexos((prev) =>
       prev.map((anexo) =>
         anexo.id === anexoId
           ? {
               ...anexo,
               files: anexo.files.map((file) =>
-                file.id === fileId ? { ...file, date: value } : file
+                file.id === fileId ? { ...file, date: normalizedDate } : file
               ),
             }
           : anexo

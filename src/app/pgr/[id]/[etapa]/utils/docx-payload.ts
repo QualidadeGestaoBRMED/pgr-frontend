@@ -23,6 +23,8 @@ const normalizeExtraScope = (scope: unknown): ExtraFieldScope => {
   return "empresa";
 };
 
+const _asText = (value: unknown) => String(value ?? "").trim();
+
 type BackendDescricaoFunction = {
   setor?: string;
   funcao?: string;
@@ -197,6 +199,7 @@ export type PgrDocxPayload = {
     itens: Array<{
       ghe: string;
       risco: string;
+      prioridade: string;
       classificacao: string;
       medidas: string;
       epc: string;
@@ -315,15 +318,22 @@ export function buildPgrDocxPayload(input: {
       .map((risk) => ({
         ghe: ghe.nome,
         risco: risk.descricaoAgente || "",
+        prioridade: _asText((risk as unknown as { prioridade?: string }).prioridade),
         classificacao: risk.classificacao,
         medidas: risk.medidasControle,
         epc: risk.epc,
         epi: risk.epi,
-        tipoMedida: "",
-        prazoAcao: "",
-        responsavelAcao: "",
-        acompanhamento: "",
-        afericaoResultado: "",
+        tipoMedida: _asText((risk as unknown as { tipoMedida?: string }).tipoMedida),
+        prazoAcao: _asText((risk as unknown as { prazoAcao?: string }).prazoAcao),
+        responsavelAcao: _asText(
+          (risk as unknown as { responsavelAcao?: string }).responsavelAcao
+        ),
+        acompanhamento: _asText(
+          (risk as unknown as { acompanhamento?: string }).acompanhamento
+        ),
+        afericaoResultado: _asText(
+          (risk as unknown as { afericaoResultado?: string }).afericaoResultado
+        ),
       }))
   );
   const planoItensGerais = Array.isArray(input.planGeneralMeasures)
@@ -332,6 +342,7 @@ export function buildPgrDocxPayload(input: {
         .map((item) => ({
           ghe: "Todos os GHEs",
           risco: "Medidas Gerais",
+          prioridade: "",
           classificacao: "Risco Moderado",
           medidas: item.descricao,
           epc: "",
