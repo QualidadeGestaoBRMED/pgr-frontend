@@ -11,6 +11,7 @@ import type {
   GheRisk,
   HistoryEntry,
   ParsedDescricaoImport,
+  PlanGeneralMeasureRow,
   PgrFunction,
   RiskGheGroup,
 } from "../types";
@@ -33,6 +34,7 @@ import {
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
+const PLAN_ALL_GHE_ID = "__plan_all_ghes__";
 
 function readText(
   source: Record<string, unknown> | undefined,
@@ -119,6 +121,7 @@ type GeneralActionsContext = {
     setIsPlanActionModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
     setRemovedPlanRiskKeys: React.Dispatch<React.SetStateAction<string[]>>;
+    setPlanGeneralMeasures: React.Dispatch<React.SetStateAction<PlanGeneralMeasureRow[]>>;
     setEditingMedidasId: React.Dispatch<React.SetStateAction<string | null>>;
     setEditingMedidasValue: React.Dispatch<React.SetStateAction<string>>;
     setCompletedSteps: React.Dispatch<React.SetStateAction<number>>;
@@ -194,6 +197,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setIsPlanActionModalOpen,
     setRiskGheGroups,
     setRemovedPlanRiskKeys,
+    setPlanGeneralMeasures,
     setEditingMedidasId,
     setEditingMedidasValue,
     setCompletedSteps,
@@ -634,6 +638,17 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     value: string,
     groupTargets?: Array<{ gheId: string; riskId: string }>
   ) => {
+    if (gheId === PLAN_ALL_GHE_ID) {
+      const targetField =
+        field === "medidasControle" ? "descricao" : field;
+      setPlanGeneralMeasures((prev) =>
+        prev.map((item) =>
+          item.id === riskId ? { ...item, [targetField]: value } : item
+        )
+      );
+      return;
+    }
+
     if (Array.isArray(groupTargets) && groupTargets.length) {
       const targetKeys = new Set(
         groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
@@ -705,6 +720,13 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     riskId: string,
     groupTargets?: Array<{ gheId: string; riskId: string }>
   ) => {
+    if (gheId === PLAN_ALL_GHE_ID) {
+      setPlanGeneralMeasures((prev) => prev.filter((item) => item.id !== riskId));
+      setEditingMedidasId(null);
+      setEditingMedidasValue("");
+      return;
+    }
+
     const keysToExclude = Array.isArray(groupTargets) && groupTargets.length
       ? groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
       : [`${gheId}::${riskId}`];
@@ -812,83 +834,36 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         .trim()
         .toLowerCase();
 
-    const globalGheId = "__ghe_todos__";
     const nowSeed = Date.now();
 
-    setRiskGheGroups((prev) => {
-      const existingGroup = prev.find((ghe) => ghe.id === globalGheId);
-      const baseGroup: RiskGheGroup = existingGroup ?? {
-        id: globalGheId,
-        name: "Todos",
-        risks: [],
-      };
-
-      const isPresetRisk = (risk: GheRisk) => {
-        if (risk.nrPreset) return true;
-        if (String(risk.id || "").startsWith("nr-")) return true;
-        const hasGeneralSignature =
-          toKey(risk.tipoAgente || "") === toKey("Medidas Gerais") &&
-          toKey(risk.descricaoAgente || "") === toKey("Medidas Gerais") &&
-          toKey(risk.classificacao || "") === toKey("Risco Moderado");
-        const hasNrLabel = /^NR[-\s]?\d+/i.test(String(risk.normas || "").trim());
-        return hasGeneralSignature && hasNrLabel;
-      };
-
-      const preservedRisks = baseGroup.risks.filter((risk) => !isPresetRisk(risk));
-
-      const existingRiskKeys = new Set(
-        preservedRisks.map((risk) =>
-          [toKey(risk.descricaoAgente), toKey(risk.medidasControle), toKey(risk.normas || "")]
-            .join("||")
+    setPlanGeneralMeasures((prev) => {
+      const preservedRows = prev.filter(
+        (row) => !String(row.id || "").startsWith("nr-general-")
+      );
+      const existingKeys = new Set(
+        preservedRows.map((row) =>
+          [toKey(row.descricao || ""), toKey(row.nr || "")].join("||")
         )
       );
 
-      const createdRisks: GheRisk[] = [];
-      normalizedActions.forEach((medida, index) => {
-        const key = [toKey("Medidas Gerais"), toKey(medida), toKey(normalizedNr)].join("||");
-        if (existingRiskKeys.has(key)) return;
-        existingRiskKeys.add(key);
-        createdRisks.push({
-          id: `nr-${normalizedNr.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${nowSeed}-${index + 1}`,
-          tipoAgente: "Medidas Gerais",
-          descricaoAgente: "Medidas Gerais",
-          meioPropagacao: "Nao aplicavel",
-          fontes: "Gestao",
-          danosSaude: "Nao aplicavel",
-          unidadeMedida: "Nao aplicavel",
-          valorMedido: "",
-          tipoAvaliacao: "Qualitativa",
-          intensidade: "Nao aplicavel",
-          nivelAcao: "Nao aplicavel",
-          severidade: "Nao aplicavel",
-          probabilidade: "Nao aplicavel",
-          classificacao: "Risco Moderado",
-          medidasControle: medida,
-          normas: normalizedNr,
-          epc: "",
-          epi: "",
+      const createdRows: PlanGeneralMeasureRow[] = [];
+      normalizedActions.forEach((descricao, index) => {
+        const key = [toKey(descricao), toKey(normalizedNr)].join("||");
+        if (existingKeys.has(key)) return;
+        existingKeys.add(key);
+        createdRows.push({
+          id: `nr-general-${normalizedNr.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${nowSeed}-${index + 1}`,
+          nr: normalizedNr,
+          descricao,
           tipoMedida: "",
           prazoAcao: "",
           responsavelAcao: "",
           acompanhamento: "",
           afericaoResultado: "",
-          nrPreset: true,
         });
       });
 
-      const nextGroup: RiskGheGroup = {
-        ...baseGroup,
-        risks: [...preservedRisks, ...createdRisks],
-      };
-
-      if (existingGroup) {
-        if (!nextGroup.risks.length) {
-          return prev.filter((ghe) => ghe.id !== globalGheId);
-        }
-        return prev.map((ghe) => (ghe.id === globalGheId ? nextGroup : ghe));
-      }
-      if (!createdRisks.length) return prev;
-      return [...prev, nextGroup];
+      return [...preservedRows, ...createdRows];
     });
   };
 

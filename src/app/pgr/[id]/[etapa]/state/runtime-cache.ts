@@ -1,6 +1,12 @@
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import { defaultHistorico } from "../defaults";
-import type { AnexoItem, GheGroup, PgrFunction, RiskGheGroup } from "../types";
+import type {
+  AnexoItem,
+  GheGroup,
+  PgrFunction,
+  PlanGeneralMeasureRow,
+  RiskGheGroup,
+} from "../types";
 import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 export type PersistedPgrState = {
@@ -28,6 +34,7 @@ export type PersistedPgrState = {
   estabelecimentoSelecionado: string;
   planAction: { nr: string; vigencia: string };
   removedPlanRiskKeys: string[];
+  planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
   gheGroups: GheGroup[];

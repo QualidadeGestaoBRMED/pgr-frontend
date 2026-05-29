@@ -68,6 +68,17 @@ export type GheRisk = {
   nrPreset?: boolean;
 };
 
+export type PlanGeneralMeasureRow = {
+  id: string;
+  nr: string;
+  descricao: string;
+  tipoMedida?: string;
+  prazoAcao?: string;
+  responsavelAcao?: string;
+  acompanhamento?: string;
+  afericaoResultado?: string;
+};
+
 export type RiskGheGroup = {
   id: string;
   name: string;

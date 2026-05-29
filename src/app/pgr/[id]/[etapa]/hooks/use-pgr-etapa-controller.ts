@@ -229,6 +229,7 @@ export function usePgrEtapaController({
     gheSearch: state.gheSearch,
     gheFilterId: state.gheFilterId,
     riskGheGroups: state.riskGheGroups,
+    planGeneralMeasures: state.planGeneralMeasures,
     removedPlanRiskKeys: state.removedPlanRiskKeys,
     planActionGheId: state.planActionGheId,
     planTablePage: state.planTablePage,
@@ -274,6 +275,7 @@ export function usePgrEtapaController({
       setEstabelecimentoSelecionado: setters.setEstabelecimentoSelecionado,
       setPlanAction: setters.setPlanAction,
       setRemovedPlanRiskKeys: setters.setRemovedPlanRiskKeys,
+      setPlanGeneralMeasures: setters.setPlanGeneralMeasures,
       setAnexos: setters.setAnexos,
       setAnexoDiretriz: setters.setAnexoDiretriz,
       setGheGroups: setters.setGheGroups,
@@ -296,6 +298,7 @@ export function usePgrEtapaController({
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
       planAction: state.planAction,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
+      planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
       gheGroups: state.gheGroups,
@@ -387,6 +390,7 @@ export function usePgrEtapaController({
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
       planAction: state.planAction,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
+      planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
       gheGroups: state.gheGroups,
@@ -412,6 +416,7 @@ export function usePgrEtapaController({
       state.inicioDraft,
       state.pdfLayout,
       state.planAction,
+      state.planGeneralMeasures,
       state.removedPlanRiskKeys,
       state.riskGheGroups,
       weightedProgressPercent,
@@ -438,6 +443,7 @@ export function usePgrEtapaController({
         historicoData: state.historicoData,
         gheGroups: state.gheGroups,
         riskGheGroups: state.riskGheGroups,
+        planGeneralMeasures: state.planGeneralMeasures,
         removedPlanRiskKeys: state.removedPlanRiskKeys,
         functionsData: state.functionsData,
         planAction: state.planAction,
@@ -459,6 +465,7 @@ export function usePgrEtapaController({
       state.historicoData,
       state.inicioDraft,
       state.planAction,
+      state.planGeneralMeasures,
       state.pdfLayout,
       state.removedPlanRiskKeys,
       state.riskGheGroups,
@@ -699,6 +706,7 @@ export function usePgrEtapaController({
     setters.setRiskGheGroups(defaultRiskGheGroups);
     setters.setCurrentRiskGheId(defaultRiskGheGroups[0]?.id ?? "ghe-1");
     setters.setRemovedPlanRiskKeys([]);
+    setters.setPlanGeneralMeasures([]);
     setters.setPlanActionGheId("");
     setters.setPlanActionRiskId("");
   }, [setters, state.workflow.isLocked]);
@@ -709,6 +717,7 @@ export function usePgrEtapaController({
     setters.setCurrentRiskGheId(defaultRiskGheGroups[0]?.id ?? "ghe-1");
     setters.setHistory([]);
     setters.setRemovedPlanRiskKeys([]);
+    setters.setPlanGeneralMeasures([]);
     setters.setPlanActionGheId("");
     setters.setPlanActionRiskId("");
   }, [setters, state.workflow.isLocked]);
@@ -717,6 +726,7 @@ export function usePgrEtapaController({
     if (state.workflow.isLocked) return;
     setters.setPlanAction({ nr: "NR-01", vigencia: "" });
     setters.setRemovedPlanRiskKeys([]);
+    setters.setPlanGeneralMeasures([]);
     setters.setEditingMedidasId(null);
     setters.setEditingMedidasValue("");
     setters.setPlanTablePage(1);
@@ -766,6 +776,7 @@ export function usePgrEtapaController({
     setters.setEstabelecimentoSelecionado("");
     setters.setPlanAction({ nr: "NR-01", vigencia: "" });
     setters.setRemovedPlanRiskKeys([]);
+    setters.setPlanGeneralMeasures([]);
     setters.setAnexos(defaultAnexos);
     setters.setAnexoDiretriz("Diretriz 1");
     setters.setGheGroups(defaultGheGroups);
@@ -847,6 +858,7 @@ export function usePgrEtapaController({
       setIsPlanActionModalOpen: setters.setIsPlanActionModalOpen,
       setRiskGheGroups: setters.setRiskGheGroups,
       setRemovedPlanRiskKeys: setters.setRemovedPlanRiskKeys,
+      setPlanGeneralMeasures: setters.setPlanGeneralMeasures,
       setEditingMedidasId: setters.setEditingMedidasId,
       setEditingMedidasValue: setters.setEditingMedidasValue,
       setCompletedSteps: setters.setCompletedSteps,

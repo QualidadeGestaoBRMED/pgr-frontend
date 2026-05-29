@@ -1,5 +1,12 @@
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
-import type { AnexoItem, GheGroup, HistoricoData, PgrFunction, RiskGheGroup } from "../types";
+import type {
+  AnexoItem,
+  GheGroup,
+  HistoricoData,
+  PgrFunction,
+  PlanGeneralMeasureRow,
+  RiskGheGroup,
+} from "../types";
 import { defaultHistorico, initialDadosCadastrais, initialInicioDraft } from "../defaults";
 import {
   DEFAULT_PDF_LAYOUT_STATE,
@@ -102,6 +109,7 @@ type BackendStateShape = {
   };
   gheGroups?: GheGroup[];
   riskGheGroups?: RiskGheGroup[];
+  planGeneralMeasures?: PlanGeneralMeasureRow[];
   removedPlanRiskKeys?: string[];
   functions?: PgrFunction[];
   planAction?: {
@@ -233,6 +241,7 @@ export function buildPgrDocxPayload(input: {
   historicoData: HistoricoData;
   gheGroups: GheGroup[];
   riskGheGroups: RiskGheGroup[];
+  planGeneralMeasures?: PlanGeneralMeasureRow[];
   removedPlanRiskKeys?: string[];
   functionsData: PgrFunction[];
   planAction: {
@@ -317,6 +326,23 @@ export function buildPgrDocxPayload(input: {
         afericaoResultado: "",
       }))
   );
+  const planoItensGerais = Array.isArray(input.planGeneralMeasures)
+    ? input.planGeneralMeasures
+        .filter((item) => String(item.descricao || "").trim().length > 0)
+        .map((item) => ({
+          ghe: "Todos os GHEs",
+          risco: "Medidas Gerais",
+          classificacao: "Risco Moderado",
+          medidas: item.descricao,
+          epc: "",
+          epi: "",
+          tipoMedida: item.tipoMedida || "",
+          prazoAcao: item.prazoAcao || "",
+          responsavelAcao: item.responsavelAcao || "",
+          acompanhamento: item.acompanhamento || "",
+          afericaoResultado: item.afericaoResultado || "",
+        }))
+    : [];
 
   const totalArquivos = input.anexos.reduce((total, anexo) => total + anexo.files.length, 0);
   return {
@@ -342,7 +368,7 @@ export function buildPgrDocxPayload(input: {
     planoAcao: {
       nr: input.planAction.nr,
       vigencia: input.planAction.vigencia,
-      itens: planoItens,
+      itens: [...planoItensGerais, ...planoItens],
     },
     anexos: {
       diretriz: input.anexoDiretriz,
@@ -500,6 +526,20 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     riskGheGroups: Array.isArray(state.riskGheGroups)
       ? state.riskGheGroups
       : fallbackRiskGheGroups,
+    planGeneralMeasures: Array.isArray(state.planGeneralMeasures)
+      ? state.planGeneralMeasures
+          .map((item) => ({
+            id: String(item?.id || "").trim(),
+            nr: String(item?.nr || "").trim(),
+            descricao: String(item?.descricao || "").trim(),
+            tipoMedida: String(item?.tipoMedida || "").trim(),
+            prazoAcao: String(item?.prazoAcao || "").trim(),
+            responsavelAcao: String(item?.responsavelAcao || "").trim(),
+            acompanhamento: String(item?.acompanhamento || "").trim(),
+            afericaoResultado: String(item?.afericaoResultado || "").trim(),
+          }))
+          .filter((item) => item.id && item.descricao)
+      : [],
     removedPlanRiskKeys: Array.isArray(state.removedPlanRiskKeys)
       ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
       : [],

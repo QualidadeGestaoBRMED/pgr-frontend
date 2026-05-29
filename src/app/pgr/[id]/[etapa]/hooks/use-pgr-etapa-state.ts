@@ -14,6 +14,7 @@ import type {
   ExcelImportFeedback,
   GheGroup,
   HistoryEntry,
+  PlanGeneralMeasureRow,
   PgrFunction,
   RiskCatalogPayload,
   RiskGheGroup,
@@ -113,6 +114,9 @@ export function usePgrEtapaState({
   });
   const [removedPlanRiskKeys, setRemovedPlanRiskKeys] = useState<string[]>(
     serverSyncedCachedState?.removedPlanRiskKeys ?? []
+  );
+  const [planGeneralMeasures, setPlanGeneralMeasures] = useState<PlanGeneralMeasureRow[]>(
+    serverSyncedCachedState?.planGeneralMeasures ?? []
   );
   const [isPlanActionModalOpen, setIsPlanActionModalOpen] = useState(false);
   const [planActionScope, setPlanActionScope] = useState<"all" | "ghe" | "risk">("risk");
@@ -234,6 +238,7 @@ export function usePgrEtapaState({
       extraEstabelecimentoFields,
       planAction,
       removedPlanRiskKeys,
+      planGeneralMeasures,
       isPlanActionModalOpen,
       planActionScope,
       planActionGheId,
@@ -287,6 +292,7 @@ export function usePgrEtapaState({
       setExtraEstabelecimentoFields,
       setPlanAction,
       setRemovedPlanRiskKeys,
+      setPlanGeneralMeasures,
       setIsPlanActionModalOpen,
       setPlanActionScope,
       setPlanActionGheId,

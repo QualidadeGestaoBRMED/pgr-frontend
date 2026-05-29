@@ -11,7 +11,13 @@ import {
   isInicioDraftComplete,
   isRiskComplete,
 } from "../validation/step-schemas";
-import type { GheGroup, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
+import type {
+  GheGroup,
+  PgrFunction,
+  PlanGeneralMeasureRow,
+  RiskCatalogPayload,
+  RiskGheGroup,
+} from "../types";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, HistoricoData } from "../types";
 
@@ -32,7 +38,9 @@ type PlanTableRow = {
   acompanhamento?: string;
   afericaoResultado?: string;
   groupTargets?: Array<{ gheId: string; riskId: string }>;
+  isCustomPlanRow?: boolean;
 };
+const PLAN_ALL_GHE_ID = "__plan_all_ghes__";
 
 const normalizeText = (value: string) =>
   value
@@ -101,6 +109,7 @@ export function usePgrEtapaDerived({
   gheSearch,
   gheFilterId,
   riskGheGroups,
+  planGeneralMeasures,
   removedPlanRiskKeys,
   planActionGheId,
   planTablePage,
@@ -120,6 +129,7 @@ export function usePgrEtapaDerived({
   gheSearch: string;
   gheFilterId: "all" | string;
   riskGheGroups: RiskGheGroup[];
+  planGeneralMeasures: PlanGeneralMeasureRow[];
   removedPlanRiskKeys: string[];
   planActionGheId: string;
   planTablePage: number;
@@ -302,7 +312,7 @@ export function usePgrEtapaDerived({
   const rawPlanTableRows = useMemo<PlanTableRow[]>(
     () => {
       const excludedKeys = new Set(removedPlanRiskKeys);
-      return riskGheGroups.flatMap((ghe) =>
+      const riskRows = riskGheGroups.flatMap((ghe) =>
         ghe.risks
           .filter((risk) => !excludedKeys.has(`${ghe.id}::${risk.id}`))
           .map((risk) => {
@@ -351,11 +361,31 @@ export function usePgrEtapaDerived({
             };
           })
       );
+      const generalRows = planGeneralMeasures.map((item) => ({
+        id: `plan-general-${item.id}`,
+        gheId: PLAN_ALL_GHE_ID,
+        riskId: item.id,
+        gheName: "Todos os GHEs",
+        tipoAgente: "Medidas Gerais",
+        descricaoAgente: "Medidas Gerais",
+        prioridade: "Risco Moderado",
+        classificacao: "Risco Moderado",
+        exposureValue: undefined,
+        medidasPrevencao: item.descricao || "",
+        tipoMedida: item.tipoMedida || "",
+        prazoAcao: item.prazoAcao || "",
+        responsavelAcao: item.responsavelAcao || "",
+        acompanhamento: item.acompanhamento || "",
+        afericaoResultado: item.afericaoResultado || "",
+        isCustomPlanRow: true,
+      }));
+      return [...generalRows, ...riskRows];
     },
     [
       calculateActionPlanClassification,
       calculateExposureFromWorkforceRatio,
       calculateRiskClassification,
+      planGeneralMeasures,
       riskGheGroups,
       removedPlanRiskKeys,
       totalWorkersAllGhes,
@@ -383,13 +413,15 @@ export function usePgrEtapaDerived({
     >();
 
     rawPlanTableRowsForPlan.forEach((row, index) => {
-      const key = [
-        row.descricaoAgente.trim().toLowerCase(),
-        row.tipoAgente.trim().toLowerCase(),
-        row.prioridade.trim().toLowerCase(),
-        String(row.exposureValue || ""),
-        row.medidasPrevencao.trim().toLowerCase(),
-      ].join("||");
+      const key = row.isCustomPlanRow
+        ? `custom::${row.id}`
+        : [
+            row.descricaoAgente.trim().toLowerCase(),
+            row.tipoAgente.trim().toLowerCase(),
+            row.prioridade.trim().toLowerCase(),
+            String(row.exposureValue || ""),
+            row.medidasPrevencao.trim().toLowerCase(),
+          ].join("||");
       const existing = grouped.get(key);
       if (!existing) {
         grouped.set(key, { firstIndex: index, rows: [row] });

@@ -2,7 +2,16 @@ import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, t
 import { apiGet, apiPut } from "@/lib/api";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
-import type { AnexoItem, GheGroup, GheRisk, HistoricoData, PgrFunction, RiskCatalogPayload, RiskGheGroup } from "../types";
+import type {
+  AnexoItem,
+  GheGroup,
+  GheRisk,
+  HistoricoData,
+  PgrFunction,
+  PlanGeneralMeasureRow,
+  RiskCatalogPayload,
+  RiskGheGroup,
+} from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { syncLegacyContractorFields } from "../utils/contractors";
 import {
@@ -31,6 +40,7 @@ type PersistPayload = {
   estabelecimentoSelecionado: string;
   planAction: PlanAction;
   removedPlanRiskKeys: string[];
+  planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
   gheGroups: GheGroup[];
@@ -56,6 +66,7 @@ type BackendStateResponse = Partial<{
   estabelecimentoSelecionado: string;
   planAction: Partial<PlanAction>;
   removedPlanRiskKeys: string[];
+  planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
   gheGroups: GheGroup[];
@@ -89,6 +100,7 @@ type UsePgrPersistenceContext = {
     setEstabelecimentoSelecionado: Dispatch<SetStateAction<string>>;
     setPlanAction: Dispatch<SetStateAction<PlanAction>>;
     setRemovedPlanRiskKeys: Dispatch<SetStateAction<string[]>>;
+    setPlanGeneralMeasures: Dispatch<SetStateAction<PlanGeneralMeasureRow[]>>;
     setAnexos: Dispatch<SetStateAction<AnexoItem[]>>;
     setAnexoDiretriz: Dispatch<SetStateAction<string>>;
     setGheGroups: Dispatch<SetStateAction<GheGroup[]>>;
@@ -111,6 +123,7 @@ type UsePgrPersistenceContext = {
     estabelecimentoSelecionado: string;
     planAction: PlanAction;
     removedPlanRiskKeys: string[];
+    planGeneralMeasures: PlanGeneralMeasureRow[];
     anexos: AnexoItem[];
     anexoDiretriz: string;
     gheGroups: GheGroup[];
@@ -158,6 +171,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setEstabelecimentoSelecionado,
     setPlanAction,
     setRemovedPlanRiskKeys,
+    setPlanGeneralMeasures,
     setAnexos,
     setAnexoDiretriz,
     setGheGroups,
@@ -181,6 +195,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     estabelecimentoSelecionado,
     planAction,
     removedPlanRiskKeys,
+    planGeneralMeasures,
     anexos,
     anexoDiretriz,
     gheGroups,
@@ -208,6 +223,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     estabelecimento,
     plan,
     removedPlanRiskKeys,
+    planGeneralMeasures,
     anexosState,
     diretriz,
     ghes,
@@ -228,6 +244,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     estabelecimento: string;
     plan: PlanAction;
     removedPlanRiskKeys: string[];
+    planGeneralMeasures: PlanGeneralMeasureRow[];
     anexosState: AnexoItem[];
     diretriz: string;
     ghes: GheGroup[];
@@ -250,6 +267,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     estabelecimentoSelecionado: estabelecimento,
     planAction: plan,
     removedPlanRiskKeys,
+    planGeneralMeasures,
     anexos: anexosState,
     anexoDiretriz: diretriz,
     gheGroups: ghes,
@@ -279,6 +297,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               estabelecimento: payload.estabelecimentoSelecionado,
               plan: payload.planAction,
               removedPlanRiskKeys: payload.removedPlanRiskKeys,
+              planGeneralMeasures: payload.planGeneralMeasures,
               anexosState: payload.anexos,
               diretriz: payload.anexoDiretriz,
               ghes: payload.gheGroups,
@@ -439,6 +458,20 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         const loadedRemovedPlanRiskKeys = Array.isArray(state.removedPlanRiskKeys)
           ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
           : [];
+        const loadedPlanGeneralMeasures = Array.isArray(state.planGeneralMeasures)
+          ? state.planGeneralMeasures
+              .map((item) => ({
+                id: String(item?.id || "").trim(),
+                nr: String(item?.nr || "").trim(),
+                descricao: String(item?.descricao || "").trim(),
+                tipoMedida: String(item?.tipoMedida || "").trim(),
+                prazoAcao: String(item?.prazoAcao || "").trim(),
+                responsavelAcao: String(item?.responsavelAcao || "").trim(),
+                acompanhamento: String(item?.acompanhamento || "").trim(),
+                afericaoResultado: String(item?.afericaoResultado || "").trim(),
+              }))
+              .filter((item) => item.id && item.descricao)
+          : [];
         const loadedAnexos = state.anexos?.length ? state.anexos : defaultAnexos;
         const loadedAnexoDiretriz = state.anexoDiretriz || "Diretriz 1";
         const loadedGheGroups = state.gheGroups?.length ? state.gheGroups : gheGroups;
@@ -502,6 +535,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setEstabelecimentoSelecionado(loadedEstabelecimento);
         setPlanAction(loadedPlanAction);
         setRemovedPlanRiskKeys(loadedRemovedPlanRiskKeys);
+        setPlanGeneralMeasures(loadedPlanGeneralMeasures);
         setAnexos(loadedAnexos);
         setAnexoDiretriz(loadedAnexoDiretriz);
 
@@ -526,6 +560,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             estabelecimento: loadedEstabelecimento,
             plan: loadedPlanAction,
             removedPlanRiskKeys: loadedRemovedPlanRiskKeys,
+            planGeneralMeasures: loadedPlanGeneralMeasures,
             anexosState: loadedAnexos,
             diretriz: loadedAnexoDiretriz,
             ghes: loadedGheGroups,
@@ -560,10 +595,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         name: ghe.name,
         risks: prevById.get(ghe.id)?.risks || [],
       }));
-      const preservedSpecialGroups = prev.filter(
-        (group) => String(group.id || "").startsWith("__")
-      );
-      const next = [...nextFromDescricao, ...preservedSpecialGroups];
+      const next = nextFromDescricao;
       const unchanged =
         next.length === prev.length &&
         next.every(
@@ -610,6 +642,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       estabelecimentoSelecionado,
       planAction,
       removedPlanRiskKeys,
+      planGeneralMeasures,
       anexos,
       anexoDiretriz,
       gheGroups,
@@ -651,6 +684,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     params.id,
     persistPayload,
     planAction,
+    planGeneralMeasures,
     removedPlanRiskKeys,
     pdfLayout,
     riskGheGroups,
