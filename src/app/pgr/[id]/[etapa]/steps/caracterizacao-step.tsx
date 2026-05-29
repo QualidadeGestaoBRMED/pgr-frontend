@@ -1221,6 +1221,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             );
             const selectedMeios = parseMultiTextValues(risk.meioPropagacao);
             const filteredMeioPropagacaoOptions = filterOptionsByQuery(meioPropagacaoOptions);
+            const customMeioPropagacaoValue = multiSelectQuery.trim();
+            const canAddCustomMeioPropagacao =
+              !!customMeioPropagacaoValue &&
+              !hasOptionInsensitive(meioPropagacaoOptions, customMeioPropagacaoValue) &&
+              !hasOptionInsensitive(selectedMeios, customMeioPropagacaoValue);
             const fontesOptions = getFontesOptions(
               risk.tipoAgente,
               risk.descricaoAgente,
@@ -1507,9 +1512,47 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     className={`${inputInlineClass} pl-8`}
                                     value={multiSelectQuery}
                                     onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                    placeholder="Filtrar meio"
+                                    onKeyDown={(event) => {
+                                      if (!canAddCustomMeioPropagacao || event.key !== "Enter") return;
+                                      event.preventDefault();
+                                      markRiskTouched(risk.id, "meioPropagacao");
+                                      handleToggleRiskMultiSelect(
+                                        risk.id,
+                                        "meioPropagacao",
+                                        customMeioPropagacaoValue
+                                      );
+                                      setMultiSelectQuery("");
+                                    }}
+                                    placeholder="Filtrar ou adicionar meio"
                                   />
                                 </div>
+                                {customMeioPropagacaoValue ? (
+                                  canAddCustomMeioPropagacao ? (
+                                    <button
+                                      type="button"
+                                      className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                      onClick={() => {
+                                        markRiskTouched(risk.id, "meioPropagacao");
+                                        handleToggleRiskMultiSelect(
+                                          risk.id,
+                                          "meioPropagacao",
+                                          customMeioPropagacaoValue
+                                        );
+                                        setMultiSelectQuery("");
+                                      }}
+                                    >
+                                      {`Adicionar "${customMeioPropagacaoValue}"`}
+                                    </button>
+                                  ) : (
+                                    <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
+                                      Este meio já existe na lista.
+                                    </p>
+                                  )
+                                ) : (
+                                  <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
+                                    Digite para adicionar um novo meio.
+                                  </p>
+                                )}
                                 <div className="max-h-44 space-y-1 overflow-auto">
                                   {filteredMeioPropagacaoOptions.length ? (
                                     filteredMeioPropagacaoOptions.map((option) => {

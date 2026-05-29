@@ -884,6 +884,7 @@ export function usePgrEtapaController({
       currentIndex,
       nextStep,
       router,
+      historicoData: state.historicoData,
       anexos: state.anexos,
       dragOverAnexoId: state.dragOverAnexoId,
       draggedAnexoId: state.draggedAnexoId,

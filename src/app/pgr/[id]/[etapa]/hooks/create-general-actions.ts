@@ -158,6 +158,7 @@ type GeneralActionsContext = {
     currentIndex: number;
     nextStep: { id: string } | null;
     router: { push: (href: string) => void };
+    historicoData: PersistedPgrState["historicoData"];
     anexos: AnexoItem[];
     dragOverAnexoId: string | null;
     draggedAnexoId: string | null;
@@ -219,6 +220,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     currentIndex,
     nextStep,
     router,
+    historicoData,
     anexos,
     dragOverAnexoId,
     draggedAnexoId,
@@ -1323,6 +1325,41 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     return parts.join("/");
   };
 
+  const extractHistoricoNumericCode = (value: string) => {
+    const match = String(value || "").match(/(\d{1,4})/);
+    if (!match) return Number.MAX_SAFE_INTEGER;
+    const parsed = Number(match[1]);
+    if (!Number.isFinite(parsed) || parsed <= 0) return Number.MAX_SAFE_INTEGER;
+    return parsed;
+  };
+
+  const toDateInputValue = (value: string) => {
+    const safe = String(value || "").trim();
+    if (!safe) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(safe)) return safe;
+    const match = safe.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return "";
+    const [, dd, mm, yyyy] = match;
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const resolveCurrentRevisionEmissionDate = () => {
+    const changes = Array.isArray(historicoData?.changes) ? historicoData.changes : [];
+    if (!changes.length) return "";
+    const sorted = [...changes].sort((a, b) => {
+      const analysisA = extractHistoricoNumericCode(a.analysis);
+      const analysisB = extractHistoricoNumericCode(b.analysis);
+      if (analysisA !== analysisB) return analysisA - analysisB;
+
+      const changeA = extractHistoricoNumericCode(a.change);
+      const changeB = extractHistoricoNumericCode(b.change);
+      if (changeA !== changeB) return changeA - changeB;
+
+      return String(a.id).localeCompare(String(b.id));
+    });
+    return toDateInputValue(String(sorted[sorted.length - 1]?.date || ""));
+  };
+
   const handleAnexoFiles = (anexoId: string, files: FileList | null) => {
     if (!files?.length) return;
     const allowed = [".pdf", ".png", ".jpeg", ".jpg"];
@@ -1330,6 +1367,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       allowed.some((ext) => file.name.toLowerCase().endsWith(ext))
     );
     if (!selectedFiles.length) return;
+    const currentRevisionDate = resolveCurrentRevisionEmissionDate();
 
     void Promise.all(
       selectedFiles.map(async (file) => {
@@ -1355,7 +1393,11 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         const uploadedFile: AnexoFile = {
           ...response.file,
           name: response.file.name,
-          date: response.file.date || response.file.uploadedAt?.slice(0, 10) || "",
+          date:
+            currentRevisionDate ||
+            response.file.date ||
+            response.file.uploadedAt?.slice(0, 10) ||
+            "",
         };
         setAnexos((prev) =>
           prev.map((anexo) =>

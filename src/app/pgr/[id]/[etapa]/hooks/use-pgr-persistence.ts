@@ -555,11 +555,15 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   useEffect(() => {
     setRiskGheGroups((prev: RiskGheGroup[]) => {
       const prevById = new Map(prev.map((group) => [group.id, group]));
-      const next = gheGroups.map((ghe) => ({
+      const nextFromDescricao = gheGroups.map((ghe) => ({
         id: ghe.id,
         name: ghe.name,
         risks: prevById.get(ghe.id)?.risks || [],
       }));
+      const preservedSpecialGroups = prev.filter(
+        (group) => String(group.id || "").startsWith("__")
+      );
+      const next = [...nextFromDescricao, ...preservedSpecialGroups];
       const unchanged =
         next.length === prev.length &&
         next.every(
