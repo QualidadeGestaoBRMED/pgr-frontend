@@ -199,7 +199,7 @@ function isArtAnnexItem(item: { titulo: string; arquivos: string[] }) {
 
 function formatAnl(value: unknown) {
   const parsed = Number.parseInt(String(value ?? "").replace(/\D+/g, ""), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return "01";
+  if (!Number.isFinite(parsed) || parsed < 0) return "00";
   return String(parsed).padStart(2, "0");
 }
 
@@ -214,7 +214,7 @@ function resolveAnlValue(payload: any, historico: any) {
   if (explicit) return formatAnl(explicit);
 
   const changes = Array.isArray(historico?.changes) ? historico.changes : [];
-  if (!changes.length) return "01";
+  if (!changes.length) return "00";
 
   const latest = changes[changes.length - 1] || {};
   const candidates = [
@@ -234,7 +234,7 @@ function resolveAnlValue(payload: any, historico: any) {
     if (fallback?.[1]) return formatAnl(fallback[1]);
   }
 
-  return formatAnl(changes.length + 1);
+  return "00";
 }
 
 function extractRevisionReason(historico: any) {
@@ -300,9 +300,12 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
         item.alteracao || item.motivo || item.data
     );
 
+  const responsavelElaboracaoNome =
+    sanitizeText(dados.responsavelPgrNome) || sanitizeText(inicio.responsible);
+  const responsavelElaboracaoFuncao = sanitizeText(dados.responsavelPgrFuncao);
   const responsavelElaboracao = [
-    sanitizeText(inicio.responsible),
-    sanitizeText(inicio.email),
+    responsavelElaboracaoNome,
+    responsavelElaboracaoFuncao,
   ]
     .filter(Boolean)
     .join(" - ") || "NÃO INFORMADO";

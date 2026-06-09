@@ -193,27 +193,27 @@ function buildDynamicTocLine(entry: TocEntry, layout?: LayoutContext): Content {
   const pageSize = layout?.pageSize ?? { width: 595.28, height: 841.89 };
   const pageMargins = layout?.pageMargins ?? [40, 96, 40, 36];
   const contentWidth = pageSize.width - pageMargins[0] - pageMargins[2];
+  const indentWidth = entry.indent ?? 0;
+  const availableWidth = Math.max(0, contentWidth - indentWidth);
   const numberColWidth = 20;
   const columnGap = 0;
   const rawLabel = String(entry.label ?? "");
-  const indentText = entry.indent ? " ".repeat(Math.max(1, Math.round(entry.indent / 3))) : "";
   const lines = rawLabel
     .split("\n")
     .map((line) => sanitizeText(line))
     .filter(Boolean);
 
   const prefixLines = lines.slice(0, -1).map((line) => ({
-    text: `${indentText}${line}`,
+    text: line,
     style: "tocLine",
-    margin: [0, 0, 0, 0],
+    margin: [indentWidth, 0, 0, 0],
     linkToDestination: entry.targetId,
   }));
 
   const lastLine = lines.at(-1) ?? "";
-  const finalLine = `${indentText}${lastLine}`;
-  const textWidth = Math.max(0, measure ? measure(finalLine) : finalLine.length * 5.2);
+  const textWidth = Math.max(0, measure ? measure(lastLine) : lastLine.length * 5.2);
   const dotWidth = Math.max(1, measure ? measure(".") : 2.2);
-  const dotsWidth = Math.max(0, contentWidth - numberColWidth - textWidth);
+  const dotsWidth = Math.max(0, availableWidth - numberColWidth - textWidth);
   const dotCount = Math.max(0, Math.floor(dotsWidth / dotWidth));
   const dotLeader = ".".repeat(dotCount);
 
@@ -224,7 +224,7 @@ function buildDynamicTocLine(entry: TocEntry, layout?: LayoutContext): Content {
         columns: [
           {
             width: textWidth || "auto",
-            text: finalLine,
+            text: lastLine,
             style: "tocLine",
             noWrap: true,
             linkToDestination: entry.targetId,
@@ -244,6 +244,7 @@ function buildDynamicTocLine(entry: TocEntry, layout?: LayoutContext): Content {
           },
         ],
         columnGap,
+        margin: [indentWidth, 0, 0, 0],
       },
     ],
     margin: [0, 0, 0, 3],
@@ -760,13 +761,13 @@ function buildSummaryPage(layout?: LayoutContext): Content[] {
     { label: "17 - Exames, Discussão do Plano de Ação e Considerações Finais", targetId: "sec_17" },
     { label: "18 - Assinatura", targetId: "sec_18" },
     { label: "19 - Índice de Anexos", targetId: "sec_19" },
-    { label: "ANEXO A:\nINVENTÁRIO DE RISCOS OCUPACIONAIS", targetId: "annex_a", indent: 16 },
+    { label: "ANEXO A: INVENTÁRIO DE RISCOS OCUPACIONAIS", targetId: "annex_a", indent: 16 },
     {
-      label: "ANEXO B:\nPLANO DE AÇÃO\n(MEDIDAS DE PREVENÇÃO INTRODUZIDAS E APRIMORADAS)",
+      label: "ANEXO B: PLANO DE AÇÃO (MEDIDAS DE PREVENÇÃO INTRODUZIDAS E APRIMORADAS)",
       targetId: "annex_b",
       indent: 16,
     },
-    { label: "ANEXO C:\nART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", targetId: "annex_c", indent: 16 },
+    { label: "ANEXO C: ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA", targetId: "annex_c", indent: 16 },
   ];
 
   return [
@@ -1454,21 +1455,20 @@ function buildAnnexAmbienteTable(
   pdfLayout?: PdfLayoutState,
 ): Content {
   const gheLabel = formatGheLabel(ghe.nome, index);
-  const ambienteRows =
-    ghe.funcoes.length > 0
-      ? ghe.funcoes.slice(0, 6).map((funcao) => [bodyCell(funcao.setor), bodyCell(truncateText(ghe.ambiente || funcao.descricaoAtividades, 220))])
-      : [[bodyCell("-"), bodyCell(truncateText(ghe.ambiente, 220))]];
+  const ambienteText = truncateText(ghe.ambiente, 220) || "-";
 
   return {
     table: {
       headerRows: 0,
-      widths: resolveRuntimeTableWidths(pdfLayout, "annex_ambiente", [130, 190]),
+      widths: resolveRuntimeTableWidths(pdfLayout, "annex_ambiente", [320]),
       body: [
-        [{ text: `${gheLabel} - Descrição do Ambiente`, style: "annexBarCell", colSpan: 2 }, {}],
-        [{ text: "Descrição sucinta do processo produtivo do GHE", style: "annexLeftHeaderCell" }, bodyCell(truncateText(ghe.processo, 220))],
-        [{ text: "Observações sobre o GHE", style: "annexLeftHeaderCell" }, bodyCell(truncateText(ghe.observacoes, 220))],
-        [{ text: "Setor", style: "annexHeaderCell" }, { text: "Descrição do Ambiente de Trabalho", style: "annexHeaderCell" }],
-        ...ambienteRows,
+        [{ text: `${gheLabel} - Descrição do Ambiente`, style: "annexBarCell" }],
+        [{ text: "Descrição sucinta do processo produtivo do GHE", style: "annexLeftHeaderCell" }],
+        [bodyCell(truncateText(ghe.processo, 220))],
+        [{ text: "Observações sobre o GHE", style: "annexLeftHeaderCell" }],
+        [bodyCell(truncateText(ghe.observacoes, 220))],
+        [{ text: "Descrição do Ambiente de Trabalho", style: "annexHeaderCell" }],
+        [bodyCell(ambienteText)],
       ],
     },
     layout: ANNEX_TABLE_LAYOUT,
@@ -1510,6 +1510,13 @@ function buildAnnexReconhecimentoTable(
   pdfLayout?: PdfLayoutState,
 ): Content {
   const gheLabel = formatGheLabel(ghe.nome, index);
+  const appendUnit = (value: string, unit: string) => {
+    const safeValue = textOrDash(value, 26);
+    const safeUnit = textOrDash(unit, 12);
+    if (!safeValue || safeValue === "-") return safeValue || "-";
+    if (!safeUnit || safeUnit === "-") return safeValue;
+    return `${safeValue} (${safeUnit})`;
+  };
   const rows =
     ghe.riscos.length > 0
       ? ghe.riscos.map((risk) => [
@@ -1522,13 +1529,15 @@ function buildAnnexReconhecimentoTable(
           bodyCell(joinOrDash(risk.epc, ", ", 36), "tableBodyCellCenter"),
           bodyCell(joinOrDash(risk.epi, ", ", 36), "tableBodyCellCenter"),
           bodyCell(textOrDash(risk.tipoAvaliacao, 25), "tableBodyCellCenter"),
-          bodyCell(textOrDash(risk.valorMedido || risk.intensidade, 26), "tableBodyCellCenter"),
-          bodyCell(textOrDash(risk.nivelAcao, 24), "tableBodyCellCenter"),
           bodyCell(
-            textOrDash(risk.limiteTolerancia || risk.intensidade, 26),
+            appendUnit(risk.valorMedido || risk.intensidade, risk.unidadeMedida),
             "tableBodyCellCenter",
           ),
-          bodyCell(textOrDash(risk.unidadeMedida, 24), "tableBodyCellCenter"),
+          bodyCell(textOrDash(risk.nivelAcao, 24), "tableBodyCellCenter"),
+          bodyCell(
+            appendUnit(risk.limiteTolerancia || risk.intensidade, risk.unidadeMedida),
+            "tableBodyCellCenter",
+          ),
           bodyCell(textOrDash(risk.severidade, 22), "tableBodyCellCenter"),
           bodyCell(textOrDash(risk.probabilidade, 24), "tableBodyCellCenter"),
           bodyCell(textOrDash(risk.classificacao, 24), "tableBodyCellCenter"),
@@ -1549,16 +1558,15 @@ function buildAnnexReconhecimentoTable(
           bodyCell("-", "tableBodyCellCenter"),
           bodyCell("-", "tableBodyCellCenter"),
           bodyCell("-", "tableBodyCellCenter"),
-          bodyCell("-", "tableBodyCellCenter"),
         ]];
 
   return {
     table: {
       widths: resolveRuntimeTableWidths(pdfLayout, "annex_reconhecimento", [
-        9, 16, 11, 15, 13, 16, 7, 5, 10, 11, 6, 10, 8, 6, 6, 9,
+        9, 16, 11, 15, 13, 16, 7, 5, 10, 13, 6, 13, 6, 6, 9,
       ]),
       body: [
-        [{ text: `${gheLabel} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 16 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
+        [{ text: `${gheLabel} - Reconhecimento dos Riscos Ocupacionais`, style: "annexBarCell", colSpan: 15 }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         [
           { text: "Análise dos Perigos", style: "annexHeaderCell", colSpan: 5, alignment: "center", valign: "middle" },
           {},
@@ -1574,8 +1582,7 @@ function buildAnnexReconhecimentoTable(
           },
           {},
           {},
-          { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 5, alignment: "center", valign: "middle" },
-          {},
+          { text: "Monitoramento das Exposições", style: "annexHeaderCell", colSpan: 4, alignment: "center", valign: "middle" },
           {},
           {},
           {},
@@ -1596,7 +1603,6 @@ function buildAnnexReconhecimentoTable(
           tealHeaderCell("Intensidade/Concentração"),
           tealHeaderCell("Nível de Ação"),
           tealHeaderCell("Limite de Tolerância"),
-          tealHeaderCell("Unidade de Medida"),
           tealVerticalHeaderCell("Severidade", {
             width: 34,
             height: 140,
