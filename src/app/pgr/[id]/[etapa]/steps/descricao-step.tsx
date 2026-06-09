@@ -948,12 +948,12 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto_auto] gap-4 text-[12px] font-semibold text-muted-foreground">
+                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.2fr)_96px_56px] gap-4 text-[12px] font-semibold text-muted-foreground">
                   <span />
-                  <span>Setor</span>
-                  <span>Função</span>
-                  <span>Descrição de atividades</span>
-                  <span>Nº de funcionários</span>
+                  <span className="min-w-0 whitespace-normal break-words">Setor</span>
+                  <span className="min-w-0 whitespace-normal break-words">Função</span>
+                  <span className="min-w-0 whitespace-normal break-words">Descrição de atividades</span>
+                  <span className="min-w-0 whitespace-normal break-words">Nº de funcionários</span>
                   <span />
                 </div>
                 <div className="mt-3 space-y-2">
@@ -977,7 +977,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           handleDragStartRight(event, item.functionId)
                         }
                         onDragEnd={handleDragLeave}
-                        className="grid cursor-grab grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto_auto] items-center gap-4 rounded-[10px] border border-border/60 px-3 py-3 text-[13px] text-foreground/80 transition hover:bg-muted/70"
+                        className="grid max-w-full cursor-grab grid-cols-[20px_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4 rounded-[10px] border border-border/60 px-3 py-3 text-[13px] text-foreground/80 transition hover:bg-muted/70"
                       >
                         <input
                           type="checkbox"
@@ -1002,7 +1002,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           />
                         ) : (
                           <span
-                            className="min-w-0 truncate font-semibold text-foreground"
+                            className="min-w-0 whitespace-normal break-words font-semibold text-foreground"
                             title={data.setor}
                           >
                             {data.setor}
@@ -1023,7 +1023,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           />
                         ) : (
                           <span
-                            className="min-w-0 truncate font-medium text-foreground/90"
+                            className="min-w-0 whitespace-normal break-words font-medium text-foreground/90"
                             title={data.funcao}
                           >
                             {data.funcao}
