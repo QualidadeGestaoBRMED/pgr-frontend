@@ -70,11 +70,10 @@ const optionalStringOrArrayField = () =>
   z.union([z.string(), z.array(z.string())]).optional();
 
 export const inicioDraftSchema = z.object({
-  documentTitle: requiredText("Título do documento"),
-  companyName: requiredText("Empresa"),
+  documentTitle: requiredText("Título do card"),
+  companyName: requiredText("Nome da empresa"),
   cnpj: cnpjField("CNPJ"),
-  responsible: requiredText("Responsável"),
-  email: emailField("E-mail"),
+  responsible: requiredText("Responsável pela execução do serviço (ST)"),
 });
 
 const contratanteSchema: z.ZodType<ContratanteDraft> = z.object({
@@ -101,7 +100,7 @@ export const dadosCadastraisSchema = z.object({
   empresaGrauRisco: riskGradeField("Grau de risco da empresa"),
   estabelecimentoNome: requiredText("Nome do estabelecimento"),
   estabelecimentoCnpj: optionalCnpjField("CNPJ do estabelecimento"),
-  estabelecimentoGrauRisco: riskGradeField("Grau de risco do estabelecimento"),
+  estabelecimentoGrauRisco: optionalRiskGradeField("Grau de risco do estabelecimento"),
   contratantes: z.array(contratanteSchema),
   responsavelPgrNome: requiredText("Nome do responsável PGR"),
   responsavelPgrFuncao: requiredText("Função do responsável PGR"),

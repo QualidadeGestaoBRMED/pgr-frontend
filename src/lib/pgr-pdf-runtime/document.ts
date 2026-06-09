@@ -203,8 +203,17 @@ function buildDynamicTocLine(entry: TocEntry, layout?: LayoutContext): Content {
     .map((line) => sanitizeText(line))
     .filter(Boolean);
 
+  const buildTocLabelText = (line: string) => {
+    const annexPrefixMatch = line.match(/^(ANEXO [A-Z]:)(\s*)(.*)$/);
+    if (!annexPrefixMatch) return line;
+    return [
+      { text: annexPrefixMatch[1], bold: true },
+      { text: `${annexPrefixMatch[2]}${annexPrefixMatch[3]}` },
+    ];
+  };
+
   const prefixLines = lines.slice(0, -1).map((line) => ({
-    text: line,
+    text: buildTocLabelText(line),
     style: "tocLine",
     margin: [indentWidth, 0, 0, 0],
     linkToDestination: entry.targetId,
@@ -224,7 +233,7 @@ function buildDynamicTocLine(entry: TocEntry, layout?: LayoutContext): Content {
         columns: [
           {
             width: textWidth || "auto",
-            text: lastLine,
+            text: buildTocLabelText(lastLine),
             style: "tocLine",
             noWrap: true,
             linkToDestination: entry.targetId,
@@ -756,11 +765,11 @@ function buildSummaryPage(layout?: LayoutContext): Content[] {
     { label: "13 - Etapas do Programa de Gerenciamento de Riscos", targetId: "sec_13" },
     { label: "14 - Caracterização de Perigos e Critérios de Avaliação", targetId: "sec_14" },
     { label: "15 - Gradação do Risco", targetId: "sec_15_grad" },
-    { label: "15 - Plano de Ação com Metas e Forma de Acompanhamento", targetId: "sec_15_plan" },
-    { label: "16 - Relação de Prestação de Serviços a Terceiros", targetId: "sec_16" },
-    { label: "17 - Exames, Discussão do Plano de Ação e Considerações Finais", targetId: "sec_17" },
-    { label: "18 - Assinatura", targetId: "sec_18" },
-    { label: "19 - Índice de Anexos", targetId: "sec_19" },
+    { label: "16 - Plano de Ação com Metas e Forma de Acompanhamento", targetId: "sec_15_plan" },
+    { label: "17 - Relação de Prestação de Serviços a Terceiros", targetId: "sec_16" },
+    { label: "18 - Exames, Discussão do Plano de Ação e Considerações Finais", targetId: "sec_17" },
+    { label: "19 - Assinatura", targetId: "sec_18" },
+    { label: "20 - Índice de Anexos", targetId: "sec_19" },
     { label: "ANEXO A: INVENTÁRIO DE RISCOS OCUPACIONAIS", targetId: "annex_a", indent: 16 },
     {
       label: "ANEXO B: PLANO DE AÇÃO (MEDIDAS DE PREVENÇÃO INTRODUZIDAS E APRIMORADAS)",
