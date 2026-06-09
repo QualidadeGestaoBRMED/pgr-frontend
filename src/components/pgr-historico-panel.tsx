@@ -81,7 +81,7 @@ export function PgrHistoricoPanel({
     const match = String(value || "").match(/(\d{1,4})/);
     if (!match) return null;
     const parsed = Number(match[1]);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   };
 
   const finalizedInfo =
@@ -120,8 +120,8 @@ export function PgrHistoricoPanel({
     if (!sortedChanges.length) return null;
     const last = sortedChanges[sortedChanges.length - 1];
     return {
-      analysis: extractNumber(last.analysis) ?? 1,
-      change: extractNumber(last.change) ?? 1,
+      analysis: extractNumber(last.analysis) ?? 0,
+      change: extractNumber(last.change) ?? 0,
     };
   }, [sortedChanges]);
 
@@ -133,8 +133,8 @@ export function PgrHistoricoPanel({
     const normalized = String(value || "").trim();
     if (statusOptions.includes(normalized)) return normalized;
 
-    const analysisNumber = extractNumber(analysisValue) ?? 1;
-    const changeNumber = extractNumber(changeValue) ?? 1;
+    const analysisNumber = extractNumber(analysisValue) ?? 0;
+    const changeNumber = extractNumber(changeValue) ?? 0;
     const isLatest =
       !!latestChangeKey &&
       analysisNumber === latestChangeKey.analysis &&
@@ -250,8 +250,8 @@ export function PgrHistoricoPanel({
           Registro de Alterações
         </h2>
         <div className="mt-4 overflow-x-auto overflow-y-visible">
-          <div className="min-w-[860px]">
-            <div className="grid grid-cols-[2.8fr_0.9fr_0.9fr_1.2fr_0.9fr_1fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
+          <div className="min-w-[980px]">
+            <div className="grid grid-cols-[2.5fr_0.85fr_0.85fr_1.9fr_1fr_1fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
               <span className="text-center">Empresa</span>
               <span className="text-center">Análise</span>
               <span className="text-center">Alteração</span>
@@ -263,7 +263,7 @@ export function PgrHistoricoPanel({
               {sortedChanges.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[2.8fr_0.9fr_0.9fr_1.2fr_0.9fr_1fr] gap-4 py-4 text-[13px] text-foreground"
+                  className="grid grid-cols-[2.5fr_0.85fr_0.85fr_1.9fr_1fr_1fr] gap-4 py-4 text-[13px] text-foreground"
                 >
                   <input
                     value={row.company}
@@ -290,7 +290,7 @@ export function PgrHistoricoPanel({
                     inputMode="numeric"
                     pattern="[0-9]*"
                     className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-center text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="01"
+                    placeholder="00"
                   />
                   <div className="relative" data-reason-multiselect>
                     {(() => {
@@ -308,7 +308,7 @@ export function PgrHistoricoPanel({
                         <>
                           <button
                             type="button"
-                            className="h-[38px] w-full rounded-[8px] border border-border bg-muted px-3 pr-8 text-center text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="min-h-[38px] w-full rounded-[8px] border border-border bg-muted px-3 py-2 pr-8 text-left text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                             onClick={() =>
                               setOpenReasonSelectRowId((prev) =>
                                 prev === row.id ? null : row.id
@@ -316,9 +316,9 @@ export function PgrHistoricoPanel({
                             }
                             title={selectedReasons.join("; ")}
                           >
-                            <span className="block truncate text-center">
+                            <span className="block whitespace-normal break-words pr-2">
                               {selectedReasons.length
-                                ? "Clique para visualizar"
+                                ? selectedReasons.join("; ")
                                 : "Selecione motivo"}
                             </span>
                             <ChevronDown
