@@ -778,7 +778,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-6">
+                <div className="mt-6 max-h-[32rem] space-y-6 overflow-y-auto pr-2">
                   <p className="text-[11px] text-muted-foreground">
                     Arraste uma ou várias funções selecionadas para o GHE.
                   </p>

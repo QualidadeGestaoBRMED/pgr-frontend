@@ -1911,87 +1911,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-4">
                           <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
-                              Unidade de Medida *
-                            </label>
-                            <div>
-                              <div className="relative" data-multiselect>
-                                <button
-                                  type="button"
-                                  className={`${selectSmallClass} flex items-center justify-between text-left`}
-                                  onClick={() =>
-                                    setOpenMultiSelect((prev) =>
-                                      prev?.riskId === risk.id &&
-                                      prev.field === "unidadeMedida"
-                                        ? null
-                                        : { riskId: risk.id, field: "unidadeMedida" }
-                                    )
-                                  }
-                                >
-                                  <span className="truncate">
-                                    {selectedMeasuredUnits.length
-                                      ? selectedMeasuredUnits.join(", ")
-                                      : "Selecione as unidades"}
-                                  </span>
-                                  <ChevronDown
-                                    className={`h-4 w-4 transition-transform ${
-                                      openMultiSelect?.riskId === risk.id &&
-                                      openMultiSelect.field === "unidadeMedida"
-                                        ? "rotate-180"
-                                        : "rotate-0"
-                                    }`}
-                                  />
-                                </button>
-                                {openMultiSelect?.riskId === risk.id &&
-                                openMultiSelect.field === "unidadeMedida" ? (
-                                  <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
-                                    <div className="relative mb-2">
-                                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                      <input
-                                        className={`${inputInlineClass} pl-8`}
-                                        value={multiSelectQuery}
-                                        onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                        placeholder="Filtrar unidade"
-                                      />
-                                    </div>
-                                    <div className="max-h-44 space-y-1 overflow-auto">
-                                      {filteredUnidadeMedidaOptions.length ? (
-                                        filteredUnidadeMedidaOptions.map((option) => {
-                                          const isChecked = selectedMeasuredUnits.includes(option);
-                                          return (
-                                            <label
-                                              key={`${risk.id}-unidade-${option}`}
-                                              className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={isChecked}
-                                                onChange={() => {
-                                                  markRiskTouched(risk.id, "unidadeMedida");
-                                                handleToggleRiskMultiSelect(
-                                                  risk.id,
-                                                  "unidadeMedida",
-                                                  option,
-                                                  unidadeMedidaOptions
-                                                );
-                                                }}
-                                              />
-                                              <span>{option}</span>
-                                            </label>
-                                          );
-                                        })
-                                      ) : (
-                                        <p className="px-2 py-1 text-[12px] text-muted-foreground">
-                                          Nenhuma unidade encontrada.
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                          <div className={formGroupClass}>
-                            <label className="text-[12px] font-medium text-foreground">
                               Tipo de Avaliação *
                             </label>
                             <div>
@@ -2054,6 +1973,87 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 handleRiskChange(risk.id, "nivelAcao", event.target.value);
                               }}
                             />
+                          </div>
+                          <div className={formGroupClass}>
+                            <label className="text-[12px] font-medium text-foreground">
+                              Unidade de Medida *
+                            </label>
+                            <div>
+                              <div className="relative" data-multiselect>
+                                <button
+                                  type="button"
+                                  className={`${selectSmallClass} flex items-center justify-between text-left`}
+                                  onClick={() =>
+                                    setOpenMultiSelect((prev) =>
+                                      prev?.riskId === risk.id &&
+                                      prev.field === "unidadeMedida"
+                                        ? null
+                                        : { riskId: risk.id, field: "unidadeMedida" }
+                                    )
+                                  }
+                                >
+                                  <span className="truncate">
+                                    {selectedMeasuredUnits.length
+                                      ? selectedMeasuredUnits.join(", ")
+                                      : "Selecione as unidades"}
+                                  </span>
+                                  <ChevronDown
+                                    className={`h-4 w-4 transition-transform ${
+                                      openMultiSelect?.riskId === risk.id &&
+                                      openMultiSelect.field === "unidadeMedida"
+                                        ? "rotate-180"
+                                        : "rotate-0"
+                                    }`}
+                                  />
+                                </button>
+                                {openMultiSelect?.riskId === risk.id &&
+                                openMultiSelect.field === "unidadeMedida" ? (
+                                  <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                                    <div className="relative mb-2">
+                                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                      <input
+                                        className={`${inputInlineClass} pl-8`}
+                                        value={multiSelectQuery}
+                                        onChange={(event) => setMultiSelectQuery(event.target.value)}
+                                        placeholder="Filtrar unidade"
+                                      />
+                                    </div>
+                                    <div className="max-h-44 space-y-1 overflow-auto">
+                                      {filteredUnidadeMedidaOptions.length ? (
+                                        filteredUnidadeMedidaOptions.map((option) => {
+                                          const isChecked = selectedMeasuredUnits.includes(option);
+                                          return (
+                                            <label
+                                              key={`${risk.id}-unidade-${option}`}
+                                              className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {
+                                                  markRiskTouched(risk.id, "unidadeMedida");
+                                                  handleToggleRiskMultiSelect(
+                                                    risk.id,
+                                                    "unidadeMedida",
+                                                    option,
+                                                    unidadeMedidaOptions
+                                                  );
+                                                }}
+                                              />
+                                              <span>{option}</span>
+                                            </label>
+                                          );
+                                        })
+                                      ) : (
+                                        <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                          Nenhuma unidade encontrada.
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-4">
