@@ -6,6 +6,46 @@ export function getApiBaseUrl() {
   return API_BASE_URL;
 }
 
+function isHtmlErrorPayload(value: string) {
+  const trimmed = value.trim().toLowerCase();
+  return (
+    trimmed.startsWith("<!doctype html") ||
+    trimmed.startsWith("<html") ||
+    trimmed.includes("<head") ||
+    trimmed.includes("<body")
+  );
+}
+
+function buildHttpErrorMessage(status: number) {
+  if (status >= 500) {
+    return `HTTP ${status} - servico indisponivel temporariamente`;
+  }
+  return `HTTP ${status}`;
+}
+
+function extractErrorMessage(rawText: string, status: number) {
+  if (!rawText.trim()) {
+    return buildHttpErrorMessage(status);
+  }
+
+  if (isHtmlErrorPayload(rawText)) {
+    return buildHttpErrorMessage(status);
+  }
+
+  try {
+    const parsed = JSON.parse(rawText) as {
+      message?: string;
+      code?: string;
+      request_id?: string;
+    };
+    const message = parsed.message || buildHttpErrorMessage(status);
+    const suffix = parsed.request_id ? ` (request_id: ${parsed.request_id})` : "";
+    return `${message}${suffix}`;
+  } catch {
+    return rawText;
+  }
+}
+
 function buildApiUrl(path: string) {
   const safePath = path.startsWith("/") ? path : `/${path}`;
   return API_BASE_URL ? `${API_BASE_URL}${safePath}` : safePath;
@@ -40,18 +80,7 @@ async function request<T>(
       }
     }
     const rawText = await response.text();
-    try {
-      const parsed = JSON.parse(rawText) as {
-        message?: string;
-        code?: string;
-        request_id?: string;
-      };
-      const message = parsed.message || `HTTP ${response.status}`;
-      const suffix = parsed.request_id ? ` (request_id: ${parsed.request_id})` : "";
-      throw new Error(`${message}${suffix}`);
-    } catch {
-      throw new Error(rawText || `HTTP ${response.status}`);
-    }
+    throw new Error(extractErrorMessage(rawText, response.status));
   }
 
   if (!expectJson) {
@@ -108,7 +137,7 @@ export async function apiBlob(path: string, body?: unknown) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `HTTP ${response.status}`);
+    throw new Error(extractErrorMessage(text, response.status));
   }
 
   return response.blob();
@@ -125,7 +154,7 @@ export async function apiBlobGet(path: string) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `HTTP ${response.status}`);
+    throw new Error(extractErrorMessage(text, response.status));
   }
 
   return response.blob();
