@@ -119,6 +119,7 @@ export function DadosStep({
     | "empresaCidade"
     | "empresaEstado"
     | "empresaGrauRisco"
+    | "estabelecimentoNome"
     | "estabelecimentoCnpj"
     | "estabelecimentoGrauRisco"
     | "responsavelPgrNome"
@@ -187,8 +188,11 @@ export function DadosStep({
         : isValidRiskGrade(dadosCadastrais.empresaGrauRisco)
           ? ""
           : "Grau de risco da empresa deve ser entre 1 e 4.",
+      estabelecimentoNome: dadosCadastrais.estabelecimentoNome.trim()
+        ? ""
+        : "Nome do estabelecimento é obrigatório.",
       estabelecimentoCnpj: !dadosCadastrais.estabelecimentoCnpj.trim()
-        ? "CNPJ do estabelecimento é obrigatório."
+        ? ""
         : isValidCnpj(dadosCadastrais.estabelecimentoCnpj)
           ? ""
           : "CNPJ do estabelecimento inválido.",

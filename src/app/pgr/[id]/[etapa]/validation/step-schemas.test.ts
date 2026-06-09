@@ -45,6 +45,7 @@ describe("step schemas", () => {
       empresaCidade: "Rio",
       empresaEstado: "RJ",
       empresaGrauRisco: "2",
+      estabelecimentoNome: "Unidade Centro",
       estabelecimentoCnpj: "33.000.167/0001-01",
       estabelecimentoGrauRisco: "3",
       contratantes: [
@@ -91,6 +92,7 @@ describe("step schemas", () => {
       empresaCidade: "Rio",
       empresaEstado: "RJ",
       empresaGrauRisco: "2",
+      estabelecimentoNome: "Unidade Centro",
       estabelecimentoCnpj: "33.000.167/0001-01",
       estabelecimentoGrauRisco: "3",
       contratantes: [],
