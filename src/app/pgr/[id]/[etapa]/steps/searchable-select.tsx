@@ -40,7 +40,8 @@ export function SearchableSelect({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const selectedLabel = options.find((opt) => opt.value === value)?.label ?? "";
+  const selectedLabel =
+    options.find((opt) => opt.value === value)?.label ?? String(value || "").trim();
   const filteredOptions = query
     ? options.filter((opt) =>
         normalizeText(opt.label).includes(normalizeText(query))
