@@ -344,6 +344,34 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
   }, [dataEmissaoBase, handlePlanRiskFieldChange, planTableRows, prazoAcaoByRowId]);
 
   useEffect(() => {
+    const defaultResponsible = String(defaultResponsibleActionName || "").trim();
+    if (!defaultResponsible) return;
+
+    planTableRows.forEach((row) => {
+      const hasExistingResponsible = Boolean(
+        String(responsavelAcaoByRowId[row.id] ?? row.responsavelAcao ?? "").trim()
+      );
+      if (hasExistingResponsible) return;
+
+      setResponsavelAcaoByRowId((prev) =>
+        prev[row.id] ? prev : { ...prev, [row.id]: defaultResponsible }
+      );
+      handlePlanRiskFieldChange(
+        row.gheId,
+        row.riskId,
+        "responsavelAcao",
+        defaultResponsible,
+        row.groupTargets
+      );
+    });
+  }, [
+    defaultResponsibleActionName,
+    handlePlanRiskFieldChange,
+    planTableRows,
+    responsavelAcaoByRowId,
+  ]);
+
+  useEffect(() => {
     if (!isPlanActionModalOpen) return;
     setTouchedPlanActionDescription(false);
     setTouchedPlanActionGheSelection(false);
@@ -456,17 +484,9 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
             <div className="mt-3 flex flex-wrap gap-2">
               {[
                 "NR-01",
-                "NR-06",
-                "NR-07",
-                "NR-09",
-                "NR-10",
-                "NR-12",
-                "NR-17",
                 "NR-18",
                 "NR-29",
                 "NR-30",
-                "NR-33",
-                "NR-35",
               ].map((nr) => (
                 <button
                   key={nr}
@@ -711,8 +731,9 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                         />
                       </td>
                       <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
-                        <input
-                          className={`${tableInputClass} min-w-[220px]`}
+                        <textarea
+                          rows={2}
+                          className={`${tableInputClass} min-w-[280px] min-h-[56px] resize-y whitespace-pre-wrap break-words py-2`}
                           value={
                             responsavelAcaoByRowId[row.id] ??
                             row.responsavelAcao ??
