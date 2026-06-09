@@ -6,8 +6,6 @@ export const renderInicioStep: StepRenderer = (ctx) => (
     inicioDraft={ctx.inicioDraft}
     isPipefySyncing={ctx.isPipefySyncing}
     inputBaseClass={ctx.inputBaseClass}
-    textareaBaseClass={ctx.textareaBaseClass}
-    onClearData={ctx.handleResetInicioData}
     onDraftChange={ctx.generalActions.handleInicioDraftChange}
   />
 );

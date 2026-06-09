@@ -197,7 +197,7 @@ export function DadosStep({
           ? ""
           : "CNPJ do estabelecimento inválido.",
       estabelecimentoGrauRisco: !dadosCadastrais.estabelecimentoGrauRisco.trim()
-        ? "Grau de risco do estabelecimento é obrigatório."
+        ? ""
         : isValidRiskGrade(dadosCadastrais.estabelecimentoGrauRisco)
           ? ""
           : "Grau de risco do estabelecimento deve ser entre 1 e 4.",
@@ -762,7 +762,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco *:
+              Grau de Risco:
             </label>
             <input
               className={getFieldClassName("empresaGrauRisco")}
@@ -810,7 +810,7 @@ export function DadosStep({
         <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1.2fr_1fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Nome do Estabelecimento:
+              Nome do Estabelecimento *:
             </label>
             <input
               className={inputBaseClass}
@@ -821,7 +821,7 @@ export function DadosStep({
             />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-foreground">CNPJ *:</label>
+            <label className="text-[12px] font-medium text-foreground">CNPJ:</label>
             <input
               className={getFieldClassName("estabelecimentoCnpj")}
               value={dadosCadastrais.estabelecimentoCnpj}
@@ -884,7 +884,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco *:
+              Grau de Risco:
             </label>
             <input
               className={getFieldClassName("estabelecimentoGrauRisco")}
@@ -1160,7 +1160,7 @@ export function DadosStep({
               <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Grau de Risco *:
+                    Grau de Risco:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "grauRisco")}
