@@ -37,10 +37,37 @@ function extractErrorMessage(rawText: string, status: number) {
       message?: string;
       code?: string;
       request_id?: string;
+      details?:
+        | {
+            errors?: Array<{
+              field?: string;
+              message?: string;
+            }>;
+          }
+        | Array<{
+            field?: string;
+            message?: string;
+          }>;
     };
     const message = parsed.message || buildHttpErrorMessage(status);
+    const detailErrors = Array.isArray(parsed.details)
+      ? parsed.details
+      : Array.isArray(parsed.details?.errors)
+        ? parsed.details.errors
+        : [];
+    const detailSuffix = detailErrors.length
+      ? ` ${detailErrors
+          .map((item) => {
+            const field = String(item?.field || "").trim();
+            const detailMessage = String(item?.message || "").trim();
+            if (field && detailMessage) return `${field}: ${detailMessage}`;
+            return field || detailMessage;
+          })
+          .filter(Boolean)
+          .join(" | ")}`
+      : "";
     const suffix = parsed.request_id ? ` (request_id: ${parsed.request_id})` : "";
-    return `${message}${suffix}`;
+    return `${message}${detailSuffix}${suffix}`;
   } catch {
     return rawText;
   }
