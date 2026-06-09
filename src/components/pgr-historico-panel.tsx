@@ -251,7 +251,7 @@ export function PgrHistoricoPanel({
         </h2>
         <div className="mt-4 overflow-x-auto overflow-y-visible">
           <div className="min-w-[980px]">
-            <div className="grid grid-cols-[2.5fr_0.85fr_0.85fr_1.9fr_1fr_1fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
+            <div className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
               <span className="text-center">Empresa</span>
               <span className="text-center">Análise</span>
               <span className="text-center">Alteração</span>
@@ -263,7 +263,7 @@ export function PgrHistoricoPanel({
               {sortedChanges.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[2.5fr_0.85fr_0.85fr_1.9fr_1fr_1fr] gap-4 py-4 text-[13px] text-foreground"
+                  className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr] gap-4 py-4 text-[13px] text-foreground"
                 >
                   <input
                     value={row.company}
