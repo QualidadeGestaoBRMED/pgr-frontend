@@ -252,7 +252,7 @@ export function DadosStep({
         cidade: contractor.cidade.trim() ? "" : "Cidade da contratante é obrigatória.",
         estado: contractor.estado.trim() ? "" : "Estado da contratante é obrigatório.",
         grauRisco: !contractor.grauRisco.trim()
-          ? "Grau de risco da contratante é obrigatório."
+          ? ""
           : isValidRiskGrade(contractor.grauRisco)
             ? ""
             : "Grau de risco da contratante deve ser entre 1 e 4.",
@@ -813,12 +813,18 @@ export function DadosStep({
               Nome do Estabelecimento *:
             </label>
             <input
-              className={inputBaseClass}
+              className={getFieldClassName("estabelecimentoNome")}
               value={dadosCadastrais.estabelecimentoNome}
               onChange={(event) =>
                 onDadosChange("estabelecimentoNome", event.target.value)
               }
+              onBlur={() => markTouched("estabelecimentoNome")}
             />
+            {errors.estabelecimentoNome ? (
+              <p className="mt-1 text-[12px] text-danger">
+                {errors.estabelecimentoNome}
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">CNPJ:</label>
