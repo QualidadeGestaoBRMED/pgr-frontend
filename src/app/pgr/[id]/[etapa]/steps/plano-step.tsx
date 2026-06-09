@@ -181,12 +181,12 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
     const versionMatch = normalized.match(/(?:versao|v)\s*0*(\d{1,4})/);
     if (versionMatch) {
       const parsed = Number(versionMatch[1]);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
     }
     const pureDigitsMatch = normalized.match(/^0*(\d{1,4})$/);
     if (pureDigitsMatch) {
       const parsed = Number(pureDigitsMatch[1]);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
     }
     return null;
   };
@@ -535,7 +535,9 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                       Tipo de Medidas de Prevenção
                     </th>
                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                      Medidas de Prevenção *
+                      <span className="block min-w-[220px] whitespace-normal leading-5">
+                        Medidas de Prevenção *
+                      </span>
                     </th>
                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
                       Prazo para Realização da Ação
@@ -555,7 +557,7 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {planTableRowsPage.map((row) => (
+                  {planTableRows.map((row) => (
                     <tr key={row.id} className="border-t border-border/60 align-middle">
                       <td className="px-4 py-3 text-foreground align-middle">{row.gheName}</td>
                       <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
@@ -610,14 +612,14 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                               <div className="relative" data-medidas-multiselect>
                                 <button
                                   type="button"
-                                  className={`${tableSelectClass} relative flex min-w-[260px] items-center pr-10 text-left`}
+                                  className={`${tableSelectClass} relative flex min-h-[72px] min-w-[320px] items-start pr-10 pt-3 text-left`}
                                   onClick={() =>
                                     setOpenMedidasMultiSelectRowId((prev) =>
                                       prev === row.id ? null : row.id
                                     )
                                   }
                                 >
-                                  <span className="block min-w-0 truncate">
+                                  <span className="block min-w-0 overflow-hidden pr-2 leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
                                       {selectedMedidas.length
                                         ? selectedMedidas.join(", ")
                                         : "Selecione medidas"}
@@ -824,41 +826,8 @@ export function PlanoStep({ ctx }: PlanoStepProps) {
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-muted-foreground">
-              <span>
-                Página {planTableCurrentPage} de {planTableTotalPages} ·{" "}
-                {planTableRows.length} registros
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPlanTablePage((prev) => Math.max(1, prev - 1))}
-                  disabled={planTableCurrentPage === 1}
-                  className={
-                    planTableCurrentPage === 1
-                      ? "btn-disabled px-3 py-1 text-[11px]"
-                      : "btn-outline px-3 py-1 text-[11px]"
-                  }
-                >
-                  Anterior
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPlanTablePage((prev) =>
-                      Math.min(planTableTotalPages, prev + 1)
-                    )
-                  }
-                  disabled={planTableCurrentPage === planTableTotalPages}
-                  className={
-                    planTableCurrentPage === planTableTotalPages
-                      ? "btn-disabled px-3 py-1 text-[11px]"
-                      : "btn-outline px-3 py-1 text-[11px]"
-                  }
-                >
-                  Próxima
-                </button>
-              </div>
+            <div className="text-[12px] text-muted-foreground">
+              {planTableRows.length} registros
             </div>
           </div>
         ) : (
