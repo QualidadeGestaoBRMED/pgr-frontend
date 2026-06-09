@@ -18,6 +18,9 @@ const isNaSelection = (value: string) => normalizeCatalogToken(value) === "na";
 const isGenericPropagationValue = (value: string) =>
   normalizeCatalogToken(value) === "agentequimico";
 
+const isChemicalAgentToken = (value: string) =>
+  normalizeCatalogToken(value) === "quimico";
+
 const getFirstCatalogValue = (map: Map<number, string[]>, agentId?: number) => {
   if (!agentId) return "";
   const values = map.get(agentId);
@@ -112,6 +115,12 @@ const resolveControlMeasureValues = (item: TechnicalCriteriaCatalogItem) =>
   uniqueValues([
     ...toValuesFromUnknown(item.controlMeasureDescriptionChildren),
     ...toValuesFromUnknown(item.control_measure_description_children),
+  ]);
+
+const resolveHealthDamageValues = (item: TechnicalCriteriaCatalogItem) =>
+  uniqueValues([
+    ...toValuesFromUnknown(item.healthDamageChildren),
+    ...toValuesFromUnknown(item.health_damage_children),
   ]);
 
 const resolveActionDescriptionValues = (item: TechnicalCriteriaCatalogItem) =>
@@ -276,6 +285,7 @@ type TechnicalCriteriaResolved = {
   hasQuantitative: boolean;
   severity: string;
   controlMeasureValues: string[];
+  healthDamageValues: string[];
   actionDescriptionValues: string[];
   ppeValues: string[];
   cpeValues: string[];
@@ -358,6 +368,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const propagationPathValues = resolvePropagationPathValues(item);
       const unitValues = resolveUnitValues(item);
       const controlMeasureValues = resolveControlMeasureValues(item);
+      const healthDamageValues = resolveHealthDamageValues(item);
       const actionDescriptionValues = resolveActionDescriptionValues(item);
       const ppeValues = resolvePpeValues(item);
       const cpeValues = resolveCpeValues(item);
@@ -383,6 +394,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         unitValues.join("|"),
         hasQuantitative ? "1" : "0",
         controlMeasureValues.join("|"),
+        healthDamageValues.join("|"),
         actionDescriptionValues.join("|"),
         ppeValues.join("|"),
         cpeValues.join("|"),
@@ -407,6 +419,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
               entry.unitValues.join("|"),
               entry.hasQuantitative ? "1" : "0",
               entry.controlMeasureValues.join("|"),
+              entry.healthDamageValues.join("|"),
               entry.actionDescriptionValues.join("|"),
               entry.ppeValues.join("|"),
               entry.cpeValues.join("|"),
@@ -435,6 +448,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           isCalculated,
           severity,
           controlMeasureValues,
+          healthDamageValues,
           actionDescriptionValues,
           ppeValues,
           cpeValues,
@@ -479,12 +493,6 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const normalized = normalizeAgentName(safeName);
       const normalizedMatch = riskAgentIdByNameNormalized.get(normalized);
       if (typeof normalizedMatch === "number") return normalizedMatch;
-
-      for (const [token, id] of riskAgentIdByNameNormalized.entries()) {
-        if (token.includes(normalized) || normalized.includes(token)) {
-          return id;
-        }
-      }
       return undefined;
     },
     [normalizeAgentName, riskAgentIdByNameExact, riskAgentIdByNameNormalized]
@@ -519,6 +527,19 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const controlMeasureDefaults = uniqueNonEmptyValues(
         technicalCriteriaDefaults.map((item) => item.controlMeasureValues).flat()
       );
+      const healthDamageDefaults = uniqueNonEmptyValues(
+        technicalCriteriaDefaults.map((item) => item.healthDamageValues).flat()
+      );
+      const healthDamageCatalogDefaults = !agentId
+        ? []
+        : uniqueNonEmptyValues(healthDamagesByAgent.get(agentId) || []);
+      const isChemicalAgent = isChemicalAgentToken(risk.tipoAgente);
+      const resolvedHealthDamages = healthDamageDefaults.length
+        ? healthDamageDefaults
+        : healthDamageCatalogDefaults;
+      const automaticHealthDamageValue = isChemicalAgent
+        ? resolvedHealthDamages.join(", ")
+        : (resolvedHealthDamages[0] || "");
       const ppeDefaults = uniqueNonEmptyValues(
         technicalCriteriaDefaults.map((item) => item.ppeValues).flat()
       );
@@ -543,12 +564,13 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
             ? ""
             : "3",
         classificacao: "",
+        danosSaude: automaticHealthDamageValue,
         medidasControle: controlMeasureDefaults.join(", "),
         epc: cpeDefaults.join(", "),
         epi: ppeDefaults.join(", "),
       };
     },
-    [propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
+    [healthDamagesByAgent, propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
   );
 
   const applyMissingRiskDefaults = useCallback(
@@ -577,6 +599,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           ? defaults.meioPropagacao || ""
           : normalizedRisk.meioPropagacao,
         fontes: normalizedRisk.fontes || defaults.fontes || "",
+        danosSaude: defaults.danosSaude || normalizedRisk.danosSaude || "",
         unidadeMedida: normalizedRisk.unidadeMedida || defaults.unidadeMedida || "",
         tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
         intensidade: normalizedRisk.intensidade || defaults.intensidade || "",
@@ -644,12 +667,18 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   );
 
   const getDanosSaudeOptions = useCallback(
-    (tipoAgente: string, currentValue: string) => {
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
+      const optionsFromCriteria = uniqueNonEmptyValues(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
+          (item) => item.healthDamageValues
+        ).flat()
+      );
       const agentId = resolveRiskAgentId(tipoAgente);
       const optionsFromCatalog = !agentId ? [] : healthDamagesByAgent.get(agentId) || [];
-      return withCurrentValue(optionsFromCatalog, currentValue);
+      const options = optionsFromCriteria.length ? optionsFromCriteria : optionsFromCatalog;
+      return withCurrentValue(options, currentValue);
     },
-    [healthDamagesByAgent, resolveRiskAgentId]
+    [healthDamagesByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions]
   );
 
   const getTipoAvaliacaoOptions = useCallback(

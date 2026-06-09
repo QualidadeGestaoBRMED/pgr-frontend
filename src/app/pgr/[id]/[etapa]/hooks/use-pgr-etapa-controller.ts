@@ -69,7 +69,7 @@ const extractHistoricoNumericCode = (value: string) => {
   const match = String(value || "").match(/(\d{1,4})/);
   if (!match) return Number.MAX_SAFE_INTEGER;
   const parsed = Number(match[1]);
-  if (!Number.isFinite(parsed) || parsed <= 0) return Number.MAX_SAFE_INTEGER;
+  if (!Number.isFinite(parsed) || parsed < 0) return Number.MAX_SAFE_INTEGER;
   return parsed;
 };
 
@@ -335,8 +335,8 @@ export function usePgrEtapaController({
           {
             id: `historico-v1-${Date.now()}`,
             company: companyFallback,
-            analysis: "01",
-            change: "01",
+            analysis: "00",
+            change: "00",
             reason: "Elaboração inicial",
             date: todayIso,
             status: state.workflow.isLocked ? "Documento finalizado" : "Em edição",

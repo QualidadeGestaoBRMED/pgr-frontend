@@ -108,11 +108,76 @@ const stripTrailingMeasuredUnits = (value: string, measuredUnits: string[]) =>
   );
 const MULTI_VALUE_SEPARATOR = "; ";
 
-const parseCommaSeparatedValues = (value: string | undefined | null) =>
-  String(value || "")
-    .split(/[,\n;]+/)
+const buildOptionLookup = (options: string[]) =>
+  new Map(
+    options
+      .map((option) => String(option || "").trim())
+      .filter(Boolean)
+      .map((option) => [normalizeText(option), option] as const)
+  );
+
+const tryParseLegacyCommaList = (
+  rawValue: string,
+  availableOptions: string[]
+) => {
+  const normalizedRaw = rawValue.trim();
+  if (!normalizedRaw.includes(",")) return null;
+
+  const optionLookup = buildOptionLookup(availableOptions);
+  if (!optionLookup.size) return null;
+
+  const directMatch = optionLookup.get(normalizeText(normalizedRaw));
+  if (directMatch) return [directMatch];
+
+  const chunks = normalizedRaw
+    .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+
+  if (chunks.length <= 1) return null;
+
+  const parsed: string[] = [];
+  let cursor = 0;
+  while (cursor < chunks.length) {
+    let matched: string | null = null;
+    let matchedSize = 0;
+
+    for (let size = chunks.length - cursor; size >= 1; size -= 1) {
+      const candidate = chunks.slice(cursor, cursor + size).join(", ").trim();
+      const optionMatch = optionLookup.get(normalizeText(candidate));
+      if (!optionMatch) continue;
+      matched = optionMatch;
+      matchedSize = size;
+      break;
+    }
+
+    if (!matched || matchedSize === 0) return null;
+    parsed.push(matched);
+    cursor += matchedSize;
+  }
+
+  return parsed.length ? parsed : null;
+};
+
+const parseCommaSeparatedValues = (
+  value: string | undefined | null,
+  availableOptions: string[] = []
+) => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return [];
+
+  if (/[;\n]/.test(rawValue)) {
+    return rawValue
+      .split(/[;\n]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const legacyParsed = tryParseLegacyCommaList(rawValue, availableOptions);
+  if (legacyParsed) return legacyParsed;
+
+  return [rawValue];
+};
 
 const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) => {
   const sanitizedValorMedido = stripTrailingMeasuredUnits(
@@ -172,7 +237,7 @@ const getRiskContentKey = (risk: GheRisk) =>
     normalizeMultiTextValue(risk.epc),
     normalizeMultiTextValue(risk.epi),
   ]
-    .map((value) => (value || "").trim().toLowerCase())
+    .map((value) => String(value || "").trim().toLowerCase())
     .join("||");
 
 const PROGRESSIVE_THRESHOLD = 50;
@@ -236,6 +301,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   >({});
   const [minimizedRiskIds, setMinimizedRiskIds] = useState<Record<string, boolean>>({});
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
+  const formGroupClass = "flex min-w-0 self-start flex-col gap-2";
+  const stackedInputClass = inputBaseClass.replace("mt-2 ", "");
 
   const isManyRiskGhes = riskGheGroups.length > 10;
   const normalizedRiskGheSearch = useMemo(
@@ -702,7 +769,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "epc",
     value: string
   ) => {
-    if (!currentRiskGhe) return;
     const withComputedClassification = (nextRisk: GheRisk) => {
       const isQuantitativeEvaluation = normalizeText(
         String(nextRisk.tipoAvaliacao || "")
@@ -763,7 +829,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     };
     setRiskGheGroups((prev: RiskGheGroup[]) =>
       prev.map((ghe) =>
-        ghe.id === currentRiskGhe.id
+        ghe.risks.some((risk) => risk.id === riskId)
           ? {
               ...ghe,
               risks: ghe.risks.map((risk) =>
@@ -792,7 +858,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           epc: "",
                           epi: "",
                         };
-                        return withComputedClassification(nextRisk);
+                        return withComputedClassification({
+                          ...nextRisk,
+                          tipoAgente: value,
+                        });
                       }
 
                       if (field !== "descricaoAgente") {
@@ -876,13 +945,21 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       };
 
                       if (!nextRisk.tipoAgente || !nextRisk.descricaoAgente) {
-                        return withComputedClassification(nextRisk);
+                        return withComputedClassification({
+                          ...nextRisk,
+                          tipoAgente: nextRisk.tipoAgente,
+                          descricaoAgente: nextRisk.descricaoAgente,
+                        });
                       }
 
                       const defaultedRisk = applyMissingRiskDefaults(nextRisk);
                       return withComputedClassification(
                         sanitizeRiskMeasurementFields(
-                          defaultedRisk,
+                          {
+                            ...defaultedRisk,
+                            tipoAgente: nextRisk.tipoAgente,
+                            descricaoAgente: nextRisk.descricaoAgente,
+                          },
                           parseCommaSeparatedValues(defaultedRisk.unidadeMedida)
                         )
                       );
@@ -908,21 +985,21 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "epi"
       | "medidasControle"
       | "normas",
-    option: string
+    option: string,
+    availableOptions: string[] = []
   ) => {
-    if (!currentRiskGhe) return;
     const safeOption = option.trim();
     if (!safeOption) return;
 
     pushHistory();
     setRiskGheGroups((prev: RiskGheGroup[]) =>
       prev.map((ghe) => {
-        if (ghe.id !== currentRiskGhe.id) return ghe;
+        if (!ghe.risks.some((risk) => risk.id === riskId)) return ghe;
         return {
           ...ghe,
           risks: ghe.risks.map((risk) => {
             if (risk.id !== riskId) return risk;
-            const current = parseMultiTextValues(risk[field]);
+            const current = parseMultiTextValues(risk[field], availableOptions);
             const next = current.includes(safeOption)
               ? current.filter((item) => item !== safeOption)
               : [...current, safeOption];
@@ -940,6 +1017,82 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     );
   };
 
+  const cloneRiskForAssignment = (risk: GheRisk): GheRisk => {
+    const meioPropagacaoOptions = getMeioPropagacaoOptions(
+      risk.tipoAgente,
+      risk.descricaoAgente,
+      ""
+    );
+    const fontesOptions = getFontesOptions(
+      risk.tipoAgente,
+      risk.descricaoAgente,
+      ""
+    );
+    const danosSaudeOptions = getDanosSaudeOptions(
+      risk.tipoAgente,
+      risk.descricaoAgente,
+      ""
+    );
+    const unidadeMedidaOptions = getUnidadeMedidaOptions(
+      risk.tipoAgente,
+      risk.descricaoAgente,
+      ""
+    );
+    const medidasControleOptions = getMedidasControleOptions(
+      risk.tipoAgente,
+      risk.descricaoAgente,
+      ""
+    );
+    const normasOptions = getNormasOptions(
+      risk.tipoAgente,
+      risk.descricaoAgente,
+      ""
+    );
+    const epcOptions = getEpcOptions(risk.tipoAgente, risk.descricaoAgente, "");
+    const epiOptions = getEpiOptions(risk.tipoAgente, risk.descricaoAgente, "");
+
+    const clonedRisk: GheRisk = {
+      ...risk,
+      id: createRiskId(),
+      meioPropagacao: parseMultiTextValues(
+        risk.meioPropagacao,
+        meioPropagacaoOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+      fontes: parseMultiTextValues(risk.fontes, fontesOptions).join(
+        MULTI_VALUE_SEPARATOR
+      ),
+      danosSaude: parseMultiTextValues(
+        String(risk.danosSaude || ""),
+        danosSaudeOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+      unidadeMedida: parseMultiTextValues(
+        String(risk.unidadeMedida || ""),
+        unidadeMedidaOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+      medidasControle: parseMultiTextValues(
+        risk.medidasControle,
+        medidasControleOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+      normas: parseMultiTextValues(
+        String(risk.normas || ""),
+        normasOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+      epc: parseMultiTextValues(
+        normalizeMultiTextValue(risk.epc),
+        epcOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+      epi: parseMultiTextValues(
+        normalizeMultiTextValue(risk.epi),
+        epiOptions
+      ).join(MULTI_VALUE_SEPARATOR),
+    };
+
+    return sanitizeRiskMeasurementFields(
+      clonedRisk,
+      parseMultiTextValues(clonedRisk.unidadeMedida || "", unidadeMedidaOptions)
+    );
+  };
+
   const filterOptionsByQuery = (options: string[]) => {
     const term = normalizeText(multiSelectQuery.trim());
     if (!term) return options;
@@ -951,14 +1104,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     const source = riskGheGroups.find((ghe: RiskGheGroup) => ghe.id === sourceGheId);
     if (!source || !source.risks.length) return;
     pushHistory();
-    const clonedRisks = source.risks.map((risk: GheRisk) => ({
-      ...risk,
-      medidasControle: risk.medidasControle ?? "",
-      normas: risk.normas ?? "",
-      epc: normalizeMultiTextValue(risk.epc),
-      epi: normalizeMultiTextValue(risk.epi),
-      id: createRiskId(),
-    }));
+    const clonedRisks = source.risks.map((risk: GheRisk) => cloneRiskForAssignment(risk));
     setRiskGheGroups((prev: RiskGheGroup[]) =>
       prev.map((ghe) =>
         ghe.id === currentRiskGhe.id ? { ...ghe, risks: clonedRisks } : ghe
@@ -1147,10 +1293,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           ...ghe,
           risks: [
             ...ghe.risks,
-            {
-              ...sourceRisk,
-              id: createRiskId(),
-            },
+            cloneRiskForAssignment(sourceRisk),
           ],
         };
       })
@@ -1176,7 +1319,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.tipoAgente,
               risk.descricaoAgente
             );
-            const selectedMeasuredUnits = parseMultiTextValues(risk.unidadeMedida || "");
+            const selectedMeasuredUnits = parseMultiTextValues(
+              risk.unidadeMedida || "",
+              getUnidadeMedidaOptions(risk.tipoAgente, risk.descricaoAgente, "")
+            );
             const measuredUnit = selectedMeasuredUnits[0] || "";
             const measuredUnitPlaceholder =
               measuredUnit && !isNaValue(measuredUnit)
@@ -1216,10 +1362,20 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   risk.descricaoAgente,
                   ""
                 ),
-                ...parseMultiTextValues(risk.meioPropagacao),
+                ...parseMultiTextValues(
+                  risk.meioPropagacao,
+                  getMeioPropagacaoOptions(
+                    risk.tipoAgente,
+                    risk.descricaoAgente,
+                    ""
+                  )
+                ),
               ])
             );
-            const selectedMeios = parseMultiTextValues(risk.meioPropagacao);
+            const selectedMeios = parseMultiTextValues(
+              risk.meioPropagacao,
+              meioPropagacaoOptions
+            );
             const filteredMeioPropagacaoOptions = filterOptionsByQuery(meioPropagacaoOptions);
             const customMeioPropagacaoValue = multiSelectQuery.trim();
             const canAddCustomMeioPropagacao =
@@ -1231,7 +1387,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.descricaoAgente,
               ""
             );
-            const selectedFontes = parseMultiTextValues(risk.fontes);
+            const selectedFontes = parseMultiTextValues(risk.fontes, fontesOptions);
             const filteredFontesOptions = filterOptionsByQuery(fontesOptions);
             const customFonteValue = multiSelectQuery.trim();
             const canAddCustomFonte =
@@ -1240,17 +1396,25 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               !hasOptionInsensitive(selectedFontes, customFonteValue);
             const danosSaudeOptions = Array.from(
               new Set([
-                ...getDanosSaudeOptions(risk.tipoAgente, ""),
-                ...parseMultiTextValues(String(risk.danosSaude || "")),
+                ...getDanosSaudeOptions(
+                  risk.tipoAgente,
+                  risk.descricaoAgente,
+                  ""
+                ),
+                ...parseMultiTextValues(
+                  String(risk.danosSaude || ""),
+                  getDanosSaudeOptions(
+                    risk.tipoAgente,
+                    risk.descricaoAgente,
+                    ""
+                  )
+                ),
               ])
             );
-            const selectedDanosSaude = parseMultiTextValues(String(risk.danosSaude || ""));
-            const filteredDanosSaudeOptions = filterOptionsByQuery(danosSaudeOptions);
-            const customDanosSaudeValue = multiSelectQuery.trim();
-            const canAddCustomDanosSaude =
-              !!customDanosSaudeValue &&
-              !hasOptionInsensitive(danosSaudeOptions, customDanosSaudeValue) &&
-              !hasOptionInsensitive(selectedDanosSaude, customDanosSaudeValue);
+            const selectedDanosSaude = parseMultiTextValues(
+              String(risk.danosSaude || ""),
+              danosSaudeOptions
+            );
             const medidasControleOptions = Array.from(
               new Set([
                 ...getMedidasControleOptions(
@@ -1258,10 +1422,20 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   risk.descricaoAgente,
                   ""
                 ),
-                ...parseMultiTextValues(risk.medidasControle),
+                ...parseMultiTextValues(
+                  risk.medidasControle,
+                  getMedidasControleOptions(
+                    risk.tipoAgente,
+                    risk.descricaoAgente,
+                    ""
+                  )
+                ),
               ])
             );
-            const selectedMedidasControle = parseMultiTextValues(risk.medidasControle);
+            const selectedMedidasControle = parseMultiTextValues(
+              risk.medidasControle,
+              medidasControleOptions
+            );
             const filteredMedidasControleOptions = filterOptionsByQuery(
               medidasControleOptions
             );
@@ -1270,30 +1444,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               !!customMedidaValue &&
               !hasOptionInsensitive(medidasControleOptions, customMedidaValue) &&
               !hasOptionInsensitive(selectedMedidasControle, customMedidaValue);
-            const normasOptions = Array.from(
-              new Set([
-                ...getNormasOptions(
-                  risk.tipoAgente,
-                  risk.descricaoAgente,
-                  ""
-                ),
-                ...parseMultiTextValues(risk.normas),
-              ])
-            );
-            const selectedNormas = parseMultiTextValues(risk.normas);
-            const filteredNormasOptions = filterOptionsByQuery(normasOptions);
-            const customNormaValue = multiSelectQuery.trim();
-            const canAddCustomNorma =
-              !!customNormaValue &&
-              !hasOptionInsensitive(normasOptions, customNormaValue) &&
-              !hasOptionInsensitive(selectedNormas, customNormaValue);
             const epcOptions = Array.from(
               new Set([
                 ...getEpcOptions(risk.tipoAgente, risk.descricaoAgente, ""),
-                ...parseMultiTextValues(normalizeMultiTextValue(risk.epc)),
+                ...parseMultiTextValues(
+                  normalizeMultiTextValue(risk.epc),
+                  getEpcOptions(risk.tipoAgente, risk.descricaoAgente, "")
+                ),
               ])
             );
-            const selectedEpc = parseMultiTextValues(normalizeMultiTextValue(risk.epc));
+            const selectedEpc = parseMultiTextValues(
+              normalizeMultiTextValue(risk.epc),
+              epcOptions
+            );
             const filteredEpcOptions = filterOptionsByQuery(epcOptions);
             const customEpcValue = multiSelectQuery.trim();
             const canAddCustomEpc =
@@ -1303,10 +1466,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const epiOptions = Array.from(
               new Set([
                 ...getEpiOptions(risk.tipoAgente, risk.descricaoAgente, ""),
-                ...parseMultiTextValues(normalizeMultiTextValue(risk.epi)),
+                ...parseMultiTextValues(
+                  normalizeMultiTextValue(risk.epi),
+                  getEpiOptions(risk.tipoAgente, risk.descricaoAgente, "")
+                ),
               ])
             );
-            const selectedEpi = parseMultiTextValues(normalizeMultiTextValue(risk.epi));
+            const selectedEpi = parseMultiTextValues(
+              normalizeMultiTextValue(risk.epi),
+              epiOptions
+            );
             const filteredEpiOptions = filterOptionsByQuery(epiOptions);
             const customEpiValue = multiSelectQuery.trim();
             const canAddCustomEpi =
@@ -1466,12 +1635,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         ) : null}
                       </div>
                     </div>
-                    <div className="mt-4 grid gap-4 md:grid-cols-4">
-                      <div>
+                    <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
+                      <div className={formGroupClass}>
                         <label className="text-[12px] font-medium text-foreground">
                           Meio de Propagação *
                         </label>
-                        <div className="mt-2">
+                        <div>
                           <div className="relative" data-multiselect>
                             <button
                               type="button"
@@ -1519,7 +1688,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                       handleToggleRiskMultiSelect(
                                         risk.id,
                                         "meioPropagacao",
-                                        customMeioPropagacaoValue
+                                        customMeioPropagacaoValue,
+                                        meioPropagacaoOptions
                                       );
                                       setMultiSelectQuery("");
                                     }}
@@ -1536,7 +1706,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                         handleToggleRiskMultiSelect(
                                           risk.id,
                                           "meioPropagacao",
-                                          customMeioPropagacaoValue
+                                          customMeioPropagacaoValue,
+                                          meioPropagacaoOptions
                                         );
                                         setMultiSelectQuery("");
                                       }}
@@ -1570,7 +1741,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                               handleToggleRiskMultiSelect(
                                                 risk.id,
                                                 "meioPropagacao",
-                                                option
+                                                option,
+                                                meioPropagacaoOptions
                                               );
                                             }}
                                           />
@@ -1594,11 +1766,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </p>
                         ) : null}
                       </div>
-                      <div>
+                      <div className={formGroupClass}>
                         <label className="text-[12px] font-medium text-foreground">
                           Fontes/Circunstâncias *
                         </label>
-                        <div className="relative mt-2" data-multiselect>
+                        <div className="relative" data-multiselect>
                           <button
                             type="button"
                             className={getRiskFieldClassName(
@@ -1644,7 +1816,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     handleToggleRiskMultiSelect(
                                       risk.id,
                                       "fontes",
-                                      customFonteValue
+                                      customFonteValue,
+                                      fontesOptions
                                     );
                                     setMultiSelectQuery("");
                                   }}
@@ -1661,7 +1834,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                       handleToggleRiskMultiSelect(
                                         risk.id,
                                         "fontes",
-                                        customFonteValue
+                                        customFonteValue,
+                                        fontesOptions
                                       );
                                       setMultiSelectQuery("");
                                     }}
@@ -1695,7 +1869,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                             handleToggleRiskMultiSelect(
                                               risk.id,
                                               "fontes",
-                                              option
+                                              option,
+                                              fontesOptions
                                             );
                                           }}
                                         />
@@ -1718,240 +1893,27 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </p>
                         ) : null}
                       </div>
-                      <div>
+                      <div className={formGroupClass}>
                         <label className="text-[12px] font-medium text-foreground">
                           Possiveis Agravos
                         </label>
-                        <div className="relative mt-2" data-multiselect>
-                          <button
-                            type="button"
-                            className={`${selectSmallClass} flex items-center justify-between text-left`}
-                            onClick={() =>
-                              setOpenMultiSelect((prev) =>
-                                prev?.riskId === risk.id && prev.field === "danosSaude"
-                                  ? null
-                                  : { riskId: risk.id, field: "danosSaude" }
-                              )
-                            }
-                          >
-                            <span className="truncate">
-                              {selectedDanosSaude.length
-                                ? selectedDanosSaude.join(", ")
-                                : "Selecione os agravos"}
-                            </span>
-                            <ChevronDown
-                              className={`h-4 w-4 transition-transform ${
-                                openMultiSelect?.riskId === risk.id &&
-                                openMultiSelect.field === "danosSaude"
-                                  ? "rotate-180"
-                                  : "rotate-0"
-                              }`}
-                            />
-                          </button>
-                          {openMultiSelect?.riskId === risk.id &&
-                          openMultiSelect.field === "danosSaude" ? (
-                            <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
-                              <div className="relative mb-2">
-                                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                  className={`${inputInlineClass} pl-8`}
-                                  value={multiSelectQuery}
-                                  onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                  onKeyDown={(event) => {
-                                    if (!canAddCustomDanosSaude || event.key !== "Enter") return;
-                                    event.preventDefault();
-                                    handleToggleRiskMultiSelect(
-                                      risk.id,
-                                      "danosSaude",
-                                      customDanosSaudeValue
-                                    );
-                                    setMultiSelectQuery("");
-                                  }}
-                                  placeholder="Filtrar ou adicionar agravo"
-                                />
-                              </div>
-                              {customDanosSaudeValue ? (
-                                canAddCustomDanosSaude ? (
-                                  <button
-                                    type="button"
-                                    className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
-                                    onClick={() => {
-                                      handleToggleRiskMultiSelect(
-                                        risk.id,
-                                        "danosSaude",
-                                        customDanosSaudeValue
-                                      );
-                                      setMultiSelectQuery("");
-                                    }}
-                                  >
-                                    {`Adicionar "${customDanosSaudeValue}"`}
-                                  </button>
-                                ) : (
-                                  <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
-                                    Este agravo já existe na lista.
-                                  </p>
-                                )
-                              ) : (
-                                <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
-                                  Digite para adicionar um novo agravo.
-                                </p>
-                              )}
-                              <div className="max-h-44 space-y-1 overflow-auto">
-                                {filteredDanosSaudeOptions.length ? (
-                                  filteredDanosSaudeOptions.map((option) => {
-                                    const isChecked = selectedDanosSaude.includes(option);
-                                    return (
-                                      <label
-                                        key={`${risk.id}-danos-saude-${option}`}
-                                        className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          onChange={() => {
-                                            handleToggleRiskMultiSelect(
-                                              risk.id,
-                                              "danosSaude",
-                                              option
-                                            );
-                                          }}
-                                        />
-                                        <span>{option}</span>
-                                      </label>
-                                    );
-                                  })
-                                ) : (
-                                  <p className="px-2 py-1 text-[12px] text-muted-foreground">
-                                    Nenhum agravo encontrado.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ) : null}
+                        <div
+                          className={`${selectSmallClass.replace("h-[38px] ", "")} min-h-[40px] whitespace-normal break-words bg-muted/40 py-2 text-muted-foreground leading-5`}
+                        >
+                          {selectedDanosSaude.length
+                            ? selectedDanosSaude.join(", ")
+                            : "Preenchido automaticamente pela base de dados"}
                         </div>
                       </div>
-                      <div>
-                        <label className="text-[12px] font-medium text-foreground">
-                          Normas
-                        </label>
-                        <div className="relative mt-2" data-multiselect>
-                          <button
-                            type="button"
-                            className={`${selectSmallClass} flex items-center justify-between text-left`}
-                            onClick={() =>
-                              setOpenMultiSelect((prev) =>
-                                prev?.riskId === risk.id && prev.field === "normas"
-                                  ? null
-                                  : { riskId: risk.id, field: "normas" }
-                              )
-                            }
-                          >
-                            <span className="truncate">
-                              {selectedNormas.length
-                                ? selectedNormas.join(", ")
-                                : "Selecione as normas"}
-                            </span>
-                            <ChevronDown
-                              className={`h-4 w-4 transition-transform ${
-                                openMultiSelect?.riskId === risk.id &&
-                                openMultiSelect.field === "normas"
-                                  ? "rotate-180"
-                                  : "rotate-0"
-                              }`}
-                            />
-                          </button>
-                          {openMultiSelect?.riskId === risk.id &&
-                          openMultiSelect.field === "normas" ? (
-                            <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
-                              <div className="relative mb-2">
-                                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                  className={`${inputInlineClass} pl-8`}
-                                  value={multiSelectQuery}
-                                  onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                  onKeyDown={(event) => {
-                                    if (!canAddCustomNorma || event.key !== "Enter") return;
-                                    event.preventDefault();
-                                    handleToggleRiskMultiSelect(
-                                      risk.id,
-                                      "normas",
-                                      customNormaValue
-                                    );
-                                    setMultiSelectQuery("");
-                                  }}
-                                  placeholder="Filtrar ou adicionar norma"
-                                />
-                              </div>
-                              {customNormaValue ? (
-                                canAddCustomNorma ? (
-                                  <button
-                                    type="button"
-                                    className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
-                                    onClick={() => {
-                                      handleToggleRiskMultiSelect(
-                                        risk.id,
-                                        "normas",
-                                        customNormaValue
-                                      );
-                                      setMultiSelectQuery("");
-                                    }}
-                                  >
-                                    {`Adicionar "${customNormaValue}"`}
-                                  </button>
-                                ) : (
-                                  <p className="mb-2 rounded-[6px] border border-border/70 bg-muted/50 px-2 py-1 text-[12px] text-muted-foreground">
-                                    Esta norma já existe na lista.
-                                  </p>
-                                )
-                              ) : (
-                                <p className="mb-2 rounded-[6px] border border-dashed border-border/70 bg-muted/30 px-2 py-1 text-[12px] text-muted-foreground">
-                                  Digite para adicionar uma nova norma.
-                                </p>
-                              )}
-                              <div className="max-h-44 space-y-1 overflow-auto">
-                                {filteredNormasOptions.length ? (
-                                  filteredNormasOptions.map((option) => {
-                                    const isChecked = selectedNormas.includes(option);
-                                    return (
-                                      <label
-                                        key={`${risk.id}-normas-${option}`}
-                                        className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          onChange={() => {
-                                            handleToggleRiskMultiSelect(
-                                              risk.id,
-                                              "normas",
-                                              option
-                                            );
-                                          }}
-                                        />
-                                        <span>{option}</span>
-                                      </label>
-                                    );
-                                  })
-                                ) : (
-                                  <p className="px-2 py-1 text-[12px] text-muted-foreground">
-                                    Nenhuma norma encontrada.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-
                     </div>
                     {hasQuantitativeCriteria ? (
                       <>
-                        <div className="mt-4 grid gap-4 md:grid-cols-4">
-                          <div>
+                        <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-4">
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Unidade de Medida *
                             </label>
-                            <div className="mt-2">
+                            <div>
                               <div className="relative" data-multiselect>
                                 <button
                                   type="button"
@@ -2005,11 +1967,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                                 checked={isChecked}
                                                 onChange={() => {
                                                   markRiskTouched(risk.id, "unidadeMedida");
-                                                  handleToggleRiskMultiSelect(
-                                                    risk.id,
-                                                    "unidadeMedida",
-                                                    option
-                                                  );
+                                                handleToggleRiskMultiSelect(
+                                                  risk.id,
+                                                  "unidadeMedida",
+                                                  option,
+                                                  unidadeMedidaOptions
+                                                );
                                                 }}
                                               />
                                               <span>{option}</span>
@@ -2027,11 +1990,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               </div>
                             </div>
                           </div>
-                          <div>
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Tipo de Avaliação *
                             </label>
-                            <div className="mt-2">
+                            <div>
                               <SearchableSelect
                                 value={risk.tipoAvaliacao}
                                 onChange={(value) => {
@@ -2056,7 +2019,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               </p>
                             ) : null}
                           </div>
-                          <div>
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Limite de Tolerância *
                             </label>
@@ -2064,7 +2027,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               className={getRiskFieldClassName(
                                 risk.id,
                                 "intensidade",
-                                inputBaseClass
+                                stackedInputClass
                               )}
                               value={sanitizedIntensidade}
                               placeholder={measuredUnitPlaceholder}
@@ -2079,12 +2042,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               </p>
                             ) : null}
                           </div>
-                          <div>
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Nível de Ação *
                             </label>
                             <input
-                              className={inputBaseClass}
+                              className={stackedInputClass}
                               value={sanitizedNivelAcao}
                               placeholder={measuredUnitPlaceholder}
                               onChange={(event) => {
@@ -2093,14 +2056,14 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             />
                           </div>
                         </div>
-                        <div className="mt-4 grid gap-4 md:grid-cols-4">
-                          <div>
+                        <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-4">
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Valor Medido *
                             </label>
                             {isQualitativeEvaluation ? (
                               <input
-                                className={inputBaseClass}
+                                className={stackedInputClass}
                                 value={qualitativeMeasuredValueLabel}
                                 disabled
                               />
@@ -2109,7 +2072,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 className={getRiskFieldClassName(
                                   risk.id,
                                   "valorMedido",
-                                  inputBaseClass
+                                  stackedInputClass
                                 )}
                                 value={numericValorMedido}
                                 placeholder={
@@ -2161,7 +2124,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               </p>
                             ) : null}
                           </div>
-                          <div>
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Severidade *
                             </label>
@@ -2169,7 +2132,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               className={getRiskFieldClassName(
                                 risk.id,
                                 "severidade",
-                                inputBaseClass
+                                stackedInputClass
                               )}
                               value={risk.severidade}
                               disabled
@@ -2180,7 +2143,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               </p>
                             ) : null}
                           </div>
-                          <div>
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Probabilidade *
                             </label>
@@ -2189,14 +2152,14 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 className={getRiskFieldClassName(
                                   risk.id,
                                   "probabilidade",
-                                  inputBaseClass
+                                  stackedInputClass
                                 )}
                                 value={risk.probabilidade}
                                 placeholder="Nível calculado"
                                 disabled
                               />
                             ) : (
-                              <div className="mt-2">
+                              <div>
                                 <SearchableSelect
                                   value={risk.probabilidade}
                                   onChange={(value) => {
@@ -2224,7 +2187,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               </p>
                             ) : null}
                           </div>
-                          <div>
+                          <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
                               Classificação de Risco *
                             </label>
@@ -2232,7 +2195,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               className={getRiskFieldClassName(
                                 risk.id,
                                 "classificacao",
-                                inputBaseClass
+                                stackedInputClass
                               )}
                               value={risk.classificacao}
                               onChange={(event) =>
@@ -2249,8 +2212,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         </div>
                       </>
                     ) : (
-                      <div className="mt-4 grid gap-4 md:grid-cols-4">
-                        <div>
+                      <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-4">
+                        <div className={formGroupClass}>
                           <label className="text-[12px] font-medium text-foreground">
                             Tipo de Avaliação *
                           </label>
@@ -2258,7 +2221,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             className={getRiskFieldClassName(
                               risk.id,
                               "tipoAvaliacao",
-                              inputBaseClass
+                              stackedInputClass
                             )}
                             value={risk.tipoAvaliacao}
                             disabled
@@ -2269,7 +2232,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             </p>
                           ) : null}
                         </div>
-                        <div>
+                        <div className={formGroupClass}>
                           <label className="text-[12px] font-medium text-foreground">
                             Severidade *
                           </label>
@@ -2277,7 +2240,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             className={getRiskFieldClassName(
                               risk.id,
                               "severidade",
-                              inputBaseClass
+                              stackedInputClass
                             )}
                             value={risk.severidade}
                             disabled
@@ -2288,11 +2251,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             </p>
                           ) : null}
                         </div>
-                        <div>
+                        <div className={formGroupClass}>
                           <label className="text-[12px] font-medium text-foreground">
                             Probabilidade *
                           </label>
-                          <div className="mt-2">
+                          <div>
                             <SearchableSelect
                               value={risk.probabilidade}
                               onChange={(value) => {
@@ -2319,7 +2282,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             </p>
                           ) : null}
                         </div>
-                        <div>
+                        <div className={formGroupClass}>
                           <label className="text-[12px] font-medium text-foreground">
                             Classificação de Risco *
                           </label>
@@ -2327,7 +2290,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             className={getRiskFieldClassName(
                               risk.id,
                               "classificacao",
-                              inputBaseClass
+                              stackedInputClass
                             )}
                             value={risk.classificacao}
                             onChange={(event) =>
@@ -2399,7 +2362,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                       handleToggleRiskMultiSelect(
                                         risk.id,
                                         "medidasControle",
-                                        customMedidaValue
+                                        customMedidaValue,
+                                        medidasControleOptions
                                       );
                                       setMultiSelectQuery("");
                                     }}
@@ -2416,7 +2380,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                         handleToggleRiskMultiSelect(
                                           risk.id,
                                           "medidasControle",
-                                          customMedidaValue
+                                          customMedidaValue,
+                                          medidasControleOptions
                                         );
                                         setMultiSelectQuery("");
                                       }}
@@ -2450,7 +2415,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                               handleToggleRiskMultiSelect(
                                                 risk.id,
                                                 "medidasControle",
-                                                option
+                                                option,
+                                                medidasControleOptions
                                               );
                                             }}
                                           />
@@ -2523,7 +2489,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                       handleToggleRiskMultiSelect(
                                         risk.id,
                                         "epc",
-                                        customEpcValue
+                                        customEpcValue,
+                                        epcOptions
                                       );
                                       setMultiSelectQuery("");
                                     }}
@@ -2540,7 +2507,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                         handleToggleRiskMultiSelect(
                                           risk.id,
                                           "epc",
-                                          customEpcValue
+                                          customEpcValue,
+                                          epcOptions
                                         );
                                         setMultiSelectQuery("");
                                       }}
@@ -2571,7 +2539,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                             checked={isChecked}
                                             onChange={() => {
                                               markRiskTouched(risk.id, "epc");
-                                              handleToggleRiskMultiSelect(risk.id, "epc", option);
+                                              handleToggleRiskMultiSelect(risk.id, "epc", option, epcOptions);
                                             }}
                                           />
                                           <span>{option}</span>
@@ -2643,7 +2611,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                       handleToggleRiskMultiSelect(
                                         risk.id,
                                         "epi",
-                                        customEpiValue
+                                        customEpiValue,
+                                        epiOptions
                                       );
                                       setMultiSelectQuery("");
                                     }}
@@ -2660,7 +2629,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                         handleToggleRiskMultiSelect(
                                           risk.id,
                                           "epi",
-                                          customEpiValue
+                                          customEpiValue,
+                                          epiOptions
                                         );
                                         setMultiSelectQuery("");
                                       }}
@@ -2691,7 +2661,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                             checked={isChecked}
                                             onChange={() => {
                                               markRiskTouched(risk.id, "epi");
-                                              handleToggleRiskMultiSelect(risk.id, "epi", option);
+                                              handleToggleRiskMultiSelect(risk.id, "epi", option, epiOptions);
                                             }}
                                           />
                                           <span>{option}</span>

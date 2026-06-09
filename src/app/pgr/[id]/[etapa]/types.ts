@@ -181,6 +181,8 @@ export type TechnicalCriteriaCatalogItem = {
   unit_children?: unknown;
   controlMeasureDescriptionChildren?: unknown;
   control_measure_description_children?: unknown;
+  healthDamageChildren?: unknown;
+  health_damage_children?: unknown;
   actionDescriptionChildren?: unknown;
   action_description_children?: unknown;
   ppeChildren?: unknown;
