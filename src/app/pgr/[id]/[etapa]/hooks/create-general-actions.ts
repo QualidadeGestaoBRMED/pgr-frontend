@@ -1304,7 +1304,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     const match = String(value || "").match(/(\d{1,4})/);
     if (!match) return Number.MAX_SAFE_INTEGER;
     const parsed = Number(match[1]);
-    if (!Number.isFinite(parsed) || parsed <= 0) return Number.MAX_SAFE_INTEGER;
+    if (!Number.isFinite(parsed) || parsed < 0) return Number.MAX_SAFE_INTEGER;
     return parsed;
   };
 
