@@ -549,20 +549,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         ...normalizedInicioDraft,
       }));
       const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
-      const {
-        contratantes: _ignoredContractors,
-        contratanteNomeFantasia: _ignoredContratanteNomeFantasia,
-        contratanteRazaoSocial: _ignoredContratanteRazaoSocial,
-        contratanteCnpj: _ignoredContratanteCnpj,
-        contratanteCnae: _ignoredContratanteCnae,
-        contratanteEndereco: _ignoredContratanteEndereco,
-        contratanteCep: _ignoredContratanteCep,
-        contratanteCidade: _ignoredContratanteCidade,
-        contratanteEstado: _ignoredContratanteEstado,
-        contratanteGrauRisco: _ignoredContratanteGrauRisco,
-        contratanteAtividadePrincipal: _ignoredContratanteAtividadePrincipal,
-        ...responseDadosWithoutContractor
-      } = responseDados;
       const fallbackCompany =
         String(responseDados.empresaNome || "").trim() ||
         String(responseDados.empresaRazaoSocial || "").trim() ||
@@ -570,21 +556,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         String(rawInicioDraft.companyName || "").trim();
       const mergedDados = syncLegacyContractorFields({
         ...initialDadosCadastrais,
-        ...responseDadosWithoutContractor,
+        ...responseDados,
         empresaRazaoSocial:
           String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
         empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
-        contratantes: [],
-        contratanteNomeFantasia: "",
-        contratanteRazaoSocial: "",
-        contratanteCnpj: "",
-        contratanteCnae: "",
-        contratanteEndereco: "",
-        contratanteCep: "",
-        contratanteCidade: "",
-        contratanteEstado: "",
-        contratanteGrauRisco: "",
-        contratanteAtividadePrincipal: "",
       });
 
       setDadosCadastrais(mergedDados);

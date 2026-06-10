@@ -197,7 +197,7 @@ export function DadosStep({
           ? ""
           : "CNPJ do estabelecimento inválido.",
       estabelecimentoGrauRisco: !dadosCadastrais.estabelecimentoGrauRisco.trim()
-        ? ""
+        ? "Grau de risco do estabelecimento é obrigatório."
         : isValidRiskGrade(dadosCadastrais.estabelecimentoGrauRisco)
           ? ""
           : "Grau de risco do estabelecimento deve ser entre 1 e 4.",
@@ -252,7 +252,7 @@ export function DadosStep({
         cidade: contractor.cidade.trim() ? "" : "Cidade da contratante é obrigatória.",
         estado: contractor.estado.trim() ? "" : "Estado da contratante é obrigatório.",
         grauRisco: !contractor.grauRisco.trim()
-          ? ""
+          ? "Grau de risco da contratante é obrigatório."
           : isValidRiskGrade(contractor.grauRisco)
             ? ""
             : "Grau de risco da contratante deve ser entre 1 e 4.",
@@ -762,7 +762,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco:
+              Grau de Risco *:
             </label>
             <input
               className={getFieldClassName("empresaGrauRisco")}
@@ -890,7 +890,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco:
+              Grau de Risco *:
             </label>
             <input
               className={getFieldClassName("estabelecimentoGrauRisco")}
@@ -1166,7 +1166,7 @@ export function DadosStep({
               <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Grau de Risco:
+                    Grau de Risco *:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "grauRisco")}
@@ -1218,6 +1218,12 @@ export function DadosStep({
             );
           })}
         </div>
+
+        {contractors.length === 0 ? (
+          <p className="mt-4 text-[12px] text-danger">
+            Identificação da Contratante é obrigatória.
+          </p>
+        ) : null}
 
         {renderExtraFields(contratanteExtraFields)}
 
