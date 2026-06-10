@@ -42,15 +42,6 @@ const riskGradeField = (label: string) =>
     `${label} deve ser inteiro entre 1 e 4`,
   );
 
-const optionalRiskGradeField = (label: string) =>
-  z
-    .string()
-    .trim()
-    .refine(
-      (value) => !value || isValidRiskGrade(value),
-      `${label} deve ser inteiro entre 1 e 4`,
-    );
-
 const cpfField = (label: string) =>
   requiredText(label).refine((value) => isValidCpf(value), `${label} inválido`);
 
@@ -78,16 +69,16 @@ export const inicioDraftSchema = z.object({
 
 const contratanteSchema: z.ZodType<ContratanteDraft> = z.object({
   id: z.string().trim().min(1, "ID do contratante é obrigatório"),
-  nomeFantasia: z.string().trim(),
-  razaoSocial: z.string().trim(),
-  cnpj: optionalCnpjField("CNPJ da contratante"),
-  cnae: z.string().trim(),
-  endereco: z.string().trim(),
-  cep: z.string().trim(),
-  cidade: z.string().trim(),
-  estado: z.string().trim(),
-  grauRisco: optionalRiskGradeField("Grau de risco da contratante"),
-  atividadePrincipal: z.string().trim(),
+  nomeFantasia: requiredText("Nome fantasia da contratante"),
+  razaoSocial: requiredText("Razão social da contratante"),
+  cnpj: cnpjField("CNPJ da contratante"),
+  cnae: requiredText("CNAE da contratante"),
+  endereco: requiredText("Endereço da contratante"),
+  cep: requiredText("CEP da contratante"),
+  cidade: requiredText("Cidade da contratante"),
+  estado: requiredText("Estado da contratante"),
+  grauRisco: riskGradeField("Grau de risco da contratante"),
+  atividadePrincipal: requiredText("Atividade principal da contratante"),
 });
 
 export const dadosCadastraisSchema = z.object({
@@ -100,8 +91,8 @@ export const dadosCadastraisSchema = z.object({
   empresaGrauRisco: riskGradeField("Grau de risco da empresa"),
   estabelecimentoNome: requiredText("Nome do estabelecimento"),
   estabelecimentoCnpj: optionalCnpjField("CNPJ do estabelecimento"),
-  estabelecimentoGrauRisco: optionalRiskGradeField("Grau de risco do estabelecimento"),
-  contratantes: z.array(contratanteSchema),
+  estabelecimentoGrauRisco: riskGradeField("Grau de risco do estabelecimento"),
+  contratantes: z.array(contratanteSchema).min(1, "Identificação da Contratante é obrigatória."),
   responsavelPgrNome: requiredText("Nome do responsável PGR"),
   responsavelPgrFuncao: requiredText("Função do responsável PGR"),
   responsavelPgrTelefone: optionalPhoneField("Telefone do responsável PGR"),
