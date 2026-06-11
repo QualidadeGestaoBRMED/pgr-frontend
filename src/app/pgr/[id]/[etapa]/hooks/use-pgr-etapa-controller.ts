@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, notFound } from "next/navigation";
 import { apiBlob, apiBlobGet, apiGet, apiPost, apiPostForm, apiPut } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
@@ -252,6 +252,10 @@ export function usePgrEtapaController({
     [derived.stepStatusById, state.gheGroups, state.workflow.isLocked]
   );
 
+  const [pipefySyncCooldownSeconds, setPipefySyncCooldownSeconds] = useState(0);
+  const pipefySyncCooldownTimerRef = useRef<number | null>(null);
+  const isPipefySyncCoolingDown = pipefySyncCooldownSeconds > 0;
+
   usePgrPersistence({
     params,
     shouldHydrateFromApi,
@@ -274,6 +278,7 @@ export function usePgrEtapaController({
       setExtraEstabelecimentoFields: setters.setExtraEstabelecimentoFields,
       setEstabelecimentoSelecionado: setters.setEstabelecimentoSelecionado,
       setPlanAction: setters.setPlanAction,
+      setPersistedOptionsByRowId: setters.setPersistedOptionsByRowId,
       setRemovedPlanRiskKeys: setters.setRemovedPlanRiskKeys,
       setPlanGeneralMeasures: setters.setPlanGeneralMeasures,
       setAnexos: setters.setAnexos,
@@ -297,6 +302,7 @@ export function usePgrEtapaController({
       extraEstabelecimentoFields: state.extraEstabelecimentoFields,
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
       planAction: state.planAction,
+      persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
       planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
@@ -389,6 +395,7 @@ export function usePgrEtapaController({
       extraEstabelecimentoFields: state.extraEstabelecimentoFields,
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
       planAction: state.planAction,
+      persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
       planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
@@ -416,6 +423,7 @@ export function usePgrEtapaController({
       state.inicioDraft,
       state.pdfLayout,
       state.planAction,
+      state.persistedOptionsByRowId,
       state.planGeneralMeasures,
       state.removedPlanRiskKeys,
       state.riskGheGroups,
@@ -759,9 +767,14 @@ export function usePgrEtapaController({
       contratanteByIndex: {},
     };
 
+    const currentSyncedAt = state.inicioDraft.syncedAt;
+
     setters.setCompletedSteps(0);
     setters.setProgressPercent(0);
-    setters.setInicioDraft(initialInicioDraft);
+    setters.setInicioDraft({
+      ...initialInicioDraft,
+      syncedAt: currentSyncedAt,
+    });
     setters.setDadosCadastrais(initialDadosCadastrais);
     setters.setCardMeta({
       pipefyCardId: "",
@@ -809,7 +822,12 @@ export function usePgrEtapaController({
     setters.setExcelImportFeedback(null);
     setters.setIsPreviewModalOpen(false);
     setters.setLastFakePdfAt(null);
-  }, [refs.lastCepLookupRef, setters, state.workflow.isLocked]);
+  }, [
+    refs.lastCepLookupRef,
+    setters,
+    state.inicioDraft.syncedAt,
+    state.workflow.isLocked,
+  ]);
 
   useEffect(() => {
     if (!state.workflow.isLocked) return;
@@ -841,6 +859,15 @@ export function usePgrEtapaController({
       setters.setPlanTablePage(derived.planTableTotalPages);
     }
   }, [derived.planTableTotalPages, setters, state.planTablePage]);
+
+  useEffect(
+    () => () => {
+      if (pipefySyncCooldownTimerRef.current !== null) {
+        window.clearInterval(pipefySyncCooldownTimerRef.current);
+      }
+    },
+    []
+  );
 
   const generalActions = createGeneralActions({
     params,
@@ -906,6 +933,31 @@ export function usePgrEtapaController({
       persistStateNow: () => persistStateNow(),
     },
   });
+
+  const handleSyncPipefy = useCallback(async () => {
+    if (state.isPipefySyncing || isPipefySyncCoolingDown) return;
+
+    setPipefySyncCooldownSeconds(5);
+    try {
+      await generalActions.handleLoadPipefyMock();
+    } finally {
+      if (pipefySyncCooldownTimerRef.current !== null) {
+        window.clearInterval(pipefySyncCooldownTimerRef.current);
+      }
+      pipefySyncCooldownTimerRef.current = window.setInterval(() => {
+        setPipefySyncCooldownSeconds((prev) => {
+          if (prev <= 1) {
+            if (pipefySyncCooldownTimerRef.current !== null) {
+              window.clearInterval(pipefySyncCooldownTimerRef.current);
+              pipefySyncCooldownTimerRef.current = null;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+  }, [generalActions, isPipefySyncCoolingDown, state.isPipefySyncing]);
 
   const autoPipefySyncCardRef = useRef<string | null>(null);
 
@@ -988,6 +1040,8 @@ export function usePgrEtapaController({
       completedSteps: state.completedSteps,
       inicioDraft: state.inicioDraft,
       isPipefySyncing: state.isPipefySyncing,
+      isPipefySyncCoolingDown,
+      pipefySyncCooldownSeconds,
       inputBaseClass: ui.inputBaseClass,
       textareaBaseClass: ui.textareaBaseClass,
       historicoData: state.historicoData,
@@ -1083,6 +1137,8 @@ export function usePgrEtapaController({
       planActionRiskOptions: derived.planActionRiskOptions,
       planActionDescription: state.planActionDescription,
       setPlanActionDescription: setters.setPlanActionDescription,
+      persistedOptionsByRowId: state.persistedOptionsByRowId,
+      setPersistedOptionsByRowId: setters.setPersistedOptionsByRowId,
       anexoDiretriz: state.anexoDiretriz,
       setAnexoDiretriz: setters.setAnexoDiretriz,
       diretrizOptions: derived.diretrizOptions,
@@ -1108,6 +1164,7 @@ export function usePgrEtapaController({
       handleResetPlanoData,
       handleResetAllData,
       generalActions,
+      handleSyncPipefy,
       descricaoInteractions,
     },
     footerProps: {

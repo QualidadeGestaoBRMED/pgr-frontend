@@ -123,6 +123,9 @@ export function usePgrEtapaState({
   const [planActionGheId, setPlanActionGheId] = useState("");
   const [planActionRiskId, setPlanActionRiskId] = useState("");
   const [planActionDescription, setPlanActionDescription] = useState("");
+  const [persistedOptionsByRowId, setPersistedOptionsByRowId] = useState<Record<string, string[]>>(
+    serverSyncedCachedState?.persistedOptionsByRowId ?? {}
+  );
   const [editingMedidasId, setEditingMedidasId] = useState<string | null>(null);
   const [editingMedidasValue, setEditingMedidasValue] = useState("");
   const [planTablePage, setPlanTablePage] = useState(1);
@@ -244,6 +247,7 @@ export function usePgrEtapaState({
       planActionGheId,
       planActionRiskId,
       planActionDescription,
+      persistedOptionsByRowId,
       editingMedidasId,
       editingMedidasValue,
       planTablePage,
@@ -298,6 +302,7 @@ export function usePgrEtapaState({
       setPlanActionGheId,
       setPlanActionRiskId,
       setPlanActionDescription,
+      setPersistedOptionsByRowId,
       setEditingMedidasId,
       setEditingMedidasValue,
       setPlanTablePage,
