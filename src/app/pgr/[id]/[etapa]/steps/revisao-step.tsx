@@ -18,7 +18,6 @@ type RevisaoStepProps = {
   isGeneratingFakePdf: boolean;
   isFinalizingPgr: boolean;
   onEditStep: (stepId: string) => void;
-  onOpenPreview: () => void;
   onGenerateFakePdf: () => void;
   onFinalizePgr: () => void;
   onResetData: () => void;
@@ -37,7 +36,6 @@ export function RevisaoStep({
   isGeneratingFakePdf,
   isFinalizingPgr,
   onEditStep,
-  onOpenPreview,
   onGenerateFakePdf,
   onFinalizePgr,
   onResetData,
@@ -197,10 +195,6 @@ export function RevisaoStep({
                 }
               >
                 Limpar dados
-              </button>
-              <button type="button" onClick={onOpenPreview} className="btn-outline px-4">
-                <Eye className="h-4 w-4" />
-                Visualizar prévia
               </button>
               <button
                 type="button"

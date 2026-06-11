@@ -96,6 +96,32 @@ export function useDescricaoInteractions({
   const selectionRef = useRef<typeof selectionBox>(null);
   const leftListRef = useRef<HTMLDivElement | null>(null);
   const rightListRef = useRef<HTMLDivElement | null>(null);
+  const scrollAnimationFrameRef = useRef<number | null>(null);
+
+  const stopAutoScroll = useCallback(() => {
+    if (scrollAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = null;
+    }
+  }, []);
+
+  const startAutoScroll = useCallback((container: HTMLElement, speed: number) => {
+    // If we're already scrolling in this direction or if it's very small, don't restart unnecessarily
+    // but usually it's better to update speed.
+    stopAutoScroll();
+
+    const scroll = () => {
+      container.scrollTop += speed;
+      scrollAnimationFrameRef.current = requestAnimationFrame(scroll);
+    };
+
+    scrollAnimationFrameRef.current = requestAnimationFrame(scroll);
+  }, [stopAutoScroll]);
+
+  useEffect(() => {
+    return () => stopAutoScroll();
+  }, [stopAutoScroll]);
+
   const ensureCurrentGheInfoDefaults = () => {
     if (!currentGhe) return;
     const nextObservacoes =
@@ -553,15 +579,34 @@ export function useDescricaoInteractions({
   ) => {
     event.preventDefault();
     setDragOverZone(zone);
+
+    const container = zone === "left" ? leftListRef.current : rightListRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const threshold = 60;
+    const mouseY = event.clientY;
+
+    if (mouseY < rect.top + threshold) {
+      const speed = Math.max(1.5, (rect.top + threshold - mouseY) / 4);
+      startAutoScroll(container, -speed);
+    } else if (mouseY > rect.bottom - threshold) {
+      const speed = Math.max(1.5, (mouseY - (rect.bottom - threshold)) / 4);
+      startAutoScroll(container, speed);
+    } else {
+      stopAutoScroll();
+    }
   };
 
   const handleDragLeave = () => {
     setDragOverZone(null);
+    stopAutoScroll();
   };
 
   const handleDropToRight = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragOverZone(null);
+    stopAutoScroll();
     const payload = parseDragPayload(event);
     if (!payload || payload.source !== "left") return;
     addFunctionsToCurrent(payload.ids);
@@ -570,6 +615,7 @@ export function useDescricaoInteractions({
   const handleDropToLeft = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragOverZone(null);
+    stopAutoScroll();
     const payload = parseDragPayload(event);
     if (!payload || payload.source !== "right") return;
     removeFunctionsFromCurrent(payload.ids);

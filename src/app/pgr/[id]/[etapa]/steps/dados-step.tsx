@@ -123,7 +123,6 @@ export function DadosStep({
     | "estabelecimentoCnpj"
     | "estabelecimentoGrauRisco"
     | "responsavelPgrNome"
-    | "responsavelPgrFuncao"
     | "responsavelPgrTelefone"
     | "responsavelPgrEmail"
     | "responsavelPgrCpf";
@@ -204,9 +203,6 @@ export function DadosStep({
       responsavelPgrNome: dadosCadastrais.responsavelPgrNome.trim()
         ? ""
         : "Nome do responsável é obrigatório.",
-      responsavelPgrFuncao: dadosCadastrais.responsavelPgrFuncao.trim()
-        ? ""
-        : "Função do responsável é obrigatória.",
       responsavelPgrTelefone: !dadosCadastrais.responsavelPgrTelefone.trim()
         ? ""
         : isValidPhoneBr(dadosCadastrais.responsavelPgrTelefone)
@@ -233,32 +229,24 @@ export function DadosStep({
     contractors.forEach((contractor, contractorIndex) => {
       const contractorKey = String(contractor.id || `contractor-${contractorIndex}`);
       map[contractorKey] = {
-        nomeFantasia: contractor.nomeFantasia.trim()
-          ? ""
-          : "Nome fantasia da contratante é obrigatório.",
-        razaoSocial: contractor.razaoSocial.trim()
-          ? ""
-          : "Razão social da contratante é obrigatória.",
+        nomeFantasia: "",
+        razaoSocial: "",
         cnpj: !contractor.cnpj.trim()
-          ? "CNPJ da contratante é obrigatório."
+          ? ""
           : isValidCnpj(contractor.cnpj)
             ? ""
             : "CNPJ da contratante inválido.",
-        cnae: contractor.cnae.trim() ? "" : "CNAE da contratante é obrigatório.",
-        endereco: contractor.endereco.trim()
-          ? ""
-          : "Endereço da contratante é obrigatório.",
-        cep: contractor.cep.trim() ? "" : "CEP da contratante é obrigatório.",
-        cidade: contractor.cidade.trim() ? "" : "Cidade da contratante é obrigatória.",
-        estado: contractor.estado.trim() ? "" : "Estado da contratante é obrigatório.",
+        cnae: "",
+        endereco: "",
+        cep: "",
+        cidade: "",
+        estado: "",
         grauRisco: !contractor.grauRisco.trim()
-          ? "Grau de risco da contratante é obrigatório."
+          ? ""
           : isValidRiskGrade(contractor.grauRisco)
             ? ""
             : "Grau de risco da contratante deve ser entre 1 e 4.",
-        atividadePrincipal: contractor.atividadePrincipal.trim()
-          ? ""
-          : "Atividade principal da contratante é obrigatória.",
+        atividadePrincipal: "",
       };
     });
     return map;
@@ -989,7 +977,7 @@ export function DadosStep({
               <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1.6fr_1.1fr_1fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Nome Fantasia *:
+                    Nome Fantasia:
                   </label>
                   <input
                     className={getContractorFieldClassName(
@@ -1014,7 +1002,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Razão social *:
+                    Razão social:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "razaoSocial")}
@@ -1036,7 +1024,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    CNPJ *:
+                    CNPJ:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "cnpj")}
@@ -1054,7 +1042,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    CNAE *:
+                    CNAE:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "cnae")}
@@ -1075,7 +1063,7 @@ export function DadosStep({
               <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Endereço *
+                    Endereço
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "endereco")}
@@ -1097,7 +1085,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    CEP *:
+                    CEP:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "cep")}
@@ -1119,7 +1107,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Cidade *:
+                    Cidade:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "cidade")}
@@ -1141,7 +1129,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Estado *:
+                    Estado:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "estado")}
@@ -1166,7 +1154,7 @@ export function DadosStep({
               <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Grau de Risco *:
+                    Grau de Risco:
                   </label>
                   <input
                     className={getContractorFieldClassName(contractorKey, "grauRisco")}
@@ -1188,7 +1176,7 @@ export function DadosStep({
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
-                    Descrição de Atividade Principal *:
+                    Descrição de Atividade Principal:
                   </label>
                   <input
                     className={getContractorFieldClassName(
@@ -1219,12 +1207,6 @@ export function DadosStep({
           })}
         </div>
 
-        {contractors.length === 0 ? (
-          <p className="mt-4 text-[12px] text-danger">
-            Identificação da Contratante é obrigatória.
-          </p>
-        ) : null}
-
         {renderExtraFields(contratanteExtraFields)}
 
         {contractors.length > 0 ? (
@@ -1247,7 +1229,7 @@ export function DadosStep({
         <div className="mt-6 grid gap-4 md:grid-cols-[1.6fr_1.2fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Nome *:
+              Nome:
             </label>
             <input
               className={getFieldClassName("responsavelPgrNome")}
@@ -1263,7 +1245,7 @@ export function DadosStep({
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Função *:
+              Função:
             </label>
             <input
               className={getFieldClassName("responsavelPgrFuncao")}
@@ -1271,11 +1253,7 @@ export function DadosStep({
               onChange={(event) =>
                 onDadosChange("responsavelPgrFuncao", event.target.value)
               }
-              onBlur={() => markTouched("responsavelPgrFuncao")}
             />
-            {errors.responsavelPgrFuncao ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.responsavelPgrFuncao}</p>
-            ) : null}
           </div>
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
@@ -1336,7 +1314,7 @@ export function DadosStep({
         <div className="mt-6 grid gap-4 md:grid-cols-[1.6fr_1.1fr_1.1fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Nome *:
+              Nome:
             </label>
             <div className="mt-2">
               <SearchableSelect

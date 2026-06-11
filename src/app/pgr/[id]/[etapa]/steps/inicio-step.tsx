@@ -5,15 +5,21 @@ import { isValidCnpj } from "../validation/br-field-utils";
 type InicioStepProps = {
   inicioDraft: InicioDraft;
   isPipefySyncing: boolean;
+  isPipefySyncCoolingDown: boolean;
+  pipefySyncCooldownSeconds: number;
   inputBaseClass: string;
   onDraftChange: (field: InicioDraftEditableField, value: string) => void;
+  onSyncPipefy: () => void;
 };
 
 export function InicioStep({
   inicioDraft,
   isPipefySyncing,
+  isPipefySyncCoolingDown,
+  pipefySyncCooldownSeconds,
   inputBaseClass,
   onDraftChange,
+  onSyncPipefy,
 }: InicioStepProps) {
   type RequiredInicioField =
     | "documentTitle"
@@ -80,9 +86,25 @@ export function InicioStep({
                 : "Sem sincronização ainda. Os dados serão carregados automaticamente ao abrir o card."}
             </p>
           </div>
-          {isPipefySyncing ? (
-            <p className="text-[12px] text-muted-foreground">Sincronizando dados do Pipefy...</p>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={onSyncPipefy}
+              disabled={isPipefySyncing || isPipefySyncCoolingDown}
+            >
+              {isPipefySyncing
+                ? "Sincronizando..."
+                : isPipefySyncCoolingDown
+                  ? `Sincronizar (${pipefySyncCooldownSeconds}s)`
+                  : "Sincronizar"}
+            </button>
+            {isPipefySyncing ? (
+              <p className="text-[12px] text-muted-foreground">
+                Sincronizando dados do Pipefy...
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">

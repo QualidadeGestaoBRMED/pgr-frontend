@@ -39,6 +39,7 @@ type PersistPayload = {
   extraEstabelecimentoFields: ExtraField[];
   estabelecimentoSelecionado: string;
   planAction: PlanAction;
+  persistedOptionsByRowId: Record<string, string[]>;
   removedPlanRiskKeys: string[];
   planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
@@ -65,6 +66,7 @@ type BackendStateResponse = Partial<{
   extraEstabelecimentoFields: Array<Partial<ExtraField>>;
   estabelecimentoSelecionado: string;
   planAction: Partial<PlanAction>;
+  persistedOptionsByRowId?: Record<string, string[]>;
   removedPlanRiskKeys: string[];
   planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
@@ -99,6 +101,7 @@ type UsePgrPersistenceContext = {
     setExtraEstabelecimentoFields: Dispatch<SetStateAction<ExtraField[]>>;
     setEstabelecimentoSelecionado: Dispatch<SetStateAction<string>>;
     setPlanAction: Dispatch<SetStateAction<PlanAction>>;
+    setPersistedOptionsByRowId: Dispatch<SetStateAction<Record<string, string[]>>>;
     setRemovedPlanRiskKeys: Dispatch<SetStateAction<string[]>>;
     setPlanGeneralMeasures: Dispatch<SetStateAction<PlanGeneralMeasureRow[]>>;
     setAnexos: Dispatch<SetStateAction<AnexoItem[]>>;
@@ -122,6 +125,7 @@ type UsePgrPersistenceContext = {
     extraEstabelecimentoFields: ExtraField[];
     estabelecimentoSelecionado: string;
     planAction: PlanAction;
+    persistedOptionsByRowId: Record<string, string[]>;
     removedPlanRiskKeys: string[];
     planGeneralMeasures: PlanGeneralMeasureRow[];
     anexos: AnexoItem[];
@@ -170,6 +174,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setExtraEstabelecimentoFields,
     setEstabelecimentoSelecionado,
     setPlanAction,
+    setPersistedOptionsByRowId,
     setRemovedPlanRiskKeys,
     setPlanGeneralMeasures,
     setAnexos,
@@ -194,6 +199,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraEstabelecimentoFields,
     estabelecimentoSelecionado,
     planAction,
+    persistedOptionsByRowId,
     removedPlanRiskKeys,
     planGeneralMeasures,
     anexos,
@@ -232,6 +238,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     riskGheId,
     pdfLayout,
     workflowState,
+    persistedOptions,
   }: {
     completed: number;
     progress: number;
@@ -253,6 +260,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     riskGheId: string;
     pdfLayout: PdfLayoutState;
     workflowState: Workflow;
+    persistedOptions?: Record<string, string[]>;
   }) => ({
     serverSynced: true,
     syncedAt: Date.now(),
@@ -266,6 +274,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraEstabelecimentoFields: extraFields,
     estabelecimentoSelecionado: estabelecimento,
     planAction: plan,
+    persistedOptionsByRowId: persistedOptions,
     removedPlanRiskKeys,
     planGeneralMeasures,
     anexos: anexosState,
@@ -296,6 +305,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               extraFields: payload.extraEstabelecimentoFields,
               estabelecimento: payload.estabelecimentoSelecionado,
               plan: payload.planAction,
+              persistedOptions: persistedOptionsByRowId,
               removedPlanRiskKeys: payload.removedPlanRiskKeys,
               planGeneralMeasures: payload.planGeneralMeasures,
               anexosState: payload.anexos,
@@ -306,6 +316,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               riskGheId: payload.currentRiskGheId,
               pdfLayout: payload.pdfLayout,
               workflowState: payload.workflow,
+              persistedOptions: persistedOptionsByRowId,
             })
           );
         })
@@ -316,7 +327,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           }
         });
     },
-    [params.id, setRuntimeCachedStateFn]
+    [params.id, persistedOptionsByRowId, setRuntimeCachedStateFn]
   );
 
   useEffect(() => {
@@ -455,6 +466,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           : [];
         const loadedEstabelecimento = state.estabelecimentoSelecionado || "";
         const loadedPlanAction = { nr: "NR-01", vigencia: "", ...(state.planAction || {}) };
+        const loadedPersistedOptions = (state as any).persistedOptionsByRowId ?? {};
         const loadedRemovedPlanRiskKeys = Array.isArray(state.removedPlanRiskKeys)
           ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
           : [];
@@ -472,9 +484,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               }))
               .filter((item) => item.id && item.descricao)
           : [];
-        const loadedAnexos = state.anexos?.length ? state.anexos : defaultAnexos;
+        const loadedAnexos = Array.isArray(state.anexos) ? state.anexos : defaultAnexos;
         const loadedAnexoDiretriz = state.anexoDiretriz || "Diretriz 1";
-        const loadedGheGroups = state.gheGroups?.length ? state.gheGroups : gheGroups;
+        const loadedGheGroups = Array.isArray(state.gheGroups) ? state.gheGroups : gheGroups;
         const loadedCurrentGheId = state.currentGheId || loadedGheGroups[0]?.id || currentGheId;
         const normalizeHydratedRisk = (risk: GheRisk) => {
           const rawRisk = risk as GheRisk & {
@@ -494,7 +506,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               "",
           };
         };
-        const loadedRiskGheGroups = state.riskGheGroups?.length
+        const loadedRiskGheGroups = Array.isArray(state.riskGheGroups)
           ? state.riskGheGroups.map((ghe) => ({
               ...ghe,
               risks: (ghe.risks || []).map((risk) =>
@@ -534,6 +546,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setExtraEstabelecimentoFields(loadedExtraFields);
         setEstabelecimentoSelecionado(loadedEstabelecimento);
         setPlanAction(loadedPlanAction);
+        setPersistedOptionsByRowId(loadedPersistedOptions);
         setRemovedPlanRiskKeys(loadedRemovedPlanRiskKeys);
         setPlanGeneralMeasures(loadedPlanGeneralMeasures);
         setAnexos(loadedAnexos);
@@ -559,6 +572,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             extraFields: loadedExtraFields,
             estabelecimento: loadedEstabelecimento,
             plan: loadedPlanAction,
+            persistedOptions: loadedPersistedOptions,
             removedPlanRiskKeys: loadedRemovedPlanRiskKeys,
             planGeneralMeasures: loadedPlanGeneralMeasures,
             anexosState: loadedAnexos,
@@ -641,6 +655,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       extraEstabelecimentoFields,
       estabelecimentoSelecionado,
       planAction,
+      persistedOptionsByRowId,
       removedPlanRiskKeys,
       planGeneralMeasures,
       anexos,
@@ -683,6 +698,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     isStateLoading,
     params.id,
     persistPayload,
+    persistedOptionsByRowId,
     planAction,
     planGeneralMeasures,
     removedPlanRiskKeys,

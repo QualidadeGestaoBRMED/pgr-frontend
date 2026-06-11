@@ -5,7 +5,10 @@ export const renderInicioStep: StepRenderer = (ctx) => (
   <InicioStep
     inicioDraft={ctx.inicioDraft}
     isPipefySyncing={ctx.isPipefySyncing}
+    isPipefySyncCoolingDown={ctx.isPipefySyncCoolingDown}
+    pipefySyncCooldownSeconds={ctx.pipefySyncCooldownSeconds}
     inputBaseClass={ctx.inputBaseClass}
     onDraftChange={ctx.generalActions.handleInicioDraftChange}
+    onSyncPipefy={ctx.handleSyncPipefy}
   />
 );

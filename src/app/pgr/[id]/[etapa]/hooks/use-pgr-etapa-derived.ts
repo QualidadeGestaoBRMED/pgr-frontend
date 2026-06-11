@@ -514,10 +514,7 @@ export function usePgrEtapaDerived({
   // Histórico é uma etapa sempre considerada completa por regra de negócio.
   const isHistoricoComplete = true;
 
-  const isAnexosComplete = useMemo(
-    () => anexos.some((anexo) => anexo.files.length > 0),
-    [anexos]
-  );
+  const isAnexosComplete = true;
 
   const missingFieldsByStep = useMemo<Partial<Record<PgrStepId, string[]>>>(() => {
     const missingInicio = getInicioDraftIssues(inicioDraft);
@@ -580,9 +577,7 @@ export function usePgrEtapaDerived({
       });
     }
 
-    const missingAnexos = isAnexosComplete
-      ? []
-      : ["Anexar ao menos um arquivo em qualquer item de anexo."];
+    const missingAnexos: string[] = [];
 
     return {
       inicio: uniqueValues(missingInicio),
