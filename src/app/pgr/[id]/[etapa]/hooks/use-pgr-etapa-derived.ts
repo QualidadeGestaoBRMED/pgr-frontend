@@ -593,7 +593,6 @@ export function usePgrEtapaDerived({
     dadosCadastrais,
     gheGroups,
     inicioDraft,
-    isAnexosComplete,
     rawPlanTableRowsForPlan,
     remainingCount,
     riskGheGroups,

@@ -316,7 +316,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               riskGheId: payload.currentRiskGheId,
               pdfLayout: payload.pdfLayout,
               workflowState: payload.workflow,
-              persistedOptions: persistedOptionsByRowId,
             })
           );
         })
