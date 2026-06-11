@@ -33,6 +33,7 @@ export type PersistedPgrState = {
   }>;
   estabelecimentoSelecionado: string;
   planAction: { nr: string; vigencia: string };
+  persistedOptionsByRowId?: Record<string, string[]>;
   removedPlanRiskKeys: string[];
   planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
