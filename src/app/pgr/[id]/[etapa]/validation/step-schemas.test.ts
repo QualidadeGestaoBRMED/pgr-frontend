@@ -83,7 +83,7 @@ describe("step schemas", () => {
     expect(isDadosCadastraisComplete(invalid as never)).toBe(false);
   });
 
-  it("rejects empty contractors list", () => {
+  it("accepts empty contractors list", () => {
     const completeWithoutContractors = {
       empresaRazaoSocial: "Razao",
       empresaCnpj: "04.252.011/0001-10",
@@ -103,7 +103,7 @@ describe("step schemas", () => {
       responsavelPgrCpf: "529.982.247-25",
     };
 
-    expect(isDadosCadastraisComplete(completeWithoutContractors as never)).toBe(false);
+    expect(isDadosCadastraisComplete(completeWithoutContractors as never)).toBe(true);
   });
 
   it("validates ghe info and risk completeness", () => {
