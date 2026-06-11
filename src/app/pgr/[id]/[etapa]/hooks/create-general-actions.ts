@@ -3,6 +3,7 @@ import {
   DescricaoImportMissingRequiredFieldsError,
   parseDescricaoExcel,
 } from "../utils/descricao-import";
+import { initialInicioDraft } from "../defaults";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type {
   AnexoFile,
@@ -544,10 +545,11 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         rawCardMeta
       );
 
-      setInicioDraft((prev) => ({
-        ...prev,
+      setInicioDraft({
+        ...initialInicioDraft,
         ...normalizedInicioDraft,
-      }));
+        syncedAt: normalizedInicioDraft.syncedAt || new Date().toISOString(),
+      });
       const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
       const fallbackCompany =
         String(responseDados.empresaNome || "").trim() ||

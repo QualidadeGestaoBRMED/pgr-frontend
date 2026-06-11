@@ -1,5 +1,4 @@
 import { RevisaoStep } from "../revisao-step";
-import { RevisaoPreviewModal } from "../revisao-preview-modal";
 import type { StepRenderer } from "./types";
 
 export const renderRevisaoStep: StepRenderer = (ctx) => (
@@ -14,20 +13,9 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
       isGeneratingFakePdf={ctx.isGeneratingFakePdf}
       isFinalizingPgr={ctx.isFinalizingPgr}
       onEditStep={(stepId) => ctx.router.push(`/pgr/${ctx.params.id}/${stepId}`)}
-      onOpenPreview={() => ctx.setIsPreviewModalOpen(true)}
       onGenerateFakePdf={ctx.handleGenerateFakePdf}
       onFinalizePgr={ctx.handleFinalizePgr}
       onResetData={ctx.handleResetAllData}
-    />
-    <RevisaoPreviewModal
-      open={ctx.isPreviewModalOpen}
-      fakePreviewLines={ctx.fakePreviewLines}
-      pdfLayout={ctx.pdfLayout}
-      isGeneratingFakePdf={ctx.isGeneratingFakePdf}
-      onPdfLayoutChange={ctx.setPdfLayout}
-      onGeneratePreviewPdf={ctx.handleGeneratePreviewPdf}
-      onClose={() => ctx.setIsPreviewModalOpen(false)}
-      onGenerate={ctx.handleGenerateFakePdf}
     />
   </>
 );

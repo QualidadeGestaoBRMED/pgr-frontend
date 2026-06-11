@@ -242,7 +242,6 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       <button
                         type="button"
                         onClick={() => {
-                          setHasTriedAttachmentAction(true);
                           handleAnexoFileRemove(anexo.id, file.id);
                         }}
                         className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"

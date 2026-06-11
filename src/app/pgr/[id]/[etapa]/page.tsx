@@ -5,6 +5,6 @@ export default function PgrEtapaPage({
 }: {
   params: { id: string; etapa: string };
 }) {
-  return <PgrEtapaPageContent params={params} />;
+  return <PgrEtapaPageContent key={params.id} params={params} />;
 }
 

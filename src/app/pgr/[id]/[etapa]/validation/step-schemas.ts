@@ -67,18 +67,27 @@ export const inicioDraftSchema = z.object({
   responsible: requiredText("Responsável pela execução do serviço (ST)"),
 });
 
+const optionalRiskGradeField = (label: string) =>
+  z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || isValidRiskGrade(value),
+      `${label} deve ser inteiro entre 1 e 4`,
+    );
+
 const contratanteSchema: z.ZodType<ContratanteDraft> = z.object({
   id: z.string().trim().min(1, "ID do contratante é obrigatório"),
-  nomeFantasia: requiredText("Nome fantasia da contratante"),
-  razaoSocial: requiredText("Razão social da contratante"),
-  cnpj: cnpjField("CNPJ da contratante"),
-  cnae: requiredText("CNAE da contratante"),
-  endereco: requiredText("Endereço da contratante"),
-  cep: requiredText("CEP da contratante"),
-  cidade: requiredText("Cidade da contratante"),
-  estado: requiredText("Estado da contratante"),
-  grauRisco: riskGradeField("Grau de risco da contratante"),
-  atividadePrincipal: requiredText("Atividade principal da contratante"),
+  nomeFantasia: z.string().trim(),
+  razaoSocial: z.string().trim(),
+  cnpj: optionalCnpjField("CNPJ da contratante"),
+  cnae: z.string().trim(),
+  endereco: z.string().trim(),
+  cep: z.string().trim(),
+  cidade: z.string().trim(),
+  estado: z.string().trim(),
+  grauRisco: optionalRiskGradeField("Grau de risco da contratante"),
+  atividadePrincipal: z.string().trim(),
 });
 
 export const dadosCadastraisSchema = z.object({
@@ -92,9 +101,9 @@ export const dadosCadastraisSchema = z.object({
   estabelecimentoNome: requiredText("Nome do estabelecimento"),
   estabelecimentoCnpj: optionalCnpjField("CNPJ do estabelecimento"),
   estabelecimentoGrauRisco: riskGradeField("Grau de risco do estabelecimento"),
-  contratantes: z.array(contratanteSchema).min(1, "Identificação da Contratante é obrigatória."),
+  contratantes: z.array(contratanteSchema),
   responsavelPgrNome: requiredText("Nome do responsável PGR"),
-  responsavelPgrFuncao: requiredText("Função do responsável PGR"),
+  responsavelPgrFuncao: z.string().trim(),
   responsavelPgrTelefone: optionalPhoneField("Telefone do responsável PGR"),
   responsavelPgrEmail: optionalEmailField("E-mail do responsável PGR"),
   responsavelPgrCpf: optionalCpfField("CPF do responsável PGR"),
