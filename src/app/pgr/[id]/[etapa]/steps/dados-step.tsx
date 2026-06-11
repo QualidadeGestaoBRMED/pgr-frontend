@@ -123,6 +123,7 @@ export function DadosStep({
     | "estabelecimentoCnpj"
     | "estabelecimentoGrauRisco"
     | "responsavelPgrNome"
+    | "responsavelPgrFuncao"
     | "responsavelPgrTelefone"
     | "responsavelPgrEmail"
     | "responsavelPgrCpf";
@@ -203,6 +204,7 @@ export function DadosStep({
       responsavelPgrNome: dadosCadastrais.responsavelPgrNome.trim()
         ? ""
         : "Nome do responsável é obrigatório.",
+      responsavelPgrFuncao: "",
       responsavelPgrTelefone: !dadosCadastrais.responsavelPgrTelefone.trim()
         ? ""
         : isValidPhoneBr(dadosCadastrais.responsavelPgrTelefone)
