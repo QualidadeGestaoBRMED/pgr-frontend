@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { apiGet, apiPut } from "@/lib/api";
+import { apiGet } from "@/lib/api";
+import { putPgrState, setKnownUpdatedAt } from "../state/state-version";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type {
@@ -77,6 +78,7 @@ type BackendStateResponse = Partial<{
   currentRiskGheId: string;
   pdfLayout: unknown;
   workflow: Partial<Workflow>;
+  updatedAt: string;
 }>;
 
 type UsePgrPersistenceContext = {
@@ -290,8 +292,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const persistPayload = useCallback(
     (payload: PersistPayload) => {
       pendingPersistPayloadRef.current = payload;
-      return apiPut(`/api/v1/frontend/pgr/${params.id}/state`, payload)
-        .then(() => {
+      return putPgrState(params.id, payload)
+        .then((result) => {
+          // result === null => save pausado por conflito; não atualiza cache.
+          if (result === null) return;
           setRuntimeCachedStateFn(
             params.id,
             buildRuntimeCacheState({
@@ -424,6 +428,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       try {
         const state = await apiGet<BackendStateResponse>(`/api/v1/frontend/pgr/${params.id}/state`);
         if (!active) return;
+
+        // Prime o token de lock otimista com a versão recém-carregada.
+        setKnownUpdatedAt(params.id, state.updatedAt);
 
         const rawCompleted = Number(state.completedSteps);
         const normalizedCompleted = Number.isFinite(rawCompleted)

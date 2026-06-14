@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, notFound } from "next/navigation";
-import { apiBlob, apiBlobGet, apiGet, apiPost, apiPostForm, apiPut } from "@/lib/api";
+import { apiBlob, apiBlobGet, apiGet, apiPost, apiPostForm } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import {
   defaultAnexos,
@@ -25,6 +25,11 @@ import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
 import { useCycleTimeTracker } from "./use-cycle-time-tracker";
 import { setRuntimeCachedState } from "../state/runtime-cache";
+import {
+  putPgrState,
+  setKnownUpdatedAt,
+  setConflictHandler,
+} from "../state/state-version";
 import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 const PGR_EXPORT_POLL_INTERVAL_MS = 2000;
@@ -256,6 +261,24 @@ export function usePgrEtapaController({
   const pipefySyncCooldownTimerRef = useRef<number | null>(null);
   const isPipefySyncCoolingDown = pipefySyncCooldownSeconds > 0;
 
+  // Conflito de edição concorrente (lock otimista): o save bateu 409 porque
+  // outra pessoa alterou este PGR. As gravações ficam pausadas até recarregar.
+  const [saveConflict, setSaveConflict] = useState(false);
+  useEffect(() => {
+    setConflictHandler(() => setSaveConflict(true));
+    return () => setConflictHandler(null);
+  }, []);
+  const reloadAfterConflict = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }, []);
+  const dismissSaveConflict = useCallback(() => {
+    // Fecha o aviso, mas mantém as gravações pausadas: o usuário pode continuar
+    // editando localmente; nada será salvo até recarregar a versão atual.
+    setSaveConflict(false);
+  }, []);
+
   usePgrPersistence({
     params,
     shouldHydrateFromApi,
@@ -369,7 +392,7 @@ export function usePgrEtapaController({
   });
 
   const handleAdvanceApiSync = useCallback((nextCompleted: number) => {
-    void apiPut(`/api/v1/frontend/pgr/${params.id}/state`, {
+    void putPgrState(params.id, {
       completedSteps: nextCompleted,
       meta: {
         pgrId: params.id,
@@ -377,6 +400,7 @@ export function usePgrEtapaController({
       },
     }).catch(() => {
       // Sem bloqueio de navegação em caso de falha de rede.
+      // Conflito (409) já é tratado pelo funil putPgrState.
     });
   }, [params.id, weightedProgressPercent]);
 
@@ -433,7 +457,7 @@ export function usePgrEtapaController({
 
   const persistStateNow = useCallback(
     async (layoutOverride?: PdfLayoutState) => {
-      await apiPut(`/api/v1/frontend/pgr/${params.id}/state`, buildStatePayload(layoutOverride));
+      await putPgrState(params.id, buildStatePayload(layoutOverride));
     },
     [buildStatePayload, params.id]
   );
@@ -522,7 +546,9 @@ export function usePgrEtapaController({
         historico: HistoricoData;
         workflow: PersistedPgrState["workflow"];
         meta?: { progressPercent?: number };
+        updatedAt?: string;
       }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
+      setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
       if (finalizedState?.workflow) {
         setters.setWorkflow(finalizedState.workflow);
       }
@@ -633,8 +659,10 @@ export function usePgrEtapaController({
         historico?: HistoricoData;
         workflow?: PersistedPgrState["workflow"];
         meta?: { progressPercent?: number };
+        updatedAt?: string;
       }>(`/api/v1/frontend/pgr/${params.id}/state`).catch(() => updatedState);
 
+      setKnownUpdatedAt(params.id, (refreshedState as { updatedAt?: string })?.updatedAt);
       if (refreshedState?.workflow) {
         setters.setWorkflow(refreshedState.workflow);
       }
@@ -1023,6 +1051,11 @@ export function usePgrEtapaController({
   });
 
   return {
+    conflict: {
+      open: saveConflict,
+      onReload: reloadAfterConflict,
+      onDismiss: dismissSaveConflict,
+    },
     shellProps: {
       pgrId: params.id,
       currentStep: step.id as PgrStepId,
