@@ -1,16 +1,10 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { Work_Sans } from "next/font/google";
 import { AppHeader } from "@/components/app-header";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
-
-const workSans = Work_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
 
 type HomeData = {
   user: { name: string; initials: string };
@@ -154,7 +148,7 @@ export default function PgrsPage() {
   }, [homeData.cards, searchQuery]);
 
   return (
-    <div className={`min-h-screen bg-background ${workSans.className}`}>
+    <div className="min-h-screen bg-background">
       <div className="mx-auto w-full max-w-[1480px] px-0 pb-16 pt-8 sm:px-0 lg:px-1">
         <AppHeader user={homeData.user} />
 
