@@ -49,18 +49,19 @@ export function setConflictHandler(fn: (() => void) | null): void {
 
 type StateResponse = { updatedAt?: string } & Record<string, unknown>;
 
-/**
- * Funil único de gravação do estado. Injeta o token de lock otimista,
- * atualiza-o a partir da resposta e, em caso de 409, pausa as gravações e
- * dispara o handler de conflito (a UI decide: recarregar ou continuar).
- *
- * Retorna `null` quando a gravação foi pulada porque o save está pausado por
- * um conflito ainda não resolvido.
- */
-export async function putPgrState<T extends StateResponse = StateResponse>(
+// Cadeia de gravação por pgrId: serializa os saves (single-flight). Sem isso,
+// os vários gatilhos de autosave do mesmo cliente (debounce, avanço de etapa,
+// cronômetro) saem concorrentes com o mesmo token e colidem entre si (409
+// falso). Enfileirando, cada save só parte depois que o anterior terminou e
+// atualizou o token — então o token está sempre fresco.
+const saveChainByPgr = new Map<string, Promise<unknown>>();
+
+async function runPutPgrState<T extends StateResponse>(
   pgrId: string,
   payload: Record<string, unknown>
 ): Promise<T | null> {
+  // Reavalia a pausa já dentro da fila: um 409 num save anterior pausa todos
+  // os que ainda estavam enfileirados.
   if (savingPaused) {
     return null;
   }
@@ -79,4 +80,34 @@ export async function putPgrState<T extends StateResponse = StateResponse>(
     }
     throw error;
   }
+}
+
+/**
+ * Funil único de gravação do estado. Serializa as gravações por PGR, injeta o
+ * token de lock otimista, atualiza-o a partir da resposta e, em caso de 409,
+ * pausa as gravações e dispara o handler de conflito (a UI decide: recarregar
+ * ou continuar).
+ *
+ * Retorna `null` quando a gravação foi pulada porque o save está pausado por
+ * um conflito ainda não resolvido.
+ */
+export function putPgrState<T extends StateResponse = StateResponse>(
+  pgrId: string,
+  payload: Record<string, unknown>
+): Promise<T | null> {
+  if (savingPaused) {
+    return Promise.resolve(null);
+  }
+  const previous = saveChainByPgr.get(pgrId) ?? Promise.resolve();
+  // Encadeia após o save anterior (ignorando o resultado/erro dele) para
+  // garantir ordem e token atualizado. O resultado real volta em `result`.
+  const result = previous
+    .catch(() => undefined)
+    .then(() => runPutPgrState<T>(pgrId, payload));
+  // A cadeia nunca rejeita, senão um erro de save trava a fila inteira.
+  saveChainByPgr.set(
+    pgrId,
+    result.catch(() => undefined)
+  );
+  return result;
 }
