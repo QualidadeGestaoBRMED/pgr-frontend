@@ -23,6 +23,7 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       planTableCurrentPage: ctx.planTableCurrentPage,
       planTableTotalPages: ctx.planTableTotalPages,
       setPlanTablePage: ctx.setPlanTablePage,
+      isRiskCatalogsReady: ctx.riskCatalogs !== null,
       isPlanActionModalOpen: ctx.isPlanActionModalOpen,
       setIsPlanActionModalOpen: ctx.setIsPlanActionModalOpen,
       handleOpenPlanActionModal: ctx.generalActions.handleOpenPlanActionModal,

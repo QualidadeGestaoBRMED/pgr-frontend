@@ -80,6 +80,14 @@ const isModerateOrHigherPriority = (priority: string) => {
   );
 };
 
+const toDisplayText = (value: string, fallback = "Não informado") => {
+  const safeValue = String(value || "").trim();
+  return safeValue || fallback;
+};
+
+const getPlanPriorityText = (row: Pick<PlanTableRow, "prioridade" | "classificacao">) =>
+  String(row.prioridade || row.classificacao || "").trim();
+
 const getRiskContentKey = (risk: RiskGheGroup["risks"][number]) =>
   [
     risk.tipoAgente,
@@ -346,11 +354,12 @@ export function usePgrEtapaDerived({
               tipoAgente: risk.tipoAgente || "",
               descricaoAgente: risk.descricaoAgente || "Não informado",
               prioridade:
-                actionPlanCalculated?.classification ||
-                riskCalculated?.classification ||
-                risk.classificacao ||
-                "Não informado",
-              classificacao: risk.classificacao || "Não informado",
+                toDisplayText(
+                  actionPlanCalculated?.classification ||
+                    riskCalculated?.classification ||
+                    risk.classificacao
+                ),
+              classificacao: toDisplayText(risk.classificacao),
               exposureValue,
               medidasPrevencao: risk.medidasControle || "",
               tipoMedida: risk.tipoMedida || "",
@@ -396,7 +405,7 @@ export function usePgrEtapaDerived({
   const rawPlanTableRowsForPlan = useMemo<PlanTableRow[]>(
     () =>
       rawPlanTableRows.filter((row) =>
-        isModerateOrHigherPriority(row.prioridade)
+        isModerateOrHigherPriority(getPlanPriorityText(row))
       ),
     [rawPlanTableRows]
   );
@@ -418,7 +427,7 @@ export function usePgrEtapaDerived({
         : [
             row.descricaoAgente.trim().toLowerCase(),
             row.tipoAgente.trim().toLowerCase(),
-            row.prioridade.trim().toLowerCase(),
+            getPlanPriorityText(row).toLowerCase(),
             String(row.exposureValue || ""),
             row.medidasPrevencao.trim().toLowerCase(),
           ].join("||");
@@ -669,12 +678,17 @@ export function usePgrEtapaDerived({
     ]
   );
 
-  const planActionGheOptions = useMemo(
-    () => riskGheGroups.map((ghe) => ({ label: ghe.name, value: ghe.id })),
+  const planActionAvailableGheGroups = useMemo(
+    () => riskGheGroups.filter((ghe) => ghe.risks.length > 0),
     [riskGheGroups]
   );
+  const planActionGheOptions = useMemo(
+    () => planActionAvailableGheGroups.map((ghe) => ({ label: ghe.name, value: ghe.id })),
+    [planActionAvailableGheGroups]
+  );
   const selectedPlanActionGhe =
-    riskGheGroups.find((ghe) => ghe.id === planActionGheId) ?? riskGheGroups[0];
+    planActionAvailableGheGroups.find((ghe) => ghe.id === planActionGheId) ??
+    planActionAvailableGheGroups[0];
   const planActionRiskOptions = useMemo(() => {
     if (!selectedPlanActionGhe) return [];
     return selectedPlanActionGhe.risks.map((risk, index) => ({

@@ -86,6 +86,7 @@ type PlanoStepProps = {
         planTableCurrentPage: number;
         planTableTotalPages: number;
         setPlanTablePage: Dispatch<SetStateAction<number>>;
+        isRiskCatalogsReady: boolean;
         isPlanActionModalOpen: boolean;
         setIsPlanActionModalOpen: Dispatch<SetStateAction<boolean>>;
         handleOpenPlanActionModal: () => void;
@@ -227,6 +228,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         planTableCurrentPage,
         planTableTotalPages,
         setPlanTablePage,
+        isRiskCatalogsReady,
         isPlanActionModalOpen,
         setIsPlanActionModalOpen,
         handleOpenPlanActionModal,
@@ -280,6 +282,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         string | null
     >(null);
     const [medidasMultiSelectQuery, setMedidasMultiSelectQuery] = useState("");
+    const [hasPlanWarmupElapsed, setHasPlanWarmupElapsed] = useState(false);
 
     const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
     const initializedRowsRef = useRef<Set<string>>(new Set());
@@ -388,6 +391,19 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         setTouchedPlanActionDescription(false);
         setTouchedPlanActionGheSelection(false);
     }, [isPlanActionModalOpen]);
+
+    useEffect(() => {
+        if (isRiskCatalogsReady) {
+            setHasPlanWarmupElapsed(false);
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setHasPlanWarmupElapsed(true);
+        }, 700);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [isRiskCatalogsReady]);
 
     useEffect(() => {
         if (!isPlanActionModalOpen) return;
@@ -538,20 +554,26 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                     <div>
                         <p className="text-[13px] font-semibold text-foreground">Ações por risco</p>
                         <p className="text-[12px] text-muted-foreground">
-                            {planTableRows.length} registros gerados a partir da
-                            caracterização de risco
+                            {isRiskCatalogsReady || hasPlanWarmupElapsed
+                                ? `${planTableRows.length} registros gerados a partir da caracterização de risco`
+                                : "Sincronizando prioridades dos riscos..."}
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={handleOpenPlanActionModal}
                         className="btn-primary px-4 text-[12px]"
+                        disabled={!isRiskCatalogsReady && !hasPlanWarmupElapsed}
                     >
                         Criar ação
                     </button>
                 </div>
 
-                {planTableRows.length ? (
+                {!isRiskCatalogsReady && !hasPlanWarmupElapsed ? (
+                    <div className="mt-4 rounded-[12px] border border-border/60 bg-muted/30 px-4 py-8 text-center text-[13px] text-muted-foreground">
+                        Carregando classificação final dos riscos...
+                    </div>
+                ) : planTableRows.length ? (
                     <div className="mt-4 space-y-3">
                         <div className="max-h-[620px] overflow-auto rounded-[12px] border border-border/60">
                             <table
@@ -891,7 +913,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                 ) : (
                     <div
                         className="mt-4 rounded-[12px] border border-dashed border-border/60 px-4 py-6 text-center text-[12px] text-muted-foreground">
-                        Nenhum risco cadastrado para gerar o plano de ação.
+                        Nenhum risco moderado ou superior foi identificado para gerar o plano de ação.
                     </div>
                 )}
             </section>

@@ -795,7 +795,7 @@ export function DadosStep({
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
         <h2 className="text-[16px] font-medium text-foreground">
-          Identificação da Estabelecimento:
+          Identificação do Estabelecimento:
         </h2>
         <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1.2fr_1fr]">
           <div>

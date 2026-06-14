@@ -232,6 +232,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   } = current;
 
   const { handleAdvanceApiSync, persistStateNow } = helpers;
+  const availablePlanActionGheGroups = riskGheGroups.filter((ghe) => ghe.risks.length > 0);
 
   const handleInicioDraftChange = (field: keyof InicioDraft, value: string) => {
     const normalizedValue =
@@ -598,7 +599,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleOpenPlanActionModal = () => {
-    const firstGhe = riskGheGroups[0];
+    const firstGhe = availablePlanActionGheGroups[0];
     const firstRisk = firstGhe?.risks[0];
     setPlanActionScope(firstRisk ? "risk" : firstGhe ? "ghe" : "all");
     setPlanActionGheId(firstGhe?.id ?? "");
@@ -611,8 +612,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionScope(scope);
     if (scope === "all") return;
     const currentGhe =
-      riskGheGroups.find((ghe) => ghe.id === planActionGheId) ??
-      riskGheGroups[0];
+      availablePlanActionGheGroups.find((ghe) => ghe.id === planActionGheId) ??
+      availablePlanActionGheGroups[0];
     const gheId = currentGhe?.id ?? "";
     setPlanActionGheId(gheId);
     if (scope === "risk") {
@@ -623,7 +624,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const handlePlanActionGheChange = (value: string) => {
     setPlanActionGheId(value);
     if (planActionScope !== "risk") return;
-    const ghe = riskGheGroups.find((item) => item.id === value);
+    const ghe = availablePlanActionGheGroups.find((item) => item.id === value);
     setPlanActionRiskId(ghe?.risks[0]?.id ?? "");
   };
 
@@ -747,7 +748,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     );
     const fallbackGheIds =
       planActionScope === "all"
-        ? riskGheGroups.map((ghe) => ghe.id)
+        ? availablePlanActionGheGroups.map((ghe) => ghe.id)
         : [planActionGheId];
     const selectedGheIds = new Set(
       (Array.isArray(gheIds) && gheIds.length ? gheIds : fallbackGheIds).filter(Boolean)
