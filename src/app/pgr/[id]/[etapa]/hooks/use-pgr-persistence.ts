@@ -21,6 +21,11 @@ import {
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
 
+// Último PGR para o qual já forçamos a reconstrução do catálogo de risco.
+// O catálogo é refeito (refresh=1) ao ABRIR um card; navegar entre etapas do
+// mesmo card reaproveita o cache do backend (sem refresh, sem reconstrução).
+let lastCatalogRefreshedPgrId: string | null = null;
+
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
 type PlanAction = PersistedPgrState["planAction"];
@@ -336,10 +341,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   useEffect(() => {
     let active = true;
     let retryTimer: number | null = null;
-    let refreshTimer: number | null = null;
+    // Refaz o catálogo só ao abrir o card; sem polling de 60s (era o maior
+    // churn de memória/CPU no backend — resposta de ~2,4 MB).
+    const forceRefresh = lastCatalogRefreshedPgrId !== params.id;
     const loadRiskCatalogs = async () => {
       try {
-        const data = await apiGet<RiskCatalogPayload>(`/api/catalogs/risk?ts=${Date.now()}`);
+        const data = await apiGet<RiskCatalogPayload>(
+          `/api/catalogs/risk?ts=${Date.now()}${forceRefresh ? "&refresh=1" : ""}`
+        );
         if (!active) return;
         const hasMatrixData =
           Array.isArray(data.riskMatrix?.qualitative) &&
@@ -359,6 +368,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           return;
         }
 
+        lastCatalogRefreshedPgrId = params.id;
         setRiskCatalogs(data);
       } catch {
         if (!active) return;
@@ -369,19 +379,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       }
     };
     void loadRiskCatalogs();
-    refreshTimer = window.setInterval(() => {
-      void loadRiskCatalogs();
-    }, 60000);
     return () => {
       active = false;
       if (retryTimer !== null) {
         window.clearTimeout(retryTimer);
       }
-      if (refreshTimer !== null) {
-        window.clearInterval(refreshTimer);
-      }
     };
-  }, [setRiskCatalogs]);
+  }, [setRiskCatalogs, params.id]);
 
   useEffect(() => {
     if (!riskCatalogs) return;

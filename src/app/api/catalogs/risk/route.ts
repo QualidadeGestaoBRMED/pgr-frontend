@@ -30,7 +30,13 @@ const emptyPayload = {
 export async function GET(request: Request) {
   try {
     const cookie = request.headers.get("cookie");
-    const upstream = await fetch(`${backendBase}/api/v1/frontend/catalogs/risk`, {
+    // Repassa ?refresh=1 para o backend forçar reconstrução do catálogo
+    // (enviado pelo front ao abrir um card).
+    const refresh = new URL(request.url).searchParams.get("refresh");
+    const upstreamUrl =
+      `${backendBase}/api/v1/frontend/catalogs/risk` +
+      (refresh ? `?refresh=${encodeURIComponent(refresh)}` : "");
+    const upstream = await fetch(upstreamUrl, {
       method: "GET",
       headers: cookie ? { cookie } : undefined,
       cache: "no-store",
