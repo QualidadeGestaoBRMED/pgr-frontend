@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { apiPut } from "@/lib/api";
 import type { PgrStepId } from "@/app/pgr/steps";
 import type { CycleTimeData, HistoricoData } from "../types";
 import { normalizeCycleTime } from "../utils/cycle-time";
+import { putPgrState } from "../state/state-version";
 
 const AUTO_COMMIT_INTERVAL_MS = 30000;
 const MIN_ELAPSED_MS = 250;
@@ -42,11 +42,10 @@ export function useCycleTimeTracker({
         ...historicoRef.current,
         cycleTime,
       };
-      void apiPut(`/api/v1/frontend/pgr/${pgrId}/state`, { historico: mergedHistorico }).catch(
-        () => {
-          // Sem bloqueio de navegação caso a persistência imediata falhe.
-        }
-      );
+      void putPgrState(pgrId, { historico: mergedHistorico }).catch(() => {
+        // Sem bloqueio de navegação caso a persistência imediata falhe.
+        // Conflito (409) já é tratado pelo funil putPgrState.
+      });
     },
     [pgrId]
   );

@@ -6,6 +6,15 @@ export function getApiBaseUrl() {
   return API_BASE_URL;
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 function isHtmlErrorPayload(value: string) {
   const trimmed = value.trim().toLowerCase();
   return (
@@ -107,7 +116,7 @@ async function request<T>(
       }
     }
     const rawText = await response.text();
-    throw new Error(extractErrorMessage(rawText, response.status));
+    throw new ApiError(extractErrorMessage(rawText, response.status), response.status);
   }
 
   if (!expectJson) {

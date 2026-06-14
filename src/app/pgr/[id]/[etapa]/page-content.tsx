@@ -3,6 +3,7 @@
 import { PgrShell } from "@/components/pgr-shell";
 import { PgrStepBody } from "./steps/pgr-step-body";
 import { StepFooterActions } from "./steps/step-footer-actions";
+import { SaveConflictDialog } from "./steps/save-conflict-dialog";
 import { usePgrEtapaController } from "./hooks/use-pgr-etapa-controller";
 
 export default function PgrEtapaPage({
@@ -10,7 +11,9 @@ export default function PgrEtapaPage({
 }: {
   params: { id: string; etapa: string };
 }) {
-  const { shellProps, bodyCtx, footerProps } = usePgrEtapaController({ params });
+  const { conflict, shellProps, bodyCtx, footerProps } = usePgrEtapaController({
+    params,
+  });
 
   return (
     <PgrShell
@@ -25,6 +28,11 @@ export default function PgrEtapaPage({
     >
       <PgrStepBody ctx={bodyCtx} />
       <StepFooterActions {...footerProps} />
+      <SaveConflictDialog
+        open={conflict.open}
+        onReload={conflict.onReload}
+        onDismiss={conflict.onDismiss}
+      />
     </PgrShell>
   );
 }
