@@ -608,9 +608,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
         classificacao:
           classification?.classification ||
-          normalizedRisk.classificacao ||
-          defaults.classificacao ||
-          "",
+          String(normalizedRisk.classificacao || defaults.classificacao || "").trim(),
         medidasControle: normalizedRisk.medidasControle || defaults.medidasControle || "",
         epc: normalizedRisk.epc || defaults.epc || "",
         epi: normalizedRisk.epi || defaults.epi || "",

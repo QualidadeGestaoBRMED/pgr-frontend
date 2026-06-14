@@ -1771,13 +1771,28 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           Fontes/Circunstâncias *
                         </label>
                         <div className="relative" data-multiselect>
-                          <button
-                            type="button"
+                          <textarea
+                            rows={2}
                             className={getRiskFieldClassName(
                               risk.id,
                               "fontes",
-                              `${selectSmallClass} flex items-center justify-between text-left`
+                              `${selectSmallClass} min-h-[56px] resize-y whitespace-pre-wrap break-words py-2 pr-10`
                             )}
+                            value={selectedFontes.join(", ")}
+                            placeholder="Selecione as fontes"
+                            readOnly
+                            onClick={() =>
+                              setOpenMultiSelect((prev) =>
+                                prev?.riskId === risk.id && prev.field === "fontes"
+                                  ? null
+                                  : { riskId: risk.id, field: "fontes" }
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            aria-label="Abrir seleção de fontes"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                             onClick={() =>
                               setOpenMultiSelect((prev) =>
                                 prev?.riskId === risk.id && prev.field === "fontes"
@@ -1786,11 +1801,6 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               )
                             }
                           >
-                            <span className="truncate">
-                              {selectedFontes.length
-                                ? selectedFontes.join(", ")
-                                : "Selecione as fontes"}
-                            </span>
                             <ChevronDown
                               className={`h-4 w-4 transition-transform ${
                                 openMultiSelect?.riskId === risk.id &&

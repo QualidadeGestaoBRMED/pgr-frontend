@@ -318,7 +318,9 @@ export function buildPgrDocxPayload(input: {
       .map((risk) => ({
         ghe: ghe.nome,
         risco: risk.descricaoAgente || "",
-        prioridade: _asText((risk as unknown as { prioridade?: string }).prioridade),
+        prioridade:
+          _asText((risk as unknown as { prioridade?: string }).prioridade) ||
+          _asText(risk.classificacao),
         classificacao: risk.classificacao,
         medidas: risk.medidasControle,
         epc: risk.epc,
