@@ -1,16 +1,10 @@
 "use client";
 
 import { Chrome, Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
-import { Work_Sans } from "next/font/google";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiPost } from "@/lib/api";
-
-const workSans = Work_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
 
 const imgRectangle2 = "/login.png";
 const imgImage2 = "/logo.png";
@@ -40,9 +34,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className={`min-h-screen w-full bg-background ${workSans.className}`}
-    >
+    <div className="min-h-screen w-full bg-background">
       <div className="min-h-screen w-full lg:grid lg:grid-cols-[49.75%_50.25%]">
         <div className="flex min-h-screen w-full flex-col items-center justify-start px-6 pb-12 pt-16 text-foreground sm:px-10 lg:px-[96px] lg:pt-[120px]">
           <div className="mt-4 w-full lg:max-w-[600px]">
