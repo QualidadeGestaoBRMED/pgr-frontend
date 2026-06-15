@@ -880,7 +880,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco *:
+              Grau de Risco:
             </label>
             <input
               className={getFieldClassName("estabelecimentoGrauRisco")}

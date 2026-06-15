@@ -67,6 +67,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const [isManualFunctionModalOpen, setIsManualFunctionModalOpen] = useState(false);
   const [manualSetor, setManualSetor] = useState("");
   const [manualFuncao, setManualFuncao] = useState("");
+  const [manualDescricao, setManualDescricao] = useState("");
   const [manualAssignToCurrentGhe, setManualAssignToCurrentGhe] = useState(true);
   const [manualFeedback, setManualFeedback] = useState<null | {
     type: "success" | "error";
@@ -74,7 +75,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   }>(null);
   const [editingFunctionIds, setEditingFunctionIds] = useState<string[]>([]);
   const [editingDrafts, setEditingDrafts] = useState<
-    Record<string, { setor: string; funcao: string }>
+    Record<string, { setor: string; funcao: string; descricao: string }>
   >({});
   const [editingFeedback, setEditingFeedback] = useState("");
   const [isEditingGheName, setIsEditingGheName] = useState(false);
@@ -202,6 +203,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
         next[id] = {
           setor: data.setor || "",
           funcao: data.funcao || "",
+          descricao: data.descricao || "",
         };
       });
       return next;
@@ -230,7 +232,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
 
   const handleDraftFieldChange = (
     functionId: string,
-    field: "setor" | "funcao",
+    field: "setor" | "funcao" | "descricao",
     value: string
   ) => {
     setEditingDrafts((prev) => ({
@@ -238,6 +240,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       [functionId]: {
         setor: prev[functionId]?.setor ?? "",
         funcao: prev[functionId]?.funcao ?? "",
+        descricao: prev[functionId]?.descricao ?? "",
         [field]: value,
       },
     }));
@@ -269,7 +272,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       id: functionId,
       setor: draft.setor,
       funcao: draft.funcao,
-      descricao: functionMap.get(functionId)?.descricao || draft.funcao,
+      descricao: draft.descricao,
     });
     if (!didSave) {
       setEditingFeedback("Não foi possível salvar a função.");
@@ -283,6 +286,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       handleAddManualFunction({
         setor: manualSetor,
         funcao: manualFuncao,
+        descricao: manualDescricao,
         assignToCurrentGhe: manualAssignToCurrentGhe,
         gheId: currentGhe?.id,
       });
@@ -294,6 +298,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       });
       setManualSetor("");
       setManualFuncao("");
+      setManualDescricao("");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Não foi possível cadastrar a função manual.";
@@ -807,9 +812,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                               <span
                                 className="min-w-0 flex-1"
                                 style={{ textWrap: "pretty" }}
-                                title={funcao.funcao}
+                                title={`${funcao.funcao} - ${funcao.descricao}`}
                               >
-                                {funcao.funcao}
+                                {funcao.funcao} - {truncatePreview(funcao.descricao, 90)}
                               </span>
                             </label>
                           ))}
@@ -944,10 +949,11 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_96px_56px] gap-4 text-[12px] font-semibold text-muted-foreground">
+                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] gap-4 text-[12px] font-semibold text-muted-foreground">
                   <span />
-                  <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Setor</span>
+                  <span className="min-w-0 whitespace-normal break-words leading-tight" style={{ textWrap: "pretty" }}>Setor</span>
                   <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Função</span>
+                  <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Descrição da Função</span>
                   <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Nº de funcionários</span>
                   <span />
                 </div>
@@ -960,6 +966,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       const draft = editingDrafts[item.functionId] ?? {
                         setor: data.setor || "",
                         funcao: data.funcao || "",
+                        descricao: data.descricao || "",
                       };
                       return (
                       <div
@@ -971,7 +978,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           handleDragStartRight(event, item.functionId)
                         }
                         onDragEnd={handleDragLeave}
-                        className="grid max-w-full cursor-grab grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_96px_56px] items-center gap-4 rounded-[10px] border border-border/60 px-3 py-3 text-[13px] text-foreground/80 transition hover:bg-muted/70"
+                        className="grid max-w-full cursor-grab grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4 rounded-[10px] border border-border/60 px-3 py-3 text-[13px] text-foreground/80 transition hover:bg-muted/70"
                       >
                         <input
                           type="checkbox"
@@ -996,7 +1003,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           />
                         ) : (
                           <span
-                            className="min-w-0 overflow-hidden whitespace-normal font-semibold text-foreground"
+                            className="min-w-0 whitespace-normal break-words leading-tight font-semibold text-foreground"
                             style={{ textWrap: "pretty" }}
                             title={data.setor}
                           >
@@ -1018,11 +1025,31 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           />
                         ) : (
                           <span
-                            className="min-w-0 overflow-hidden whitespace-normal font-medium text-foreground/90"
-                            style={{ textWrap: "pretty" }}
+                            className="min-w-0 truncate font-medium text-foreground/90"
                             title={data.funcao}
                           >
                             {data.funcao}
+                          </span>
+                        )}
+                        {isEditingRow ? (
+                          <input
+                            value={draft.descricao}
+                            onChange={(event) =>
+                              handleDraftFieldChange(
+                                item.functionId,
+                                "descricao",
+                                event.target.value
+                              )
+                            }
+                            className={inputInlineClass}
+                            placeholder="Descrição da função"
+                          />
+                        ) : (
+                          <span
+                            className="min-w-0 truncate text-muted-foreground"
+                            title={data.descricao}
+                          >
+                            {truncatePreview(data.descricao, 90)}
                           </span>
                         )}
                         <input
@@ -1534,7 +1561,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                                     {funcao.funcao}
                                   </p>
                                   <p className="text-[12px] text-muted-foreground">
-                                    {funcao.setor}
+                                    {funcao.setor} · {truncatePreview(funcao.descricao, 110)}
                                   </p>
                                   <p className="text-[12px] text-muted-foreground">
                                     {assignedGhe
@@ -1613,6 +1640,15 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       onChange={(event) => setManualFuncao(event.target.value)}
                       className={inputInlineClass}
                       placeholder="Função (obrigatório)"
+                      required
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <input
+                      value={manualDescricao}
+                      onChange={(event) => setManualDescricao(event.target.value)}
+                      className={inputInlineClass}
+                      placeholder="Descrição da função (obrigatório)"
                       required
                     />
                   </div>
