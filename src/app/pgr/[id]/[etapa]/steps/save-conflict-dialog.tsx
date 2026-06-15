@@ -38,13 +38,16 @@ export function SaveConflictDialog({
               </h3>
               <p className="mt-1 text-[13px] text-muted-foreground">
                 Alguém salvou uma versão mais recente deste documento desde que
-                você o abriu. Para evitar sobrescrever esse trabalho, as
-                gravações foram pausadas.
+                você o abriu.
               </p>
               <p className="mt-2 text-[13px] text-muted-foreground">
-                Recarregue para trabalhar sobre a versão atual. Se continuar
-                editando, suas alterações <strong>não serão salvas</strong> até
-                recarregar.
+                <strong>Recarregar agora:</strong> carrega a versão mais recente
+                (suas alterações não salvas serão descartadas).
+              </p>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                <strong>Continuar editando:</strong> mantém o que você está
+                fazendo e <strong>salva a sua versão</strong>, sobrescrevendo a
+                da outra pessoa.
               </p>
             </div>
           </div>

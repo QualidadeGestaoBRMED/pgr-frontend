@@ -30,6 +30,8 @@ import {
   putPgrState,
   setKnownUpdatedAt,
   setConflictHandler,
+  resumeSaving,
+  clearKnownUpdatedAt,
 } from "../state/state-version";
 import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
@@ -278,9 +280,13 @@ export function usePgrEtapaController({
   const isPipefySyncCoolingDown = pipefySyncCooldownSeconds > 0;
 
   // Conflito de edição concorrente (lock otimista): o save bateu 409 porque
-  // outra pessoa alterou este PGR. As gravações ficam pausadas até recarregar.
+  // outra pessoa alterou este PGR.
   const [saveConflict, setSaveConflict] = useState(false);
   useEffect(() => {
+    // Ao abrir a etapa, sempre retoma as gravações: NUNCA deixar o save preso
+    // em pausa silenciosa de uma navegação/sessão anterior (causava perda de
+    // dados — o autosave parava de enviar request sem o usuário perceber).
+    resumeSaving();
     setConflictHandler(() => setSaveConflict(true));
     return () => setConflictHandler(null);
   }, []);
@@ -290,10 +296,14 @@ export function usePgrEtapaController({
     }
   }, []);
   const dismissSaveConflict = useCallback(() => {
-    // Fecha o aviso, mas mantém as gravações pausadas: o usuário pode continuar
-    // editando localmente; nada será salvo até recarregar a versão atual.
+    // "Continuar editando" = a minha versão prevalece. Limpa o token para o
+    // próximo save ir sem expectedUpdatedAt (o backend pula a checagem),
+    // sobrescrever e re-sincronizar, e retoma as gravações. Assim o trabalho do
+    // usuário é salvo em vez de descartado em silêncio.
+    clearKnownUpdatedAt(params.id);
+    resumeSaving();
     setSaveConflict(false);
-  }, []);
+  }, [params.id]);
 
   usePgrPersistence({
     params,
