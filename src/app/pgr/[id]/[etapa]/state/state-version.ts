@@ -26,9 +26,16 @@ export function setKnownUpdatedAt(
   pgrId: string,
   value: string | null | undefined
 ): void {
-  if (typeof value === "string" && value.trim()) {
-    knownUpdatedAtByPgr.set(pgrId, value);
+  if (typeof value !== "string" || !value.trim()) return;
+  // updated_at só cresce; manter o maior evita regredir o token por causa de
+  // respostas que chegam fora de ordem (ex.: deletes paralelos).
+  const current = knownUpdatedAtByPgr.get(pgrId);
+  if (current) {
+    const a = Date.parse(current);
+    const b = Date.parse(value);
+    if (Number.isFinite(a) && Number.isFinite(b) && b < a) return;
   }
+  knownUpdatedAtByPgr.set(pgrId, value);
 }
 
 export function clearKnownUpdatedAt(pgrId: string): void {
