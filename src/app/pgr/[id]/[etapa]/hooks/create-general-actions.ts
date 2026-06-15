@@ -1223,17 +1223,17 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const handleAddManualFunction = (payload: {
     setor: string;
     funcao: string;
-    descricao: string;
+    descricao?: string;
     assignToCurrentGhe?: boolean;
     gheId?: string;
     funcionarios?: string;
   }) => {
     const setor = payload.setor.trim();
     const funcao = payload.funcao.trim();
-    const descricao = payload.descricao.trim();
+    const descricao = payload.descricao?.trim() || funcao;
 
-    if (!setor || !funcao || !descricao) {
-      throw new Error("Setor, Função e Descrição da Atividade são obrigatórios!");
+    if (!setor || !funcao) {
+      throw new Error("Setor e Função são obrigatórios!");
     }
 
     let createdFunctionId = "";

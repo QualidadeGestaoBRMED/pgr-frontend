@@ -532,13 +532,6 @@ export function usePgrEtapaController({
   );
 
   const handleFinalizePgr = useCallback(async () => {
-    if (!state.lastFakePdfAt) {
-      if (typeof window !== "undefined") {
-        window.alert("Gere os arquivos (PDF, DOCX e XLSX) antes de finalizar o PGR.");
-      }
-      return;
-    }
-
     setters.setIsFinalizingPgr(true);
     try {
       await persistStateNow();
@@ -617,7 +610,6 @@ export function usePgrEtapaController({
     params.id,
     setters,
     state.inicioDraft,
-    state.lastFakePdfAt,
   ]);
 
   const handleGenerateFakePdf = useCallback(async () => {

@@ -227,11 +227,9 @@ export function RevisaoStep({
               <button
                 type="button"
                 onClick={onFinalizePgr}
-                disabled={
-                  workflow.isLocked || !lastFakePdfAt || isGeneratingFakePdf || isFinalizingPgr
-                }
+                disabled={workflow.isLocked || isGeneratingFakePdf || isFinalizingPgr}
                 className={
-                  workflow.isLocked || !lastFakePdfAt || isGeneratingFakePdf || isFinalizingPgr
+                  workflow.isLocked || isGeneratingFakePdf || isFinalizingPgr
                     ? "btn-disabled px-5"
                     : "btn-primary px-5"
                 }
