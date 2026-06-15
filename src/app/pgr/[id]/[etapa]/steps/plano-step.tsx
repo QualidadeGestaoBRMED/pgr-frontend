@@ -18,6 +18,7 @@ type PlanoStepProps = {
         workflowVersion: number;
         planAction: { nr: string; vigencia: string };
         maskDate: (value: string) => string;
+        completeVigencia: (value: string) => string;
         setPlanAction: Dispatch<SetStateAction<{ nr: string; vigencia: string }>>;
         planTableRows: Array<{
             id: string;
@@ -218,6 +219,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         workflowVersion,
         planAction,
         maskDate,
+        completeVigencia,
         setPlanAction,
         planTableRows,
         planTableRowsPage,
@@ -534,7 +536,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                     </div>
                     <div>
                         <label className="text-[12px] font-semibold text-muted-foreground">
-                            Vigência (DD/MM/AAAA)
+                            Vigência (DD/MM/AAAA - DD/MM/AAAA)
                         </label>
                         <input
                             className={inputBaseClass}
@@ -545,7 +547,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                     vigencia: maskDate(event.target.value),
                                 }))
                             }
-                            placeholder="Ex: 10/03/2025"
+                            onBlur={() =>
+                                setPlanAction((prev) => ({
+                                    ...prev,
+                                    vigencia: completeVigencia(prev.vigencia),
+                                }))
+                            }
+                            placeholder="Ex: 10/03/2025 - 10/03/2026"
                         />
                     </div>
                 </div>

@@ -13,6 +13,7 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       workflowVersion: ctx.workflow.version,
       planAction: ctx.planAction,
       maskDate: ctx.generalActions.maskDate,
+      completeVigencia: ctx.generalActions.completeVigencia,
       setPlanAction: ctx.setPlanAction,
       planTableRows: ctx.planTableRows,
       planTableRowsPage: ctx.planTableRowsPage,

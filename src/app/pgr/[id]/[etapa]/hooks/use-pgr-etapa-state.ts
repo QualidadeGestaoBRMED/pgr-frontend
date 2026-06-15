@@ -9,6 +9,7 @@ import {
   initialDadosCadastrais,
   initialInicioDraft,
 } from "../defaults";
+import { calculatePlanActionVigencia } from "../utils/vigencia";
 import type {
   AnexoItem,
   ExcelImportFeedback,
@@ -110,7 +111,9 @@ export function usePgrEtapaState({
   >(serverSyncedCachedState?.extraEstabelecimentoFields ?? []);
   const [planAction, setPlanAction] = useState({
     nr: serverSyncedCachedState?.planAction.nr ?? "NR-01",
-    vigencia: serverSyncedCachedState?.planAction.vigencia ?? "",
+    vigencia:
+      serverSyncedCachedState?.planAction.vigencia ||
+      calculatePlanActionVigencia(serverSyncedCachedState?.historicoData?.changes ?? []),
   });
   const [removedPlanRiskKeys, setRemovedPlanRiskKeys] = useState<string[]>(
     serverSyncedCachedState?.removedPlanRiskKeys ?? []

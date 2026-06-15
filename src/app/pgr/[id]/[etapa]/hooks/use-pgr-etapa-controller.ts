@@ -16,6 +16,7 @@ import type { PersistedPgrState } from "../state/runtime-cache";
 import { slugify, truncatePreview } from "../utils/text";
 import { buildPgrDocxPayload } from "../utils/docx-payload";
 import { computeWeightedProgressPercent } from "../utils/progress";
+import { calculatePlanActionVigencia } from "../utils/vigencia";
 import { createGeneralActions } from "./create-general-actions";
 import { useDescricaoInteractions } from "./use-descricao-interactions";
 import { useHistoryUndo } from "./use-history-undo";
@@ -370,22 +371,28 @@ export function usePgrEtapaController({
       String(state.inicioDraft.companyName || "").trim() ||
       "Empresa não informada";
     const todayIso = new Date().toISOString().slice(0, 10);
+    const initialChange = {
+      id: `historico-v1-${Date.now()}`,
+      company: companyFallback,
+      analysis: "00",
+      change: "00",
+      reason: "Elaboração inicial",
+      date: todayIso,
+      status: state.workflow.isLocked ? "Documento finalizado" : "Em edição",
+    };
+
+    setters.setPlanAction((current) => ({
+      ...current,
+      vigencia:
+        current.vigencia ||
+        calculatePlanActionVigencia([initialChange]),
+    }));
 
     setters.setHistoricoData((prev) => {
       if (prev.changes.length > 0) return prev;
       return {
         ...prev,
-        changes: [
-          {
-            id: `historico-v1-${Date.now()}`,
-            company: companyFallback,
-            analysis: "00",
-            change: "00",
-            reason: "Elaboração inicial",
-            date: todayIso,
-            status: state.workflow.isLocked ? "Documento finalizado" : "Em edição",
-          },
-        ],
+        changes: [initialChange],
       };
     });
   }, [
@@ -525,13 +532,6 @@ export function usePgrEtapaController({
   );
 
   const handleFinalizePgr = useCallback(async () => {
-    if (!state.lastFakePdfAt) {
-      if (typeof window !== "undefined") {
-        window.alert("Gere os arquivos (PDF, DOCX e XLSX) antes de finalizar o PGR.");
-      }
-      return;
-    }
-
     setters.setIsFinalizingPgr(true);
     try {
       await persistStateNow();
@@ -610,7 +610,6 @@ export function usePgrEtapaController({
     params.id,
     setters,
     state.inicioDraft,
-    state.lastFakePdfAt,
   ]);
 
   const handleGenerateFakePdf = useCallback(async () => {
@@ -806,7 +805,10 @@ export function usePgrEtapaController({
 
   const handleResetPlanoData = useCallback(() => {
     if (state.workflow.isLocked) return;
-    setters.setPlanAction({ nr: "NR-01", vigencia: "" });
+    setters.setPlanAction({
+      nr: "NR-01",
+      vigencia: calculatePlanActionVigencia(state.historicoData.changes),
+    });
     setters.setRemovedPlanRiskKeys([]);
     setters.setPlanGeneralMeasures([]);
     setters.setEditingMedidasId(null);
@@ -831,7 +833,7 @@ export function usePgrEtapaController({
         })),
       }))
     );
-  }, [setters, state.workflow.isLocked]);
+  }, [setters, state.historicoData.changes, state.workflow.isLocked]);
 
   const handleResetAllData = useCallback(() => {
     if (state.workflow.isLocked) return;
@@ -861,7 +863,10 @@ export function usePgrEtapaController({
     setters.setFunctionsData(defaultFunctions);
     setters.setExtraEstabelecimentoFields([]);
     setters.setEstabelecimentoSelecionado("");
-    setters.setPlanAction({ nr: "NR-01", vigencia: "" });
+    setters.setPlanAction({
+      nr: "NR-01",
+      vigencia: calculatePlanActionVigencia(defaultHistorico.changes),
+    });
     setters.setRemovedPlanRiskKeys([]);
     setters.setPlanGeneralMeasures([]);
     setters.setAnexos(defaultAnexos);

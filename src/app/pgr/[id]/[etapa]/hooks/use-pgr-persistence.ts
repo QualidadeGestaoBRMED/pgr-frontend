@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { syncLegacyContractorFields } from "../utils/contractors";
+import { calculatePlanActionVigencia } from "../utils/vigencia";
 import {
   DEFAULT_PDF_LAYOUT_STATE,
   normalizePdfLayoutState,
@@ -468,7 +469,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             }))
           : [];
         const loadedEstabelecimento = state.estabelecimentoSelecionado || "";
-        const loadedPlanAction = { nr: "NR-01", vigencia: "", ...(state.planAction || {}) };
+        const loadedPlanAction = {
+          nr: state.planAction?.nr || "NR-01",
+          vigencia:
+            state.planAction?.vigencia ||
+            calculatePlanActionVigencia(loadedHistoricoData.changes),
+        };
         const loadedPersistedOptions = (state as any).persistedOptionsByRowId ?? {};
         const loadedRemovedPlanRiskKeys = Array.isArray(state.removedPlanRiskKeys)
           ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
