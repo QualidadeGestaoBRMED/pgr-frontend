@@ -32,6 +32,7 @@ import {
   normalizeResponsaveisCoordenacaoTecnica,
   syncLegacyContractorFields,
 } from "../utils/contractors";
+import { completeVigenciaInterval, maskVigenciaInterval } from "../utils/vigencia";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -1284,24 +1285,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     );
   };
 
-  const maskDate = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 8);
-    const parts = [];
-    if (digits.length >= 2) {
-      parts.push(digits.slice(0, 2));
-    } else if (digits.length > 0) {
-      parts.push(digits);
-    }
-    if (digits.length >= 4) {
-      parts.push(digits.slice(2, 4));
-    } else if (digits.length > 2) {
-      parts.push(digits.slice(2));
-    }
-    if (digits.length > 4) {
-      parts.push(digits.slice(4));
-    }
-    return parts.join("/");
-  };
+  const maskDate = maskVigenciaInterval;
+  const completeVigencia = completeVigenciaInterval;
 
   const extractHistoricoNumericCode = (value: string) => {
     const match = String(value || "").match(/(\d{1,4})/);
@@ -1579,6 +1564,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleDescricaoExcelAtivosChange,
     handleAddManualFunction,
     maskDate,
+    completeVigencia,
     handleAnexoFiles,
     handleAnexoFileRename,
     handleAnexoFileDateChange,
