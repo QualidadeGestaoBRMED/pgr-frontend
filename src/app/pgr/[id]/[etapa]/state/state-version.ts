@@ -90,6 +90,31 @@ async function runPutPgrState<T extends StateResponse>(
 }
 
 /**
+ * Roda uma mutação de estado arbitrária (ex.: upload/exclusão de anexo) DENTRO
+ * da mesma fila dos saves, para que nenhum autosave rode em paralelo com ela.
+ * Atualiza o token de lock otimista a partir do `updatedAt` da resposta.
+ *
+ * Sem isso, o upload (que grava o estado fora do funil) comita concorrente a um
+ * autosave em voo com token velho → 409 falso.
+ */
+export async function runInSaveChain<T extends StateResponse>(
+  pgrId: string,
+  task: () => Promise<T>
+): Promise<T> {
+  const previous = saveChainByPgr.get(pgrId) ?? Promise.resolve();
+  const result = previous.catch(() => undefined).then(async () => {
+    const res = await task();
+    setKnownUpdatedAt(pgrId, res?.updatedAt);
+    return res;
+  });
+  saveChainByPgr.set(
+    pgrId,
+    result.catch(() => undefined)
+  );
+  return result;
+}
+
+/**
  * Funil único de gravação do estado. Serializa as gravações por PGR, injeta o
  * token de lock otimista, atualiza-o a partir da resposta e, em caso de 409,
  * pausa as gravações e dispara o handler de conflito (a UI decide: recarregar

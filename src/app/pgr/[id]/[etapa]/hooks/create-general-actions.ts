@@ -1,5 +1,5 @@
 import { apiBlobGet, apiDelete, apiPost, apiPostForm } from "@/lib/api";
-import { setKnownUpdatedAt } from "../state/state-version";
+import { runInSaveChain, setKnownUpdatedAt } from "../state/state-version";
 import {
   DescricaoImportMissingRequiredFieldsError,
   parseDescricaoExcel,
@@ -1372,24 +1372,26 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           formData.append("revisionDate", currentRevisionDate);
         }
 
-        const response = await apiPostForm<{
-          ok: boolean;
-          updatedAt?: string;
-          file: {
-            id: string;
-            name: string;
-            date?: string;
-            originalName: string;
-            sizeBytes: number;
-            uploadedAt: string;
-            url?: string;
-          };
-        }>(`/api/v1/frontend/pgr/${params.id}/attachments/upload`, formData);
+        // Roteia o upload pela MESMA fila dos saves: serializa com o autosave
+        // (senão o upload comita em paralelo a um autosave em voo → 409 falso)
+        // e já atualiza o token do lock otimista a partir do updatedAt.
+        const response = await runInSaveChain(params.id, () =>
+          apiPostForm<{
+            ok: boolean;
+            updatedAt?: string;
+            file: {
+              id: string;
+              name: string;
+              date?: string;
+              originalName: string;
+              sizeBytes: number;
+              uploadedAt: string;
+              url?: string;
+            };
+          }>(`/api/v1/frontend/pgr/${params.id}/attachments/upload`, formData)
+        );
 
         if (!response?.ok || !response.file) return;
-        // O upload gravou o estado no servidor (bumpou updated_at). Sincroniza o
-        // token do lock otimista para o autosave seguinte não dar 409 falso.
-        setKnownUpdatedAt(params.id, response.updatedAt);
 
         const uploadedFile: AnexoFile = {
           ...response.file,
@@ -1445,13 +1447,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAnexoFileRemove = (anexoId: string, fileId: string) => {
-    void apiDelete<{ ok: boolean; updatedAt?: string }>(
-      `/api/v1/frontend/pgr/${params.id}/attachments/${fileId}`
+    // Pela fila dos saves (serializa com autosave + atualiza token).
+    void runInSaveChain(params.id, () =>
+      apiDelete<{ ok: boolean; updatedAt?: string }>(
+        `/api/v1/frontend/pgr/${params.id}/attachments/${fileId}`
+      )
     )
-      .then((resp) => {
-        // Mantém o token do lock otimista em dia (delete bumpa o updated_at).
-        setKnownUpdatedAt(params.id, resp?.updatedAt);
-      })
       .catch(() => {})
       .finally(() => {
         setAnexos((prev) =>
@@ -1501,11 +1502,11 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       const target = prev.find((anexo) => anexo.id === anexoId);
       if (target?.files?.length) {
         target.files.forEach((file) => {
-          void apiDelete<{ ok: boolean; updatedAt?: string }>(
-            `/api/v1/frontend/pgr/${params.id}/attachments/${file.id}`
-          )
-            .then((resp) => setKnownUpdatedAt(params.id, resp?.updatedAt))
-            .catch(() => {});
+          void runInSaveChain(params.id, () =>
+            apiDelete<{ ok: boolean; updatedAt?: string }>(
+              `/api/v1/frontend/pgr/${params.id}/attachments/${file.id}`
+            )
+          ).catch(() => {});
         });
       }
       return prev.filter((anexo) => anexo.id !== anexoId);
