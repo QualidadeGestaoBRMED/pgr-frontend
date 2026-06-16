@@ -197,7 +197,7 @@ export function DadosStep({
           ? ""
           : "CNPJ do estabelecimento inválido.",
       estabelecimentoGrauRisco: !dadosCadastrais.estabelecimentoGrauRisco.trim()
-        ? "Grau de risco do estabelecimento é obrigatório."
+        ? ""
         : isValidRiskGrade(dadosCadastrais.estabelecimentoGrauRisco)
           ? ""
           : "Grau de risco do estabelecimento deve ser entre 1 e 4.",
