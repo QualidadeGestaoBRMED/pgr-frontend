@@ -248,6 +248,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     handleResetCaracterizacaoData,
     riskGheGroups,
     setRiskGheGroups,
+    persistedOptionsByRowId,
+    setPersistedOptionsByRowId,
     currentRiskGheId,
     setCurrentRiskGheId,
     pushHistory,
@@ -303,6 +305,39 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
   const formGroupClass = "flex min-w-0 self-start flex-col gap-2";
   const stackedInputClass = inputBaseClass.replace("mt-2 ", "");
+  const getPersistedFonteKey = (riskId: string) => `risk-fontes:${riskId}`;
+
+  useEffect(() => {
+    setPersistedOptionsByRowId((prev) => {
+      const next = { ...prev };
+      let hasChanges = false;
+
+      riskGheGroups.forEach((ghe) => {
+        ghe.risks.forEach((risk) => {
+          const baseOptions = getFontesOptions(
+            risk.tipoAgente,
+            risk.descricaoAgente,
+            ""
+          );
+          const selectedValues = parseMultiTextValues(risk.fontes, baseOptions);
+          const customValues = selectedValues.filter(
+            (value) => !hasOptionInsensitive(baseOptions, value)
+          );
+          if (!customValues.length) return;
+
+          const key = getPersistedFonteKey(risk.id);
+          const existing = next[key] || [];
+          const merged = Array.from(new Set([...existing, ...customValues]));
+          if (merged.length !== existing.length) {
+            next[key] = merged;
+            hasChanges = true;
+          }
+        });
+      });
+
+      return hasChanges ? next : prev;
+    });
+  }, [getFontesOptions, riskGheGroups, setPersistedOptionsByRowId]);
 
   const isManyRiskGhes = riskGheGroups.length > 10;
   const normalizedRiskGheSearch = useMemo(
@@ -684,6 +719,82 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const getRiskFieldError = (riskId: string, field: RequiredRiskField) =>
     riskErrorsById[riskId]?.[field] || "";
 
+  const getFontesCatalogOptions = (risk: GheRisk) =>
+    getFontesOptions(risk.tipoAgente, risk.descricaoAgente, "");
+
+  const getPersistedFonteOptions = (riskId: string) =>
+    persistedOptionsByRowId[getPersistedFonteKey(riskId)] || [];
+
+  const getMergedFonteOptions = (risk: GheRisk) => {
+    const catalogOptions = getFontesCatalogOptions(risk);
+    const persistedOptions = getPersistedFonteOptions(risk.id);
+    const selectedValues = parseMultiTextValues(risk.fontes, [
+      ...catalogOptions,
+      ...persistedOptions,
+    ]);
+
+    return Array.from(new Set([...catalogOptions, ...persistedOptions, ...selectedValues]));
+  };
+
+  const splitSelectedFontes = (risk: GheRisk) => {
+    const catalogOptions = getFontesCatalogOptions(risk);
+    const mergedOptions = getMergedFonteOptions(risk);
+    const selectedValues = parseMultiTextValues(risk.fontes, mergedOptions);
+    const selectedCatalog = selectedValues.filter((value) =>
+      hasOptionInsensitive(catalogOptions, value)
+    );
+    const selectedCustom = selectedValues.filter(
+      (value) => !hasOptionInsensitive(catalogOptions, value)
+    );
+
+    return { catalogOptions, mergedOptions, selectedValues, selectedCatalog, selectedCustom };
+  };
+
+  const handleCustomFontesChange = (risk: GheRisk, rawValue: string) => {
+    const { selectedCatalog, selectedCustom } = splitSelectedFontes(risk);
+    const nextCustom = parseMultiTextValues(rawValue).filter(
+      (value) => !hasOptionInsensitive(getFontesCatalogOptions(risk), value)
+    );
+
+    setPersistedOptionsByRowId((prev) => {
+      const key = getPersistedFonteKey(risk.id);
+      const existing = prev[key] || [];
+      const preserved = existing.filter((value) => !hasOptionInsensitive(selectedCustom, value));
+      const nextPersisted = Array.from(new Set([...preserved, ...nextCustom]));
+
+      if (
+        nextPersisted.length === existing.length &&
+        nextPersisted.every((value, index) => value === existing[index])
+      ) {
+        return prev;
+      }
+
+      if (nextPersisted.length === 0) {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      }
+
+      return {
+        ...prev,
+        [key]: nextPersisted,
+      };
+    });
+
+    setRiskGheGroups((prev: RiskGheGroup[]) =>
+      prev.map((ghe) => ({
+        ...ghe,
+        risks: ghe.risks.map((currentRisk) =>
+          currentRisk.id === risk.id
+            ? {
+                ...currentRisk,
+                fontes: [...selectedCatalog, ...nextCustom].join(MULTI_VALUE_SEPARATOR),
+              }
+            : currentRisk
+        ),
+      }))
+    );
+  };
+
   const handleAddRisk = () => {
     if (!currentRiskGhe) return;
     pushHistory();
@@ -1023,11 +1134,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       risk.descricaoAgente,
       ""
     );
-    const fontesOptions = getFontesOptions(
-      risk.tipoAgente,
-      risk.descricaoAgente,
-      ""
-    );
+    const fontesOptions = getMergedFonteOptions(risk);
     const danosSaudeOptions = getDanosSaudeOptions(
       risk.tipoAgente,
       risk.descricaoAgente,
@@ -1382,13 +1489,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               !!customMeioPropagacaoValue &&
               !hasOptionInsensitive(meioPropagacaoOptions, customMeioPropagacaoValue) &&
               !hasOptionInsensitive(selectedMeios, customMeioPropagacaoValue);
-            const fontesOptions = getFontesOptions(
-              risk.tipoAgente,
-              risk.descricaoAgente,
-              ""
-            );
+            const fontesOptions = getMergedFonteOptions(risk);
             const selectedFontes = parseMultiTextValues(risk.fontes, fontesOptions);
+            const selectedFontesCatalog = selectedFontes.filter((value) =>
+              hasOptionInsensitive(getFontesCatalogOptions(risk), value)
+            );
+            const selectedFontesCustom = selectedFontes.filter(
+              (value) => !hasOptionInsensitive(getFontesCatalogOptions(risk), value)
+            );
             const filteredFontesOptions = filterOptionsByQuery(fontesOptions);
+            const fontesDisplayValue = [...selectedFontesCatalog, ...selectedFontesCustom].join(", ");
             const customFonteValue = multiSelectQuery.trim();
             const canAddCustomFonte =
               !!customFonteValue &&
@@ -1771,16 +1881,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           Fontes/Circunstâncias *
                         </label>
                         <div className="relative" data-multiselect>
-                          <textarea
-                            rows={2}
+                          <div
                             className={getRiskFieldClassName(
                               risk.id,
                               "fontes",
-                              `${selectSmallClass} min-h-[56px] resize-y whitespace-pre-wrap break-words py-2 pr-10`
+                              `${selectSmallClass.replace("h-[38px] ", "").replace("h-[40px] ", "")} min-h-[56px] py-2 pr-10`
                             )}
-                            value={selectedFontes.join(", ")}
-                            placeholder="Selecione as fontes"
-                            readOnly
                             onClick={() =>
                               setOpenMultiSelect((prev) =>
                                 prev?.riskId === risk.id && prev.field === "fontes"
@@ -1788,7 +1894,45 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                   : { riskId: risk.id, field: "fontes" }
                               )
                             }
-                          />
+                          >
+                            <textarea
+                              rows={3}
+                              className="w-full resize-y border-0 bg-transparent p-0 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+                              value={fontesDisplayValue}
+                              placeholder="Digite ou altere fontes manuais"
+                              onChange={(event) => {
+                                markRiskTouched(risk.id, "fontes");
+                                const rawValue = event.target.value;
+                                const preservedCatalogPrefix = selectedFontesCatalog.join(", ");
+                                if (preservedCatalogPrefix) {
+                                  if (rawValue === preservedCatalogPrefix) {
+                                    handleCustomFontesChange(risk, "");
+                                    return;
+                                  }
+
+                                  const expectedPrefix = `${preservedCatalogPrefix}, `;
+                                  if (!rawValue.startsWith(expectedPrefix)) {
+                                    return;
+                                  }
+
+                                  handleCustomFontesChange(
+                                    risk,
+                                    rawValue.slice(expectedPrefix.length)
+                                  );
+                                  return;
+                                }
+                                handleCustomFontesChange(risk, rawValue);
+                              }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenMultiSelect((prev) =>
+                                  prev?.riskId === risk.id && prev.field === "fontes"
+                                    ? null
+                                    : { riskId: risk.id, field: "fontes" }
+                                );
+                              }}
+                            />
+                          </div>
                           <button
                             type="button"
                             aria-label="Abrir seleção de fontes"
@@ -1822,6 +1966,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                   onKeyDown={(event) => {
                                     if (!canAddCustomFonte || event.key !== "Enter") return;
                                     event.preventDefault();
+                                    setPersistedOptionsByRowId((prev) => {
+                                      const key = getPersistedFonteKey(risk.id);
+                                      const existing = prev[key] || [];
+                                      return hasOptionInsensitive(existing, customFonteValue)
+                                        ? prev
+                                        : {
+                                            ...prev,
+                                            [key]: [...existing, customFonteValue],
+                                          };
+                                    });
                                     markRiskTouched(risk.id, "fontes");
                                     handleToggleRiskMultiSelect(
                                       risk.id,
@@ -1840,6 +1994,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     type="button"
                                     className="mb-2 w-full rounded-[6px] border border-border px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
                                     onClick={() => {
+                                      setPersistedOptionsByRowId((prev) => {
+                                        const key = getPersistedFonteKey(risk.id);
+                                        const existing = prev[key] || [];
+                                        return hasOptionInsensitive(existing, customFonteValue)
+                                          ? prev
+                                          : {
+                                              ...prev,
+                                              [key]: [...existing, customFonteValue],
+                                            };
+                                      });
                                       markRiskTouched(risk.id, "fontes");
                                       handleToggleRiskMultiSelect(
                                         risk.id,

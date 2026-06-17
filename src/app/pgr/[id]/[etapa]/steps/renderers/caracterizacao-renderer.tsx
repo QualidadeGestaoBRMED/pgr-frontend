@@ -5,6 +5,8 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   handleResetCaracterizacaoData: ctx.handleResetCaracterizacaoData,
   riskGheGroups: ctx.riskGheGroups,
   setRiskGheGroups: ctx.setRiskGheGroups,
+  persistedOptionsByRowId: ctx.persistedOptionsByRowId,
+  setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,
   currentRiskGheId: ctx.currentRiskGheId,
   setCurrentRiskGheId: ctx.setCurrentRiskGheId,
   pushHistory: ctx.pushHistory,
