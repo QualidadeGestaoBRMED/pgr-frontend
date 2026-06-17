@@ -94,6 +94,12 @@ export const initialDadosCadastrais: DadosCadastraisDraft = {
   responsavelPgrTelefone: "",
   responsavelPgrEmail: "",
   responsavelPgrCpf: "",
+  responsavelImplementacaoPgrNome: "",
+  responsavelImplementacaoPgrFuncao: "",
+  responsavelImplementacaoPgrTelefone: "",
+  responsavelImplementacaoPgrEmail: "",
+  responsavelImplementacaoPgrCpf: "",
+  responsavelImplementacaoPgrRegistroProfissional: "",
   responsaveisCoordenacaoTecnica: [createEmptyResponsavelCoordenacaoTecnica()],
 };
 

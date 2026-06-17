@@ -11,7 +11,10 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     estabelecimentoOptions={ctx.estabelecimentoOptions}
     SearchableSelect={SearchableSelect}
     extraFields={ctx.extraEstabelecimentoFields.filter(
-      (field) => field.scope === "empresa" || field.scope === "estabelecimento"
+      (
+        field
+      ): field is typeof field & { scope: "empresa" | "estabelecimento" } =>
+        field.scope === "empresa" || field.scope === "estabelecimento"
     )}
     onDadosChange={ctx.generalActions.handleDadosCadastraisChange}
     onCepBlur={ctx.generalActions.handleRecalculateByCep}

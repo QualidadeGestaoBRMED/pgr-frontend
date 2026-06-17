@@ -89,5 +89,11 @@ export type DadosCadastraisDraft = {
   responsavelPgrTelefone: string;
   responsavelPgrEmail: string;
   responsavelPgrCpf: string;
+  responsavelImplementacaoPgrNome: string;
+  responsavelImplementacaoPgrFuncao: string;
+  responsavelImplementacaoPgrTelefone: string;
+  responsavelImplementacaoPgrEmail: string;
+  responsavelImplementacaoPgrCpf: string;
+  responsavelImplementacaoPgrRegistroProfissional: string;
   responsaveisCoordenacaoTecnica: ResponsavelCoordenacaoTecnicaDraft[];
 };
