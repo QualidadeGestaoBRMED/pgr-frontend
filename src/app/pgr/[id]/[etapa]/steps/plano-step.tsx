@@ -253,8 +253,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const tableInputClass = tableControlClass;
     const tableEditableClass =
         "h-[36px] w-full rounded-[8px] border border-border bg-background px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm transition-colors";
+    const requiredEmptyClass = "border-rose-400 bg-rose-50/60 focus:ring-rose-500";
     const defaultAcompanhamento = "Programado";
     const defaultAfericaoResultado = "Aguardando realização da Ação";
+
+    const withRequiredHighlight = (baseClassName: string, isEmpty: boolean) =>
+        isEmpty ? `${baseClassName} ${requiredEmptyClass}` : baseClassName;
 
     const [, setTouchedPlanActionDescription] = useState(false);
     const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
@@ -596,7 +600,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         Prioridade
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                                        Tipo de Medidas de Prevenção
+                                        Tipo de Medidas de Prevenção *
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
                       <span className="block min-w-[220px] whitespace-normal leading-5">
@@ -604,16 +608,16 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                       </span>
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                                        Prazo para Realização da Ação
+                                        Prazo para Realização da Ação *
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
                                         Responsável pela Ação
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                                        Acompanhamentos das Medidas de Prevenção
+                                        Acompanhamentos das Medidas de Prevenção *
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                                        Aferição de Resultados
+                                        Aferição de Resultados *
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
                                         Ações
@@ -632,7 +636,10 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={`${tableSelectClass} min-w-[170px]`}
+                                                className={withRequiredHighlight(
+                                                    `${tableSelectClass} min-w-[170px]`,
+                                                    !String(tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? "").trim()
+                                                )}
                                                 value={tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? ""}
                                                 onChange={(event) => {
                                                     const value = event.target.value;
@@ -779,7 +786,10 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <input
                                                 type="date"
-                                                className={`${tableInputClass} min-w-[170px]`}
+                                                className={withRequiredHighlight(
+                                                    `${tableInputClass} min-w-[170px]`,
+                                                    !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
+                                                )}
                                                 value={prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""}
                                                 onChange={(event) => {
                                                     const value = event.target.value;
@@ -825,7 +835,14 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={`${tableSelectClass} min-w-[180px]`}
+                                                className={withRequiredHighlight(
+                                                    `${tableSelectClass} min-w-[180px]`,
+                                                    !String(
+                                                        acompanhamentoByRowId[row.id] ??
+                                                        row.acompanhamento ??
+                                                        defaultAcompanhamento
+                                                    ).trim()
+                                                )}
                                                 value={
                                                     acompanhamentoByRowId[row.id] ??
                                                     row.acompanhamento ??
@@ -854,7 +871,14 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={`${tableSelectClass} min-w-[210px]`}
+                                                className={withRequiredHighlight(
+                                                    `${tableSelectClass} min-w-[210px]`,
+                                                    !String(
+                                                        afericaoResultadoByRowId[row.id] ??
+                                                        row.afericaoResultado ??
+                                                        defaultAfericaoResultado
+                                                    ).trim()
+                                                )}
                                                 value={
                                                     afericaoResultadoByRowId[row.id] ??
                                                     row.afericaoResultado ??

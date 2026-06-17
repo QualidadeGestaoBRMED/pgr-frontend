@@ -28,11 +28,17 @@ import {
 } from "../validation/br-field-utils";
 import {
   createEmptyContratante,
+  normalizeAdditionalFields,
   createEmptyResponsavelCoordenacaoTecnica,
   normalizeContractors,
   normalizeResponsaveisCoordenacaoTecnica,
   syncLegacyContractorFields,
 } from "../utils/contractors";
+import {
+  createEmptyEstabelecimento,
+  normalizeEstablishments,
+  syncLegacyEstablishmentFields,
+} from "../utils/establishments";
 import { completeVigenciaInterval, maskVigenciaInterval } from "../utils/vigencia";
 
 type CardMeta = PersistedPgrState["cardMeta"];
@@ -235,6 +241,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
   const { handleAdvanceApiSync, persistStateNow } = helpers;
   const availablePlanActionGheGroups = riskGheGroups.filter((ghe) => ghe.risks.length > 0);
+  const syncLegacyDados = (dados: DadosCadastraisDraft, estabelecimentoSelecionado = "") =>
+    syncLegacyContractorFields(syncLegacyEstablishmentFields(dados, estabelecimentoSelecionado));
 
   const handleInicioDraftChange = (field: keyof InicioDraft, value: string) => {
     const normalizedValue =
@@ -280,6 +288,25 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setDadosCadastrais((prev) => {
       const next = { ...prev, [field]: normalizedValue };
       if (
+        field.startsWith("estabelecimento") &&
+        Array.isArray(prev.estabelecimentos) &&
+        prev.estabelecimentos.length
+      ) {
+        const first = prev.estabelecimentos[0];
+        const updatedFirst = {
+          ...first,
+          ...(field === "estabelecimentoNome" ? { nome: normalizedValue } : {}),
+          ...(field === "estabelecimentoCnpj" ? { cnpj: normalizedValue } : {}),
+          ...(field === "estabelecimentoRazaoSocial" ? { razaoSocial: normalizedValue } : {}),
+          ...(field === "estabelecimentoCnae" ? { cnae: normalizedValue } : {}),
+          ...(field === "estabelecimentoGrauRisco" ? { grauRisco: normalizedValue } : {}),
+          ...(field === "estabelecimentoAtividadePrincipal"
+            ? { atividadePrincipal: normalizedValue }
+            : {}),
+        };
+        next.estabelecimentos = [updatedFirst, ...prev.estabelecimentos.slice(1)];
+      }
+      if (
         field.startsWith("contratante") &&
         Array.isArray(prev.contratantes) &&
         prev.contratantes.length
@@ -302,7 +329,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         };
         next.contratantes = [updatedFirst, ...prev.contratantes.slice(1)];
       }
-      return syncLegacyContractorFields(next);
+      return syncLegacyDados(next);
     });
   };
 
@@ -373,7 +400,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             : contractor
         );
 
-        return syncLegacyContractorFields({
+        return syncLegacyDados({
           ...prev,
           contratantes: nextContractors,
         });
@@ -389,10 +416,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
   const handleContractorChange = (
     contractorIndex: number,
-    field: keyof Omit<
-      DadosCadastraisDraft["contratantes"][number],
-      "id"
-    >,
+    field: Exclude<keyof DadosCadastraisDraft["contratantes"][number], "id" | "camposAdicionais">,
     value: string
   ) => {
     const normalizedValue = (() => {
@@ -414,7 +438,83 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       const nextContractors = contractors.map((contractor, index) =>
         index === safeIndex ? { ...contractor, [field]: normalizedValue } : contractor
       );
-      return syncLegacyContractorFields({
+      return syncLegacyDados({
+        ...prev,
+        contratantes: nextContractors,
+      });
+    });
+  };
+
+  const handleAddContractorExtraField = (contractorIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      const safeIndex = Math.max(0, Math.min(contractorIndex, contractors.length - 1));
+      const nextContractors = contractors.map((contractor, index) =>
+        index === safeIndex
+          ? {
+              ...contractor,
+              camposAdicionais: [
+                ...normalizeAdditionalFields(contractor.camposAdicionais),
+                {
+                  id: `contratante-field-${Date.now()}-${index + 1}`,
+                  title: "",
+                  value: "",
+                },
+              ],
+            }
+          : contractor
+      );
+      return syncLegacyDados({
+        ...prev,
+        contratantes: nextContractors,
+      });
+    });
+  };
+
+  const handleContractorExtraFieldChange = (
+    contractorIndex: number,
+    fieldId: string,
+    field: "title" | "value",
+    value: string
+  ) => {
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      const safeIndex = Math.max(0, Math.min(contractorIndex, contractors.length - 1));
+      const nextContractors = contractors.map((contractor, index) =>
+        index === safeIndex
+          ? {
+              ...contractor,
+              camposAdicionais: normalizeAdditionalFields(contractor.camposAdicionais).map(
+                (item) => (item.id === fieldId ? { ...item, [field]: value } : item)
+              ),
+            }
+          : contractor
+      );
+      return syncLegacyDados({
+        ...prev,
+        contratantes: nextContractors,
+      });
+    });
+  };
+
+  const handleRemoveContractorExtraField = (
+    contractorIndex: number,
+    fieldId: string
+  ) => {
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      const safeIndex = Math.max(0, Math.min(contractorIndex, contractors.length - 1));
+      const nextContractors = contractors.map((contractor, index) =>
+        index === safeIndex
+          ? {
+              ...contractor,
+              camposAdicionais: normalizeAdditionalFields(contractor.camposAdicionais).filter(
+                (item) => item.id !== fieldId
+              ),
+            }
+          : contractor
+      );
+      return syncLegacyDados({
         ...prev,
         contratantes: nextContractors,
       });
@@ -423,7 +523,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
   const handleAddContractor = () => {
     setDadosCadastrais((prev) =>
-      syncLegacyContractorFields({
+      syncLegacyDados({
         ...prev,
         contratantes: [...normalizeContractors(prev), createEmptyContratante()],
       })
@@ -441,7 +541,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       };
       const next = [...contractors];
       next.splice(contractorIndex + 1, 0, duplicated);
-      return syncLegacyContractorFields({ ...prev, contratantes: next });
+      return syncLegacyDados({ ...prev, contratantes: next });
     });
   };
 
@@ -450,7 +550,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       const contractors = normalizeContractors(prev);
       const next = contractors.filter((_, index) => index !== contractorIndex);
       if (!next.length) {
-        return syncLegacyContractorFields({
+        return syncLegacyDados({
           ...prev,
           contratantes: [],
           contratanteNomeFantasia: "",
@@ -465,7 +565,88 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           contratanteAtividadePrincipal: "",
         });
       }
-      return syncLegacyContractorFields({ ...prev, contratantes: next });
+      return syncLegacyDados({ ...prev, contratantes: next });
+    });
+  };
+
+  const handleEstablishmentChange = (
+    establishmentIndex: number,
+    field: Exclude<keyof DadosCadastraisDraft["estabelecimentos"][number], "id">,
+    value: string
+  ) => {
+    const normalizedValue = (() => {
+      switch (field) {
+        case "cnpj":
+          return maskCnpj(value);
+        case "grauRisco":
+          return normalizeRiskGrade(value);
+        default:
+          return value;
+      }
+    })();
+
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      const safeIndex = Math.max(0, Math.min(establishmentIndex, establishments.length - 1));
+      const nextEstablishments = establishments.map((establishment, index) =>
+        index === safeIndex ? { ...establishment, [field]: normalizedValue } : establishment
+      );
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: nextEstablishments,
+        } as DadosCadastraisDraft,
+        nextEstablishments[0]?.tipo || ""
+      );
+    });
+  };
+
+  const handleAddEstablishment = () => {
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: [...establishments, createEmptyEstabelecimento()],
+        } as DadosCadastraisDraft,
+        establishments[0]?.tipo || ""
+      );
+    });
+  };
+
+  const handleDuplicateEstablishment = (establishmentIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      const source = establishments[establishmentIndex];
+      if (!source) return prev;
+      const duplicated = {
+        ...source,
+        id: createEmptyEstabelecimento().id,
+      };
+      const next = [...establishments];
+      next.splice(establishmentIndex + 1, 0, duplicated);
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: next,
+        } as DadosCadastraisDraft,
+        next[0]?.tipo || ""
+      );
+    });
+  };
+
+  const handleRemoveEstablishment = (establishmentIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      const next = establishments.filter((_, index) => index !== establishmentIndex);
+      const ensured = next.length ? next : [createEmptyEstabelecimento()];
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: ensured,
+        } as DadosCadastraisDraft,
+        ensured[0]?.tipo || ""
+      );
     });
   };
 
@@ -496,7 +677,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       const nextCoordinators = coordinators.map((coordinator, index) =>
         index === safeIndex ? { ...coordinator, [field]: normalizedValue } : coordinator
       );
-      return syncLegacyContractorFields({
+      return syncLegacyDados({
         ...prev,
         responsaveisCoordenacaoTecnica: nextCoordinators,
       });
@@ -509,7 +690,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       if (coordinators.length >= 1) {
         return prev;
       }
-      return syncLegacyContractorFields({
+      return syncLegacyDados({
         ...prev,
         responsaveisCoordenacaoTecnica: [createEmptyResponsavelCoordenacaoTecnica()],
       });
@@ -520,7 +701,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setDadosCadastrais((prev) => {
       const coordinators = normalizeResponsaveisCoordenacaoTecnica(prev);
       const next = coordinators.filter((_, index) => index !== coordinatorIndex);
-      return syncLegacyContractorFields({
+      return syncLegacyDados({
         ...prev,
         responsaveisCoordenacaoTecnica: next,
       });
@@ -562,7 +743,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         String(responseDados.empresaRazaoSocial || "").trim() ||
         String(normalizedInicioDraft.companyName || "").trim() ||
         String(rawInicioDraft.companyName || "").trim();
-      const mergedDados = syncLegacyContractorFields({
+      const mergedDados = syncLegacyDados({
         ...initialDadosCadastrais,
         ...responseDados,
         empresaRazaoSocial:
@@ -898,7 +1079,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAddExtraField = (
-    scope: "empresa" | "estabelecimento" | "contratante"
+    scope: "empresa" | "estabelecimento"
   ) => {
     setExtraEstabelecimentoFields((prev) => [
       ...prev,
@@ -1554,7 +1735,14 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleInicioDraftChange,
     handleDadosCadastraisChange,
     handleRecalculateByCep,
+    handleEstablishmentChange,
+    handleAddEstablishment,
+    handleDuplicateEstablishment,
+    handleRemoveEstablishment,
     handleContractorChange,
+    handleAddContractorExtraField,
+    handleContractorExtraFieldChange,
+    handleRemoveContractorExtraField,
     handleAddContractor,
     handleDuplicateContractor,
     handleRemoveContractor,

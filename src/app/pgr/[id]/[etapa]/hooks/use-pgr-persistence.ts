@@ -14,7 +14,11 @@ import type {
   RiskGheGroup,
 } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
-import { syncLegacyContractorFields } from "../utils/contractors";
+import {
+  normalizeAdditionalFields,
+  syncLegacyContractorFields,
+} from "../utils/contractors";
+import { syncLegacyEstablishmentFields } from "../utils/establishments";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
 import {
   DEFAULT_PDF_LAYOUT_STATE,
@@ -439,10 +443,34 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           ? Math.max(0, Math.min(100, Math.round(rawProgress)))
           : Math.round((normalizedCompleted / Math.max(1, pgrSteps.length)) * 100);
         const loadedInicioDraft = { ...initialInicioDraft, ...(state.inicioDraft || {}) };
-        const loadedDadosCadastrais = syncLegacyContractorFields({
-          ...initialDadosCadastrais,
-          ...(state.dadosCadastrais || {}),
-        });
+        const rawExtraFields = Array.isArray(state.extraEstabelecimentoFields)
+          ? state.extraEstabelecimentoFields
+          : [];
+        const legacyContractorExtraFields = rawExtraFields.filter(
+          (field) => field.scope === "contratante"
+        );
+        const loadedDadosCadastrais = syncLegacyContractorFields(
+          syncLegacyEstablishmentFields(
+            {
+              ...initialDadosCadastrais,
+              ...(state.dadosCadastrais || {}),
+            },
+            state.estabelecimentoSelecionado || ""
+          )
+        );
+        const migratedDadosCadastrais =
+          legacyContractorExtraFields.length > 0
+            ? {
+                ...loadedDadosCadastrais,
+                contratantes: loadedDadosCadastrais.contratantes.map((contractor) => ({
+                  ...contractor,
+                  camposAdicionais:
+                    contractor.camposAdicionais.length > 0
+                      ? contractor.camposAdicionais
+                      : normalizeAdditionalFields(legacyContractorExtraFields),
+                })),
+              }
+            : loadedDadosCadastrais;
         const loadedCardMeta = {
           pipefyCardId: state.cardMeta?.pipefyCardId || "",
           cardName: state.cardMeta?.cardName || "",
@@ -460,14 +488,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           changes: state.historico?.changes || [],
         };
         const loadedFunctions = state.functions?.length ? state.functions : [];
-        const loadedExtraFields = Array.isArray(state.extraEstabelecimentoFields)
-          ? state.extraEstabelecimentoFields.map((field) => ({
-              id: field.id || `est-field-${Date.now()}-${Math.random()}`,
-              title: field.title || "",
-              value: field.value || "",
-              scope: field.scope || "estabelecimento",
-            }))
-          : [];
+        const loadedExtraFields = rawExtraFields
+          .filter((field) => field.scope !== "contratante")
+          .map((field) => ({
+            id: field.id || `est-field-${Date.now()}-${Math.random()}`,
+            title: field.title || "",
+            value: field.value || "",
+            scope: field.scope || "estabelecimento",
+          }));
         const loadedEstabelecimento = state.estabelecimentoSelecionado || "";
         const loadedPlanAction = {
           nr: state.planAction?.nr || "NR-01",
@@ -548,7 +576,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setCompletedSteps(normalizedCompleted);
         setProgressPercent(normalizedProgress);
         setInicioDraft(loadedInicioDraft);
-        setDadosCadastrais(loadedDadosCadastrais);
+        setDadosCadastrais(migratedDadosCadastrais);
         setCardMeta(loadedCardMeta);
         setHistoricoData(loadedHistoricoData);
         setFunctionsData(loadedFunctions);

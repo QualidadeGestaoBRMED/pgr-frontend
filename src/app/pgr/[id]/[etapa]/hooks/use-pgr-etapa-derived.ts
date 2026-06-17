@@ -516,7 +516,12 @@ export function usePgrEtapaDerived({
   const isPlanoComplete = useMemo(() => {
     if (!rawPlanTableRowsForPlan.length) return false;
     return rawPlanTableRowsForPlan.every(
-      (row) => row.medidasPrevencao.trim().length > 0
+      (row) =>
+        row.medidasPrevencao.trim().length > 0 &&
+        String(row.tipoMedida || "").trim().length > 0 &&
+        String(row.prazoAcao || "").trim().length > 0 &&
+        String(row.acompanhamento || "").trim().length > 0 &&
+        String(row.afericaoResultado || "").trim().length > 0
     );
   }, [rawPlanTableRowsForPlan]);
 
@@ -579,10 +584,31 @@ export function usePgrEtapaDerived({
       missingPlano.push("Adicionar riscos na etapa de caracterização.");
     } else {
       rawPlanTableRowsForPlan.forEach((row) => {
-        if (row.medidasPrevencao.trim().length > 0) return;
-        missingPlano.push(
-          `${row.gheName}: preencher medidas de prevenção para ${row.descricaoAgente}.`
-        );
+        if (row.medidasPrevencao.trim().length === 0) {
+          missingPlano.push(
+            `${row.gheName}: preencher medidas de prevenção para ${row.descricaoAgente}.`
+          );
+        }
+        if (String(row.tipoMedida || "").trim().length === 0) {
+          missingPlano.push(
+            `${row.gheName}: preencher tipo de medida de prevenção para ${row.descricaoAgente}.`
+          );
+        }
+        if (String(row.prazoAcao || "").trim().length === 0) {
+          missingPlano.push(
+            `${row.gheName}: preencher prazo para realização da ação para ${row.descricaoAgente}.`
+          );
+        }
+        if (String(row.acompanhamento || "").trim().length === 0) {
+          missingPlano.push(
+            `${row.gheName}: preencher acompanhamento das medidas de prevenção para ${row.descricaoAgente}.`
+          );
+        }
+        if (String(row.afericaoResultado || "").trim().length === 0) {
+          missingPlano.push(
+            `${row.gheName}: preencher aferição de resultados para ${row.descricaoAgente}.`
+          );
+        }
       });
     }
 

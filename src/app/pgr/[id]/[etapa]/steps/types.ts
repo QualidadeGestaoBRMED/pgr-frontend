@@ -12,6 +12,23 @@ export type InicioDraft = {
 
 export type InicioDraftEditableField = keyof Omit<InicioDraft, "syncedAt">;
 
+export type CampoAdicionalDraft = {
+  id: string;
+  title: string;
+  value: string;
+};
+
+export type EstabelecimentoDraft = {
+  id: string;
+  tipo: string;
+  nome: string;
+  cnpj: string;
+  razaoSocial: string;
+  cnae: string;
+  grauRisco: string;
+  atividadePrincipal: string;
+};
+
 export type ContratanteDraft = {
   id: string;
   nomeFantasia: string;
@@ -24,6 +41,7 @@ export type ContratanteDraft = {
   estado: string;
   grauRisco: string;
   atividadePrincipal: string;
+  camposAdicionais: CampoAdicionalDraft[];
 };
 
 export type ResponsavelCoordenacaoTecnicaDraft = {
@@ -48,6 +66,7 @@ export type DadosCadastraisDraft = {
   empresaEstado: string;
   empresaGrauRisco: string;
   empresaAtividadePrincipal: string;
+  estabelecimentos: EstabelecimentoDraft[];
   estabelecimentoNome: string;
   estabelecimentoCnpj: string;
   estabelecimentoRazaoSocial: string;
@@ -70,5 +89,11 @@ export type DadosCadastraisDraft = {
   responsavelPgrTelefone: string;
   responsavelPgrEmail: string;
   responsavelPgrCpf: string;
+  responsavelImplementacaoPgrNome: string;
+  responsavelImplementacaoPgrFuncao: string;
+  responsavelImplementacaoPgrTelefone: string;
+  responsavelImplementacaoPgrEmail: string;
+  responsavelImplementacaoPgrCpf: string;
+  responsavelImplementacaoPgrRegistroProfissional: string;
   responsaveisCoordenacaoTecnica: ResponsavelCoordenacaoTecnicaDraft[];
 };

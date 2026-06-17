@@ -1,5 +1,10 @@
 import { z } from "zod";
-import type { ContratanteDraft, DadosCadastraisDraft, InicioDraft } from "../steps/types";
+import type {
+  ContratanteDraft,
+  DadosCadastraisDraft,
+  EstabelecimentoDraft,
+  InicioDraft,
+} from "../steps/types";
 import type { GheGroup, GheRisk } from "../types";
 import {
   isValidCnpj,
@@ -88,6 +93,22 @@ const contratanteSchema: z.ZodType<ContratanteDraft> = z.object({
   estado: z.string().trim(),
   grauRisco: optionalRiskGradeField("Grau de risco da contratante"),
   atividadePrincipal: z.string().trim(),
+  camposAdicionais: z.array(z.object({
+    id: z.string().trim(),
+    title: z.string().trim(),
+    value: z.string().trim(),
+  })),
+});
+
+const estabelecimentoSchema: z.ZodType<EstabelecimentoDraft> = z.object({
+  id: z.string().trim().min(1, "ID do estabelecimento é obrigatório"),
+  tipo: z.string().trim(),
+  nome: requiredText("Nome do estabelecimento"),
+  cnpj: optionalCnpjField("CNPJ do estabelecimento"),
+  razaoSocial: z.string().trim(),
+  cnae: z.string().trim(),
+  grauRisco: optionalRiskGradeField("Grau de risco do estabelecimento"),
+  atividadePrincipal: z.string().trim(),
 });
 
 export const dadosCadastraisSchema = z.object({
@@ -98,6 +119,7 @@ export const dadosCadastraisSchema = z.object({
   empresaCidade: requiredText("Cidade da empresa"),
   empresaEstado: requiredText("Estado da empresa"),
   empresaGrauRisco: riskGradeField("Grau de risco da empresa"),
+  estabelecimentos: z.array(estabelecimentoSchema).min(1, "Ao menos um estabelecimento é obrigatório"),
   estabelecimentoNome: requiredText("Nome do estabelecimento"),
   estabelecimentoCnpj: optionalCnpjField("CNPJ do estabelecimento"),
   estabelecimentoGrauRisco: optionalRiskGradeField("Grau de risco do estabelecimento"),
@@ -179,6 +201,9 @@ export function getDadosCadastraisIssues(input: DadosCadastraisDraft): string[] 
       const [root, index] = issue.path;
       if (root === "contratantes" && typeof index === "number") {
         return `Contratante ${index + 1}: ${issue.message}`;
+      }
+      if (root === "estabelecimentos" && typeof index === "number") {
+        return `Estabelecimento ${index + 1}: ${issue.message}`;
       }
       return issue.message;
     })

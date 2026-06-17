@@ -14,6 +14,7 @@ type HomeData = {
     id: string;
     title: string;
     code: string;
+    syncStatus?: string | null;
     status: { label: string; bg: string; text: string; dot: string };
     createdAt: string;
     owner: string;
@@ -188,7 +189,7 @@ export default function PgrsPage() {
         ) : null}
         {!loading && !loadError && filteredCards.length === 0 ? (
           <p className="mt-8 rounded-[10px] border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
-            Nenhum PGR em elaboração encontrado no momento.
+            Nenhum PGR ativo encontrado no momento.
           </p>
         ) : null}
 
@@ -207,10 +208,19 @@ export default function PgrsPage() {
               }}
               className="rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"
             >
-              <h3 className="text-[20px] font-semibold text-foreground sm:text-[22px]">
-                {card.title}
-              </h3>
-              <p className="mt-1 text-[14px] text-muted-foreground">ID: {card.code}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-[20px] font-semibold text-foreground sm:text-[22px]">
+                    {card.title}
+                  </h3>
+                  <p className="mt-1 text-[14px] text-muted-foreground">ID: {card.code}</p>
+                </div>
+                {card.syncStatus === "REJECTED" ? (
+                  <span className="inline-flex shrink-0 items-center rounded-full border border-[#d7263d]/20 bg-[#fff1f2] px-3 py-1 text-[12px] font-semibold text-[#b42318]">
+                    Rejeitado
+                  </span>
+                ) : null}
+              </div>
               <div className="my-4 h-px w-full bg-border" />
 
               <div className="space-y-3 text-[14px] text-muted-foreground">

@@ -1,4 +1,5 @@
 import type {
+  CampoAdicionalDraft,
   ContratanteDraft,
   DadosCadastraisDraft,
   ResponsavelCoordenacaoTecnicaDraft,
@@ -16,6 +17,20 @@ const createContratanteId = () =>
   `contratante-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 const createResponsavelTecnicoId = () =>
   `responsavel-tecnico-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+const createCampoAdicionalId = () =>
+  `campo-adicional-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+export const normalizeAdditionalFields = (value: unknown): CampoAdicionalDraft[] => {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, index) => {
+    const source = item as Record<string, unknown>;
+    return {
+      id: String(source?.id || createCampoAdicionalId() || `campo-adicional-${index + 1}`),
+      title: String(source?.title || source?.label || ""),
+      value: String(source?.value || ""),
+    };
+  });
+};
 
 export const createEmptyContratante = (): ContratanteDraft => ({
   id: createContratanteId(),
@@ -29,6 +44,7 @@ export const createEmptyContratante = (): ContratanteDraft => ({
   estado: "",
   grauRisco: "",
   atividadePrincipal: "",
+  camposAdicionais: [],
 });
 
 export const createEmptyResponsavelCoordenacaoTecnica =
@@ -83,6 +99,11 @@ const fromLegacyFields = (
   estado: String(dados.contratanteEstado || ""),
   grauRisco: normalizeRiskGrade(String(dados.contratanteGrauRisco || "")),
   atividadePrincipal: String(dados.contratanteAtividadePrincipal || ""),
+  camposAdicionais: normalizeAdditionalFields(
+    (dados as DadosCadastraisDraft & {
+      contratanteCamposAdicionais?: unknown;
+    }).contratanteCamposAdicionais
+  ),
 });
 
 export const normalizeContractors = (
@@ -98,6 +119,7 @@ export const normalizeContractors = (
         cnpj: maskCnpj(String(item.cnpj || "")),
         cep: maskCep(String(item.cep || "")),
         grauRisco: normalizeRiskGrade(String(item.grauRisco || "")),
+        camposAdicionais: normalizeAdditionalFields(item.camposAdicionais),
       };
     });
   }

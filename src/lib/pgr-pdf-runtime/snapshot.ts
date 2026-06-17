@@ -504,11 +504,17 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
     };
   });
 
-  const totalEmployees = ghes.reduce(
+  const computedTotalEmployees = ghes.reduce(
     (acc, ghe) =>
       acc + ghe.funcoes.reduce((local, fn) => local + toNumber(fn.numeroFuncionarios), 0),
     0
   );
+  const totalEmployees =
+    toNumber(payload?.program?.totalEmployees) ||
+    toNumber(dados?.totalEmpregadosAtivos) ||
+    toNumber(dados?.empresa?.quantitativoEmpregadosAtivos) ||
+    toNumber(dados?.empresaQuantitativoEmpregadosAtivos) ||
+    computedTotalEmployees;
 
   const anexoItems = Array.isArray(anexos?.itens) ? anexos.itens : [];
   const normalizedAnexoItems: RuntimeSnapshot["annexes"]["items"] = anexoItems.map(
