@@ -10,6 +10,7 @@ import {
   createEmptyContratante,
   createEmptyResponsavelCoordenacaoTecnica,
 } from "./utils/contractors";
+import { createEmptyEstabelecimento } from "./utils/establishments";
 
 export const defaultHistorico: HistoricoData = {
   title: "Histórico de Versões",
@@ -70,6 +71,7 @@ export const initialDadosCadastrais: DadosCadastraisDraft = {
   empresaEstado: "",
   empresaGrauRisco: "",
   empresaAtividadePrincipal: "",
+  estabelecimentos: [createEmptyEstabelecimento()],
   estabelecimentoNome: "",
   estabelecimentoCnpj: "",
   estabelecimentoRazaoSocial: "",

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
+  CampoAdicionalDraft,
   ContratanteDraft,
   DadosCadastraisDraft,
+  EstabelecimentoDraft,
   ResponsavelCoordenacaoTecnicaDraft,
 } from "./types";
 import {
@@ -18,6 +20,7 @@ type SearchableSelectOption = {
 };
 
 type PendingDeleteAction =
+  | { type: "establishment"; index: number }
   | { type: "contractor"; index: number }
   | { type: "technical-coordinator"; index: number };
 
@@ -53,17 +56,34 @@ type DadosStepProps = {
     id: string;
     title: string;
     value: string;
-    scope: "empresa" | "estabelecimento" | "contratante";
+    scope: "empresa" | "estabelecimento";
   }>;
   onDadosChange: (field: keyof DadosCadastraisDraft, value: string) => void;
   onCepBlur: (scope: "empresa", value: string) => void;
+  establishments: EstabelecimentoDraft[];
+  onEstablishmentChange: (
+    establishmentIndex: number,
+    field: Exclude<keyof EstabelecimentoDraft, "id">,
+    value: string
+  ) => void;
+  onAddEstablishment: () => void;
+  onDuplicateEstablishment: (establishmentIndex: number) => void;
+  onRemoveEstablishment: (establishmentIndex: number) => void;
   contractors: ContratanteDraft[];
   onContractorChange: (
     contractorIndex: number,
-    field: keyof Omit<ContratanteDraft, "id">,
+    field: Exclude<keyof ContratanteDraft, "id" | "camposAdicionais">,
     value: string
   ) => void;
   onContractorCepBlur: (contractorIndex: number, value: string) => void;
+  onAddContractorExtraField: (contractorIndex: number) => void;
+  onContractorExtraFieldChange: (
+    contractorIndex: number,
+    fieldId: string,
+    field: "title" | "value",
+    value: string
+  ) => void;
+  onRemoveContractorExtraField: (contractorIndex: number, fieldId: string) => void;
   onAddContractor: () => void;
   onDuplicateContractor: (contractorIndex: number) => void;
   onRemoveContractor: (contractorIndex: number) => void;
@@ -82,7 +102,7 @@ type DadosStepProps = {
     value: string
   ) => void;
   onRemoveExtraField: (id: string) => void;
-  onAddExtraField: (scope: "empresa" | "estabelecimento" | "contratante") => void;
+  onAddExtraField: (scope: "empresa" | "estabelecimento") => void;
   onClearData: () => void;
 };
 
@@ -96,9 +116,17 @@ export function DadosStep({
   extraFields,
   onDadosChange,
   onCepBlur,
+  establishments,
+  onEstablishmentChange,
+  onAddEstablishment,
+  onDuplicateEstablishment,
+  onRemoveEstablishment,
   contractors,
   onContractorChange,
   onContractorCepBlur,
+  onAddContractorExtraField,
+  onContractorExtraFieldChange,
+  onRemoveContractorExtraField,
   onAddContractor,
   onDuplicateContractor,
   onRemoveContractor,
@@ -147,9 +175,21 @@ export function DadosStep({
     | "email"
     | "cpf";
 
+  type RequiredEstabelecimentoField =
+    | "tipo"
+    | "nome"
+    | "cnpj"
+    | "razaoSocial"
+    | "cnae"
+    | "grauRisco"
+    | "atividadePrincipal";
+
   const [, setTouchedFields] = useState<Partial<Record<RequiredDadosField, boolean>>>(
     {}
   );
+  const [, setTouchedEstablishmentFields] = useState<
+    Record<string, Partial<Record<RequiredEstabelecimentoField, boolean>>>
+  >({});
   const [, setTouchedContractorFields] = useState<
     Record<string, Partial<Record<RequiredContratanteField, boolean>>>
   >({});
@@ -253,6 +293,35 @@ export function DadosStep({
     });
     return map;
   }, [contractors]);
+
+  const establishmentErrorsById = useMemo<
+    Record<string, Record<RequiredEstabelecimentoField, string>>
+  >(() => {
+    const map: Record<string, Record<RequiredEstabelecimentoField, string>> = {};
+    establishments.forEach((establishment, establishmentIndex) => {
+      const establishmentKey = String(
+        establishment.id || `establishment-${establishmentIndex}`
+      );
+      map[establishmentKey] = {
+        tipo: "",
+        nome: establishment.nome.trim() ? "" : "Nome do estabelecimento é obrigatório.",
+        cnpj: !establishment.cnpj.trim()
+          ? ""
+          : isValidCnpj(establishment.cnpj)
+            ? ""
+            : "CNPJ do estabelecimento inválido.",
+        razaoSocial: "",
+        cnae: "",
+        grauRisco: !establishment.grauRisco.trim()
+          ? ""
+          : isValidRiskGrade(establishment.grauRisco)
+            ? ""
+            : "Grau de risco do estabelecimento deve ser entre 1 e 4.",
+        atividadePrincipal: "",
+      };
+    });
+    return map;
+  }, [establishments]);
 
   useEffect(() => {
     let isMounted = true;
@@ -410,6 +479,19 @@ export function DadosStep({
     setTouchedFields((prev) => ({ ...prev, [field]: true }));
   };
 
+  const markEstablishmentTouched = (
+    establishmentKey: string,
+    field: RequiredEstabelecimentoField
+  ) => {
+    setTouchedEstablishmentFields((prev) => ({
+      ...prev,
+      [establishmentKey]: {
+        ...(prev[establishmentKey] || {}),
+        [field]: true,
+      },
+    }));
+  };
+
   const markContractorTouched = (
     contractorKey: string,
     field: RequiredContratanteField
@@ -482,7 +564,9 @@ export function DadosStep({
 
   const handleConfirmDelete = () => {
     if (!pendingDeleteAction) return;
-    if (pendingDeleteAction.type === "contractor") {
+    if (pendingDeleteAction.type === "establishment") {
+      onRemoveEstablishment(pendingDeleteAction.index);
+    } else if (pendingDeleteAction.type === "contractor") {
       onRemoveContractor(pendingDeleteAction.index);
     } else {
       onRemoveTechnicalCoordinator(pendingDeleteAction.index);
@@ -498,6 +582,14 @@ export function DadosStep({
       ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
       : inputBaseClass;
 
+  const getEstablishmentFieldClassName = (
+    establishmentKey: string,
+    field: RequiredEstabelecimentoField
+  ) =>
+    establishmentErrorsById[establishmentKey]?.[field]
+      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
+      : inputBaseClass;
+
   const getTechnicalCoordinatorFieldClassName = (
     coordinatorKey: string,
     field: RequiredResponsavelTecnicoField
@@ -510,12 +602,13 @@ export function DadosStep({
   const estabelecimentoExtraFields = extraFields.filter(
     (field) => field.scope === "estabelecimento"
   );
-  const contratanteExtraFields = extraFields.filter(
-    (field) => field.scope === "contratante"
-  );
 
   const renderExtraFields = (
-    fields: Array<{ id: string; title: string; value: string }>
+    fields: CampoAdicionalDraft[],
+    options?: {
+      onChange?: (id: string, field: "title" | "value", value: string) => void;
+      onRemove?: (id: string) => void;
+    }
   ) => {
     if (!fields.length) return null;
     return (
@@ -529,7 +622,7 @@ export function DadosStep({
               </label>
               <button
                 type="button"
-                onClick={() => onRemoveExtraField(field.id)}
+                onClick={() => options?.onRemove?.(field.id)}
                 className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
               >
                 Excluir
@@ -540,7 +633,7 @@ export function DadosStep({
                 className={inputBaseClass}
                 value={field.title}
                 onChange={(event) =>
-                  onExtraFieldChange(field.id, "title", event.target.value)
+                  options?.onChange?.(field.id, "title", event.target.value)
                 }
                 placeholder="Título do campo"
               />
@@ -548,7 +641,7 @@ export function DadosStep({
                 className={inputBaseClass}
                 value={field.value}
                 onChange={(event) =>
-                  onExtraFieldChange(field.id, "value", event.target.value)
+                  options?.onChange?.(field.id, "value", event.target.value)
                 }
                 placeholder="Valor"
               />
@@ -780,7 +873,10 @@ export function DadosStep({
           </div>
         </div>
 
-        {renderExtraFields(empresaExtraFields)}
+        {renderExtraFields(empresaExtraFields, {
+          onChange: onExtraFieldChange,
+          onRemove: onRemoveExtraField,
+        })}
 
         <div className="mt-6 flex justify-end">
           <button
@@ -794,126 +890,213 @@ export function DadosStep({
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
-        <h2 className="text-[16px] font-medium text-foreground">
-          Identificação do Estabelecimento:
-        </h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1.2fr_1fr]">
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Nome do Estabelecimento *:
-            </label>
-            <input
-              className={getFieldClassName("estabelecimentoNome")}
-              value={dadosCadastrais.estabelecimentoNome}
-              onChange={(event) =>
-                onDadosChange("estabelecimentoNome", event.target.value)
-              }
-              onBlur={() => markTouched("estabelecimentoNome")}
-            />
-            {errors.estabelecimentoNome ? (
-              <p className="mt-1 text-[12px] text-danger">
-                {errors.estabelecimentoNome}
-              </p>
-            ) : null}
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">CNPJ:</label>
-            <input
-              className={getFieldClassName("estabelecimentoCnpj")}
-              value={dadosCadastrais.estabelecimentoCnpj}
-              onChange={(event) =>
-                onDadosChange("estabelecimentoCnpj", event.target.value)
-              }
-              onBlur={() => markTouched("estabelecimentoCnpj")}
-            />
-            {errors.estabelecimentoCnpj ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.estabelecimentoCnpj}</p>
-            ) : null}
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Estabelecimento:
-            </label>
-            <div className="mt-2">
-              <SearchableSelect
-                value={estabelecimentoSelecionado}
-                onChange={onSelectEstabelecimento}
-                options={estabelecimentoOptions.map((option) => ({
-                  label: option,
-                  value: option,
-                }))}
-                buttonClassName={selectBaseClass}
-                placeholder="Selecione"
-                searchPlaceholder="Filtrar estabelecimento"
-              />
-            </div>
-          </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h2 className="text-[16px] font-medium text-foreground">
+            Identificação do Estabelecimento:
+          </h2>
+          <button
+            type="button"
+            onClick={onAddEstablishment}
+            className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
+          >
+            Adicionar estabelecimento
+          </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_1.2fr]">
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Razão Social:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.estabelecimentoRazaoSocial}
-              onChange={(event) =>
-                onDadosChange("estabelecimentoRazaoSocial", event.target.value)
-              }
-            />
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              CNAE:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.estabelecimentoCnae}
-              onChange={(event) =>
-                onDadosChange("estabelecimentoCnae", event.target.value)
-              }
-            />
-          </div>
+        <div className="mt-6 space-y-6">
+          {establishments.map((establishment, establishmentIndex) => {
+            const establishmentKey = String(
+              establishment.id || `establishment-${establishmentIndex}`
+            );
+
+            return (
+              <div
+                key={establishment.id}
+                className="rounded-[12px] border border-border/60 bg-background/40 px-4 py-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Estabelecimento {establishmentIndex + 1}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onDuplicateEstablishment(establishmentIndex)}
+                      className="btn-outline px-3 py-1 text-[12px]"
+                    >
+                      Duplicar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPendingDeleteAction({
+                          type: "establishment",
+                          index: establishmentIndex,
+                        })
+                      }
+                      className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                      disabled={establishments.length <= 1}
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-[1.4fr_1.2fr_1fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Nome do Estabelecimento *:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "nome")}
+                      value={establishment.nome}
+                      onChange={(event) =>
+                        onEstablishmentChange(establishmentIndex, "nome", event.target.value)
+                      }
+                      onBlur={() => markEstablishmentTouched(establishmentKey, "nome")}
+                    />
+                    {establishmentErrorsById[establishmentKey]?.nome ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {establishmentErrorsById[establishmentKey].nome}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">CNPJ:</label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "cnpj")}
+                      value={establishment.cnpj}
+                      onChange={(event) =>
+                        onEstablishmentChange(establishmentIndex, "cnpj", event.target.value)
+                      }
+                      onBlur={() => markEstablishmentTouched(establishmentKey, "cnpj")}
+                    />
+                    {establishmentErrorsById[establishmentKey]?.cnpj ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {establishmentErrorsById[establishmentKey].cnpj}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Estabelecimento:
+                    </label>
+                    <div className="mt-2">
+                      <SearchableSelect
+                        value={establishment.tipo || (establishmentIndex === 0 ? estabelecimentoSelecionado : "")}
+                        onChange={(value) => {
+                          onEstablishmentChange(establishmentIndex, "tipo", value);
+                          if (establishmentIndex === 0) {
+                            onSelectEstabelecimento(value);
+                          }
+                        }}
+                        options={estabelecimentoOptions.map((option) => ({
+                          label: option,
+                          value: option,
+                        }))}
+                        buttonClassName={selectBaseClass}
+                        placeholder="Selecione"
+                        searchPlaceholder="Filtrar estabelecimento"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_1.2fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Razão Social:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "razaoSocial")}
+                      value={establishment.razaoSocial}
+                      onChange={(event) =>
+                        onEstablishmentChange(
+                          establishmentIndex,
+                          "razaoSocial",
+                          event.target.value
+                        )
+                      }
+                      onBlur={() =>
+                        markEstablishmentTouched(establishmentKey, "razaoSocial")
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      CNAE:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "cnae")}
+                      value={establishment.cnae}
+                      onChange={(event) =>
+                        onEstablishmentChange(establishmentIndex, "cnae", event.target.value)
+                      }
+                      onBlur={() => markEstablishmentTouched(establishmentKey, "cnae")}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Grau de Risco:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "grauRisco")}
+                      value={establishment.grauRisco}
+                      onChange={(event) =>
+                        onEstablishmentChange(
+                          establishmentIndex,
+                          "grauRisco",
+                          event.target.value
+                        )
+                      }
+                      onBlur={() =>
+                        markEstablishmentTouched(establishmentKey, "grauRisco")
+                      }
+                    />
+                    {establishmentErrorsById[establishmentKey]?.grauRisco ? (
+                      <p className="mt-1 text-[12px] text-danger">
+                        {establishmentErrorsById[establishmentKey].grauRisco}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Descrição de Atividade Principal:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(
+                        establishmentKey,
+                        "atividadePrincipal"
+                      )}
+                      value={establishment.atividadePrincipal}
+                      onChange={(event) =>
+                        onEstablishmentChange(
+                          establishmentIndex,
+                          "atividadePrincipal",
+                          event.target.value
+                        )
+                      }
+                      onBlur={() =>
+                        markEstablishmentTouched(
+                          establishmentKey,
+                          "atividadePrincipal"
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Grau de Risco:
-            </label>
-            <input
-              className={getFieldClassName("estabelecimentoGrauRisco")}
-              value={dadosCadastrais.estabelecimentoGrauRisco}
-              onChange={(event) =>
-                onDadosChange("estabelecimentoGrauRisco", event.target.value)
-              }
-              onBlur={() => markTouched("estabelecimentoGrauRisco")}
-            />
-            {errors.estabelecimentoGrauRisco ? (
-              <p className="mt-1 text-[12px] text-danger">
-                {errors.estabelecimentoGrauRisco}
-              </p>
-            ) : null}
-          </div>
-          <div>
-            <label className="text-[12px] font-medium text-foreground">
-              Descrição de Atividade Principal:
-            </label>
-            <input
-              className={inputBaseClass}
-              value={dadosCadastrais.estabelecimentoAtividadePrincipal}
-              onChange={(event) =>
-                onDadosChange(
-                  "estabelecimentoAtividadePrincipal",
-                  event.target.value
-                )
-              }
-            />
-          </div>
-        </div>
-
-        {renderExtraFields(estabelecimentoExtraFields)}
+        {renderExtraFields(estabelecimentoExtraFields, {
+          onChange: onExtraFieldChange,
+          onRemove: onRemoveExtraField,
+        })}
 
         <div className="mt-6 flex justify-end">
           <button
@@ -1204,24 +1387,32 @@ export function DadosStep({
                   ) : null}
                 </div>
               </div>
+
+              {renderExtraFields(contractor.camposAdicionais, {
+                onChange: (fieldId, field, value) =>
+                  onContractorExtraFieldChange(
+                    contractorIndex,
+                    fieldId,
+                    field,
+                    value
+                  ),
+                onRemove: (fieldId) =>
+                  onRemoveContractorExtraField(contractorIndex, fieldId),
+              })}
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => onAddContractorExtraField(contractorIndex)}
+                  className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
+                >
+                  Adicionar Campo
+                </button>
+              </div>
             </div>
             );
           })}
         </div>
-
-        {renderExtraFields(contratanteExtraFields)}
-
-        {contractors.length > 0 ? (
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={() => onAddExtraField("contratante")}
-              className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
-            >
-              Adicionar Campo
-            </button>
-          </div>
-        ) : null}
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
@@ -1444,7 +1635,9 @@ export function DadosStep({
                 Confirmar exclusão
               </h3>
               <p className="mt-2 text-[13px] text-muted-foreground">
-                {pendingDeleteAction.type === "contractor"
+                {pendingDeleteAction.type === "establishment"
+                  ? "Confirma a exclusão deste bloco de estabelecimento?"
+                  : pendingDeleteAction.type === "contractor"
                   ? "Confirma a exclusão deste bloco de contratante?"
                   : "Confirma a exclusão deste bloco de responsável técnico?"}
               </p>

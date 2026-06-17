@@ -10,14 +10,24 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     estabelecimentoSelecionado={ctx.estabelecimentoSelecionado}
     estabelecimentoOptions={ctx.estabelecimentoOptions}
     SearchableSelect={SearchableSelect}
-    extraFields={ctx.extraEstabelecimentoFields}
+    extraFields={ctx.extraEstabelecimentoFields.filter(
+      (field) => field.scope === "empresa" || field.scope === "estabelecimento"
+    )}
     onDadosChange={ctx.generalActions.handleDadosCadastraisChange}
     onCepBlur={ctx.generalActions.handleRecalculateByCep}
+    establishments={ctx.dadosCadastrais.estabelecimentos}
+    onEstablishmentChange={ctx.generalActions.handleEstablishmentChange}
+    onAddEstablishment={ctx.generalActions.handleAddEstablishment}
+    onDuplicateEstablishment={ctx.generalActions.handleDuplicateEstablishment}
+    onRemoveEstablishment={ctx.generalActions.handleRemoveEstablishment}
     contractors={ctx.dadosCadastrais.contratantes}
     onContractorChange={ctx.generalActions.handleContractorChange}
     onContractorCepBlur={(index, value) =>
       ctx.generalActions.handleRecalculateByCep("contratante", value, index)
     }
+    onAddContractorExtraField={ctx.generalActions.handleAddContractorExtraField}
+    onContractorExtraFieldChange={ctx.generalActions.handleContractorExtraFieldChange}
+    onRemoveContractorExtraField={ctx.generalActions.handleRemoveContractorExtraField}
     onAddContractor={ctx.generalActions.handleAddContractor}
     onDuplicateContractor={ctx.generalActions.handleDuplicateContractor}
     onRemoveContractor={ctx.generalActions.handleRemoveContractor}

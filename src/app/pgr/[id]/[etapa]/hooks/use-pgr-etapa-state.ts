@@ -22,6 +22,7 @@ import type {
 } from "../types";
 import { getRuntimeCachedState } from "../state/runtime-cache";
 import { syncLegacyContractorFields } from "../utils/contractors";
+import { syncLegacyEstablishmentFields } from "../utils/establishments";
 import {
   DEFAULT_PDF_LAYOUT_STATE,
   normalizePdfLayoutState,
@@ -56,7 +57,10 @@ export function usePgrEtapaState({
   );
   const [dadosCadastrais, setDadosCadastrais] = useState<DadosCadastraisDraft>(
     syncLegacyContractorFields(
-      serverSyncedCachedState?.dadosCadastrais ?? initialDadosCadastrais
+      syncLegacyEstablishmentFields(
+        serverSyncedCachedState?.dadosCadastrais ?? initialDadosCadastrais,
+        serverSyncedCachedState?.estabelecimentoSelecionado ?? ""
+      )
     )
   );
   const [cardMeta, setCardMeta] = useState(
