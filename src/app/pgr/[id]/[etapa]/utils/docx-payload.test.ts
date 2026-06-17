@@ -85,6 +85,9 @@ describe("docx payload mapping", () => {
     expect(payload.descricao.gheCount).toBe(1);
     expect(payload.caracterizacao.riskCount).toBe(1);
     expect(payload.planoAcao.nr).toBe("NR-01");
+    expect(payload.program.nr).toBe("NR-01");
+    expect(payload.program.totalEmployees).toBe(5);
+    expect(payload.program.responsavelElaboracao).toBe("Pedro");
     expect(payload.planoAcao.itens[0]?.risco).toBe("Ruido");
     expect(payload.anexos.totalArquivos).toBe(1);
     expect(payload.anexos.diretriz).toBe("Diretriz custom");
@@ -104,6 +107,7 @@ describe("docx payload mapping", () => {
     expect(payload.historico.title).toBe("Histórico de Versões");
     expect(payload.descricao.gheCount).toBe(0);
     expect(payload.caracterizacao.riskCount).toBe(0);
+    expect(payload.program.totalEmployees).toBe(0);
     expect(payload.anexos.totalArquivos).toBe(0);
     expect(payload.anexos.diretriz).toBe("Diretriz 1");
   });

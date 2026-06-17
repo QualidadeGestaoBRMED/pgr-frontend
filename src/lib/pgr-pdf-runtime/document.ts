@@ -895,7 +895,7 @@ function buildIdentificationAndProgramPages(
     {
       table: {
         widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
-        body: [[infoLabelCell("Quantitativo de empregados ativos"), bodyCell(String(snapshot.program.totalEmployees || 0))]],
+        body: [[infoLabelCell("Total de funcionarios (soma das funcoes)"), bodyCell(String(snapshot.program.totalEmployees || 0))]],
       },
       layout: THIN_TABLE_LAYOUT,
     },

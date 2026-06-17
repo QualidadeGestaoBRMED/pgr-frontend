@@ -211,6 +211,14 @@ export type PgrDocxPayload = {
       afericaoResultado: string;
     }>;
   };
+  program: {
+    nr: string;
+    vigencia: string;
+    totalEmployees: number;
+    responsavelElaboracao: string;
+    responsavelCoordenacao: string;
+    responsavelImplementacao: string;
+  };
   anexos: {
     diretriz: string;
     totalArquivos: number;
@@ -358,6 +366,22 @@ export function buildPgrDocxPayload(input: {
     : [];
 
   const totalArquivos = input.anexos.reduce((total, anexo) => total + anexo.files.length, 0);
+  const totalEmployees = descricaoGhes.reduce(
+    (groupTotal, ghe) =>
+      groupTotal +
+      ghe.funcoes.reduce((funcTotal, funcao) => {
+        const digits = String(funcao.numeroFuncionarios || "").replace(/\D+/g, "");
+        return funcTotal + Number.parseInt(digits || "0", 10);
+      }, 0),
+    0
+  );
+  const responsavelElaboracao =
+    input.dadosCadastrais.responsavelPgrNome || input.inicioDraft.responsible || "";
+  const responsavelCoordenacao =
+    input.dadosCadastrais.responsaveisCoordenacaoTecnica?.[0]?.nome || "";
+  const responsavelImplementacao =
+    input.dadosCadastrais.responsavelImplementacaoPgrNome || "";
+
   return {
     meta: {
       pgrId: input.pgrId,
@@ -382,6 +406,14 @@ export function buildPgrDocxPayload(input: {
       nr: input.planAction.nr,
       vigencia: input.planAction.vigencia,
       itens: [...planoItensGerais, ...planoItens],
+    },
+    program: {
+      nr: input.planAction.nr,
+      vigencia: input.planAction.vigencia,
+      totalEmployees,
+      responsavelElaboracao,
+      responsavelCoordenacao,
+      responsavelImplementacao,
     },
     anexos: {
       diretriz: input.anexoDiretriz,
