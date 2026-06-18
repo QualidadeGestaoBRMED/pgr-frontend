@@ -73,7 +73,9 @@ const isModerateOrHigherPriority = (priority: string) => {
   const normalizedPriority = normalizeText(priority).trim();
   if (!normalizedPriority) return false;
   return (
+    normalizedPriority.includes("media") ||
     normalizedPriority.includes("moderad") ||
+    normalizedPriority.includes("imediat") ||
     normalizedPriority.includes("alta") ||
     normalizedPriority.includes("alto") ||
     normalizedPriority.includes("critic")
@@ -83,6 +85,21 @@ const isModerateOrHigherPriority = (priority: string) => {
 const toDisplayText = (value: string, fallback = "Não informado") => {
   const safeValue = String(value || "").trim();
   return safeValue || fallback;
+};
+
+const normalizePriorityText = (value: string) => {
+  const normalized = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) return "";
+  if (normalized.includes("imediat") || normalized.includes("critic")) return "Imediata";
+  if (normalized.includes("alta") || normalized.includes("alto")) return "Alta";
+  if (normalized.includes("media") || normalized.includes("moderad")) return "Média";
+  if (normalized.includes("baixa") || normalized.includes("baixo")) return "Baixa";
+  return toDisplayText(value, "");
 };
 
 const getPlanPriorityText = (row: Pick<PlanTableRow, "prioridade" | "classificacao">) =>
@@ -353,12 +370,11 @@ export function usePgrEtapaDerived({
               gheName: ghe.name,
               tipoAgente: risk.tipoAgente || "",
               descricaoAgente: risk.descricaoAgente || "Não informado",
-              prioridade:
-                toDisplayText(
-                  actionPlanCalculated?.classification ||
-                    riskCalculated?.classification ||
-                    risk.classificacao
-                ),
+              prioridade: normalizePriorityText(
+                actionPlanCalculated?.classification ||
+                  riskCalculated?.classification ||
+                  risk.classificacao
+              ),
               classificacao: toDisplayText(risk.classificacao),
               exposureValue,
               medidasPrevencao: risk.medidasControle || "",
@@ -377,7 +393,7 @@ export function usePgrEtapaDerived({
         gheName: "Todos os GHEs",
         tipoAgente: "Medidas Gerais",
         descricaoAgente: "Medidas Gerais",
-        prioridade: "Risco Moderado",
+        prioridade: "Média",
         classificacao: "Risco Moderado",
         exposureValue: undefined,
         medidasPrevencao: item.descricao || "",

@@ -56,7 +56,7 @@ type DadosStepProps = {
     id: string;
     title: string;
     value: string;
-    scope: "empresa" | "estabelecimento";
+    scope: "empresa" | "estabelecimento" | "quantitativo";
   }>;
   onDadosChange: (field: keyof DadosCadastraisDraft, value: string) => void;
   onCepBlur: (scope: "empresa", value: string) => void;
@@ -102,7 +102,7 @@ type DadosStepProps = {
     value: string
   ) => void;
   onRemoveExtraField: (id: string) => void;
-  onAddExtraField: (scope: "empresa" | "estabelecimento") => void;
+  onAddExtraField: (scope: "empresa" | "estabelecimento" | "quantitativo") => void;
   onClearData: () => void;
 };
 
@@ -602,6 +602,9 @@ export function DadosStep({
   const estabelecimentoExtraFields = extraFields.filter(
     (field) => field.scope === "estabelecimento"
   );
+  const quantitativoExtraFields = extraFields.filter(
+    (field) => field.scope === "quantitativo"
+  );
 
   const renderExtraFields = (
     fields: CampoAdicionalDraft[],
@@ -886,6 +889,31 @@ export function DadosStep({
           >
             Adicionar Campo
           </button>
+        </div>
+
+        <div className="mt-8 border-t border-border/60 pt-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[14px] font-medium text-foreground">
+                Quantitativo de Empregados Ativos
+              </h3>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Campos adicionais aplicados especificamente a este item no PDF.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onAddExtraField("quantitativo")}
+              className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
+            >
+              Adicionar Campo
+            </button>
+          </div>
+
+          {renderExtraFields(quantitativoExtraFields, {
+            onChange: onExtraFieldChange,
+            onRemove: onRemoveExtraField,
+          })}
         </div>
       </section>
 

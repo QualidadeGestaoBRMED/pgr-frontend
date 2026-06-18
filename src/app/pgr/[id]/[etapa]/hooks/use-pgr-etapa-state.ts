@@ -110,7 +110,7 @@ export function usePgrEtapaState({
       id: string;
       title: string;
       value: string;
-      scope: "empresa" | "estabelecimento" | "contratante";
+      scope: "empresa" | "estabelecimento" | "contratante" | "quantitativo";
     }>
   >(serverSyncedCachedState?.extraEstabelecimentoFields ?? []);
   const [planAction, setPlanAction] = useState({

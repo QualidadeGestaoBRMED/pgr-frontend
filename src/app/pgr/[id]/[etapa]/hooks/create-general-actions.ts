@@ -9,6 +9,7 @@ import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type {
   AnexoFile,
   AnexoItem,
+  AnexoOrientation,
   ExcelImportFeedback,
   GheRisk,
   HistoryEntry,
@@ -1079,7 +1080,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAddExtraField = (
-    scope: "empresa" | "estabelecimento"
+    scope: "empresa" | "estabelecimento" | "quantitativo"
   ) => {
     setExtraEstabelecimentoFields((prev) => [
       ...prev,
@@ -1657,9 +1658,26 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       {
         id: `anexo-${Date.now()}-${nextIndex}`,
         title: `Novo anexo ${nextIndex}`,
+        orientation: "auto",
         files: [],
       },
     ]);
+  };
+
+  const handleAnexoOrientationChange = (
+    anexoId: string,
+    value: AnexoOrientation
+  ) => {
+    setAnexos((prev) =>
+      prev.map((anexo) =>
+        anexo.id === anexoId
+          ? {
+              ...anexo,
+              orientation: value,
+            }
+          : anexo
+      )
+    );
   };
 
   const handleRemoveAnexo = (anexoId: string) => {
@@ -1778,6 +1796,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleAddAnexo,
     handleRemoveAnexo,
     handleMoveAnexo,
+    handleAnexoOrientationChange,
     handleRenameAnexoTitle,
     handleAnexoDragStart,
     handleAnexoDragOver,

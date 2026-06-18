@@ -14,16 +14,36 @@ import {
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
 
-type ExtraFieldScope = "empresa" | "estabelecimento" | "contratante";
+type ExtraFieldScope = "empresa" | "estabelecimento" | "contratante" | "quantitativo";
 
 const normalizeExtraScope = (scope: unknown): ExtraFieldScope => {
-  if (scope === "empresa" || scope === "estabelecimento" || scope === "contratante") {
+  if (
+    scope === "empresa" ||
+    scope === "estabelecimento" ||
+    scope === "contratante" ||
+    scope === "quantitativo"
+  ) {
     return scope;
   }
   return "empresa";
 };
 
 const _asText = (value: unknown) => String(value ?? "").trim();
+
+const normalizePriorityText = (value: unknown) => {
+  const raw = String(value ?? "").trim();
+  const normalized = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (!normalized) return "";
+  if (normalized.includes("imediat") || normalized.includes("critic")) return "Imediata";
+  if (normalized.includes("alta") || normalized.includes("alto")) return "Alta";
+  if (normalized.includes("media") || normalized.includes("moderad")) return "Média";
+  if (normalized.includes("baixa") || normalized.includes("baixo")) return "Baixa";
+  return raw;
+};
 
 type BackendDescricaoFunction = {
   setor?: string;
@@ -133,7 +153,7 @@ type BackendStateShape = {
     id?: string;
     title?: string;
     value?: string;
-    scope?: "empresa" | "estabelecimento" | "contratante" | string;
+    scope?: "empresa" | "estabelecimento" | "contratante" | "quantitativo" | string;
   }>;
   pdfLayout?: unknown;
 };
@@ -215,6 +235,10 @@ export type PgrDocxPayload = {
     nr: string;
     vigencia: string;
     totalEmployees: number;
+    totalEmployeesAdditionalFields?: Array<{
+      label: string;
+      value: string;
+    }>;
     responsavelElaboracao: string;
     responsavelCoordenacao: string;
     responsavelImplementacao: string;
@@ -225,6 +249,7 @@ export type PgrDocxPayload = {
     itens: Array<{
       id: string;
       titulo: string;
+      orientation?: "auto" | "portrait" | "landscape";
       arquivos: Array<{
         id: string;
         nome: string;
@@ -326,9 +351,10 @@ export function buildPgrDocxPayload(input: {
       .map((risk) => ({
         ghe: ghe.nome,
         risco: risk.descricaoAgente || "",
-        prioridade:
+        prioridade: normalizePriorityText(
           _asText((risk as unknown as { prioridade?: string }).prioridade) ||
-          _asText(risk.classificacao),
+            _asText(risk.classificacao)
+        ),
         classificacao: risk.classificacao,
         medidas: risk.medidasControle,
         epc: risk.epc,
@@ -352,7 +378,7 @@ export function buildPgrDocxPayload(input: {
         .map((item) => ({
           ghe: "Todos os GHEs",
           risco: "Medidas Gerais",
-          prioridade: "",
+          prioridade: "Média",
           classificacao: "Risco Moderado",
           medidas: item.descricao,
           epc: "",
@@ -381,6 +407,15 @@ export function buildPgrDocxPayload(input: {
     input.dadosCadastrais.responsaveisCoordenacaoTecnica?.[0]?.nome || "";
   const responsavelImplementacao =
     input.dadosCadastrais.responsavelImplementacaoPgrNome || "";
+  const totalEmployeesAdditionalFields = Array.isArray(input.extraEstabelecimentoFields)
+    ? input.extraEstabelecimentoFields
+        .filter((item) => item.scope === "quantitativo")
+        .map((item) => ({
+          label: String(item.title || "").trim(),
+          value: String(item.value || "").trim(),
+        }))
+        .filter((item) => item.label || item.value)
+    : [];
 
   return {
     meta: {
@@ -411,6 +446,7 @@ export function buildPgrDocxPayload(input: {
       nr: input.planAction.nr,
       vigencia: input.planAction.vigencia,
       totalEmployees,
+      totalEmployeesAdditionalFields,
       responsavelElaboracao,
       responsavelCoordenacao,
       responsavelImplementacao,
@@ -419,11 +455,12 @@ export function buildPgrDocxPayload(input: {
       diretriz: input.anexoDiretriz,
       totalArquivos,
       itens: input.anexos.map((anexo) => ({
-        id: anexo.id,
-        titulo: anexo.title,
-        arquivos: anexo.files.map((file) => ({
-          id: file.id,
-          nome: file.name,
+      id: anexo.id,
+      titulo: anexo.title,
+      orientation: anexo.orientation ?? "auto",
+      arquivos: anexo.files.map((file) => ({
+        id: file.id,
+        nome: file.name,
           url: file.url,
         })),
       })),

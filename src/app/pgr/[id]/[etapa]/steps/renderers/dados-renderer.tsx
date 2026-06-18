@@ -13,8 +13,12 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     extraFields={ctx.extraEstabelecimentoFields.filter(
       (
         field
-      ): field is typeof field & { scope: "empresa" | "estabelecimento" } =>
-        field.scope === "empresa" || field.scope === "estabelecimento"
+      ): field is typeof field & {
+        scope: "empresa" | "estabelecimento" | "quantitativo";
+      } =>
+        field.scope === "empresa" ||
+        field.scope === "estabelecimento" ||
+        field.scope === "quantitativo"
     )}
     onDadosChange={ctx.generalActions.handleDadosCadastraisChange}
     onCepBlur={ctx.generalActions.handleRecalculateByCep}

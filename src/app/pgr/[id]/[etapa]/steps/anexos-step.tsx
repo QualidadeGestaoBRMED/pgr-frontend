@@ -1,5 +1,6 @@
 import type { Dispatch, DragEvent, SetStateAction } from "react";
 import { SearchableSelect } from "./searchable-select";
+import type { AnexoOrientation } from "../types";
 
 type AnexosStepProps = {
   ctx: {
@@ -11,6 +12,7 @@ type AnexosStepProps = {
     anexos: Array<{
       id: string;
       title: string;
+      orientation?: AnexoOrientation;
       files: Array<{ id: string; name: string; date?: string }>;
     }>;
     handleAnexoDragStart: (anexoId: string) => void;
@@ -21,6 +23,10 @@ type AnexosStepProps = {
     inputInlineClass: string;
     handleRenameAnexoTitle: (anexoId: string, value: string) => void;
     handleMoveAnexo: (anexoId: string, direction: "up" | "down") => void;
+    handleAnexoOrientationChange: (
+      anexoId: string,
+      value: AnexoOrientation
+    ) => void;
     handleAnexoFileRename: (anexoId: string, fileId: string, value: string) => void;
     handleAnexoFileDateChange: (anexoId: string, fileId: string, value: string) => void;
     handleAnexoFileRemove: (anexoId: string, fileId: string) => void;
@@ -46,6 +52,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
     inputInlineClass,
     handleRenameAnexoTitle,
     handleMoveAnexo,
+    handleAnexoOrientationChange,
     handleAnexoFileRename,
     handleAnexoFileDateChange,
     handleAnexoFileRemove,
@@ -71,6 +78,12 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
   const handleAttachmentInput = (anexoId: string, files: FileList | null) => {
     handleAnexoFiles(anexoId, files);
   };
+
+  const orientationOptions: Array<{ label: string; value: AnexoOrientation }> = [
+    { label: "Automático", value: "auto" },
+    { label: "Retrato", value: "portrait" },
+    { label: "Paisagem", value: "landscape" },
+  ];
 
   return (
     <>
@@ -167,6 +180,20 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       });
                     }}
                   />
+                  <div className="w-[150px]">
+                    <SearchableSelect
+                      value={anexo.orientation ?? "auto"}
+                      onChange={(value) =>
+                        handleAnexoOrientationChange(
+                          anexo.id,
+                          (value as AnexoOrientation) || "auto"
+                        )
+                      }
+                      options={orientationOptions}
+                      buttonClassName={selectBaseClass}
+                      searchPlaceholder="Filtrar orientação"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button

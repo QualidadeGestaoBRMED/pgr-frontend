@@ -29,7 +29,7 @@ export type PersistedPgrState = {
     id: string;
     title: string;
     value: string;
-    scope: "empresa" | "estabelecimento" | "contratante";
+    scope: "empresa" | "estabelecimento" | "contratante" | "quantitativo";
   }>;
   estabelecimentoSelecionado: string;
   planAction: { nr: string; vigencia: string };

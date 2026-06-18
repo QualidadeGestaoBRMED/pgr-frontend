@@ -231,8 +231,11 @@ export type AnexoFile = {
   uploadedAt?: string;
 };
 
+export type AnexoOrientation = "auto" | "portrait" | "landscape";
+
 export type AnexoItem = {
   id: string;
   title: string;
+  orientation?: AnexoOrientation;
   files: AnexoFile[];
 };

@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import type {Dispatch, SetStateAction} from "react";
-import {ChevronDown, MinusCircle, Pencil, Search} from "lucide-react";
+import {ChevronDown, MinusCircle, Search} from "lucide-react";
 import {SearchableSelect, type SearchableSelectProps} from "./searchable-select";
 
 type PlanoStepProps = {
@@ -175,24 +175,11 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         return null;
     };
 
-    const extractVersionNumber = (raw: string) => {
+    const parseVigenciaStartDate = (raw: string) => {
         const value = String(raw || "").trim();
         if (!value) return null;
-        const normalized = value
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
-        const versionMatch = normalized.match(/(?:versao|v)\s*0*(\d{1,4})/);
-        if (versionMatch) {
-            const parsed = Number(versionMatch[1]);
-            return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-        }
-        const pureDigitsMatch = normalized.match(/^0*(\d{1,4})$/);
-        if (pureDigitsMatch) {
-            const parsed = Number(pureDigitsMatch[1]);
-            return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-        }
-        return null;
+        const startDateToken = value.split(/\s*-\s*/)[0]?.trim() || value;
+        return parseHistoricoDate(startDateToken);
     };
 
     const toIsoDate = (date: Date) => {
@@ -215,8 +202,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         selectBaseClass,
         defaultResponsibleActionName,
         handleResetPlanoData,
-        historicoChanges,
-        workflowVersion,
         planAction,
         maskDate,
         completeVigencia,
@@ -317,46 +302,15 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         });
     }, [planTableRows, focusedRowId, setPersistedOptionsByRowId]);
 
-    const dataEmissaoBase = useMemo(() => {
-        const currentVersion = Math.max(1, Number(workflowVersion || 1));
-        const normalizedChanges = historicoChanges
-            .map((item) => ({
-                date: parseHistoricoDate(item.date),
-                analysisVersion: extractVersionNumber(item.analysis || ""),
-                changeVersion: extractVersionNumber(item.change || ""),
-            }))
-            .filter((item): item is {
-                date: Date;
-                analysisVersion: number | null;
-                changeVersion: number | null;
-            } => Boolean(item.date));
-
-        const matchedCurrentVersion = normalizedChanges.filter(
-            (item) =>
-                item.analysisVersion === currentVersion ||
-                item.changeVersion === currentVersion
-        );
-
-        if (matchedCurrentVersion.length > 0) {
-            const mostRecentCurrentVersion = matchedCurrentVersion.sort(
-                (a, b) => b.date.getTime() - a.date.getTime()
-            )[0];
-            return mostRecentCurrentVersion?.date ?? null;
-        }
-
-        const mostRecentAnyVersion = normalizedChanges.sort(
-            (a, b) => b.date.getTime() - a.date.getTime()
-        )[0];
-        return mostRecentAnyVersion?.date ?? null;
-    }, [historicoChanges, workflowVersion]);
+    const inicioVigenciaBase = parseVigenciaStartDate(planAction.vigencia || "");
 
     useEffect(() => {
-        if (!dataEmissaoBase) return;
+        if (!inicioVigenciaBase) return;
         const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
             const text = normalizeText(`${prioridade} ${classificacao}`);
-            if (text.includes("critic")) return 30;
+            if (text.includes("imediat") || text.includes("critic")) return 30;
             if (text.includes("alt")) return 90;
-            if (text.includes("moderad")) return 180;
+            if (text.includes("media") || text.includes("moderad")) return 180;
             return null;
         };
 
@@ -367,14 +321,14 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             if (!existingVal) {
                 const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
                 if (days) {
-                    const prazoCalculado = toIsoDate(addDays(dataEmissaoBase, days));
+                    const prazoCalculado = toIsoDate(addDays(inicioVigenciaBase, days));
                     setPrazoAcaoByRowId((prev) => ({...prev, [row.id]: prazoCalculado}));
                     handlePlanRiskFieldChange(row.gheId, row.riskId, "prazoAcao", prazoCalculado, row.groupTargets);
                 }
             }
             initializedRowsRef.current.add(row.id + "_prazo");
         });
-    }, [dataEmissaoBase, handlePlanRiskFieldChange, planTableRows]);
+    }, [inicioVigenciaBase, handlePlanRiskFieldChange, planTableRows]);
 
     useEffect(() => {
         const defaultResponsible = String(defaultResponsibleActionName || "").trim();
@@ -909,14 +863,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
                                             <div className="flex h-[36px] items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenMedidasMultiSelectRowId(row.id)}
-                                                    className="text-muted-foreground transition hover:text-primary"
-                                                    title="Editar medidas de prevenção"
-                                                >
-                                                    <Pencil className="h-4 w-4"/>
-                                                </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => {
