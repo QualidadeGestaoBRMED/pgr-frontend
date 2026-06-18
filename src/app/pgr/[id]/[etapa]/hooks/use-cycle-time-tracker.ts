@@ -1,75 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
 import type { PgrStepId } from "@/app/pgr/steps";
 import type { CycleTimeData, HistoricoData } from "../types";
 import { normalizeCycleTime } from "../utils/cycle-time";
-import { putPgrState } from "../state/state-version";
 
 const AUTO_COMMIT_INTERVAL_MS = 30000;
 const MIN_ELAPSED_MS = 250;
 
 type UseCycleTimeTrackerParams = {
-  pgrId: string;
   stepId: PgrStepId;
   historicoData: HistoricoData;
   isStateLoading: boolean;
-  setHistoricoData: Dispatch<SetStateAction<HistoricoData>>;
+  isLocked: boolean;
 };
 
 export function useCycleTimeTracker({
-  pgrId,
   stepId,
   historicoData,
   isStateLoading,
-  setHistoricoData,
+  isLocked,
 }: UseCycleTimeTrackerParams) {
-  const historicoRef = useRef(historicoData);
   const cycleRef = useRef<CycleTimeData>(normalizeCycleTime(historicoData.cycleTime));
   const sessionStartedAtRef = useRef<number | null>(null);
   const [cycleTotalMs, setCycleTotalMs] = useState(cycleRef.current.totalMs);
   const [activeSessionStartedAtMs, setActiveSessionStartedAtMs] = useState<number | null>(null);
 
   useEffect(() => {
-    historicoRef.current = historicoData;
     const normalized = normalizeCycleTime(historicoData.cycleTime);
     cycleRef.current = normalized;
     setCycleTotalMs(normalized.totalMs);
   }, [historicoData]);
 
-  const persistCycleSnapshot = useCallback(
-    (cycleTime: CycleTimeData) => {
-      const mergedHistorico = {
-        ...historicoRef.current,
-        cycleTime,
-      };
-      void putPgrState(pgrId, { historico: mergedHistorico }).catch(() => {
-        // Sem bloqueio de navegação caso a persistência imediata falhe.
-        // Conflito (409) já é tratado pelo funil putPgrState.
-      });
-    },
-    [pgrId]
-  );
-
-  const applyCycleUpdate = useCallback(
-    (nextCycle: CycleTimeData, options?: { flush?: boolean; skipState?: boolean }) => {
-      cycleRef.current = nextCycle;
-      setCycleTotalMs(nextCycle.totalMs);
-      if (!options?.skipState) {
-        setHistoricoData((prev) => ({
-          ...prev,
-          cycleTime: nextCycle,
-        }));
-      }
-
-      if (options?.flush) {
-        persistCycleSnapshot(nextCycle);
-      }
-    },
-    [persistCycleSnapshot, setHistoricoData]
-  );
+  const applyCycleUpdate = useCallback((nextCycle: CycleTimeData) => {
+    cycleRef.current = nextCycle;
+    setCycleTotalMs(nextCycle.totalMs);
+  }, []);
 
   const commitElapsed = useCallback(
-    (options?: { flush?: boolean; pause?: boolean; skipState?: boolean }) => {
+    (options?: { pause?: boolean }) => {
       const startedAt = sessionStartedAtRef.current;
       if (startedAt === null) return;
 
@@ -97,10 +64,7 @@ export function useCycleTimeTracker({
         },
       };
 
-      applyCycleUpdate(nextCycle, {
-        flush: Boolean(options?.flush),
-        skipState: Boolean(options?.skipState),
-      });
+      applyCycleUpdate(nextCycle);
 
       if (shouldPause) {
         sessionStartedAtRef.current = null;
@@ -115,34 +79,39 @@ export function useCycleTimeTracker({
 
   const startSession = useCallback(() => {
     if (isStateLoading) return;
+    if (isLocked) return;
     if (typeof document !== "undefined" && document.hidden) return;
     if (sessionStartedAtRef.current !== null) return;
 
     const now = Date.now();
     sessionStartedAtRef.current = now;
     setActiveSessionStartedAtMs(now);
-  }, [isStateLoading]);
+  }, [isLocked, isStateLoading]);
 
   useEffect(() => {
     if (isStateLoading) return;
+    if (isLocked) {
+      commitElapsed({ pause: true });
+      return;
+    }
 
     startSession();
 
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;
-      commitElapsed({ flush: false, pause: false });
+      commitElapsed({ pause: false });
     }, AUTO_COMMIT_INTERVAL_MS);
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        commitElapsed({ flush: true, pause: true });
+        commitElapsed({ pause: true });
         return;
       }
       startSession();
     };
 
     const handleBeforeUnload = () => {
-      commitElapsed({ flush: true, pause: true });
+      commitElapsed({ pause: true });
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -152,9 +121,9 @@ export function useCycleTimeTracker({
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      commitElapsed({ flush: true, pause: true, skipState: true });
+      commitElapsed({ pause: true });
     };
-  }, [commitElapsed, isStateLoading, startSession]);
+  }, [commitElapsed, isLocked, isStateLoading, startSession]);
 
   return {
     cycleTotalMs,

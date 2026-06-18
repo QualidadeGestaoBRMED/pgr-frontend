@@ -416,11 +416,10 @@ export function usePgrEtapaController({
   ]);
 
   const cycleTime = useCycleTimeTracker({
-    pgrId: params.id,
     stepId: step.id,
     historicoData: state.historicoData,
     isStateLoading: state.isStateLoading,
-    setHistoricoData: setters.setHistoricoData,
+    isLocked: state.workflow.isLocked,
   });
 
   const handleAdvanceApiSync = useCallback((nextCompleted: number) => {
