@@ -95,7 +95,7 @@ export function PgrHistoricoPanel({
   const isEditingRejectedCurrentVersion =
     !workflow.isLocked && workflow.statusLabel === "Rejeitado";
   const canClickStartNewVersion =
-    canStartNewVersion && !hasStartedNewVersion;
+    isEditingRejectedCurrentVersion || (canStartNewVersion && !hasStartedNewVersion);
   const statusOptions = ["Em edição", "Documento finalizado"];
   const allReasonOptions = useMemo(
     () =>
@@ -219,8 +219,10 @@ export function PgrHistoricoPanel({
               disabled={!canClickStartNewVersion}
               title={
                 canClickStartNewVersion
-                  ? "Iniciar nova versão"
-                  : isEditingRejectedCurrentVersion
+                  ? isEditingRejectedCurrentVersion
+                    ? "Editar versão atual"
+                    : "Iniciar nova versão"
+                  : !workflow.isLocked
                     ? "Finalize a versão atual para habilitar a edição pelo histórico."
                   : hasStartedNewVersion
                     ? "A nova versão já foi iniciada."
