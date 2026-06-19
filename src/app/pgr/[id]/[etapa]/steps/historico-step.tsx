@@ -23,7 +23,7 @@ type HistoricoStepProps = {
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
-  onEditCurrentVersion: () => void;
+  onEditCurrentVersion: (reason: string) => void;
   onChangeField: (
     changeId: string,
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",

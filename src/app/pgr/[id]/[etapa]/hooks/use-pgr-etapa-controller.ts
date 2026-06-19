@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, notFound } from "next/navigation";
+import { useRouter, notFound, useSearchParams } from "next/navigation";
 import { apiBlob, apiBlobGet, apiGet, apiPost, apiPostForm } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import {
@@ -224,6 +224,7 @@ export function usePgrEtapaController({
   params: { id: string; etapa: string };
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const step = pgrSteps.find((item) => item.id === params.etapa);
   if (!step) {
     notFound();
@@ -278,6 +279,7 @@ export function usePgrEtapaController({
   const [pipefySyncCooldownSeconds, setPipefySyncCooldownSeconds] = useState(0);
   const pipefySyncCooldownTimerRef = useRef<number | null>(null);
   const isPipefySyncCoolingDown = pipefySyncCooldownSeconds > 0;
+  const rejectionReasonAppliedRef = useRef(false);
 
   // Conflito de edição concorrente (lock otimista): o save bateu 409 porque
   // outra pessoa alterou este PGR.
@@ -460,6 +462,7 @@ export function usePgrEtapaController({
       riskGheGroups: state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
       pdfLayout: layoutOverride ?? state.pdfLayout,
+      workflow: state.workflow,
     }),
     [
       params.id,
@@ -482,6 +485,7 @@ export function usePgrEtapaController({
       state.planGeneralMeasures,
       state.removedPlanRiskKeys,
       state.riskGheGroups,
+      state.workflow,
       weightedProgressPercent,
     ]
   );
@@ -492,6 +496,38 @@ export function usePgrEtapaController({
     },
     [buildStatePayload, params.id]
   );
+
+  const rejectionReasonFromQuery = useMemo(
+    () => String(searchParams.get("rejectionReason") || "").trim(),
+    [searchParams]
+  );
+
+  useEffect(() => {
+    if (!rejectionReasonFromQuery) return;
+    if (rejectionReasonAppliedRef.current) return;
+    if (state.workflow.rejectionReason === rejectionReasonFromQuery) {
+      rejectionReasonAppliedRef.current = true;
+      return;
+    }
+    rejectionReasonAppliedRef.current = true;
+    const nextWorkflow = {
+      ...state.workflow,
+      rejectionReason: rejectionReasonFromQuery,
+    };
+    setters.setWorkflow(nextWorkflow);
+    void putPgrState(params.id, {
+      ...buildStatePayload(),
+      workflow: nextWorkflow,
+    }).catch(() => {
+      rejectionReasonAppliedRef.current = false;
+    });
+  }, [
+    buildStatePayload,
+    params.id,
+    rejectionReasonFromQuery,
+    setters,
+    state.workflow,
+  ]);
 
   const docxPayload = useMemo(
     () =>
@@ -741,9 +777,16 @@ export function usePgrEtapaController({
     }
   }, [params.id, refs.saveTimerRef, router, setters]);
 
-  const handleEditCurrentVersion = useCallback(() => {
-    router.push(`/pgr/${params.id}/inicio`);
-  }, [params.id, router]);
+  const handleEditCurrentVersion = useCallback(
+    (reason: string) => {
+      const normalizedReason = String(reason || "").trim();
+      const suffix = normalizedReason
+        ? `?rejectionReason=${encodeURIComponent(normalizedReason)}`
+        : "";
+      router.push(`/pgr/${params.id}/inicio${suffix}`);
+    },
+    [params.id, router]
+  );
 
   const handleHistoricoChangeField = useCallback(
     (

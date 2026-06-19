@@ -174,6 +174,7 @@ export function usePgrEtapaState({
       isLocked: false,
       version: 1,
       statusLabel: null as string | null,
+      rejectionReason: null as string | null,
       finalizedAt: null as string | null,
       finalizedBy: null as string | null,
       finalizedById: null as number | null,

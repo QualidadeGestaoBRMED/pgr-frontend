@@ -563,6 +563,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             typeof state.workflow?.statusLabel === "string"
               ? state.workflow.statusLabel
               : null,
+          rejectionReason:
+            typeof state.workflow?.rejectionReason === "string"
+              ? state.workflow.rejectionReason
+              : null,
           finalizedAt:
             typeof state.workflow?.finalizedAt === "string"
               ? state.workflow.finalizedAt

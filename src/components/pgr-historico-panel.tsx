@@ -24,7 +24,7 @@ type PgrHistoricoPanelProps = {
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
-  onEditCurrentVersion: () => void;
+  onEditCurrentVersion: (reason: string) => void;
   onChangeField: (
     changeId: string,
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
@@ -46,6 +46,24 @@ export function PgrHistoricoPanel({
   const [hasStartedNewVersion, setHasStartedNewVersion] = useState(false);
   const [openReasonSelectRowId, setOpenReasonSelectRowId] = useState<string | null>(null);
   const [reasonQuery, setReasonQuery] = useState("");
+  const [isRejectionReasonModalOpen, setIsRejectionReasonModalOpen] = useState(false);
+  const [selectedRejectionReason, setSelectedRejectionReason] = useState("");
+
+  const rejectedByClientReasons = [
+    "Assinatura digital Inválida",
+    "Erro ortográfico",
+    "Erro de formatação",
+    "Vigências e datas incorretas",
+    "Divergências nos dados da empresa",
+    "Divergências no quadro de Revisões",
+    "Riscos e agentes nocivos",
+    "Código dos agentes nocivos",
+    "Limite de tolerância",
+    "Arquivo Incorreto",
+    "Solicitação não atendida",
+    "Inclusão de Função",
+    "Norma não considerada",
+  ];
 
   const splitRevisionReasons = (value: string | string[]) =>
     (Array.isArray(value) ? value.join(";") : String(value || ""))
@@ -184,6 +202,11 @@ export function PgrHistoricoPanel({
     onChangeField(rowId, "reason", next.join("; "));
   };
 
+  const closeRejectionReasonModal = () => {
+    setIsRejectionReasonModalOpen(false);
+    setSelectedRejectionReason("");
+  };
+
   return (
     <>
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
@@ -210,7 +233,8 @@ export function PgrHistoricoPanel({
               onClick={() => {
                 if (!canClickStartNewVersion) return;
                 if (isEditingRejectedCurrentVersion) {
-                  onEditCurrentVersion();
+                  setSelectedRejectionReason("");
+                  setIsRejectionReasonModalOpen(true);
                   return;
                 }
                 setHasStartedNewVersion(true);
@@ -432,6 +456,77 @@ export function PgrHistoricoPanel({
           </div>
         </div>
       </section>
+
+      {isRejectionReasonModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6">
+          <div className="w-full max-w-[760px] rounded-[16px] border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[20px] font-semibold text-foreground">
+                  Motivo da reprovação
+                </h2>
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  Selecione um motivo para liberar a edição da versão atual.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeRejectionReasonModal}
+                className="rounded-full border border-border px-3 py-1 text-[13px] text-muted-foreground hover:bg-muted"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {rejectedByClientReasons.map((reason) => {
+                const isSelected = selectedRejectionReason === reason;
+                return (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setSelectedRejectionReason(reason)}
+                    className={`rounded-[12px] border px-4 py-3 text-left text-[13px] transition ${
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/40 text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeRejectionReasonModal}
+                className="btn-secondary px-4 py-2 text-[14px]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedRejectionReason) return;
+                  setIsRejectionReasonModalOpen(false);
+                  onEditCurrentVersion(selectedRejectionReason);
+                  setSelectedRejectionReason("");
+                }}
+                disabled={!selectedRejectionReason}
+                className={
+                  selectedRejectionReason
+                    ? "btn-primary px-4 py-2 text-[14px]"
+                    : "btn-disabled px-4 py-2 text-[14px]"
+                }
+              >
+                Prosseguir para edição
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
