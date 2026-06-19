@@ -319,7 +319,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             risk.descricaoAgente,
             ""
           );
-          const selectedValues = parseMultiTextValues(risk.fontes, baseOptions);
+          const selectedValues = parseCommaSeparatedValues(risk.fontes, baseOptions);
           const customValues = selectedValues.filter(
             (value) => !hasOptionInsensitive(baseOptions, value)
           );

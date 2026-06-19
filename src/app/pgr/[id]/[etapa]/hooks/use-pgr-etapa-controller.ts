@@ -498,7 +498,7 @@ export function usePgrEtapaController({
   );
 
   const rejectionReasonFromQuery = useMemo(
-    () => String(searchParams.get("rejectionReason") || "").trim(),
+    () => String(searchParams?.get("rejectionReason") || "").trim(),
     [searchParams]
   );
 
