@@ -23,6 +23,7 @@ type PgrHistoricoPanelProps = {
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
+  onEditCurrentVersion: () => void;
   onChangeField: (
     changeId: string,
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
@@ -38,6 +39,7 @@ export function PgrHistoricoPanel({
   isGeneratingFakePdf,
   onDownloadPdf,
   onStartNewVersion,
+  onEditCurrentVersion,
   onChangeField,
 }: PgrHistoricoPanelProps) {
   const [hasStartedNewVersion, setHasStartedNewVersion] = useState(false);
@@ -89,7 +91,9 @@ export function PgrHistoricoPanel({
       ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
       : null;
   const canStartNewVersion = workflow.isLocked && Boolean(workflow.finalizedAt);
-  const canClickStartNewVersion = canStartNewVersion && !hasStartedNewVersion;
+  const isEditingCurrentVersion = !workflow.isLocked;
+  const canClickStartNewVersion =
+    isEditingCurrentVersion || (canStartNewVersion && !hasStartedNewVersion);
   const statusOptions = ["Em edição", "Documento finalizado"];
   const allReasonOptions = useMemo(
     () =>
@@ -203,13 +207,19 @@ export function PgrHistoricoPanel({
               type="button"
               onClick={() => {
                 if (!canClickStartNewVersion) return;
+                if (isEditingCurrentVersion) {
+                  onEditCurrentVersion();
+                  return;
+                }
                 setHasStartedNewVersion(true);
                 onStartNewVersion();
               }}
               disabled={!canClickStartNewVersion}
               title={
                 canClickStartNewVersion
-                  ? "Iniciar nova versão"
+                  ? isEditingCurrentVersion
+                    ? "Editar versão atual"
+                    : "Iniciar nova versão"
                   : hasStartedNewVersion
                     ? "A nova versão já foi iniciada."
                     : "Finalize a versão atual para iniciar uma nova."
@@ -221,7 +231,7 @@ export function PgrHistoricoPanel({
               }
             >
               <PencilLine className="h-4 w-4" />
-              Iniciar nova versão
+              {isEditingCurrentVersion ? "Editar versão atual" : "Iniciar nova versão"}
             </button>
             <button
               type="button"

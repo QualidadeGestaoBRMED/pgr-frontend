@@ -22,6 +22,7 @@ type HistoricoStepProps = {
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
+  onEditCurrentVersion: () => void;
   onChangeField: (
     changeId: string,
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
@@ -37,6 +38,7 @@ export function HistoricoStep({
   isGeneratingFakePdf,
   onDownloadPdf,
   onStartNewVersion,
+  onEditCurrentVersion,
   onChangeField,
 }: HistoricoStepProps) {
   return (
@@ -48,6 +50,7 @@ export function HistoricoStep({
       isGeneratingFakePdf={isGeneratingFakePdf}
       onDownloadPdf={onDownloadPdf}
       onStartNewVersion={onStartNewVersion}
+      onEditCurrentVersion={onEditCurrentVersion}
       onChangeField={onChangeField}
     />
   );

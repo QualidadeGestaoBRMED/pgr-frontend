@@ -741,6 +741,10 @@ export function usePgrEtapaController({
     }
   }, [params.id, refs.saveTimerRef, router, setters]);
 
+  const handleEditCurrentVersion = useCallback(() => {
+    router.push(`/pgr/${params.id}/inicio`);
+  }, [params.id, router]);
+
   const handleHistoricoChangeField = useCallback(
     (
       changeId: string,
@@ -1250,6 +1254,7 @@ export function usePgrEtapaController({
       handleGenerateFakePdf,
       handleFinalizePgr,
       handleStartNewVersion,
+      handleEditCurrentVersion,
       handleHistoricoChangeField,
       handleResetInicioData,
       handleResetDadosData,
