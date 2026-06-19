@@ -559,6 +559,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         const loadedWorkflow: Workflow = {
           isLocked: Boolean(state.workflow?.isLocked),
           version: Math.max(1, Number(state.workflow?.version || 1)),
+          statusLabel:
+            typeof state.workflow?.statusLabel === "string"
+              ? state.workflow.statusLabel
+              : null,
           finalizedAt:
             typeof state.workflow?.finalizedAt === "string"
               ? state.workflow.finalizedAt

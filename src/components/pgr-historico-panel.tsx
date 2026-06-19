@@ -16,6 +16,7 @@ type PgrHistoricoPanelProps = {
   workflow: {
     isLocked: boolean;
     version: number;
+    statusLabel?: string | null;
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;
@@ -91,9 +92,10 @@ export function PgrHistoricoPanel({
       ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
       : null;
   const canStartNewVersion = workflow.isLocked && Boolean(workflow.finalizedAt);
-  const isEditingCurrentVersion = !workflow.isLocked;
+  const isEditingRejectedCurrentVersion =
+    !workflow.isLocked && workflow.statusLabel === "Rejeitado";
   const canClickStartNewVersion =
-    isEditingCurrentVersion || (canStartNewVersion && !hasStartedNewVersion);
+    canStartNewVersion && !hasStartedNewVersion;
   const statusOptions = ["Em edição", "Documento finalizado"];
   const allReasonOptions = useMemo(
     () =>
@@ -207,7 +209,7 @@ export function PgrHistoricoPanel({
               type="button"
               onClick={() => {
                 if (!canClickStartNewVersion) return;
-                if (isEditingCurrentVersion) {
+                if (isEditingRejectedCurrentVersion) {
                   onEditCurrentVersion();
                   return;
                 }
@@ -217,9 +219,9 @@ export function PgrHistoricoPanel({
               disabled={!canClickStartNewVersion}
               title={
                 canClickStartNewVersion
-                  ? isEditingCurrentVersion
-                    ? "Editar versão atual"
-                    : "Iniciar nova versão"
+                  ? "Iniciar nova versão"
+                  : isEditingRejectedCurrentVersion
+                    ? "Finalize a versão atual para habilitar a edição pelo histórico."
                   : hasStartedNewVersion
                     ? "A nova versão já foi iniciada."
                     : "Finalize a versão atual para iniciar uma nova."
@@ -231,7 +233,7 @@ export function PgrHistoricoPanel({
               }
             >
               <PencilLine className="h-4 w-4" />
-              {isEditingCurrentVersion ? "Editar versão atual" : "Iniciar nova versão"}
+              {isEditingRejectedCurrentVersion ? "Editar versão atual" : "Iniciar nova versão"}
             </button>
             <button
               type="button"
