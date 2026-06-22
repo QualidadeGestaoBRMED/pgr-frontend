@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { InicioDraft, InicioDraftEditableField } from "./types";
+import type { PendingReviewFocus } from "../types";
 import { isValidCnpj } from "../validation/br-field-utils";
 
 type InicioStepProps = {
@@ -8,6 +9,7 @@ type InicioStepProps = {
   isPipefySyncCoolingDown: boolean;
   pipefySyncCooldownSeconds: number;
   inputBaseClass: string;
+  pendingReviewFocus?: PendingReviewFocus | null;
   onDraftChange: (field: InicioDraftEditableField, value: string) => void;
   onSyncPipefy: () => void;
 };
@@ -18,6 +20,7 @@ export function InicioStep({
   isPipefySyncCoolingDown,
   pipefySyncCooldownSeconds,
   inputBaseClass,
+  pendingReviewFocus,
   onDraftChange,
   onSyncPipefy,
 }: InicioStepProps) {
@@ -54,9 +57,25 @@ export function InicioStep({
   );
 
   const getRequiredFieldClassName = (field: RequiredInicioField) =>
-    errors[field]
-      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
-      : inputBaseClass;
+    [
+      inputBaseClass,
+      errors[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      pendingReviewFocus?.stepId === "inicio" && pendingReviewFocus.fieldKey === field
+        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  useEffect(() => {
+    if (pendingReviewFocus?.stepId !== "inicio" || !pendingReviewFocus.fieldKey) return;
+    const input = document.querySelector<HTMLInputElement>(
+      `[data-pending-field="${pendingReviewFocus.fieldKey}"]`
+    );
+    if (!input) return;
+    input.scrollIntoView({ behavior: "smooth", block: "center" });
+    input.focus();
+  }, [pendingReviewFocus]);
 
   return (
     <>
@@ -75,6 +94,11 @@ export function InicioStep({
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+        {pendingReviewFocus?.stepId === "inicio" ? (
+          <div className="mb-5 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            Pendência destacada: {pendingReviewFocus.message}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[14px] font-semibold text-foreground">
@@ -124,6 +148,7 @@ export function InicioStep({
               Título do Card *
             </label>
             <input
+              data-pending-field="documentTitle"
               className={getRequiredFieldClassName("documentTitle")}
               value={inicioDraft.documentTitle}
               onChange={(event) => onDraftChange("documentTitle", event.target.value)}
@@ -138,6 +163,7 @@ export function InicioStep({
               Nome da Empresa (Conforme BR NET) *
             </label>
             <input
+              data-pending-field="companyName"
               className={getRequiredFieldClassName("companyName")}
               value={inicioDraft.companyName}
               onChange={(event) => onDraftChange("companyName", event.target.value)}
@@ -160,6 +186,7 @@ export function InicioStep({
           <div>
             <label className="text-[12px] font-medium text-foreground">CNPJ *</label>
             <input
+              data-pending-field="cnpj"
               className={getRequiredFieldClassName("cnpj")}
               value={inicioDraft.cnpj}
               onChange={(event) => onDraftChange("cnpj", event.target.value)}
@@ -174,6 +201,7 @@ export function InicioStep({
               Responsável pela execução do Serviço (ST) *
             </label>
             <input
+              data-pending-field="responsible"
               className={getRequiredFieldClassName("responsible")}
               value={inicioDraft.responsible}
               onChange={(event) => onDraftChange("responsible", event.target.value)}

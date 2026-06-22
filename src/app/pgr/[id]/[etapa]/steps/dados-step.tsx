@@ -6,6 +6,7 @@ import type {
   EstabelecimentoDraft,
   ResponsavelCoordenacaoTecnicaDraft,
 } from "./types";
+import type { PendingReviewFocus } from "../types";
 import {
   isValidCnpj,
   isValidCpf,
@@ -48,6 +49,7 @@ type SearchableSelectComponentProps = {
 type DadosStepProps = {
   inputBaseClass: string;
   selectBaseClass: string;
+  pendingReviewFocus?: PendingReviewFocus | null;
   dadosCadastrais: DadosCadastraisDraft;
   estabelecimentoSelecionado: string;
   estabelecimentoOptions: string[];
@@ -109,6 +111,7 @@ type DadosStepProps = {
 export function DadosStep({
   inputBaseClass,
   selectBaseClass,
+  pendingReviewFocus,
   dadosCadastrais,
   estabelecimentoSelecionado,
   estabelecimentoOptions,
@@ -519,9 +522,15 @@ export function DadosStep({
   };
 
   const getFieldClassName = (field: RequiredDadosField) =>
-    errors[field]
-      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
-      : inputBaseClass;
+    [
+      inputBaseClass,
+      errors[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      pendingReviewFocus?.stepId === "dados" && pendingReviewFocus.fieldKey === field
+        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   const getDisabledFieldClassName = (className: string) =>
     `${className} cursor-not-allowed opacity-70`;
@@ -679,6 +688,39 @@ export function DadosStep({
     technicalCoordinator.id || "technical-coordinator-0"
   );
 
+  useEffect(() => {
+    if (pendingReviewFocus?.stepId !== "dados") return;
+    if (pendingReviewFocus.fieldKey) {
+      const field = document.querySelector<HTMLElement>(
+        `[data-pending-field="${pendingReviewFocus.fieldKey}"]`
+      );
+      if (field) {
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+        field.focus?.();
+        return;
+      }
+    }
+    if (
+      pendingReviewFocus.sectionKey === "estabelecimentos" &&
+      typeof pendingReviewFocus.itemIndex === "number"
+    ) {
+      const establishmentCard = document.querySelector<HTMLElement>(
+        `[data-establishment-index="${pendingReviewFocus.itemIndex}"]`
+      );
+      establishmentCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (
+      pendingReviewFocus.sectionKey === "contratantes" &&
+      typeof pendingReviewFocus.itemIndex === "number"
+    ) {
+      const contractorCard = document.querySelector<HTMLElement>(
+        `[data-contractor-index="${pendingReviewFocus.itemIndex}"]`
+      );
+      contractorCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [pendingReviewFocus]);
+
   return (
     <>
       <section className="px-2">
@@ -702,6 +744,11 @@ export function DadosStep({
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+        {pendingReviewFocus?.stepId === "dados" ? (
+          <div className="mb-5 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            Pendência destacada: {pendingReviewFocus.message}
+          </div>
+        ) : null}
         <h2 className="text-[16px] font-medium text-foreground">
           Identificação da Empresa:
         </h2>
@@ -711,6 +758,7 @@ export function DadosStep({
               Razão Social *:
             </label>
             <input
+              data-pending-field="empresaRazaoSocial"
               className={getFieldClassName("empresaRazaoSocial")}
               value={dadosCadastrais.empresaRazaoSocial}
               onChange={(event) =>
@@ -739,6 +787,7 @@ export function DadosStep({
               CNPJ *:
             </label>
             <input
+              data-pending-field="empresaCnpj"
               className={getFieldClassName("empresaCnpj")}
               value={dadosCadastrais.empresaCnpj}
               onChange={(event) =>
@@ -770,6 +819,7 @@ export function DadosStep({
               CNAE *:
             </label>
             <input
+              data-pending-field="empresaCnae"
               className={getFieldClassName("empresaCnae")}
               value={dadosCadastrais.empresaCnae}
               onChange={(event) =>
@@ -789,6 +839,7 @@ export function DadosStep({
               Endereço *
             </label>
             <input
+              data-pending-field="empresaEndereco"
               className={getFieldClassName("empresaEndereco")}
               value={dadosCadastrais.empresaEndereco}
               onChange={(event) =>
@@ -816,6 +867,7 @@ export function DadosStep({
               Cidade *:
             </label>
             <input
+              data-pending-field="empresaCidade"
               className={getFieldClassName("empresaCidade")}
               value={dadosCadastrais.empresaCidade}
               onChange={(event) =>
@@ -832,6 +884,7 @@ export function DadosStep({
               Estado *:
             </label>
             <input
+              data-pending-field="empresaEstado"
               className={getFieldClassName("empresaEstado")}
               value={dadosCadastrais.empresaEstado}
               onChange={(event) =>
@@ -851,6 +904,7 @@ export function DadosStep({
               Grau de Risco *:
             </label>
             <input
+              data-pending-field="empresaGrauRisco"
               className={getFieldClassName("empresaGrauRisco")}
               value={dadosCadastrais.empresaGrauRisco}
               onChange={(event) =>
@@ -940,6 +994,7 @@ export function DadosStep({
             return (
               <div
                 key={establishment.id}
+                data-establishment-index={establishmentIndex}
                 className="rounded-[12px] border border-border/60 bg-background/40 px-4 py-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1157,6 +1212,7 @@ export function DadosStep({
             return (
             <div
               key={contractor.id}
+              data-contractor-index={contractorIndex}
               className="rounded-[12px] border border-border/60 bg-background/40 px-4 py-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1453,6 +1509,7 @@ export function DadosStep({
               Nome:
             </label>
             <input
+              data-pending-field="responsavelPgrNome"
               className={getFieldClassName("responsavelPgrNome")}
               value={dadosCadastrais.responsavelPgrNome}
               onChange={(event) =>
@@ -1483,6 +1540,7 @@ export function DadosStep({
               Telefone:
             </label>
             <input
+              data-pending-field="responsavelPgrTelefone"
               className={getFieldClassName("responsavelPgrTelefone")}
               value={dadosCadastrais.responsavelPgrTelefone}
               onChange={(event) =>
@@ -1499,6 +1557,7 @@ export function DadosStep({
               Email:
             </label>
             <input
+              data-pending-field="responsavelPgrEmail"
               className={getFieldClassName("responsavelPgrEmail")}
               value={dadosCadastrais.responsavelPgrEmail}
               onChange={(event) =>
@@ -1513,6 +1572,7 @@ export function DadosStep({
           <div>
             <label className="text-[12px] font-medium text-foreground">CPF:</label>
             <input
+              data-pending-field="responsavelPgrCpf"
               className={getFieldClassName("responsavelPgrCpf")}
               value={dadosCadastrais.responsavelPgrCpf}
               onChange={(event) =>

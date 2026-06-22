@@ -9,6 +9,7 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,
   currentRiskGheId: ctx.currentRiskGheId,
   setCurrentRiskGheId: ctx.setCurrentRiskGheId,
+  pendingReviewFocus: ctx.pendingReviewFocus,
   pushHistory: ctx.pushHistory,
   applyMissingRiskDefaults: ctx.applyMissingRiskDefaults,
   tipoAgenteOptions: ctx.tipoAgenteOptions,

@@ -6,6 +6,7 @@ export const renderDadosStep: StepRenderer = (ctx) => (
   <DadosStep
     inputBaseClass={ctx.inputBaseClass}
     selectBaseClass={ctx.selectBaseClass}
+    pendingReviewFocus={ctx.pendingReviewFocus}
     dadosCadastrais={ctx.dadosCadastrais}
     estabelecimentoSelecionado={ctx.estabelecimentoSelecionado}
     estabelecimentoOptions={ctx.estabelecimentoOptions}

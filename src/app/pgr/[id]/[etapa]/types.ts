@@ -1,3 +1,5 @@
+import type { PgrStepId } from "@/app/pgr/steps";
+
 export type HistoricoChange = {
   id: string;
   company: string;
@@ -220,6 +222,20 @@ export type ExcelImportFeedback = {
   message: string;
   missingRequiredFieldRows?: ExcelImportMissingRequiredFieldRow[];
 };
+
+export type PendingReviewTarget = {
+  id: string;
+  stepId: PgrStepId;
+  message: string;
+  fieldKey?: string;
+  sectionKey?: string;
+  gheId?: string;
+  gheName?: string;
+  riskId?: string;
+  itemIndex?: number;
+};
+
+export type PendingReviewFocus = PendingReviewTarget;
 
 export type AnexoFile = {
   id: string;

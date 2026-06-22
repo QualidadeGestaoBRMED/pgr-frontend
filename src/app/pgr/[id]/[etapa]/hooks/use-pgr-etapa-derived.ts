@@ -13,6 +13,7 @@ import {
 } from "../validation/step-schemas";
 import type {
   GheGroup,
+  PendingReviewTarget,
   PgrFunction,
   PlanGeneralMeasureRow,
   RiskCatalogPayload,
@@ -20,6 +21,7 @@ import type {
 } from "../types";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, HistoricoData } from "../types";
+import { buildPendingReviewTarget } from "../utils/pending-review";
 
 type PlanTableRow = {
   id: string;
@@ -50,6 +52,24 @@ const normalizeText = (value: string) =>
 
 const uniqueValues = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
+const riskIssueFieldMap: Record<string, string> = {
+  "Tipo de agente e obrigatorio": "tipoAgente",
+  "Descricao do agente e obrigatorio": "descricaoAgente",
+  "Meio de propagacao e obrigatorio": "meioPropagacao",
+  "Fontes e obrigatorio": "fontes",
+  "Tipo de avaliacao e obrigatorio": "tipoAvaliacao",
+  "Intensidade e obrigatorio": "intensidade",
+  "Severidade e obrigatorio": "severidade",
+  "Probabilidade e obrigatorio": "probabilidade",
+  "Classificacao e obrigatorio": "classificacao",
+  "Medidas de controle e obrigatorio": "medidasControle",
+  "EPC e obrigatorio": "epc",
+  "EPI e obrigatorio": "epi",
+};
+
+const getRiskIssueFieldKey = (issue: string) =>
+  riskIssueFieldMap[normalizeText(issue).replace(/[^\w\s]/g, "").trim()] || undefined;
 
 const extractGheToken = (gheName: string) => {
   const token = gheName.replace(/^ghe\s*/i, "").trim();
@@ -546,97 +566,288 @@ export function usePgrEtapaDerived({
 
   const isAnexosComplete = true;
 
-  const missingFieldsByStep = useMemo<Partial<Record<PgrStepId, string[]>>>(() => {
-    const missingInicio = getInicioDraftIssues(inicioDraft);
-    const missingDados = getDadosCadastraisIssues(dadosCadastrais);
+  const missingTargetsByStep = useMemo<
+    Partial<Record<PgrStepId, PendingReviewTarget[]>>
+  >(() => {
+    const missingInicio = getInicioDraftIssues(inicioDraft).map((message) =>
+      buildPendingReviewTarget("inicio", message, {
+        fieldKey:
+          message.includes("Título do card")
+            ? "documentTitle"
+            : message.includes("Nome da empresa")
+              ? "companyName"
+              : message.includes("CNPJ")
+                ? "cnpj"
+                : message.includes("Responsável")
+                  ? "responsible"
+                  : undefined,
+      })
+    );
+    const missingDados = getDadosCadastraisIssues(dadosCadastrais).map((message) => {
+      const normalized = normalizeText(message);
+      const establishmentMatch = normalized.match(/^estabelecimento\s+(\d+):/);
+      const contractorMatch = normalized.match(/^contratante\s+(\d+):/);
+      return buildPendingReviewTarget("dados", message, {
+        sectionKey: establishmentMatch
+          ? "estabelecimentos"
+          : contractorMatch
+            ? "contratantes"
+            : normalized.includes("responsavel")
+              ? "responsavelPgr"
+              : "empresa",
+        itemIndex: establishmentMatch
+          ? Number(establishmentMatch[1]) - 1
+          : contractorMatch
+            ? Number(contractorMatch[1]) - 1
+            : undefined,
+        fieldKey: normalized.includes("razao social")
+          ? "empresaRazaoSocial"
+          : normalized.includes("cnpj da empresa")
+            ? "empresaCnpj"
+            : normalized.includes("cnae da empresa")
+              ? "empresaCnae"
+              : normalized.includes("endereco da empresa")
+                ? "empresaEndereco"
+                : normalized.includes("cidade da empresa")
+                  ? "empresaCidade"
+                  : normalized.includes("estado da empresa")
+                    ? "empresaEstado"
+                    : normalized.includes("grau de risco da empresa")
+                      ? "empresaGrauRisco"
+                      : normalized.includes("nome do estabelecimento")
+                        ? "nome"
+                        : normalized.includes("cnpj do estabelecimento")
+                          ? "cnpj"
+                          : normalized.includes("grau de risco do estabelecimento")
+                            ? "grauRisco"
+                            : normalized.includes("nome do responsavel pgr")
+                              ? "responsavelPgrNome"
+                              : undefined,
+      });
+    });
 
-    const missingDescricao: string[] = [];
+    const missingDescricao: PendingReviewTarget[] = [];
     if (!gheGroups.length) {
-      missingDescricao.push("Adicionar ao menos um GHE.");
+      missingDescricao.push(
+        buildPendingReviewTarget("descricao", "Adicionar ao menos um GHE.", {
+          fieldKey: "create-ghe",
+          sectionKey: "ghe-header",
+        })
+      );
     }
     if (remainingCount > 0) {
       missingDescricao.push(
-        `Associar todas as funções aos GHEs (${remainingCount} restantes).`
+        buildPendingReviewTarget(
+          "descricao",
+          `Associar todas as funções aos GHEs (${remainingCount} restantes).`,
+          {
+            fieldKey: "assign-functions",
+            sectionKey: "available-functions",
+          }
+        )
       );
     }
     gheGroups.forEach((ghe) => {
       if (!ghe.items.length) {
-        missingDescricao.push(`${ghe.name}: adicionar ao menos uma função associada.`);
+        missingDescricao.push(
+          buildPendingReviewTarget(
+            "descricao",
+            `${ghe.name}: adicionar ao menos uma função associada.`,
+            {
+              gheId: ghe.id,
+              gheName: ghe.name,
+              fieldKey: "assign-functions",
+              sectionKey: "ghe-functions",
+            }
+          )
+        );
       }
       const gheInfoIssues = getGheInfoIssues(ghe.info);
       gheInfoIssues.forEach((issue) => {
-        missingDescricao.push(`${ghe.name}: ${issue}`);
+        missingDescricao.push(
+          buildPendingReviewTarget("descricao", `${ghe.name}: ${issue}`, {
+            gheId: ghe.id,
+            gheName: ghe.name,
+            fieldKey: issue.includes("Processo")
+              ? "processo"
+              : issue.includes("Observações")
+                ? "observacoes"
+                : issue.includes("Ambiente")
+                  ? "ambiente"
+                  : undefined,
+            sectionKey: "ghe-info",
+          })
+        );
       });
     });
 
-    const missingCaracterizacao: string[] = [];
+    const missingCaracterizacao: PendingReviewTarget[] = [];
     if (!riskGheGroups.length) {
-      missingCaracterizacao.push("Adicionar ao menos um GHE para caracterização.");
+      missingCaracterizacao.push(
+        buildPendingReviewTarget(
+          "caracterizacao",
+          "Adicionar ao menos um GHE para caracterização.",
+          {
+            fieldKey: "add-ghe",
+            sectionKey: "ghe-list",
+          }
+        )
+      );
     } else {
       riskGheGroups.forEach((ghe) => {
         if (!ghe.risks.length) {
-          missingCaracterizacao.push(`${ghe.name}: adicionar ao menos um risco.`);
+          missingCaracterizacao.push(
+            buildPendingReviewTarget(
+              "caracterizacao",
+              `${ghe.name}: adicionar ao menos um risco.`,
+              {
+                gheId: ghe.id,
+                gheName: ghe.name,
+                fieldKey: "add-risk",
+                sectionKey: "risk-list",
+              }
+            )
+          );
           return;
         }
         ghe.risks.forEach((risk, index) => {
           const riskIssues = getRiskIssues(risk);
           riskIssues.forEach((issue) => {
-            missingCaracterizacao.push(`${ghe.name} · Risco ${index + 1}: ${issue}`);
+            missingCaracterizacao.push(
+              buildPendingReviewTarget(
+                "caracterizacao",
+                `${ghe.name} · Risco ${index + 1}: ${issue}`,
+                {
+                  gheId: ghe.id,
+                  gheName: ghe.name,
+                  riskId: risk.id,
+                  fieldKey: getRiskIssueFieldKey(issue),
+                  sectionKey: "risk-card",
+                }
+              )
+            );
           });
         });
       });
       if (hasDuplicatedRiskStructure) {
         missingCaracterizacao.push(
-          "Os seguintes GHEs possuem a mesma estrutura de caracterização de risco:"
+          buildPendingReviewTarget(
+            "caracterizacao",
+            "Os seguintes GHEs possuem a mesma estrutura de caracterização de risco:",
+            {
+              fieldKey: "duplicate-structure",
+              sectionKey: "ghe-list",
+            }
+          )
         );
         duplicatedRiskStructureNameGroups.forEach((gheNames) => {
-          missingCaracterizacao.push(`• ${gheNames.join(", ")}.`);
+          missingCaracterizacao.push(
+            buildPendingReviewTarget("caracterizacao", `• ${gheNames.join(", ")}.`, {
+              fieldKey: "duplicate-structure",
+              sectionKey: "ghe-list",
+            })
+          );
         });
       }
     }
 
-    const missingPlano: string[] = [];
+    const missingPlano: PendingReviewTarget[] = [];
     if (!rawPlanTableRowsForPlan.length) {
-      missingPlano.push("Adicionar riscos na etapa de caracterização.");
+      missingPlano.push(
+        buildPendingReviewTarget("plano", "Adicionar riscos na etapa de caracterização.", {
+          fieldKey: "add-risks",
+          sectionKey: "plan-table",
+        })
+      );
     } else {
       rawPlanTableRowsForPlan.forEach((row) => {
         if (row.medidasPrevencao.trim().length === 0) {
           missingPlano.push(
-            `${row.gheName}: preencher medidas de prevenção para ${row.descricaoAgente}.`
+            buildPendingReviewTarget(
+              "plano",
+              `${row.gheName}: preencher medidas de prevenção para ${row.descricaoAgente}.`,
+              {
+                gheId: row.gheId,
+                gheName: row.gheName,
+                riskId: row.riskId,
+                fieldKey: "medidasPrevencao",
+                sectionKey: "plan-table",
+              }
+            )
           );
         }
         if (String(row.tipoMedida || "").trim().length === 0) {
           missingPlano.push(
-            `${row.gheName}: preencher tipo de medida de prevenção para ${row.descricaoAgente}.`
+            buildPendingReviewTarget(
+              "plano",
+              `${row.gheName}: preencher tipo de medida de prevenção para ${row.descricaoAgente}.`,
+              {
+                gheId: row.gheId,
+                gheName: row.gheName,
+                riskId: row.riskId,
+                fieldKey: "tipoMedida",
+                sectionKey: "plan-table",
+              }
+            )
           );
         }
         if (String(row.prazoAcao || "").trim().length === 0) {
           missingPlano.push(
-            `${row.gheName}: preencher prazo para realização da ação para ${row.descricaoAgente}.`
+            buildPendingReviewTarget(
+              "plano",
+              `${row.gheName}: preencher prazo para realização da ação para ${row.descricaoAgente}.`,
+              {
+                gheId: row.gheId,
+                gheName: row.gheName,
+                riskId: row.riskId,
+                fieldKey: "prazoAcao",
+                sectionKey: "plan-table",
+              }
+            )
           );
         }
         if (String(row.acompanhamento || "").trim().length === 0) {
           missingPlano.push(
-            `${row.gheName}: preencher acompanhamento das medidas de prevenção para ${row.descricaoAgente}.`
+            buildPendingReviewTarget(
+              "plano",
+              `${row.gheName}: preencher acompanhamento das medidas de prevenção para ${row.descricaoAgente}.`,
+              {
+                gheId: row.gheId,
+                gheName: row.gheName,
+                riskId: row.riskId,
+                fieldKey: "acompanhamento",
+                sectionKey: "plan-table",
+              }
+            )
           );
         }
         if (String(row.afericaoResultado || "").trim().length === 0) {
           missingPlano.push(
-            `${row.gheName}: preencher aferição de resultados para ${row.descricaoAgente}.`
+            buildPendingReviewTarget(
+              "plano",
+              `${row.gheName}: preencher aferição de resultados para ${row.descricaoAgente}.`,
+              {
+                gheId: row.gheId,
+                gheName: row.gheName,
+                riskId: row.riskId,
+                fieldKey: "afericaoResultado",
+                sectionKey: "plan-table",
+              }
+            )
           );
         }
       });
     }
 
-    const missingAnexos: string[] = [];
+    const missingAnexos: PendingReviewTarget[] = [];
 
     return {
-      inicio: uniqueValues(missingInicio),
-      dados: uniqueValues(missingDados),
-      descricao: uniqueValues(missingDescricao),
-      caracterizacao: uniqueValues(missingCaracterizacao),
-      plano: uniqueValues(missingPlano),
-      anexos: uniqueValues(missingAnexos),
+      inicio: missingInicio,
+      dados: missingDados,
+      descricao: missingDescricao,
+      caracterizacao: missingCaracterizacao,
+      plano: missingPlano,
+      anexos: missingAnexos,
       historico: [],
       revisao: [],
     };
@@ -650,6 +861,17 @@ export function usePgrEtapaDerived({
     hasDuplicatedRiskStructure,
     duplicatedRiskStructureNameGroups,
   ]);
+
+  const missingFieldsByStep = useMemo<Partial<Record<PgrStepId, string[]>>>(
+    () =>
+      Object.fromEntries(
+        Object.entries(missingTargetsByStep).map(([stepId, targets]) => [
+          stepId,
+          uniqueValues((targets || []).map((target) => target.message)),
+        ])
+      ) as Partial<Record<PgrStepId, string[]>>,
+    [missingTargetsByStep]
+  );
 
   const stepStatusById = useMemo<Partial<Record<PgrStepId, boolean>>>(
     () => ({
@@ -790,6 +1012,7 @@ export function usePgrEtapaDerived({
     planTableRows,
     stepStatusById,
     missingFieldsByStep,
+    missingTargetsByStep,
     alertSteps,
     planActionGheOptions,
     planActionRiskOptions,

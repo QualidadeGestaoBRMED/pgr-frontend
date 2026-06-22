@@ -48,6 +48,7 @@ export type PersistedPgrState = {
     version: number;
     statusLabel?: string | null;
     rejectionReason?: string | null;
+    wasRejected?: boolean;
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;

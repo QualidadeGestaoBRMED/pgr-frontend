@@ -23,6 +23,7 @@ export default function PgrEtapaPage({
       progressPercent={shellProps.progressPercent}
       stepStatusById={shellProps.stepStatusById}
       alertSteps={shellProps.alertSteps}
+      accessibleStepIds={shellProps.accessibleStepIds}
       cycleTimeMs={shellProps.cycleTimeMs}
       cycleSessionStartedAtMs={shellProps.cycleSessionStartedAtMs}
     >
