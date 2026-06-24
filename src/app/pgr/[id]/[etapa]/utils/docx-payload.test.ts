@@ -89,8 +89,93 @@ describe("docx payload mapping", () => {
     expect(payload.program.totalEmployees).toBe(5);
     expect(payload.program.responsavelElaboracao).toBe("Pedro");
     expect(payload.planoAcao.itens[0]?.risco).toBe("Ruido");
+    expect(payload.planoAcao.itens[0]?.medida).toBe("");
     expect(payload.anexos.totalArquivos).toBe(1);
     expect(payload.anexos.diretriz).toBe("Diretriz custom");
+  });
+
+  it("uses plan-specific prevention measures without changing inventory measures", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        caracterizacao: {
+          ghes: [
+            {
+              id: "g-1",
+              nome: "GHE 1",
+              riscos: [
+                {
+                  id: "r-1",
+                  descricaoAgente: "Ruido",
+                  tipoAgente: "Fisico",
+                  meioPropagacao: "Ar",
+                  fontes: "Maquina",
+                  tipoAvaliacao: "Quantitativa",
+                  intensidade: "85 dB",
+                  severidade: "Alta",
+                  probabilidade: "Media",
+                  classificacao: "Significativo",
+                  medidasControle: "A ser evidenciado na fase de reconhecimento.",
+                  medidasPrevencaoPlano: "Implementar enclausuramento acústico.",
+                  epc: [],
+                  epi: [],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.caracterizacao.ghes[0]?.riscos[0]?.medidasControle).toBe(
+      "A ser evidenciado na fase de reconhecimento."
+    );
+    expect(payload.planoAcao.itens[0]?.medidas).toBe(
+      "Implementar enclausuramento acústico."
+    );
+    expect(payload.planoAcao.itens[0]?.medida).toBe(
+      "Implementar enclausuramento acústico."
+    );
+  });
+
+  it("does not fall back to inventory control measures for action plan items", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        caracterizacao: {
+          ghes: [
+            {
+              id: "g-1",
+              nome: "GHE 1",
+              riscos: [
+                {
+                  id: "r-1",
+                  descricaoAgente: "Ruido",
+                  tipoAgente: "Fisico",
+                  meioPropagacao: "Ar",
+                  fontes: "Maquina",
+                  tipoAvaliacao: "Quantitativa",
+                  intensidade: "85 dB",
+                  severidade: "Alta",
+                  probabilidade: "Media",
+                  classificacao: "Significativo",
+                  medidasControle: "A ser evidenciado na fase de reconhecimento.",
+                  epc: [],
+                  epi: [],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.planoAcao.itens[0]?.medidas).toBe("");
+    expect(payload.planoAcao.itens[0]?.medida).toBe("");
   });
 
   it("falls back to defaults when backend state is invalid", () => {

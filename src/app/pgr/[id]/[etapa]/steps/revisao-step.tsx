@@ -1,12 +1,14 @@
 import { Check, Eye, FileDown, LoaderCircle, Pencil, TriangleAlert, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { pgrSteps } from "@/app/pgr/steps";
+import type { PendingReviewTarget } from "../types";
 
 type RevisaoStepProps = {
   pgrId: string;
   completedSteps: number;
   stepStatusById?: Partial<Record<string, boolean>>;
   missingFieldsByStep?: Partial<Record<string, string[]>>;
+  missingTargetsByStep?: Partial<Record<string, PendingReviewTarget[]>>;
   workflow: {
     isLocked: boolean;
     version: number;
@@ -18,6 +20,7 @@ type RevisaoStepProps = {
   isGeneratingFakePdf: boolean;
   isFinalizingPgr: boolean;
   onEditStep: (stepId: string) => void;
+  onOpenPendingTarget: (target: PendingReviewTarget) => void;
   onGenerateFakePdf: () => void;
   onFinalizePgr: () => void;
   onResetData: () => void;
@@ -31,11 +34,13 @@ export function RevisaoStep({
   completedSteps,
   stepStatusById,
   missingFieldsByStep,
+  missingTargetsByStep,
   workflow,
   lastFakePdfAt,
   isGeneratingFakePdf,
   isFinalizingPgr,
   onEditStep,
+  onOpenPendingTarget,
   onGenerateFakePdf,
   onFinalizePgr,
   onResetData,
@@ -56,14 +61,18 @@ export function RevisaoStep({
           const missingItems = (missingFieldsByStep?.[item.id] ?? []).filter(
             (issue) => !isOptionalEpiEpcIssue(issue)
           );
+          const missingTargets = (missingTargetsByStep?.[item.id] ?? []).filter(
+            (target) => !isOptionalEpiEpcIssue(target.message)
+          );
           return {
             id: item.id,
             title: item.title,
             isDone,
             missingItems,
+            missingTargets,
           };
         }),
-    [completedSteps, stepStatusById, missingFieldsByStep]
+    [completedSteps, stepStatusById, missingFieldsByStep, missingTargetsByStep]
   );
   const pendingReviewItems = useMemo(
     () =>
@@ -74,6 +83,9 @@ export function RevisaoStep({
           missingItems: item.missingItems.length
             ? item.missingItems
             : ["Concluir esta etapa para liberar a geração dos arquivos."],
+          missingTargets: item.missingTargets.length
+            ? item.missingTargets
+            : [],
         })),
     [reviewItems]
   );
@@ -89,6 +101,10 @@ export function RevisaoStep({
   const missingStepTitle = useMemo(
     () => reviewItems.find((item) => item.id === openMissingStepId)?.title ?? "Etapa",
     [reviewItems, openMissingStepId]
+  );
+  const missingTargets = useMemo(
+    () => (openMissingStepId ? (missingTargetsByStep?.[openMissingStepId] ?? []) : []),
+    [missingTargetsByStep, openMissingStepId]
   );
 
   return (
@@ -272,14 +288,26 @@ export function RevisaoStep({
                 </button>
               </div>
               <div className="mt-4 max-h-[55vh] space-y-2 overflow-auto pr-1">
-                {missingFields.map((field, index) => (
-                  <p
-                    key={`${openMissingStepId}-${index}`}
-                    className="rounded-[10px] border border-border/60 bg-background/40 px-3 py-2 text-[13px] text-foreground/90"
-                  >
-                    {field}
-                  </p>
-                ))}
+                {missingFields.map((field, index) => {
+                  const target = missingTargets.find((item) => item.message === field);
+                  return (
+                    <div
+                      key={`${openMissingStepId}-${index}`}
+                      className="rounded-[10px] border border-border/60 bg-background/40 px-3 py-2"
+                    >
+                      <p className="text-[13px] text-foreground/90">{field}</p>
+                      {target ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenPendingTarget(target)}
+                          className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
+                        >
+                          Ir para pendência
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -318,12 +346,28 @@ export function RevisaoStep({
                     <p className="text-[13px] font-semibold text-foreground">{item.title}</p>
                     <div className="mt-2 space-y-2">
                       {item.missingItems.map((field, index) => (
-                        <p
+                        <div
                           key={`${item.id}-field-${index}`}
-                          className="rounded-[8px] border border-border/60 bg-card px-3 py-2 text-[13px] text-foreground/90"
+                          className="rounded-[8px] border border-border/60 bg-card px-3 py-2"
                         >
-                          {field}
-                        </p>
+                          <p className="text-[13px] text-foreground/90">{field}</p>
+                          {item.missingTargets.find((target) => target.message === field) ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const target = item.missingTargets.find(
+                                  (pendingTarget) => pendingTarget.message === field
+                                );
+                                if (!target) return;
+                                setIsGenerateBlockedModalOpen(false);
+                                onOpenPendingTarget(target);
+                              }}
+                              className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
+                            >
+                              Corrigir agora
+                            </button>
+                          ) : null}
+                        </div>
                       ))}
                     </div>
                   </div>

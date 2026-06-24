@@ -8,6 +8,7 @@ export const renderInicioStep: StepRenderer = (ctx) => (
     isPipefySyncCoolingDown={ctx.isPipefySyncCoolingDown}
     pipefySyncCooldownSeconds={ctx.pipefySyncCooldownSeconds}
     inputBaseClass={ctx.inputBaseClass}
+    pendingReviewFocus={ctx.pendingReviewFocus}
     onDraftChange={ctx.generalActions.handleInicioDraftChange}
     onSyncPipefy={ctx.handleSyncPipefy}
   />

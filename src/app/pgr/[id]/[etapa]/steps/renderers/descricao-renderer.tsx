@@ -70,10 +70,12 @@ export const buildDescricaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
   setIsInfoModalOpen: ctx.setIsInfoModalOpen,
   textareaBaseClass: ctx.textareaBaseClass,
   currentGhe: ctx.currentGhe,
+  pendingReviewFocus: ctx.pendingReviewFocus,
   handleInfoChange: ctx.descricaoInteractions.handleInfoChange,
   infoModalError: ctx.infoModalError,
   handleConfirmInfoModal: ctx.descricaoInteractions.handleConfirmInfoModal,
   infoModalMode: ctx.infoModalMode,
+  setCurrentGheId: ctx.setCurrentGheId,
 });
 
 export type DescricaoStepCtx = ReturnType<typeof buildDescricaoStepCtx>;

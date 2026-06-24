@@ -567,6 +567,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             typeof state.workflow?.rejectionReason === "string"
               ? state.workflow.rejectionReason
               : null,
+          wasRejected: Boolean(state.workflow?.wasRejected),
           finalizedAt:
             typeof state.workflow?.finalizedAt === "string"
               ? state.workflow.finalizedAt

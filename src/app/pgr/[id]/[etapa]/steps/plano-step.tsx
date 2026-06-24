@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import type {Dispatch, SetStateAction} from "react";
 import {ChevronDown, MinusCircle, Search} from "lucide-react";
 import {SearchableSelect, type SearchableSelectProps} from "./searchable-select";
+import type { PendingReviewFocus } from "../types";
 
 type PlanoStepProps = {
     ctx: {
@@ -36,6 +37,7 @@ type PlanoStepProps = {
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
+            hasPlanSnapshot?: boolean;
             groupTargets?: Array<{ gheId: string; riskId: string }>;
         }>;
         planTableRowsPage: Array<{
@@ -54,6 +56,7 @@ type PlanoStepProps = {
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
+            hasPlanSnapshot?: boolean;
             groupTargets?: Array<{ gheId: string; riskId: string }>;
         }>;
         getActionDescriptionOptions: (
@@ -103,6 +106,7 @@ type PlanoStepProps = {
         setPlanActionDescription: Dispatch<SetStateAction<string>>;
         persistedOptionsByRowId: Record<string, string[]>;
         setPersistedOptionsByRowId: Dispatch<SetStateAction<Record<string, string[]>>>;
+        pendingReviewFocus?: PendingReviewFocus | null;
         handleSavePlanActionModal: (options?: { riskIds?: string[]; gheIds?: string[] }) => void;
         handleCreateNrPlanRows: (nr: string, actions: string[]) => void;
     };
@@ -151,12 +155,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const parseMultiTextValues = (value: string) =>
         value
-            .split(/[\n,;]+/)
+            .split(/[;\n]+/)
             .map((item) => item.trim())
             .filter(Boolean);
 
     const toMultiTextValue = (values: string[]) =>
-        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
+        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join("; ");
 
     const parseHistoricoDate = (raw: string) => {
         const value = String(raw || "").trim();
@@ -229,6 +233,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         planActionRiskOptions,
         planActionDescription,
         setPlanActionDescription,
+        pendingReviewFocus,
         handleSavePlanActionModal,
         handleCreateNrPlanRows,
     } = ctx;
@@ -244,6 +249,29 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const withRequiredHighlight = (baseClassName: string, isEmpty: boolean) =>
         isEmpty ? `${baseClassName} ${requiredEmptyClass}` : baseClassName;
+
+    const isPendingRowField = (
+        row: {
+            gheId: string;
+            riskId: string;
+            groupTargets?: Array<{ gheId: string; riskId: string }>;
+        },
+        fieldKey: string
+    ) => {
+        if (pendingReviewFocus?.stepId !== "plano") return false;
+        if (pendingReviewFocus.fieldKey !== fieldKey) return false;
+        if (pendingReviewFocus.gheId === row.gheId && pendingReviewFocus.riskId === row.riskId) {
+            return true;
+        }
+        return (row.groupTargets || []).some(
+            (target) =>
+                target.gheId === pendingReviewFocus.gheId &&
+                target.riskId === pendingReviewFocus.riskId
+        );
+    };
+
+    const withPendingHighlight = (baseClassName: string, isPending: boolean) =>
+        isPending ? `${baseClassName} border-amber-400 bg-amber-50 ring-2 ring-amber-200` : baseClassName;
 
     const [, setTouchedPlanActionDescription] = useState(false);
     const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
@@ -277,6 +305,29 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
     const initializedRowsRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (pendingReviewFocus?.stepId !== "plano") return;
+        const rowIndex = planTableRows.findIndex((row) => {
+            if (pendingReviewFocus.gheId === row.gheId && pendingReviewFocus.riskId === row.riskId) {
+                return true;
+            }
+            return (row.groupTargets || []).some(
+                (target) =>
+                    target.gheId === pendingReviewFocus.gheId &&
+                    target.riskId === pendingReviewFocus.riskId
+            );
+        });
+        if (rowIndex >= 0) {
+            setPlanTablePage(Math.floor(rowIndex / 10) + 1);
+        }
+        setTimeout(() => {
+            const target = document.querySelector<HTMLElement>(
+                `[data-pending-ghe-id="${pendingReviewFocus.gheId || ""}"][data-pending-risk-id="${pendingReviewFocus.riskId || ""}"]`
+            ) || document.querySelector<HTMLElement>("[data-pending-section='plan-table']");
+            target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 50);
+    }, [pendingReviewFocus, planTableRows, setPlanTablePage]);
 
     const { persistedOptionsByRowId, setPersistedOptionsByRowId } = ctx;
 
@@ -465,6 +516,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                 </div>
             </section>
 
+            {pendingReviewFocus?.stepId === "plano" ? (
+                <section className="rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+                    Pendência destacada: {pendingReviewFocus.message}
+                </section>
+            ) : null}
+
             <section
                 className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
                 <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -540,7 +597,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                         Carregando classificação final dos riscos...
                     </div>
                 ) : planTableRows.length ? (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-4 space-y-3" data-pending-section="plan-table">
                         <div className="max-h-[620px] overflow-auto rounded-[12px] border border-border/60">
                             <table
                                 className="min-w-[1950px] w-full border-separate border-spacing-0 text-left text-[12px]">
@@ -580,7 +637,23 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                 </thead>
                                 <tbody>
                                 {planTableRows.map((row) => (
-                                    <tr key={row.id} className="border-t border-border/60 align-middle">
+                                    <tr
+                                        key={row.id}
+                                        data-pending-ghe-id={row.gheId}
+                                        data-pending-risk-id={row.riskId}
+                                        className={`border-t align-middle ${
+                                            pendingReviewFocus?.stepId === "plano" &&
+                                            ((pendingReviewFocus.gheId === row.gheId &&
+                                                pendingReviewFocus.riskId === row.riskId) ||
+                                                (row.groupTargets || []).some(
+                                                    (target) =>
+                                                        target.gheId === pendingReviewFocus.gheId &&
+                                                        target.riskId === pendingReviewFocus.riskId
+                                                ))
+                                                ? "bg-amber-50/80"
+                                                : "border-border/60"
+                                        }`}
+                                    >
                                         <td className="px-4 py-3 text-foreground align-middle">{row.gheName}</td>
                                         <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
                                             {row.descricaoAgente}
@@ -590,9 +663,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={withRequiredHighlight(
-                                                    `${tableSelectClass} min-w-[170px]`,
-                                                    !String(tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? "").trim()
+                                                className={withPendingHighlight(
+                                                    withRequiredHighlight(
+                                                        `${tableSelectClass} min-w-[170px]`,
+                                                        !String(tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? "").trim()
+                                                    ),
+                                                    isPendingRowField(row, "tipoMedida")
                                                 )}
                                                 value={tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? ""}
                                                 onChange={(event) => {
@@ -639,7 +715,10 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                         <div className="relative" data-medidas-multiselect>
                                                             <div className="relative">
                                                                 <textarea
-                                                                    className={`${tableEditableClass} relative flex min-h-[72px] min-w-[320px] resize-none pr-10 pt-3 text-left`}
+                                                                    className={withPendingHighlight(
+                                                                        `${tableEditableClass} relative flex min-h-[72px] min-w-[320px] resize-none pr-10 pt-3 text-left`,
+                                                                        isPendingRowField(row, "medidasPrevencao")
+                                                                    )}
                                                                     value={row.medidasPrevencao || ""}
                                                                     onChange={(event) => {
                                                                         handlePlanMedidasChange(
@@ -740,9 +819,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <input
                                                 type="date"
-                                                className={withRequiredHighlight(
-                                                    `${tableInputClass} min-w-[170px]`,
-                                                    !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
+                                                className={withPendingHighlight(
+                                                    withRequiredHighlight(
+                                                        `${tableInputClass} min-w-[170px]`,
+                                                        !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
+                                                    ),
+                                                    isPendingRowField(row, "prazoAcao")
                                                 )}
                                                 value={prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""}
                                                 onChange={(event) => {
@@ -789,13 +871,16 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={withRequiredHighlight(
-                                                    `${tableSelectClass} min-w-[180px]`,
-                                                    !String(
-                                                        acompanhamentoByRowId[row.id] ??
-                                                        row.acompanhamento ??
-                                                        defaultAcompanhamento
-                                                    ).trim()
+                                                className={withPendingHighlight(
+                                                    withRequiredHighlight(
+                                                        `${tableSelectClass} min-w-[180px]`,
+                                                        !String(
+                                                            acompanhamentoByRowId[row.id] ??
+                                                            row.acompanhamento ??
+                                                            defaultAcompanhamento
+                                                        ).trim()
+                                                    ),
+                                                    isPendingRowField(row, "acompanhamento")
                                                 )}
                                                 value={
                                                     acompanhamentoByRowId[row.id] ??
@@ -825,13 +910,16 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={withRequiredHighlight(
-                                                    `${tableSelectClass} min-w-[210px]`,
-                                                    !String(
-                                                        afericaoResultadoByRowId[row.id] ??
-                                                        row.afericaoResultado ??
-                                                        defaultAfericaoResultado
-                                                    ).trim()
+                                                className={withPendingHighlight(
+                                                    withRequiredHighlight(
+                                                        `${tableSelectClass} min-w-[210px]`,
+                                                        !String(
+                                                            afericaoResultadoByRowId[row.id] ??
+                                                            row.afericaoResultado ??
+                                                            defaultAfericaoResultado
+                                                        ).trim()
+                                                    ),
+                                                    isPendingRowField(row, "afericaoResultado")
                                                 )}
                                                 value={
                                                     afericaoResultadoByRowId[row.id] ??

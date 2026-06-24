@@ -252,6 +252,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     setPersistedOptionsByRowId,
     currentRiskGheId,
     setCurrentRiskGheId,
+    pendingReviewFocus,
     pushHistory,
     applyMissingRiskDefaults,
     tipoAgenteOptions,
@@ -712,9 +713,17 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     field: RequiredRiskField,
     baseClassName: string
   ) =>
-    riskErrorsById[riskId]?.[field]
-      ? `${baseClassName} border-rose-400 focus:ring-rose-500`
-      : baseClassName;
+    [
+      baseClassName,
+      riskErrorsById[riskId]?.[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      pendingReviewFocus?.stepId === "caracterizacao" &&
+      pendingReviewFocus.riskId === riskId &&
+      pendingReviewFocus.fieldKey === field
+        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   const getRiskFieldError = (riskId: string, field: RequiredRiskField) =>
     riskErrorsById[riskId]?.[field] || "";
@@ -1644,7 +1653,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               <div
                 key={risk.id}
                 data-risk-id={risk.id}
-                className="rounded-[14px] border border-border/60 bg-card px-4 py-4"
+                className={`rounded-[14px] border bg-card px-4 py-4 ${
+                  pendingReviewFocus?.stepId === "caracterizacao" &&
+                  pendingReviewFocus.riskId === risk.id
+                    ? "border-amber-400 ring-2 ring-amber-200"
+                    : "border-border/60"
+                }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-[13px] font-semibold text-foreground">
@@ -2882,6 +2896,32 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     </div>
   );
 
+  useEffect(() => {
+    if (pendingReviewFocus?.stepId !== "caracterizacao") return;
+    if (pendingReviewFocus.gheId) {
+      setCurrentRiskGheId(pendingReviewFocus.gheId);
+    }
+    setTimeout(() => {
+      if (pendingReviewFocus.riskId) {
+        const riskCard = document.querySelector<HTMLElement>(
+          `[data-risk-id="${pendingReviewFocus.riskId}"]`
+        );
+        if (riskCard) {
+          riskCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          const firstField = pendingReviewFocus.fieldKey
+            ? riskCard.querySelector<HTMLElement>(
+                `[data-pending-field="${pendingReviewFocus.fieldKey}"]`
+              )
+            : null;
+          firstField?.focus?.();
+          return;
+        }
+      }
+      const section = document.querySelector<HTMLElement>("[data-pending-section='risk-list']");
+      section?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  }, [pendingReviewFocus, setCurrentRiskGheId]);
+
   return (
     <>
       <section className="px-2">
@@ -2906,7 +2946,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
         </div>
       </section>
 
-      <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+      {pendingReviewFocus?.stepId === "caracterizacao" ? (
+        <section className="rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          Pendência destacada: {pendingReviewFocus.message}
+        </section>
+      ) : null}
+
+      <section
+        className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60"
+        data-pending-section="risk-list"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[14px] font-semibold text-foreground">

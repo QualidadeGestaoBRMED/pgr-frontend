@@ -167,10 +167,12 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     setIsInfoModalOpen,
     textareaBaseClass,
     currentGhe,
+    pendingReviewFocus,
     handleInfoChange,
     infoModalError,
     handleConfirmInfoModal,
     infoModalMode,
+    setCurrentGheId,
   } = ctx;
 
   const openExcelImportTypeModal = () => {
@@ -522,9 +524,44 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   };
 
   const getInfoFieldClassName = (field: RequiredGheInfoField) =>
-    infoErrors[field]
-      ? `${textareaBaseClass} border-rose-400 focus:ring-rose-500`
-      : textareaBaseClass;
+    [
+      textareaBaseClass,
+      infoErrors[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      pendingReviewFocus?.stepId === "descricao" && pendingReviewFocus.fieldKey === field
+        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+  useEffect(() => {
+    if (pendingReviewFocus?.stepId !== "descricao") return;
+    if (pendingReviewFocus.gheId) {
+      setCurrentGheId(pendingReviewFocus.gheId);
+    }
+    if (
+      pendingReviewFocus.fieldKey === "processo" ||
+      pendingReviewFocus.fieldKey === "observacoes" ||
+      pendingReviewFocus.fieldKey === "ambiente"
+    ) {
+      setIsInfoModalOpen(true);
+      setTimeout(() => {
+        const field = document.querySelector<HTMLElement>(
+          `[data-pending-field="${pendingReviewFocus.fieldKey}"]`
+        );
+        field?.scrollIntoView({ behavior: "smooth", block: "center" });
+        field?.focus?.();
+      }, 50);
+      return;
+    }
+    const section =
+      pendingReviewFocus.fieldKey === "assign-functions"
+        ? document.querySelector<HTMLElement>("[data-pending-section='ghe-functions']")
+        : pendingReviewFocus.fieldKey === "create-ghe"
+          ? document.querySelector<HTMLElement>("[data-pending-section='ghe-header']")
+          : document.querySelector<HTMLElement>("[data-pending-section='available-functions']");
+    section?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [pendingReviewFocus, setCurrentGheId, setIsInfoModalOpen]);
 
   const selectedLeftFunctionsForDelete = useMemo(
     () =>
@@ -595,7 +632,16 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
         </div>
       </section>
 
-          <section className="rounded-[14px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+      {pendingReviewFocus?.stepId === "descricao" ? (
+        <section className="rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          Pendência destacada: {pendingReviewFocus.message}
+        </section>
+      ) : null}
+
+          <section
+            className="rounded-[14px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60"
+            data-pending-section="ghe-header"
+          >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[20px] font-semibold text-foreground">
@@ -737,6 +783,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-stretch">
               <div
                 ref={leftListRef}
+                data-pending-section="available-functions"
                 onPointerDown={(event) => handleSelectionStart(event, "left")}
                 onDragOver={(event) => handleDragOver(event, "left")}
                 onDragLeave={handleDragLeave}
@@ -909,6 +956,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
 
               <div
                 ref={rightListRef}
+                data-pending-section="ghe-functions"
                 onPointerDown={(event) => handleSelectionStart(event, "right")}
                 onDragOver={(event) => handleDragOver(event, "right")}
                 onDragLeave={handleDragLeave}
@@ -1731,6 +1779,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         Descrição Sucinta do Processo Produtivo *
                       </label>
                       <textarea
+                        data-pending-field="processo"
                         className={getInfoFieldClassName("processo")}
                         value={currentGhe?.info.processo ?? ""}
                         onChange={(event) =>
@@ -1747,6 +1796,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         Observações do GHE *:
                       </label>
                       <textarea
+                        data-pending-field="observacoes"
                         className={getInfoFieldClassName("observacoes")}
                         value={
                           currentGhe?.info.observacoes ?? "-"
@@ -1765,6 +1815,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         Descrição do Ambiente do GHE *:
                       </label>
                       <textarea
+                        data-pending-field="ambiente"
                         className={getInfoFieldClassName("ambiente")}
                         value={
                           currentGhe?.info.ambiente ??

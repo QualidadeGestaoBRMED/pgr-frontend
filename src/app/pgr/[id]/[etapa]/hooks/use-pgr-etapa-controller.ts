@@ -21,6 +21,7 @@ import { createGeneralActions } from "./create-general-actions";
 import { useDescricaoInteractions } from "./use-descricao-interactions";
 import { useHistoryUndo } from "./use-history-undo";
 import { usePgrPersistence } from "./use-pgr-persistence";
+import { parsePendingReviewFocus } from "../utils/pending-review";
 import { areStringArraysEqual } from "./use-risk-catalog-helpers";
 import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
@@ -35,8 +36,19 @@ import {
 } from "../state/state-version";
 import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
-const PGR_EXPORT_POLL_INTERVAL_MS = 2000;
-const PGR_EXPORT_POLL_TIMEOUT_MS = 120000;
+const parsePositiveInt = (value: string | undefined, fallback: number) => {
+  const parsed = Number.parseInt(String(value || "").trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const PGR_EXPORT_POLL_INTERVAL_MS = parsePositiveInt(
+  process.env.NEXT_PUBLIC_PGR_EXPORT_POLL_INTERVAL_MS,
+  2000
+);
+const PGR_EXPORT_POLL_TIMEOUT_MS = parsePositiveInt(
+  process.env.NEXT_PUBLIC_PGR_EXPORT_POLL_TIMEOUT_MS,
+  300000
+);
 const PIPEFY_ORGANIZATION_ID = "300527823";
 const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
 
@@ -134,11 +146,13 @@ async function waitForExternalExportCompletion(
   jobId: string
 ) {
   const startedAt = Date.now();
+  let lastStatus = "";
   while (Date.now() - startedAt <= PGR_EXPORT_POLL_TIMEOUT_MS) {
     const data = await apiGet<ExternalJobStatusResponse>(
       `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}`
     );
     const status = extractJobStatus(data);
+    lastStatus = status;
     if (status === "completed") return;
     if (status === "failed" || status === "error" || status === "cancelled") {
       throw new Error(
@@ -149,7 +163,10 @@ async function waitForExternalExportCompletion(
     await sleep(PGR_EXPORT_POLL_INTERVAL_MS);
   }
 
-  throw new Error(`Tempo limite excedido na geração de ${kind.toUpperCase()}.`);
+  const statusSuffix = lastStatus ? ` Último status: ${lastStatus}.` : "";
+  throw new Error(
+    `Tempo limite excedido na geração de ${kind.toUpperCase()}.${statusSuffix}`
+  );
 }
 
 async function downloadExternalExport(
@@ -225,6 +242,10 @@ export function usePgrEtapaController({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pendingReviewFocus = useMemo(
+    () => parsePendingReviewFocus(searchParams),
+    [searchParams]
+  );
   const step = pgrSteps.find((item) => item.id === params.etapa);
   if (!step) {
     notFound();
@@ -275,6 +296,17 @@ export function usePgrEtapaController({
       }),
     [derived.stepStatusById, state.gheGroups, state.workflow.isLocked]
   );
+  const rejectionReasonFromQuery = useMemo(
+    () => String(searchParams?.get("rejectionReason") || "").trim(),
+    [searchParams]
+  );
+  const effectiveRejectionReason = String(
+    state.workflow.rejectionReason || rejectionReasonFromQuery || ""
+  ).trim();
+  const isRejectedPendingReasonSelection =
+    !state.workflow.isLocked &&
+    state.workflow.statusLabel === "Rejeitado" &&
+    !effectiveRejectionReason;
 
   const [pipefySyncCooldownSeconds, setPipefySyncCooldownSeconds] = useState(0);
   const pipefySyncCooldownTimerRef = useRef<number | null>(null);
@@ -306,6 +338,21 @@ export function usePgrEtapaController({
     resumeSaving();
     setSaveConflict(false);
   }, [params.id]);
+
+  useEffect(() => {
+    if (!pendingReviewFocus) return;
+    if (pendingReviewFocus.stepId !== step.id) return;
+    if (step.id === "descricao" && pendingReviewFocus.gheId) {
+      setters.setCurrentGheId(pendingReviewFocus.gheId);
+    }
+    if (step.id === "caracterizacao" && pendingReviewFocus.gheId) {
+      setters.setCurrentRiskGheId(pendingReviewFocus.gheId);
+    }
+  }, [
+    pendingReviewFocus,
+    setters,
+    step.id,
+  ]);
 
   usePgrPersistence({
     params,
@@ -438,7 +485,13 @@ export function usePgrEtapaController({
   }, [params.id, weightedProgressPercent]);
 
   const buildStatePayload = useCallback(
-    (layoutOverride?: PdfLayoutState) => ({
+    (
+      layoutOverride?: PdfLayoutState,
+      overrides?: Partial<{
+        riskGheGroups: typeof state.riskGheGroups;
+        planGeneralMeasures: typeof state.planGeneralMeasures;
+      }>
+    ) => ({
       completedSteps: state.completedSteps,
       meta: {
         pgrId: params.id,
@@ -454,12 +507,12 @@ export function usePgrEtapaController({
       planAction: state.planAction,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
-      planGeneralMeasures: state.planGeneralMeasures,
+      planGeneralMeasures: overrides?.planGeneralMeasures ?? state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
       gheGroups: state.gheGroups,
       currentGheId: state.currentGheId,
-      riskGheGroups: state.riskGheGroups,
+      riskGheGroups: overrides?.riskGheGroups ?? state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
       pdfLayout: layoutOverride ?? state.pdfLayout,
       workflow: state.workflow,
@@ -491,15 +544,20 @@ export function usePgrEtapaController({
   );
 
   const persistStateNow = useCallback(
-    async (layoutOverride?: PdfLayoutState) => {
-      await putPgrState(params.id, buildStatePayload(layoutOverride));
+    async (
+      layoutOverride?: PdfLayoutState,
+      overrides?: Partial<{
+        riskGheGroups: typeof state.riskGheGroups;
+        planGeneralMeasures: typeof state.planGeneralMeasures;
+      }>
+    ) => {
+      if (refs.saveTimerRef.current) {
+        window.clearTimeout(refs.saveTimerRef.current);
+        refs.saveTimerRef.current = null;
+      }
+      await putPgrState(params.id, buildStatePayload(layoutOverride, overrides));
     },
-    [buildStatePayload, params.id]
-  );
-
-  const rejectionReasonFromQuery = useMemo(
-    () => String(searchParams?.get("rejectionReason") || "").trim(),
-    [searchParams]
+    [buildStatePayload, params.id, refs.saveTimerRef]
   );
 
   useEffect(() => {
@@ -878,15 +936,17 @@ export function usePgrEtapaController({
     setters.setRiskGheGroups((prev) =>
       prev.map((ghe) => ({
         ...ghe,
-        risks: ghe.risks.map((risk) => ({
-          ...risk,
-          medidasControle: "",
-          tipoMedida: "",
-          prazoAcao: "",
-          responsavelAcao: "",
-          acompanhamento: "",
-          afericaoResultado: "",
-        })),
+        risks: ghe.risks.map((risk) => {
+          const { medidasPrevencaoPlano, ...baseRisk } = risk;
+          return {
+            ...baseRisk,
+            tipoMedida: "",
+            prazoAcao: "",
+            responsavelAcao: "",
+            acompanhamento: "",
+            afericaoResultado: "",
+          };
+        }),
       }))
     );
   }, [setters, state.historicoData.changes, state.workflow.isLocked]);
@@ -965,10 +1025,21 @@ export function usePgrEtapaController({
   ]);
 
   useEffect(() => {
-    if (!state.workflow.isLocked) return;
-    if (step.id === "historico" || step.id === "revisao") return;
+    if (state.workflow.isLocked) {
+      if (step.id === "historico" || step.id === "revisao") return;
+      router.push(`/pgr/${params.id}/historico`);
+      return;
+    }
+    if (!isRejectedPendingReasonSelection) return;
+    if (step.id === "historico") return;
     router.push(`/pgr/${params.id}/historico`);
-  }, [params.id, router, state.workflow.isLocked, step.id]);
+  }, [
+    isRejectedPendingReasonSelection,
+    params.id,
+    router,
+    state.workflow.isLocked,
+    step.id,
+  ]);
 
   useEffect(() => {
     if (state.progressPercent !== weightedProgressPercent) {
@@ -1066,6 +1137,7 @@ export function usePgrEtapaController({
     helpers: {
       handleAdvanceApiSync,
       persistStateNow: () => persistStateNow(),
+      persistPlanFieldsNow: (overrides) => persistStateNow(undefined, overrides),
     },
   });
 
@@ -1170,6 +1242,7 @@ export function usePgrEtapaController({
       progressPercent: state.progressPercent,
       alertSteps: derived.alertSteps,
       stepStatusById: derived.stepStatusById,
+      accessibleStepIds: isRejectedPendingReasonSelection ? (["historico"] as PgrStepId[]) : undefined,
       cycleTimeMs: cycleTime.cycleTotalMs,
       cycleSessionStartedAtMs: cycleTime.activeSessionStartedAtMs,
     },
@@ -1214,6 +1287,7 @@ export function usePgrEtapaController({
       gheFilterId: state.gheFilterId,
       setGheFilterId: setters.setGheFilterId,
       gheGroups: state.gheGroups,
+      setCurrentGheId: setters.setCurrentGheId,
       gheSearch: state.gheSearch,
       setGheSearch: setters.setGheSearch,
       inputInlineClass: ui.inputInlineClass,
@@ -1290,6 +1364,8 @@ export function usePgrEtapaController({
       isFinalizingPgr: state.isFinalizingPgr,
       stepStatusById: derived.stepStatusById,
       missingFieldsByStep: derived.missingFieldsByStep,
+      missingTargetsByStep: derived.missingTargetsByStep,
+      pendingReviewFocus,
       isPreviewModalOpen: state.isPreviewModalOpen,
       setIsPreviewModalOpen: setters.setIsPreviewModalOpen,
       fakePreviewLines,
@@ -1311,10 +1387,16 @@ export function usePgrEtapaController({
     },
     footerProps: {
       stepId: step.id,
-      prevStepId: prevStep?.id ?? null,
-      nextStepId: nextStep?.id ?? null,
-      workflowIsLocked: state.workflow.isLocked,
-      onNavigateStep: (stepId: string) => router.push(`/pgr/${params.id}/${stepId}`),
+      prevStepId: isRejectedPendingReasonSelection ? null : prevStep?.id ?? null,
+      nextStepId: isRejectedPendingReasonSelection ? null : nextStep?.id ?? null,
+      workflowIsLocked: state.workflow.isLocked || isRejectedPendingReasonSelection,
+      onNavigateStep: (stepId: string) => {
+        if (isRejectedPendingReasonSelection && stepId !== "historico") {
+          router.push(`/pgr/${params.id}/historico`);
+          return;
+        }
+        router.push(`/pgr/${params.id}/${stepId}`);
+      },
       onAdvance: generalActions.handleAdvance,
       onCreateNextGhe: descricaoInteractions.handleCreateNextGhe,
       onOpenInfoForAdvance: descricaoInteractions.handleOpenInfoForAdvance,
