@@ -182,6 +182,10 @@ type GeneralActionsContext = {
   helpers: {
     handleAdvanceApiSync: (nextCompleted: number) => void;
     persistStateNow: () => Promise<void>;
+    persistPlanFieldsNow: (overrides: {
+      riskGheGroups?: RiskGheGroup[];
+      planGeneralMeasures?: PlanGeneralMeasureRow[];
+    }) => Promise<void>;
   };
 };
 
@@ -819,7 +823,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     gheId: string,
     riskId: string,
     field:
-      | "medidasControle"
+      | "medidasPrevencaoPlano"
       | "tipoMedida"
       | "prazoAcao"
       | "responsavelAcao"
@@ -830,12 +834,14 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   ) => {
     if (gheId === PLAN_ALL_GHE_ID) {
       const targetField =
-        field === "medidasControle" ? "descricao" : field;
-      setPlanGeneralMeasures((prev) =>
-        prev.map((item) =>
+        field === "medidasPrevencaoPlano" ? "descricao" : field;
+      setPlanGeneralMeasures((prev) => {
+        const next = prev.map((item) =>
           item.id === riskId ? { ...item, [targetField]: value } : item
-        )
-      );
+        );
+        void helpers.persistPlanFieldsNow({ planGeneralMeasures: next });
+        return next;
+      });
       return;
     }
 
@@ -843,21 +849,23 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       const targetKeys = new Set(
         groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
       );
-      setRiskGheGroups((prev) =>
-        prev.map((ghe) => ({
+      setRiskGheGroups((prev) => {
+        const next = prev.map((ghe) => ({
           ...ghe,
           risks: ghe.risks.map((risk) =>
             targetKeys.has(`${ghe.id}::${risk.id}`)
               ? { ...risk, [field]: value }
               : risk
           ),
-        }))
-      );
+        }));
+        void helpers.persistPlanFieldsNow({ riskGheGroups: next });
+        return next;
+      });
       return;
     }
 
-    setRiskGheGroups((prev) =>
-      prev.map((ghe) => {
+    setRiskGheGroups((prev) => {
+      const next = prev.map((ghe) => {
         if (ghe.id !== gheId) return ghe;
         return {
           ...ghe,
@@ -865,8 +873,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             risk.id === riskId ? { ...risk, [field]: value } : risk
           ),
         };
-      })
-    );
+      });
+      void helpers.persistPlanFieldsNow({ riskGheGroups: next });
+      return next;
+    });
   };
 
   const handlePlanMedidasChange = (
@@ -878,7 +888,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handlePlanRiskFieldChange(
       gheId,
       riskId,
-      "medidasControle",
+      "medidasPrevencaoPlano",
       value,
       groupTargets
     );
@@ -988,7 +998,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
           return {
             ...risk,
-            medidasControle: mergeMedidas(risk.medidasControle || "", actionDescription),
+            medidasPrevencaoPlano: mergeMedidas(
+              risk.medidasPrevencaoPlano || risk.medidasControle || "",
+              actionDescription
+            ),
           };
         });
 

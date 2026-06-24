@@ -41,6 +41,7 @@ type PlanTableRow = {
   afericaoResultado?: string;
   groupTargets?: Array<{ gheId: string; riskId: string }>;
   isCustomPlanRow?: boolean;
+  hasPlanSnapshot?: boolean;
 };
 const PLAN_ALL_GHE_ID = "__plan_all_ghes__";
 
@@ -397,12 +398,19 @@ export function usePgrEtapaDerived({
               ),
               classificacao: toDisplayText(risk.classificacao),
               exposureValue,
-              medidasPrevencao: risk.medidasControle || "",
+              medidasPrevencao:
+                (Object.prototype.hasOwnProperty.call(risk, "medidasPrevencaoPlano")
+                  ? risk.medidasPrevencaoPlano
+                  : risk.medidasControle) || "",
               tipoMedida: risk.tipoMedida || "",
               prazoAcao: risk.prazoAcao || "",
               responsavelAcao: risk.responsavelAcao || "",
               acompanhamento: risk.acompanhamento || "",
               afericaoResultado: risk.afericaoResultado || "",
+              hasPlanSnapshot: Object.prototype.hasOwnProperty.call(
+                risk,
+                "medidasPrevencaoPlano"
+              ),
             };
           })
       );

@@ -88,6 +88,7 @@ type BackendCaracterizacaoRisk = {
   probabilidade?: string;
   classificacao?: string;
   medidasControle?: string;
+  medidasPrevencaoPlano?: string;
   epc?: string;
   epi?: string;
 };
@@ -208,6 +209,7 @@ export type PgrDocxPayload = {
         probabilidade: string;
         classificacao: string;
         medidasControle: string;
+        medidasPrevencaoPlano?: string;
         epc: string;
         epi: string;
       }>;
@@ -221,6 +223,7 @@ export type PgrDocxPayload = {
       risco: string;
       prioridade: string;
       classificacao: string;
+      medida: string;
       medidas: string;
       epc: string;
       epi: string;
@@ -339,6 +342,7 @@ export function buildPgrDocxPayload(input: {
       probabilidade: risk.probabilidade,
       classificacao: risk.classificacao,
       medidasControle: risk.medidasControle,
+      medidasPrevencaoPlano: risk.medidasPrevencaoPlano || "",
       epc: risk.epc,
       epi: risk.epi,
     })),
@@ -356,7 +360,8 @@ export function buildPgrDocxPayload(input: {
             _asText(risk.classificacao)
         ),
         classificacao: risk.classificacao,
-        medidas: risk.medidasControle,
+        medida: risk.medidasPrevencaoPlano || "",
+        medidas: risk.medidasPrevencaoPlano || "",
         epc: risk.epc,
         epi: risk.epi,
         tipoMedida: _asText((risk as unknown as { tipoMedida?: string }).tipoMedida),
@@ -380,6 +385,7 @@ export function buildPgrDocxPayload(input: {
           risco: "Medidas Gerais",
           prioridade: "Média",
           classificacao: "Risco Moderado",
+          medida: item.descricao,
           medidas: item.descricao,
           epc: "",
           epi: "",
@@ -559,6 +565,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           probabilidade: risk?.probabilidade || "",
           classificacao: risk?.classificacao || "",
           medidasControle: risk?.medidasControle || "",
+          medidasPrevencaoPlano: (risk as { medidasPrevencaoPlano?: string } | undefined)?.medidasPrevencaoPlano || "",
           epc: risk?.epc || "",
           epi: risk?.epi || "",
         }))

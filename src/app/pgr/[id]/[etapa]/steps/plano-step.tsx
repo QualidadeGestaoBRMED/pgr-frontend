@@ -37,6 +37,7 @@ type PlanoStepProps = {
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
+            hasPlanSnapshot?: boolean;
             groupTargets?: Array<{ gheId: string; riskId: string }>;
         }>;
         planTableRowsPage: Array<{
@@ -55,6 +56,7 @@ type PlanoStepProps = {
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
+            hasPlanSnapshot?: boolean;
             groupTargets?: Array<{ gheId: string; riskId: string }>;
         }>;
         getActionDescriptionOptions: (
@@ -153,12 +155,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const parseMultiTextValues = (value: string) =>
         value
-            .split(/[\n,;]+/)
+            .split(/[;\n]+/)
             .map((item) => item.trim())
             .filter(Boolean);
 
     const toMultiTextValue = (values: string[]) =>
-        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
+        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join("; ");
 
     const parseHistoricoDate = (raw: string) => {
         const value = String(raw || "").trim();

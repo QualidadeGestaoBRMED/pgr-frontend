@@ -478,7 +478,13 @@ export function usePgrEtapaController({
   }, [params.id, weightedProgressPercent]);
 
   const buildStatePayload = useCallback(
-    (layoutOverride?: PdfLayoutState) => ({
+    (
+      layoutOverride?: PdfLayoutState,
+      overrides?: Partial<{
+        riskGheGroups: typeof state.riskGheGroups;
+        planGeneralMeasures: typeof state.planGeneralMeasures;
+      }>
+    ) => ({
       completedSteps: state.completedSteps,
       meta: {
         pgrId: params.id,
@@ -494,12 +500,12 @@ export function usePgrEtapaController({
       planAction: state.planAction,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
-      planGeneralMeasures: state.planGeneralMeasures,
+      planGeneralMeasures: overrides?.planGeneralMeasures ?? state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
       gheGroups: state.gheGroups,
       currentGheId: state.currentGheId,
-      riskGheGroups: state.riskGheGroups,
+      riskGheGroups: overrides?.riskGheGroups ?? state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
       pdfLayout: layoutOverride ?? state.pdfLayout,
       workflow: state.workflow,
@@ -531,10 +537,20 @@ export function usePgrEtapaController({
   );
 
   const persistStateNow = useCallback(
-    async (layoutOverride?: PdfLayoutState) => {
-      await putPgrState(params.id, buildStatePayload(layoutOverride));
+    async (
+      layoutOverride?: PdfLayoutState,
+      overrides?: Partial<{
+        riskGheGroups: typeof state.riskGheGroups;
+        planGeneralMeasures: typeof state.planGeneralMeasures;
+      }>
+    ) => {
+      if (refs.saveTimerRef.current) {
+        window.clearTimeout(refs.saveTimerRef.current);
+        refs.saveTimerRef.current = null;
+      }
+      await putPgrState(params.id, buildStatePayload(layoutOverride, overrides));
     },
-    [buildStatePayload, params.id]
+    [buildStatePayload, params.id, refs.saveTimerRef]
   );
 
   const rejectionReasonFromQuery = useMemo(
@@ -1117,6 +1133,7 @@ export function usePgrEtapaController({
     helpers: {
       handleAdvanceApiSync,
       persistStateNow: () => persistStateNow(),
+      persistPlanFieldsNow: (overrides) => persistStateNow(undefined, overrides),
     },
   });
 

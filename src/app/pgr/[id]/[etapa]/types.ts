@@ -59,6 +59,7 @@ export type GheRisk = {
   probabilidade: string;
   classificacao: string;
   medidasControle: string;
+  medidasPrevencaoPlano?: string;
   normas?: string;
   epc: string;
   epi: string;
