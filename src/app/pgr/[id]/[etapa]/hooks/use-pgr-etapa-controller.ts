@@ -296,10 +296,17 @@ export function usePgrEtapaController({
       }),
     [derived.stepStatusById, state.gheGroups, state.workflow.isLocked]
   );
+  const rejectionReasonFromQuery = useMemo(
+    () => String(searchParams?.get("rejectionReason") || "").trim(),
+    [searchParams]
+  );
+  const effectiveRejectionReason = String(
+    state.workflow.rejectionReason || rejectionReasonFromQuery || ""
+  ).trim();
   const isRejectedPendingReasonSelection =
     !state.workflow.isLocked &&
     state.workflow.statusLabel === "Rejeitado" &&
-    !String(state.workflow.rejectionReason || "").trim();
+    !effectiveRejectionReason;
 
   const [pipefySyncCooldownSeconds, setPipefySyncCooldownSeconds] = useState(0);
   const pipefySyncCooldownTimerRef = useRef<number | null>(null);
@@ -551,11 +558,6 @@ export function usePgrEtapaController({
       await putPgrState(params.id, buildStatePayload(layoutOverride, overrides));
     },
     [buildStatePayload, params.id, refs.saveTimerRef]
-  );
-
-  const rejectionReasonFromQuery = useMemo(
-    () => String(searchParams?.get("rejectionReason") || "").trim(),
-    [searchParams]
   );
 
   useEffect(() => {
@@ -934,15 +936,17 @@ export function usePgrEtapaController({
     setters.setRiskGheGroups((prev) =>
       prev.map((ghe) => ({
         ...ghe,
-        risks: ghe.risks.map((risk) => ({
-          ...risk,
-          medidasControle: "",
-          tipoMedida: "",
-          prazoAcao: "",
-          responsavelAcao: "",
-          acompanhamento: "",
-          afericaoResultado: "",
-        })),
+        risks: ghe.risks.map((risk) => {
+          const { medidasPrevencaoPlano, ...baseRisk } = risk;
+          return {
+            ...baseRisk,
+            tipoMedida: "",
+            prazoAcao: "",
+            responsavelAcao: "",
+            acompanhamento: "",
+            afericaoResultado: "",
+          };
+        }),
       }))
     );
   }, [setters, state.historicoData.changes, state.workflow.isLocked]);
