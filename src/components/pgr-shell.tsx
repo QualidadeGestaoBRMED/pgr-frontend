@@ -107,7 +107,7 @@ export function PgrShell({
               : "px-2 py-2 -mx-2";
             const content = (
               <>
-                <div className="relative flex h-8 w-8 items-center justify-center">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold ${circleClasses} ${isCurrent ? "ring-1 ring-primary/35 dark:ring-white/30" : ""}`}
                   >
@@ -117,7 +117,7 @@ export function PgrShell({
                     <span className="absolute left-1/2 top-8 h-10 w-px -translate-x-1/2 bg-border" />
                   )}
                 </div>
-                <div>
+                <div className="min-w-0 pt-0.5 text-left">
                   <span
                     className={`inline-block text-[15px] font-semibold ${
                       isCurrent
@@ -127,7 +127,7 @@ export function PgrShell({
                   >
                     {step.title}
                   </span>
-                  <p className="mt-1 text-[12px] text-muted-foreground">
+                  <p className="mt-1 block text-[12px] leading-snug text-muted-foreground">
                     {step.subtitle}
                   </p>
                 </div>
@@ -140,14 +140,14 @@ export function PgrShell({
                   <button
                     type="button"
                     onClick={() => onNavigateStep?.(step.id)}
-                    className={`flex w-full gap-4 ${rowClasses}`}
+                    className={`flex w-full items-start gap-4 ${rowClasses}`}
                   >
                     {content}
                   </button>
                 ) : (
                   <div
                     aria-disabled="true"
-                    className={`flex w-full cursor-not-allowed gap-4 opacity-55 ${rowClasses}`}
+                    className={`flex w-full cursor-not-allowed items-start gap-4 opacity-55 ${rowClasses}`}
                     title="Selecione um motivo da rejeição no Histórico para liberar as demais etapas."
                   >
                     {content}
