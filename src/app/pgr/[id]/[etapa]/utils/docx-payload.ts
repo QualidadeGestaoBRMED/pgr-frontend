@@ -103,12 +103,16 @@ type BackendNestedAnexoFile = {
   id?: string;
   nome?: string;
   data?: string;
+  orientation?: "auto" | "portrait" | "landscape";
+  orientacao?: "auto" | "portrait" | "landscape";
   url?: string;
 };
 
 type BackendNestedAnexoItem = {
   id?: string;
   titulo?: string;
+  orientation?: "auto" | "portrait" | "landscape";
+  orientacao?: "auto" | "portrait" | "landscape";
   arquivos?: BackendNestedAnexoFile[];
 };
 
@@ -252,10 +256,10 @@ export type PgrDocxPayload = {
     itens: Array<{
       id: string;
       titulo: string;
-      orientation?: "auto" | "portrait" | "landscape";
       arquivos: Array<{
         id: string;
         nome: string;
+        orientation?: "auto" | "portrait" | "landscape";
         url?: string;
       }>;
     }>;
@@ -461,12 +465,12 @@ export function buildPgrDocxPayload(input: {
       diretriz: input.anexoDiretriz,
       totalArquivos,
       itens: input.anexos.map((anexo) => ({
-      id: anexo.id,
-      titulo: anexo.title,
-      orientation: anexo.orientation ?? "auto",
-      arquivos: anexo.files.map((file) => ({
-        id: file.id,
-        nome: file.name,
+        id: anexo.id,
+        titulo: anexo.title,
+        arquivos: anexo.files.map((file) => ({
+          id: file.id,
+          nome: file.name,
+          orientation: file.orientation ?? "auto",
           url: file.url,
         })),
       })),
@@ -582,6 +586,12 @@ export function buildPgrDocxPayloadFromBackendState(input: {
               id: file?.id || `file-${index + 1}-${fileIndex + 1}`,
               name: file?.nome || "",
               date: file?.data || "",
+              orientation:
+                file?.orientation ||
+                file?.orientacao ||
+                item?.orientation ||
+                item?.orientacao ||
+                "auto",
               url: file?.url,
             }))
           : [],

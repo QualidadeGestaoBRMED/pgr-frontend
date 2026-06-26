@@ -833,7 +833,6 @@ function buildIdentificationAndProgramPages(
             table: {
               widths: resolveRuntimeTableWidths(pdfLayout, "identificacao_info", [43, 57]),
               body: [
-                [infoLabelCell("Nome Fantasia"), bodyCell(contractor.nomeFantasia)],
                 [infoLabelCell("Razão Social"), bodyCell(contractor.razaoSocial)],
                 [infoLabelCell("CNPJ"), bodyCell(contractor.cnpj)],
                 [infoLabelCell("CNAE"), bodyCell(contractor.cnae)],

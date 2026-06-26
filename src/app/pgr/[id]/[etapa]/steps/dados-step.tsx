@@ -160,7 +160,6 @@ export function DadosStep({
     | "responsavelPgrCpf";
 
   type RequiredContratanteField =
-    | "nomeFantasia"
     | "razaoSocial"
     | "cnpj"
     | "cnae"
@@ -274,7 +273,6 @@ export function DadosStep({
     contractors.forEach((contractor, contractorIndex) => {
       const contractorKey = String(contractor.id || `contractor-${contractorIndex}`);
       map[contractorKey] = {
-        nomeFantasia: "",
         razaoSocial: "",
         cnpj: !contractor.cnpj.trim()
           ? ""
@@ -1243,32 +1241,7 @@ export function DadosStep({
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1.6fr_1.1fr_1fr]">
-                <div>
-                  <label className="text-[12px] font-medium text-foreground">
-                    Nome Fantasia:
-                  </label>
-                  <input
-                    className={getContractorFieldClassName(
-                      contractorKey,
-                      "nomeFantasia"
-                    )}
-                    value={contractor.nomeFantasia}
-                    onChange={(event) =>
-                      onContractorChange(
-                        contractorIndex,
-                        "nomeFantasia",
-                        event.target.value
-                      )
-                    }
-                    onBlur={() => markContractorTouched(contractorKey, "nomeFantasia")}
-                  />
-                  {contractorErrorsById[contractorKey]?.nomeFantasia ? (
-                    <p className="mt-1 text-[12px] text-danger">
-                      {contractorErrorsById[contractorKey].nomeFantasia}
-                    </p>
-                  ) : null}
-                </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-[1.6fr_1.1fr_1fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
                     Razão social:
