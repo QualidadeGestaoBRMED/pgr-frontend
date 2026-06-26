@@ -3,6 +3,50 @@ import type {Dispatch, SetStateAction} from "react";
 import {ChevronDown, MinusCircle, Search} from "lucide-react";
 import {SearchableSelect, type SearchableSelectProps} from "./searchable-select";
 
+const toUtcBrDate = (date: Date) => {
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const maskActionDate = (value: string) => {
+    const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+    if (!digits) return "";
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const normalizeActionDate = (value: string) => {
+    const masked = maskActionDate(value);
+    const match = masked.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return masked;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (
+        Number.isNaN(parsed.getTime()) ||
+        parsed.getUTCFullYear() !== year ||
+        parsed.getUTCMonth() !== month - 1 ||
+        parsed.getUTCDate() !== day
+    ) {
+        return masked;
+    }
+    return toUtcBrDate(parsed);
+};
+
+const toBrDateValue = (value: string) => {
+    const safe = String(value || "").trim();
+    if (!safe) return "";
+    const isoMatch = safe.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+        return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+    }
+    return normalizeActionDate(safe);
+};
+
 type PlanoStepProps = {
     ctx: {
         inputBaseClass: string;
@@ -182,13 +226,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         return parseHistoricoDate(startDateToken);
     };
 
-    const toIsoDate = (date: Date) => {
-        const year = date.getUTCFullYear();
-        const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-        const day = String(date.getUTCDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-    };
-
     const addDays = (date: Date, days: number) => {
         const next = new Date(date.getTime());
         next.setUTCDate(next.getUTCDate() + days);
@@ -277,6 +314,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
     const initializedRowsRef = useRef<Set<string>>(new Set());
+    const autoPrazoAcaoByRowIdRef = useRef<Record<string, string>>({});
 
     const { persistedOptionsByRowId, setPersistedOptionsByRowId } = ctx;
 
@@ -314,21 +352,63 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             return null;
         };
 
-        planTableRows.forEach((row) => {
-            if (initializedRowsRef.current.has(row.id + "_prazo")) return;
+        const nextAutoPrazoByRowId: Record<string, string> = {};
+        const rowsToUpdate: Array<{
+            row: (typeof planTableRows)[number];
+            prazoCalculado: string;
+        }> = [];
 
-            const existingVal = String(row.prazoAcao || "").trim();
-            if (!existingVal) {
-                const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
-                if (days) {
-                    const prazoCalculado = toIsoDate(addDays(inicioVigenciaBase, days));
-                    setPrazoAcaoByRowId((prev) => ({...prev, [row.id]: prazoCalculado}));
-                    handlePlanRiskFieldChange(row.gheId, row.riskId, "prazoAcao", prazoCalculado, row.groupTargets);
-                }
+        planTableRows.forEach((row) => {
+            const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
+            if (!days) return;
+
+            const prazoCalculado = toUtcBrDate(addDays(inicioVigenciaBase, days));
+            nextAutoPrazoByRowId[row.id] = prazoCalculado;
+
+            const currentValue = String(
+                toBrDateValue(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "")
+            ).trim();
+            const previousAutoValue = String(
+                toBrDateValue(autoPrazoAcaoByRowIdRef.current[row.id] || "")
+            ).trim();
+            const shouldRecalculate =
+                (!currentValue || currentValue === previousAutoValue) &&
+                currentValue !== prazoCalculado;
+
+            if (shouldRecalculate) {
+                rowsToUpdate.push({ row, prazoCalculado });
             }
-            initializedRowsRef.current.add(row.id + "_prazo");
         });
-    }, [inicioVigenciaBase, handlePlanRiskFieldChange, planTableRows]);
+
+        autoPrazoAcaoByRowIdRef.current = {
+            ...autoPrazoAcaoByRowIdRef.current,
+            ...nextAutoPrazoByRowId,
+        };
+
+        if (!rowsToUpdate.length) return;
+
+        setPrazoAcaoByRowId((prev) => ({
+            ...prev,
+            ...Object.fromEntries(
+                rowsToUpdate.map(({ row, prazoCalculado }) => [row.id, prazoCalculado])
+            ),
+        }));
+
+        rowsToUpdate.forEach(({ row, prazoCalculado }) => {
+            handlePlanRiskFieldChange(
+                row.gheId,
+                row.riskId,
+                "prazoAcao",
+                prazoCalculado,
+                row.groupTargets
+            );
+        });
+    }, [
+        inicioVigenciaBase,
+        handlePlanRiskFieldChange,
+        planTableRows,
+        prazoAcaoByRowId,
+    ]);
 
     useEffect(() => {
         const defaultResponsible = String(defaultResponsibleActionName || "").trim();
@@ -739,14 +819,14 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <input
-                                                type="date"
+                                                type="text"
                                                 className={withRequiredHighlight(
                                                     `${tableInputClass} min-w-[170px]`,
                                                     !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
                                                 )}
-                                                value={prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""}
+                                                value={toBrDateValue(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "")}
                                                 onChange={(event) => {
-                                                    const value = event.target.value;
+                                                    const value = maskActionDate(event.target.value);
                                                     setPrazoAcaoByRowId((prev) => ({
                                                         ...prev,
                                                         [row.id]: value,
@@ -759,6 +839,22 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                         row.groupTargets
                                                     );
                                                 }}
+                                                onBlur={(event) => {
+                                                    const value = normalizeActionDate(event.target.value);
+                                                    setPrazoAcaoByRowId((prev) => ({
+                                                        ...prev,
+                                                        [row.id]: value,
+                                                    }));
+                                                    handlePlanRiskFieldChange(
+                                                        row.gheId,
+                                                        row.riskId,
+                                                        "prazoAcao",
+                                                        value,
+                                                        row.groupTargets
+                                                    );
+                                                }}
+                                                inputMode="numeric"
+                                                placeholder="DD/MM/AAAA"
                                             />
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
