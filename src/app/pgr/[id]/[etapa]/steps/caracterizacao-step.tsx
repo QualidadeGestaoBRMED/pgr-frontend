@@ -205,12 +205,16 @@ const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) =
     valorMedido: isQualitativeEvaluation
       ? "N/A"
       : isQuantitativeEvaluation
-        ? normalizeQuantitativeMeasurementValue(sanitizedValorMedido)
+        ? sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
         : sanitizeNumericInput(sanitizedValorMedido),
     intensidade: isQuantitativeEvaluation
-      ? normalizeQuantitativeMeasurementValue(intensityValue)
+      ? sanitizeQuantitativeMeasurementInput(intensityValue)
       : intensityValue,
-    nivelAcao: stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
+    nivelAcao: isQuantitativeEvaluation
+      ? sanitizeQuantitativeMeasurementInput(
+          stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits)
+        )
+      : stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
   };
 };
 
@@ -1021,13 +1025,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         }
 
                         if (field === "tipoAvaliacao") {
+                          const nextRisk = {
+                            ...risk,
+                            tipoAvaliacao: value,
+                            probabilidade: "",
+                            classificacao: "",
+                          };
                           return withComputedClassification(
                             sanitizeRiskMeasurementFields(
-                            {
-                              ...risk,
-                              tipoAvaliacao: value,
-                            },
-                            parseCommaSeparatedValues(risk.unidadeMedida)
+                              nextRisk,
+                              parseCommaSeparatedValues(risk.unidadeMedida)
                             )
                           );
                         }
@@ -1066,15 +1073,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           const sanitizedValue =
                             field === "valorMedido"
                               ? isQuantitativeEvaluation
-                                ? normalizeQuantitativeMeasurementValue(
-                                    sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
-                                  )
+                                ? sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
                                 : sanitizeNumericInput(valueWithoutUnit)
-                              : field === "intensidade" && isQuantitativeEvaluation
-                                ? normalizeQuantitativeMeasurementValue(
-                                    sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
-                                  )
-                              : valueWithoutUnit;
+                              : isQuantitativeEvaluation
+                                ? sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                : valueWithoutUnit;
                           return withComputedClassification({
                             ...risk,
                             [field]: sanitizedValue,
@@ -1492,23 +1495,22 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               selectedMeasuredUnits
             );
             const normalizedValorMedido = isQuantitativeEvaluation
-              ? normalizeQuantitativeMeasurementValue(
-                  sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
-                )
+              ? sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
               : sanitizeNumericInput(sanitizedValorMedido);
             const sanitizedIntensidade = stripTrailingMeasuredUnits(
               String(risk.intensidade || ""),
               selectedMeasuredUnits
             );
             const displayIntensidade = isQuantitativeEvaluation
-              ? normalizeQuantitativeMeasurementValue(
-                  sanitizeQuantitativeMeasurementInput(sanitizedIntensidade)
-                )
+              ? sanitizeQuantitativeMeasurementInput(sanitizedIntensidade)
               : sanitizedIntensidade;
             const sanitizedNivelAcao = stripTrailingMeasuredUnits(
               String(risk.nivelAcao || ""),
               selectedMeasuredUnits
             );
+            const displayNivelAcao = isQuantitativeEvaluation
+              ? sanitizeQuantitativeMeasurementInput(sanitizedNivelAcao)
+              : sanitizedNivelAcao;
             const isMeasuredValueMissing =
               isQuantitativeEvaluation && !String(normalizedValorMedido || "").trim();
             const qualitativeMeasuredValueLabel =
@@ -2198,6 +2200,27 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                   sanitizeQuantitativeMeasurementInput(event.target.value)
                                 );
                               }}
+                              onBlur={() => {
+                                if (!isQuantitativeEvaluation) return;
+                                const currentValue = String(risk.intensidade || "").trim();
+                                if (!currentValue) return;
+                                const valueWithoutUnit = stripTrailingMeasuredUnit(
+                                  currentValue,
+                                  measuredUnit
+                                );
+                                const normalizedValue =
+                                  normalizeQuantitativeMeasurementValue(
+                                    sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                  );
+
+                                if (normalizedValue !== currentValue) {
+                                  handleRiskChange(
+                                    risk.id,
+                                    "intensidade",
+                                    normalizedValue
+                                  );
+                                }
+                              }}
                             />
                             {getRiskFieldError(risk.id, "intensidade") ? (
                               <p className="mt-1 text-[12px] text-danger">
@@ -2211,10 +2234,35 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             </label>
                             <input
                               className={stackedInputClass}
-                              value={sanitizedNivelAcao}
+                              value={displayNivelAcao}
                               placeholder={measuredUnitPlaceholder}
                               onChange={(event) => {
-                                handleRiskChange(risk.id, "nivelAcao", event.target.value);
+                                handleRiskChange(
+                                  risk.id,
+                                  "nivelAcao",
+                                  sanitizeQuantitativeMeasurementInput(event.target.value)
+                                );
+                              }}
+                              onBlur={() => {
+                                if (!isQuantitativeEvaluation) return;
+                                const currentValue = String(risk.nivelAcao || "").trim();
+                                if (!currentValue) return;
+                                const valueWithoutUnit = stripTrailingMeasuredUnit(
+                                  currentValue,
+                                  measuredUnit
+                                );
+                                const normalizedValue =
+                                  normalizeQuantitativeMeasurementValue(
+                                    sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                  );
+
+                                if (normalizedValue !== currentValue) {
+                                  handleRiskChange(
+                                    risk.id,
+                                    "nivelAcao",
+                                    normalizedValue
+                                  );
+                                }
                               }}
                             />
                           </div>
