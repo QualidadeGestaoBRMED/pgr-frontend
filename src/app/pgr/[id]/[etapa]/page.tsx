@@ -7,4 +7,3 @@ export default function PgrEtapaPage({
 }) {
   return <PgrEtapaPageContent key={params.id} params={params} />;
 }
-

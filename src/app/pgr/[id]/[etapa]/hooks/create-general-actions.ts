@@ -1576,6 +1576,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         const uploadedFile: AnexoFile = {
           ...response.file,
           name: response.file.name,
+          orientation: "auto",
           date:
             currentRevisionDate ||
             toDateBrValue(response.file.date || "") ||
@@ -1671,14 +1672,14 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       {
         id: `anexo-${Date.now()}-${nextIndex}`,
         title: `Novo anexo ${nextIndex}`,
-        orientation: "auto",
         files: [],
       },
     ]);
   };
 
-  const handleAnexoOrientationChange = (
+  const handleAnexoFileOrientationChange = (
     anexoId: string,
+    fileId: string,
     value: AnexoOrientation
   ) => {
     setAnexos((prev) =>
@@ -1686,7 +1687,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         anexo.id === anexoId
           ? {
               ...anexo,
-              orientation: value,
+              files: anexo.files.map((file) =>
+                file.id === fileId ? { ...file, orientation: value } : file
+              ),
             }
           : anexo
       )
@@ -1809,7 +1812,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleAddAnexo,
     handleRemoveAnexo,
     handleMoveAnexo,
-    handleAnexoOrientationChange,
+    handleAnexoFileOrientationChange,
     handleRenameAnexoTitle,
     handleAnexoDragStart,
     handleAnexoDragOver,

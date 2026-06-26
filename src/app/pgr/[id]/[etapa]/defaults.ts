@@ -107,7 +107,6 @@ export const defaultAnexos: AnexoItem[] = [
   {
     id: "anexo-art",
     title: "ART - Anotação de Responsabilidade Técnica",
-    orientation: "auto",
     files: [],
   },
 ];

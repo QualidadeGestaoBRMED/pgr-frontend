@@ -88,7 +88,7 @@ type BackendStateResponse = Partial<{
 
 type UsePgrPersistenceContext = {
   params: { id: string };
-  shouldHydrateFromApi: boolean;
+  shouldHydrateFromApi: boolean | null;
   defaultHistorico: HistoricoData;
   initialInicioDraft: InicioDraft;
   initialDadosCadastrais: DadosCadastraisDraft;
@@ -223,6 +223,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const { saveTimerRef } = refs;
   const skipInitialPersistRef = useRef(true);
   const pendingPersistPayloadRef = useRef<PersistPayload | null>(null);
+  const latestRiskGheGroupsRef = useRef<RiskGheGroup[]>(riskGheGroups);
+  const prevImmediatePersistRefs = useRef<{
+    riskGheGroups: RiskGheGroup[];
+  }>({
+    riskGheGroups,
+  });
 
   const buildRuntimeCacheState = ({
     completed,
@@ -328,7 +334,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             })
           );
         })
-        .catch(() => {})
         .finally(() => {
           if (pendingPersistPayloadRef.current === payload) {
             pendingPersistPayloadRef.current = null;
@@ -386,6 +391,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   }, [setRiskCatalogs, params.id]);
 
   useEffect(() => {
+    latestRiskGheGroupsRef.current = riskGheGroups;
+  }, [riskGheGroups]);
+
+  useEffect(() => {
     if (!riskCatalogs) return;
     setRiskGheGroups((prev: RiskGheGroup[]) => {
       let changed = false;
@@ -420,6 +429,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   }, [params.id]);
 
   useEffect(() => {
+    if (shouldHydrateFromApi === null) {
+      return;
+    }
     if (!shouldHydrateFromApi) {
       setIsStateLoading(false);
       return;
@@ -543,14 +555,32 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               "",
           };
         };
-        const loadedRiskGheGroups = Array.isArray(state.riskGheGroups)
-          ? state.riskGheGroups.map((ghe) => ({
+        const loadedRiskGheGroupsById = new Map(
+          (Array.isArray(state.riskGheGroups) ? state.riskGheGroups : []).map((ghe) => [
+            String(ghe?.id || "").trim(),
+            {
               ...ghe,
               risks: (ghe.risks || []).map((risk) =>
                 applyMissingRiskDefaults(normalizeHydratedRisk(risk))
               ),
-            }))
-          : riskGheGroups;
+            },
+          ])
+        );
+        const loadedRiskGheGroups = loadedGheGroups.map((ghe) => {
+          const existing = loadedRiskGheGroupsById.get(String(ghe?.id || "").trim());
+          if (!existing) {
+            return {
+              id: ghe.id,
+              name: ghe.name,
+              risks: [],
+            };
+          }
+          return {
+            ...existing,
+            id: ghe.id,
+            name: ghe.name,
+          };
+        });
         const loadedCurrentRiskGheId =
           state.currentRiskGheId || loadedRiskGheGroups[0]?.id || currentRiskGheId;
         const loadedPdfLayout = normalizePdfLayoutState(
@@ -600,6 +630,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
         setGheGroups(loadedGheGroups);
         setCurrentGheId(loadedCurrentGheId);
+        latestRiskGheGroupsRef.current = loadedRiskGheGroups;
         setRiskGheGroups(loadedRiskGheGroups);
         setCurrentRiskGheId(loadedCurrentRiskGheId);
         setPdfLayout(loadedPdfLayout);
@@ -648,8 +679,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   }, [params.id, shouldHydrateFromApi]);
 
   useEffect(() => {
+    if (isStateLoading) return;
     setRiskGheGroups((prev: RiskGheGroup[]) => {
-      const prevById = new Map(prev.map((group) => [group.id, group]));
+      const sourceGroups =
+        latestRiskGheGroupsRef.current.length >= prev.length
+          ? latestRiskGheGroupsRef.current
+          : prev;
+      const prevById = new Map(sourceGroups.map((group) => [group.id, group]));
       const nextFromDescricao = gheGroups.map((ghe) => ({
         id: ghe.id,
         name: ghe.name,
@@ -663,10 +699,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             item.id === prev[index]?.id &&
             item.name === prev[index]?.name &&
             item.risks === prev[index]?.risks
-        );
+      );
       return unchanged ? prev : next;
     });
-  }, [gheGroups, setRiskGheGroups]);
+  }, [gheGroups, isStateLoading, setRiskGheGroups]);
 
   useEffect(() => {
     if (!riskGheGroups.length) return;
@@ -680,6 +716,9 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     if (workflow.isLocked) return;
     if (skipInitialPersistRef.current) {
       skipInitialPersistRef.current = false;
+      prevImmediatePersistRefs.current = {
+        riskGheGroups,
+      };
       return;
     }
 
@@ -715,8 +754,20 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     };
 
     pendingPersistPayloadRef.current = payload;
+    const shouldPersistImmediately =
+      prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups;
+
+    prevImmediatePersistRefs.current = {
+      riskGheGroups,
+    };
+
+    if (shouldPersistImmediately) {
+      void persistPayload(payload).catch(() => {});
+      return;
+    }
+
     saveTimerRef.current = window.setTimeout(() => {
-      void persistPayload(payload);
+      void persistPayload(payload).catch(() => {});
       saveTimerRef.current = null;
     }, 600);
 
@@ -762,7 +813,24 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      void persistPayload(pendingPayload);
+      void persistPayload(pendingPayload).catch(() => {});
     };
   }, [persistPayload, saveTimerRef]);
+
+  const persistLatestStateNow = useCallback(
+    async (payloadOverride?: PersistPayload) => {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      const payloadToPersist = payloadOverride ?? pendingPersistPayloadRef.current;
+      if (!payloadToPersist) return;
+      await persistPayload(payloadToPersist);
+    },
+    [persistPayload, saveTimerRef]
+  );
+
+  return {
+    persistLatestStateNow,
+  };
 }

@@ -12,8 +12,12 @@ type AnexosStepProps = {
     anexos: Array<{
       id: string;
       title: string;
-      orientation?: AnexoOrientation;
-      files: Array<{ id: string; name: string; date?: string }>;
+      files: Array<{
+        id: string;
+        name: string;
+        date?: string;
+        orientation?: AnexoOrientation;
+      }>;
     }>;
     handleAnexoDragStart: (anexoId: string) => void;
     handleAnexoDragOver: (event: DragEvent, anexoId: string) => void;
@@ -23,8 +27,9 @@ type AnexosStepProps = {
     inputInlineClass: string;
     handleRenameAnexoTitle: (anexoId: string, value: string) => void;
     handleMoveAnexo: (anexoId: string, direction: "up" | "down") => void;
-    handleAnexoOrientationChange: (
+    handleAnexoFileOrientationChange: (
       anexoId: string,
+      fileId: string,
       value: AnexoOrientation
     ) => void;
     handleAnexoFileRename: (anexoId: string, fileId: string, value: string) => void;
@@ -52,7 +57,7 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
     inputInlineClass,
     handleRenameAnexoTitle,
     handleMoveAnexo,
-    handleAnexoOrientationChange,
+    handleAnexoFileOrientationChange,
     handleAnexoFileRename,
     handleAnexoFileDateChange,
     handleAnexoFileRemove,
@@ -180,20 +185,6 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                       });
                     }}
                   />
-                  <div className="w-[150px]">
-                    <SearchableSelect
-                      value={anexo.orientation ?? "auto"}
-                      onChange={(value) =>
-                        handleAnexoOrientationChange(
-                          anexo.id,
-                          (value as AnexoOrientation) || "auto"
-                        )
-                      }
-                      options={orientationOptions}
-                      buttonClassName={selectBaseClass}
-                      searchPlaceholder="Filtrar orientação"
-                    />
-                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -256,6 +247,21 @@ export function AnexosStep({ ctx }: AnexosStepProps) {
                             )
                           }
                         />
+                        <div className="w-[150px]">
+                          <SearchableSelect
+                            value={file.orientation ?? "auto"}
+                            onChange={(value) =>
+                              handleAnexoFileOrientationChange(
+                                anexo.id,
+                                file.id,
+                                (value as AnexoOrientation) || "auto"
+                              )
+                            }
+                            options={orientationOptions}
+                            buttonClassName={selectBaseClass}
+                            searchPlaceholder="Filtrar orientação"
+                          />
+                        </div>
                       </div>
                       <button
                         type="button"

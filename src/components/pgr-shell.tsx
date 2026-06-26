@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Check } from "lucide-react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -13,6 +12,7 @@ type PgrShellProps = {
   accessibleStepIds?: PgrStepId[];
   cycleTimeMs?: number;
   cycleSessionStartedAtMs?: number | null;
+  onNavigateStep?: (stepId: PgrStepId) => void;
   children: ReactNode;
 };
 
@@ -70,6 +70,7 @@ export function PgrShell({
   accessibleStepIds,
   cycleTimeMs = 0,
   cycleSessionStartedAtMs = null,
+  onNavigateStep,
   children,
 }: PgrShellProps) {
   const totalSteps = pgrSteps.length;
@@ -136,13 +137,13 @@ export function PgrShell({
             return (
               <li key={step.id} className="relative">
                 {isAccessible ? (
-                  <Link
-                    href={`/pgr/${pgrId}/${step.id}`}
-                    scroll={false}
+                  <button
+                    type="button"
+                    onClick={() => onNavigateStep?.(step.id)}
                     className={`flex w-full gap-4 ${rowClasses}`}
                   >
                     {content}
-                  </Link>
+                  </button>
                 ) : (
                   <div
                     aria-disabled="true"

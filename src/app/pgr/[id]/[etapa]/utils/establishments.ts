@@ -1,8 +1,12 @@
 import type { DadosCadastraisDraft, EstabelecimentoDraft } from "../steps/types";
 import { maskCnpj, normalizeRiskGrade } from "../validation/br-field-utils";
 
-const createEstabelecimentoId = () =>
-  `estabelecimento-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+let estabelecimentoIdSequence = 0;
+
+const createEstabelecimentoId = () => {
+  estabelecimentoIdSequence += 1;
+  return `estabelecimento-${estabelecimentoIdSequence}`;
+};
 
 export const createEmptyEstabelecimento = (): EstabelecimentoDraft => ({
   id: createEstabelecimentoId(),

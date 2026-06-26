@@ -13,12 +13,22 @@ import {
   normalizeRiskGrade,
 } from "../validation/br-field-utils";
 
-const createContratanteId = () =>
-  `contratante-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-const createResponsavelTecnicoId = () =>
-  `responsavel-tecnico-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-const createCampoAdicionalId = () =>
-  `campo-adicional-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+let contratanteIdSequence = 0;
+let responsavelTecnicoIdSequence = 0;
+let campoAdicionalIdSequence = 0;
+
+const createContratanteId = () => {
+  contratanteIdSequence += 1;
+  return `contratante-${contratanteIdSequence}`;
+};
+const createResponsavelTecnicoId = () => {
+  responsavelTecnicoIdSequence += 1;
+  return `responsavel-tecnico-${responsavelTecnicoIdSequence}`;
+};
+const createCampoAdicionalId = () => {
+  campoAdicionalIdSequence += 1;
+  return `campo-adicional-${campoAdicionalIdSequence}`;
+};
 
 export const normalizeAdditionalFields = (value: unknown): CampoAdicionalDraft[] => {
   if (!Array.isArray(value)) return [];

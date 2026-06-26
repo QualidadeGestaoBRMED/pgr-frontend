@@ -354,7 +354,7 @@ export function usePgrEtapaController({
     step.id,
   ]);
 
-  usePgrPersistence({
+  const { persistLatestStateNow } = usePgrPersistence({
     params,
     shouldHydrateFromApi,
     defaultHistorico,
@@ -555,9 +555,29 @@ export function usePgrEtapaController({
         window.clearTimeout(refs.saveTimerRef.current);
         refs.saveTimerRef.current = null;
       }
-      await putPgrState(params.id, buildStatePayload(layoutOverride, overrides));
+      const payload = buildStatePayload(layoutOverride, overrides);
+      await persistLatestStateNow(payload);
     },
-    [buildStatePayload, params.id, refs.saveTimerRef]
+    [buildStatePayload, persistLatestStateNow, refs.saveTimerRef]
+  );
+
+  const navigateWithPersist = useCallback(
+    async (targetStepId: string) => {
+      try {
+        await persistStateNow();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar os dados antes de navegar.";
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        return;
+      }
+      router.push(`/pgr/${params.id}/${targetStepId}`);
+    },
+    [params.id, persistStateNow, router]
   );
 
   useEffect(() => {
@@ -1245,6 +1265,9 @@ export function usePgrEtapaController({
       accessibleStepIds: isRejectedPendingReasonSelection ? (["historico"] as PgrStepId[]) : undefined,
       cycleTimeMs: cycleTime.cycleTotalMs,
       cycleSessionStartedAtMs: cycleTime.activeSessionStartedAtMs,
+      onNavigateStep: (stepId: PgrStepId) => {
+        void navigateWithPersist(stepId);
+      },
     },
     bodyCtx: {
       step,
@@ -1395,7 +1418,7 @@ export function usePgrEtapaController({
           router.push(`/pgr/${params.id}/historico`);
           return;
         }
-        router.push(`/pgr/${params.id}/${stepId}`);
+        void navigateWithPersist(stepId);
       },
       onAdvance: generalActions.handleAdvance,
       onCreateNextGhe: descricaoInteractions.handleCreateNextGhe,

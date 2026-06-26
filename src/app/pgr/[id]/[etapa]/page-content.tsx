@@ -26,6 +26,7 @@ export default function PgrEtapaPage({
       accessibleStepIds={shellProps.accessibleStepIds}
       cycleTimeMs={shellProps.cycleTimeMs}
       cycleSessionStartedAtMs={shellProps.cycleSessionStartedAtMs}
+      onNavigateStep={shellProps.onNavigateStep}
     >
       <PgrStepBody ctx={bodyCtx} />
       <StepFooterActions {...footerProps} />

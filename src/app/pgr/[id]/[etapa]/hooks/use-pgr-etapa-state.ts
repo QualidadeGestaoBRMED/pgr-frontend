@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import {
   defaultAnexos,
@@ -20,7 +20,7 @@ import type {
   RiskCatalogPayload,
   RiskGheGroup,
 } from "../types";
-import { getRuntimeCachedState } from "../state/runtime-cache";
+import type { PersistedPgrState } from "../state/runtime-cache";
 import { syncLegacyContractorFields } from "../utils/contractors";
 import { syncLegacyEstablishmentFields } from "../utils/establishments";
 import {
@@ -35,36 +35,21 @@ export function usePgrEtapaState({
   paramsId: string;
   currentIndex: number;
 }) {
-  const initialCachedState = getRuntimeCachedState(paramsId);
-  const serverSyncedCachedState =
-    initialCachedState?.serverSynced === true ? initialCachedState : null;
-  const cacheAgeMs =
-    typeof serverSyncedCachedState?.syncedAt === "number"
-      ? Date.now() - serverSyncedCachedState.syncedAt
-      : Number.POSITIVE_INFINITY;
-  const shouldHydrateFromApi = !serverSyncedCachedState || cacheAgeMs > 120000;
+  type Workflow = PersistedPgrState["workflow"];
+  const [shouldHydrateFromApi, setShouldHydrateFromApi] = useState<boolean | null>(null);
 
-  const [completedSteps, setCompletedSteps] = useState(
-    serverSyncedCachedState?.completedSteps ?? currentIndex
-  );
+  const [completedSteps, setCompletedSteps] = useState(currentIndex);
   const [progressPercent, setProgressPercent] = useState(
-    typeof serverSyncedCachedState?.progressPercent === "number"
-      ? serverSyncedCachedState.progressPercent
-      : Math.round((Math.max(0, currentIndex) / 8) * 100)
+    Math.round((Math.max(0, currentIndex) / 8) * 100)
   );
-  const [inicioDraft, setInicioDraft] = useState<InicioDraft>(
-    serverSyncedCachedState?.inicioDraft ?? initialInicioDraft
-  );
+  const [inicioDraft, setInicioDraft] = useState<InicioDraft>(initialInicioDraft);
   const [dadosCadastrais, setDadosCadastrais] = useState<DadosCadastraisDraft>(
     syncLegacyContractorFields(
-      syncLegacyEstablishmentFields(
-        serverSyncedCachedState?.dadosCadastrais ?? initialDadosCadastrais,
-        serverSyncedCachedState?.estabelecimentoSelecionado ?? ""
-      )
+      syncLegacyEstablishmentFields(initialDadosCadastrais, "")
     )
   );
   const [cardMeta, setCardMeta] = useState(
-    serverSyncedCachedState?.cardMeta ?? {
+    {
       pipefyCardId: "",
       cardName: "",
       dueDate: "",
@@ -72,13 +57,9 @@ export function usePgrEtapaState({
       responsibleId: null as number | null,
     }
   );
-  const [historicoData, setHistoricoData] = useState(
-    serverSyncedCachedState?.historicoData ?? defaultHistorico
-  );
-  const [functionsData, setFunctionsData] = useState<PgrFunction[]>(
-    serverSyncedCachedState?.functionsData ?? defaultFunctions
-  );
-  const [isStateLoading, setIsStateLoading] = useState(shouldHydrateFromApi);
+  const [historicoData, setHistoricoData] = useState(defaultHistorico);
+  const [functionsData, setFunctionsData] = useState<PgrFunction[]>(defaultFunctions);
+  const [isStateLoading, setIsStateLoading] = useState(true);
 
   const saveTimerRef = useRef<number | null>(null);
   const lastCompletedSyncRef = useRef<number | null>(null);
@@ -102,9 +83,7 @@ export function usePgrEtapaState({
   const [isFinalizingPgr, setIsFinalizingPgr] = useState(false);
   const [lastFakePdfAt, setLastFakePdfAt] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState(
-    serverSyncedCachedState?.estabelecimentoSelecionado ?? ""
-  );
+  const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState("");
   const [extraEstabelecimentoFields, setExtraEstabelecimentoFields] = useState<
     Array<{
       id: string;
@@ -112,48 +91,34 @@ export function usePgrEtapaState({
       value: string;
       scope: "empresa" | "estabelecimento" | "contratante" | "quantitativo";
     }>
-  >(serverSyncedCachedState?.extraEstabelecimentoFields ?? []);
+  >([]);
   const [planAction, setPlanAction] = useState({
-    nr: serverSyncedCachedState?.planAction.nr ?? "NR-01",
-    vigencia:
-      serverSyncedCachedState?.planAction.vigencia ||
-      calculatePlanActionVigencia(serverSyncedCachedState?.historicoData?.changes ?? []),
+    nr: "NR-01",
+    vigencia: calculatePlanActionVigencia([]),
   });
-  const [removedPlanRiskKeys, setRemovedPlanRiskKeys] = useState<string[]>(
-    serverSyncedCachedState?.removedPlanRiskKeys ?? []
-  );
-  const [planGeneralMeasures, setPlanGeneralMeasures] = useState<PlanGeneralMeasureRow[]>(
-    serverSyncedCachedState?.planGeneralMeasures ?? []
-  );
+  const [removedPlanRiskKeys, setRemovedPlanRiskKeys] = useState<string[]>([]);
+  const [planGeneralMeasures, setPlanGeneralMeasures] = useState<PlanGeneralMeasureRow[]>([]);
   const [isPlanActionModalOpen, setIsPlanActionModalOpen] = useState(false);
   const [planActionScope, setPlanActionScope] = useState<"all" | "ghe" | "risk">("risk");
   const [planActionGheId, setPlanActionGheId] = useState("");
   const [planActionRiskId, setPlanActionRiskId] = useState("");
   const [planActionDescription, setPlanActionDescription] = useState("");
   const [persistedOptionsByRowId, setPersistedOptionsByRowId] = useState<Record<string, string[]>>(
-    serverSyncedCachedState?.persistedOptionsByRowId ?? {}
+    {}
   );
   const [editingMedidasId, setEditingMedidasId] = useState<string | null>(null);
   const [editingMedidasValue, setEditingMedidasValue] = useState("");
   const [planTablePage, setPlanTablePage] = useState(1);
   const planTablePageSize = 8;
-  const [anexos, setAnexos] = useState<AnexoItem[]>(
-    serverSyncedCachedState?.anexos ?? defaultAnexos
-  );
-  const [anexoDiretriz, setAnexoDiretriz] = useState(
-    serverSyncedCachedState?.anexoDiretriz ?? "Diretriz 1"
-  );
+  const [anexos, setAnexos] = useState<AnexoItem[]>(defaultAnexos);
+  const [anexoDiretriz, setAnexoDiretriz] = useState("Diretriz 1");
   const [draggedAnexoId, setDraggedAnexoId] = useState<string | null>(null);
   const [dragOverAnexoId, setDragOverAnexoId] = useState<string | null>(null);
   const [selectedLeftIds, setSelectedLeftIds] = useState<string[]>([]);
   const [selectedRightIds, setSelectedRightIds] = useState<string[]>([]);
-  const [gheGroups, setGheGroups] = useState<GheGroup[]>(
-    serverSyncedCachedState?.gheGroups ?? defaultGheGroups
-  );
+  const [gheGroups, setGheGroups] = useState<GheGroup[]>(defaultGheGroups);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [currentGheId, setCurrentGheId] = useState(
-    serverSyncedCachedState?.currentGheId ?? "ghe-1"
-  );
+  const [currentGheId, setCurrentGheId] = useState("ghe-1");
   const [isGheModalOpen, setIsGheModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [infoModalError, setInfoModalError] = useState<string>("");
@@ -163,14 +128,10 @@ export function usePgrEtapaState({
   const [gheSearch, setGheSearch] = useState("");
   const [gheFilterId, setGheFilterId] = useState<"all" | string>("all");
   const [isGheListView, setIsGheListView] = useState(false);
-  const [riskGheGroups, setRiskGheGroups] = useState<RiskGheGroup[]>(
-    serverSyncedCachedState?.riskGheGroups ?? defaultRiskGheGroups
-  );
-  const [currentRiskGheId, setCurrentRiskGheId] = useState(
-    serverSyncedCachedState?.currentRiskGheId ?? "ghe-1"
-  );
-  const [workflow, setWorkflow] = useState(
-    serverSyncedCachedState?.workflow ?? {
+  const [riskGheGroups, setRiskGheGroups] = useState<RiskGheGroup[]>(defaultRiskGheGroups);
+  const [currentRiskGheId, setCurrentRiskGheId] = useState("ghe-1");
+  const [workflow, setWorkflow] = useState<Workflow>(
+    {
       isLocked: false,
       version: 1,
       statusLabel: null as string | null,
@@ -182,11 +143,15 @@ export function usePgrEtapaState({
     }
   );
   const [pdfLayout, setPdfLayout] = useState(() =>
-    normalizePdfLayoutState(serverSyncedCachedState?.pdfLayout ?? DEFAULT_PDF_LAYOUT_STATE)
+    normalizePdfLayoutState(DEFAULT_PDF_LAYOUT_STATE)
   );
   const [lastGheNotice, setLastGheNotice] = useState<null | { from: string; to: string }>(
     null
   );
+
+  useEffect(() => {
+    setShouldHydrateFromApi(true);
+  }, [paramsId]);
 
   const cloneGheGroups = (value: GheGroup[]) => JSON.parse(JSON.stringify(value)) as GheGroup[];
   const cloneRiskGheGroups = (value: RiskGheGroup[]) =>
