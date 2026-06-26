@@ -550,9 +550,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         meioPropagacao:
           firstTechnicalCriteria?.propagationPath ||
           getFirstCatalogValue(propagationPathsByAgent, agentId),
-        fontes:
-          firstTechnicalCriteria?.source ||
-          getFirstCatalogValue(riskSourcesByAgent, agentId),
+        fontes: "",
         unidadeMedida: firstTechnicalCriteria?.unit || "",
         tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
         intensidade: calculatedDefaultValue || firstTechnicalCriteria?.intensity || "",
@@ -598,7 +596,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         meioPropagacao: shouldUseDefaultPropagation
           ? defaults.meioPropagacao || ""
           : normalizedRisk.meioPropagacao,
-        fontes: normalizedRisk.fontes || defaults.fontes || "",
+        fontes: normalizedRisk.fontes || "",
         danosSaude: defaults.danosSaude || normalizedRisk.danosSaude || "",
         unidadeMedida: normalizedRisk.unidadeMedida || defaults.unidadeMedida || "",
         tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
