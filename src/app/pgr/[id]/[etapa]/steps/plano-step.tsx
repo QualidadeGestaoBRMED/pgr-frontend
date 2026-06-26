@@ -113,6 +113,12 @@ type PlanoStepProps = {
 };
 
 export function PlanoStep({ctx}: PlanoStepProps) {
+    const ACTION_DEADLINE_DAYS_BY_PRIORITY = {
+        immediate: 30,
+        high: 90,
+        medium: 180,
+    } as const;
+
     const nrActionPresets: Record<string, string[]> = {
         "NR-01": [
             "Antecipação dos riscos no local de trabalho",
@@ -152,6 +158,41 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .toLowerCase();
+
+    const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
+        const normalizedPriority = normalizeText(String(prioridade || "").trim());
+        const normalizedClassification = normalizeText(String(classificacao || "").trim());
+
+        if (normalizedPriority.includes("imediat") || normalizedPriority.includes("critic")) {
+            return ACTION_DEADLINE_DAYS_BY_PRIORITY.immediate;
+        }
+        if (normalizedPriority.includes("alt")) {
+            return ACTION_DEADLINE_DAYS_BY_PRIORITY.high;
+        }
+        if (normalizedPriority.includes("media") || normalizedPriority.includes("moderad")) {
+            return ACTION_DEADLINE_DAYS_BY_PRIORITY.medium;
+        }
+
+        // Fallback para casos legados em que a prioridade não veio preenchida,
+        // mas a classificação do plano ainda pode indicar o prazo padrão.
+        if (
+            normalizedClassification.includes("imediat") ||
+            normalizedClassification.includes("critic")
+        ) {
+            return ACTION_DEADLINE_DAYS_BY_PRIORITY.immediate;
+        }
+        if (normalizedClassification.includes("alt")) {
+            return ACTION_DEADLINE_DAYS_BY_PRIORITY.high;
+        }
+        if (
+            normalizedClassification.includes("media") ||
+            normalizedClassification.includes("moderad")
+        ) {
+            return ACTION_DEADLINE_DAYS_BY_PRIORITY.medium;
+        }
+
+        return null;
+    };
 
     const parseMultiTextValues = (value: string) =>
         value
@@ -197,6 +238,44 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         const next = new Date(date.getTime());
         next.setUTCDate(next.getUTCDate() + days);
         return next;
+    };
+
+    const normalizeDateInputValue = (raw: string) => {
+        const value = String(raw || "").trim();
+        if (!value) return "";
+
+        const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+            return value;
+        }
+
+        const slashMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (slashMatch) {
+            const first = Number(slashMatch[1]);
+            const second = Number(slashMatch[2]);
+            const year = slashMatch[3];
+
+            if (second > 12 && first <= 12) {
+                return `${year}-${String(first).padStart(2, "0")}-${String(second).padStart(2, "0")}`;
+            }
+
+            return `${year}-${String(second).padStart(2, "0")}-${String(first).padStart(2, "0")}`;
+        }
+
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return "";
+        return toIsoDate(parsed);
+    };
+
+    const formatDateForDisplay = (raw: string) => {
+        const isoValue = normalizeDateInputValue(raw);
+        if (!isoValue) {
+            return maskDate(String(raw || ""));
+        }
+
+        const match = isoValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return maskDate(String(raw || ""));
+        return `${match[3]}/${match[2]}/${match[1]}`;
     };
 
 
@@ -356,30 +435,56 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const inicioVigenciaBase = parseVigenciaStartDate(planAction.vigencia || "");
 
     useEffect(() => {
+        setPrazoAcaoByRowId((prev) => {
+            const next: Record<string, string> = {};
+            let hasChanges = false;
+
+            planTableRows.forEach((row) => {
+                const rowPrazo = normalizeDateInputValue(String(row.prazoAcao || ""));
+                if (rowPrazo) {
+                    next[row.id] = rowPrazo;
+                }
+            });
+
+            const prevKeys = Object.keys(prev);
+            const nextKeys = Object.keys(next);
+            if (prevKeys.length !== nextKeys.length) {
+                hasChanges = true;
+            } else {
+                hasChanges = nextKeys.some((key) => prev[key] !== next[key]);
+            }
+
+            return hasChanges ? next : prev;
+        });
+    }, [planTableRows]);
+
+    useEffect(() => {
         if (!inicioVigenciaBase) return;
-        const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
-            const text = normalizeText(`${prioridade} ${classificacao}`);
-            if (text.includes("imediat") || text.includes("critic")) return 30;
-            if (text.includes("alt")) return 90;
-            if (text.includes("media") || text.includes("moderad")) return 180;
-            return null;
-        };
 
         planTableRows.forEach((row) => {
-            if (initializedRowsRef.current.has(row.id + "_prazo")) return;
+            const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
+            if (!days) {
+                initializedRowsRef.current.add(row.id + "_prazo");
+                return;
+            }
 
-            const existingVal = String(row.prazoAcao || "").trim();
-            if (!existingVal) {
-                const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
-                if (days) {
-                    const prazoCalculado = toIsoDate(addDays(inicioVigenciaBase, days));
-                    setPrazoAcaoByRowId((prev) => ({...prev, [row.id]: prazoCalculado}));
-                    handlePlanRiskFieldChange(row.gheId, row.riskId, "prazoAcao", prazoCalculado, row.groupTargets);
-                }
+            const prazoCalculado = toIsoDate(addDays(inicioVigenciaBase, days));
+            const existingVal = normalizeDateInputValue(String(row.prazoAcao || ""));
+            const localVal = normalizeDateInputValue(String(prazoAcaoByRowId[row.id] || ""));
+
+            if (existingVal !== prazoCalculado || localVal !== prazoCalculado) {
+                setPrazoAcaoByRowId((prev) => ({...prev, [row.id]: prazoCalculado}));
+                handlePlanRiskFieldChange(
+                    row.gheId,
+                    row.riskId,
+                    "prazoAcao",
+                    prazoCalculado,
+                    row.groupTargets
+                );
             }
             initializedRowsRef.current.add(row.id + "_prazo");
         });
-    }, [inicioVigenciaBase, handlePlanRiskFieldChange, planTableRows]);
+    }, [inicioVigenciaBase, getPrazoDaysByPriority, handlePlanRiskFieldChange, planTableRows, prazoAcaoByRowId]);
 
     useEffect(() => {
         const defaultResponsible = String(defaultResponsibleActionName || "").trim();
@@ -818,7 +923,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <input
-                                                type="date"
+                                                type="text"
                                                 className={withPendingHighlight(
                                                     withRequiredHighlight(
                                                         `${tableInputClass} min-w-[170px]`,
@@ -826,21 +931,31 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                     ),
                                                     isPendingRowField(row, "prazoAcao")
                                                 )}
-                                                value={prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""}
+                                                value={formatDateForDisplay(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "")}
                                                 onChange={(event) => {
-                                                    const value = event.target.value;
+                                                    const value = maskDate(event.target.value);
                                                     setPrazoAcaoByRowId((prev) => ({
                                                         ...prev,
                                                         [row.id]: value,
+                                                    }));
+                                                }}
+                                                onBlur={() => {
+                                                    const normalizedValue = normalizeDateInputValue(
+                                                        prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""
+                                                    );
+                                                    setPrazoAcaoByRowId((prev) => ({
+                                                        ...prev,
+                                                        [row.id]: normalizedValue,
                                                     }));
                                                     handlePlanRiskFieldChange(
                                                         row.gheId,
                                                         row.riskId,
                                                         "prazoAcao",
-                                                        value,
+                                                        normalizedValue,
                                                         row.groupTargets
                                                     );
                                                 }}
+                                                placeholder="DD/MM/AAAA"
                                             />
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
