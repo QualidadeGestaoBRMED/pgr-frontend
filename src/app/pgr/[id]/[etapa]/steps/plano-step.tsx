@@ -2,7 +2,6 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import type {Dispatch, SetStateAction} from "react";
 import {ChevronDown, MinusCircle, Search} from "lucide-react";
 import {SearchableSelect, type SearchableSelectProps} from "./searchable-select";
-import type { PendingReviewFocus } from "../types";
 
 type PlanoStepProps = {
     ctx: {
@@ -37,7 +36,6 @@ type PlanoStepProps = {
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
-            hasPlanSnapshot?: boolean;
             groupTargets?: Array<{ gheId: string; riskId: string }>;
         }>;
         planTableRowsPage: Array<{
@@ -56,7 +54,6 @@ type PlanoStepProps = {
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
-            hasPlanSnapshot?: boolean;
             groupTargets?: Array<{ gheId: string; riskId: string }>;
         }>;
         getActionDescriptionOptions: (
@@ -106,19 +103,12 @@ type PlanoStepProps = {
         setPlanActionDescription: Dispatch<SetStateAction<string>>;
         persistedOptionsByRowId: Record<string, string[]>;
         setPersistedOptionsByRowId: Dispatch<SetStateAction<Record<string, string[]>>>;
-        pendingReviewFocus?: PendingReviewFocus | null;
         handleSavePlanActionModal: (options?: { riskIds?: string[]; gheIds?: string[] }) => void;
         handleCreateNrPlanRows: (nr: string, actions: string[]) => void;
     };
 };
 
 export function PlanoStep({ctx}: PlanoStepProps) {
-    const ACTION_DEADLINE_DAYS_BY_PRIORITY = {
-        immediate: 30,
-        high: 90,
-        medium: 180,
-    } as const;
-
     const nrActionPresets: Record<string, string[]> = {
         "NR-01": [
             "Antecipação dos riscos no local de trabalho",
@@ -159,49 +149,14 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             .replace(/[\u0300-\u036f]/g, "")
             .toLowerCase();
 
-    const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
-        const normalizedPriority = normalizeText(String(prioridade || "").trim());
-        const normalizedClassification = normalizeText(String(classificacao || "").trim());
-
-        if (normalizedPriority.includes("imediat") || normalizedPriority.includes("critic")) {
-            return ACTION_DEADLINE_DAYS_BY_PRIORITY.immediate;
-        }
-        if (normalizedPriority.includes("alt")) {
-            return ACTION_DEADLINE_DAYS_BY_PRIORITY.high;
-        }
-        if (normalizedPriority.includes("media") || normalizedPriority.includes("moderad")) {
-            return ACTION_DEADLINE_DAYS_BY_PRIORITY.medium;
-        }
-
-        // Fallback para casos legados em que a prioridade não veio preenchida,
-        // mas a classificação do plano ainda pode indicar o prazo padrão.
-        if (
-            normalizedClassification.includes("imediat") ||
-            normalizedClassification.includes("critic")
-        ) {
-            return ACTION_DEADLINE_DAYS_BY_PRIORITY.immediate;
-        }
-        if (normalizedClassification.includes("alt")) {
-            return ACTION_DEADLINE_DAYS_BY_PRIORITY.high;
-        }
-        if (
-            normalizedClassification.includes("media") ||
-            normalizedClassification.includes("moderad")
-        ) {
-            return ACTION_DEADLINE_DAYS_BY_PRIORITY.medium;
-        }
-
-        return null;
-    };
-
     const parseMultiTextValues = (value: string) =>
         value
-            .split(/[;\n]+/)
+            .split(/[\n,;]+/)
             .map((item) => item.trim())
             .filter(Boolean);
 
     const toMultiTextValue = (values: string[]) =>
-        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join("; ");
+        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
 
     const parseHistoricoDate = (raw: string) => {
         const value = String(raw || "").trim();
@@ -240,44 +195,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         return next;
     };
 
-    const normalizeDateInputValue = (raw: string) => {
-        const value = String(raw || "").trim();
-        if (!value) return "";
-
-        const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (isoMatch) {
-            return value;
-        }
-
-        const slashMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (slashMatch) {
-            const first = Number(slashMatch[1]);
-            const second = Number(slashMatch[2]);
-            const year = slashMatch[3];
-
-            if (second > 12 && first <= 12) {
-                return `${year}-${String(first).padStart(2, "0")}-${String(second).padStart(2, "0")}`;
-            }
-
-            return `${year}-${String(second).padStart(2, "0")}-${String(first).padStart(2, "0")}`;
-        }
-
-        const parsed = new Date(value);
-        if (Number.isNaN(parsed.getTime())) return "";
-        return toIsoDate(parsed);
-    };
-
-    const formatDateForDisplay = (raw: string) => {
-        const isoValue = normalizeDateInputValue(raw);
-        if (!isoValue) {
-            return maskDate(String(raw || ""));
-        }
-
-        const match = isoValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!match) return maskDate(String(raw || ""));
-        return `${match[3]}/${match[2]}/${match[1]}`;
-    };
-
 
     const {
         inputBaseClass,
@@ -312,7 +229,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         planActionRiskOptions,
         planActionDescription,
         setPlanActionDescription,
-        pendingReviewFocus,
         handleSavePlanActionModal,
         handleCreateNrPlanRows,
     } = ctx;
@@ -328,29 +244,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const withRequiredHighlight = (baseClassName: string, isEmpty: boolean) =>
         isEmpty ? `${baseClassName} ${requiredEmptyClass}` : baseClassName;
-
-    const isPendingRowField = (
-        row: {
-            gheId: string;
-            riskId: string;
-            groupTargets?: Array<{ gheId: string; riskId: string }>;
-        },
-        fieldKey: string
-    ) => {
-        if (pendingReviewFocus?.stepId !== "plano") return false;
-        if (pendingReviewFocus.fieldKey !== fieldKey) return false;
-        if (pendingReviewFocus.gheId === row.gheId && pendingReviewFocus.riskId === row.riskId) {
-            return true;
-        }
-        return (row.groupTargets || []).some(
-            (target) =>
-                target.gheId === pendingReviewFocus.gheId &&
-                target.riskId === pendingReviewFocus.riskId
-        );
-    };
-
-    const withPendingHighlight = (baseClassName: string, isPending: boolean) =>
-        isPending ? `${baseClassName} border-amber-400 bg-amber-50 ring-2 ring-amber-200` : baseClassName;
 
     const [, setTouchedPlanActionDescription] = useState(false);
     const [selectedPlanActionGheIds, setSelectedPlanActionGheIds] = useState<string[]>([]);
@@ -385,29 +278,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
     const initializedRowsRef = useRef<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (pendingReviewFocus?.stepId !== "plano") return;
-        const rowIndex = planTableRows.findIndex((row) => {
-            if (pendingReviewFocus.gheId === row.gheId && pendingReviewFocus.riskId === row.riskId) {
-                return true;
-            }
-            return (row.groupTargets || []).some(
-                (target) =>
-                    target.gheId === pendingReviewFocus.gheId &&
-                    target.riskId === pendingReviewFocus.riskId
-            );
-        });
-        if (rowIndex >= 0) {
-            setPlanTablePage(Math.floor(rowIndex / 10) + 1);
-        }
-        setTimeout(() => {
-            const target = document.querySelector<HTMLElement>(
-                `[data-pending-ghe-id="${pendingReviewFocus.gheId || ""}"][data-pending-risk-id="${pendingReviewFocus.riskId || ""}"]`
-            ) || document.querySelector<HTMLElement>("[data-pending-section='plan-table']");
-            target?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 50);
-    }, [pendingReviewFocus, planTableRows, setPlanTablePage]);
-
     const { persistedOptionsByRowId, setPersistedOptionsByRowId } = ctx;
 
     // Capture initial values and automatic changes into persisted options
@@ -435,56 +305,30 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const inicioVigenciaBase = parseVigenciaStartDate(planAction.vigencia || "");
 
     useEffect(() => {
-        setPrazoAcaoByRowId((prev) => {
-            const next: Record<string, string> = {};
-            let hasChanges = false;
-
-            planTableRows.forEach((row) => {
-                const rowPrazo = normalizeDateInputValue(String(row.prazoAcao || ""));
-                if (rowPrazo) {
-                    next[row.id] = rowPrazo;
-                }
-            });
-
-            const prevKeys = Object.keys(prev);
-            const nextKeys = Object.keys(next);
-            if (prevKeys.length !== nextKeys.length) {
-                hasChanges = true;
-            } else {
-                hasChanges = nextKeys.some((key) => prev[key] !== next[key]);
-            }
-
-            return hasChanges ? next : prev;
-        });
-    }, [planTableRows]);
-
-    useEffect(() => {
         if (!inicioVigenciaBase) return;
+        const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
+            const text = normalizeText(`${prioridade} ${classificacao}`);
+            if (text.includes("imediat") || text.includes("critic")) return 30;
+            if (text.includes("alt")) return 90;
+            if (text.includes("media") || text.includes("moderad")) return 180;
+            return null;
+        };
 
         planTableRows.forEach((row) => {
-            const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
-            if (!days) {
-                initializedRowsRef.current.add(row.id + "_prazo");
-                return;
-            }
+            if (initializedRowsRef.current.has(row.id + "_prazo")) return;
 
-            const prazoCalculado = toIsoDate(addDays(inicioVigenciaBase, days));
-            const existingVal = normalizeDateInputValue(String(row.prazoAcao || ""));
-            const localVal = normalizeDateInputValue(String(prazoAcaoByRowId[row.id] || ""));
-
-            if (existingVal !== prazoCalculado || localVal !== prazoCalculado) {
-                setPrazoAcaoByRowId((prev) => ({...prev, [row.id]: prazoCalculado}));
-                handlePlanRiskFieldChange(
-                    row.gheId,
-                    row.riskId,
-                    "prazoAcao",
-                    prazoCalculado,
-                    row.groupTargets
-                );
+            const existingVal = String(row.prazoAcao || "").trim();
+            if (!existingVal) {
+                const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
+                if (days) {
+                    const prazoCalculado = toIsoDate(addDays(inicioVigenciaBase, days));
+                    setPrazoAcaoByRowId((prev) => ({...prev, [row.id]: prazoCalculado}));
+                    handlePlanRiskFieldChange(row.gheId, row.riskId, "prazoAcao", prazoCalculado, row.groupTargets);
+                }
             }
             initializedRowsRef.current.add(row.id + "_prazo");
         });
-    }, [inicioVigenciaBase, getPrazoDaysByPriority, handlePlanRiskFieldChange, planTableRows, prazoAcaoByRowId]);
+    }, [inicioVigenciaBase, handlePlanRiskFieldChange, planTableRows]);
 
     useEffect(() => {
         const defaultResponsible = String(defaultResponsibleActionName || "").trim();
@@ -621,12 +465,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                 </div>
             </section>
 
-            {pendingReviewFocus?.stepId === "plano" ? (
-                <section className="rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-                    Pendência destacada: {pendingReviewFocus.message}
-                </section>
-            ) : null}
-
             <section
                 className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
                 <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -702,7 +540,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                         Carregando classificação final dos riscos...
                     </div>
                 ) : planTableRows.length ? (
-                    <div className="mt-4 space-y-3" data-pending-section="plan-table">
+                    <div className="mt-4 space-y-3">
                         <div className="max-h-[620px] overflow-auto rounded-[12px] border border-border/60">
                             <table
                                 className="min-w-[1950px] w-full border-separate border-spacing-0 text-left text-[12px]">
@@ -742,23 +580,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                 </thead>
                                 <tbody>
                                 {planTableRows.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        data-pending-ghe-id={row.gheId}
-                                        data-pending-risk-id={row.riskId}
-                                        className={`border-t align-middle ${
-                                            pendingReviewFocus?.stepId === "plano" &&
-                                            ((pendingReviewFocus.gheId === row.gheId &&
-                                                pendingReviewFocus.riskId === row.riskId) ||
-                                                (row.groupTargets || []).some(
-                                                    (target) =>
-                                                        target.gheId === pendingReviewFocus.gheId &&
-                                                        target.riskId === pendingReviewFocus.riskId
-                                                ))
-                                                ? "bg-amber-50/80"
-                                                : "border-border/60"
-                                        }`}
-                                    >
+                                    <tr key={row.id} className="border-t border-border/60 align-middle">
                                         <td className="px-4 py-3 text-foreground align-middle">{row.gheName}</td>
                                         <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
                                             {row.descricaoAgente}
@@ -768,12 +590,9 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={withPendingHighlight(
-                                                    withRequiredHighlight(
-                                                        `${tableSelectClass} min-w-[170px]`,
-                                                        !String(tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? "").trim()
-                                                    ),
-                                                    isPendingRowField(row, "tipoMedida")
+                                                className={withRequiredHighlight(
+                                                    `${tableSelectClass} min-w-[170px]`,
+                                                    !String(tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? "").trim()
                                                 )}
                                                 value={tipoMedidaByRowId[row.id] ?? row.tipoMedida ?? ""}
                                                 onChange={(event) => {
@@ -820,10 +639,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                         <div className="relative" data-medidas-multiselect>
                                                             <div className="relative">
                                                                 <textarea
-                                                                    className={withPendingHighlight(
-                                                                        `${tableEditableClass} relative flex min-h-[72px] min-w-[320px] resize-none pr-10 pt-3 text-left`,
-                                                                        isPendingRowField(row, "medidasPrevencao")
-                                                                    )}
+                                                                    className={`${tableEditableClass} relative flex min-h-[72px] min-w-[320px] resize-none pr-10 pt-3 text-left`}
                                                                     value={row.medidasPrevencao || ""}
                                                                     onChange={(event) => {
                                                                         handlePlanMedidasChange(
@@ -923,39 +739,26 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <input
-                                                type="text"
-                                                className={withPendingHighlight(
-                                                    withRequiredHighlight(
-                                                        `${tableInputClass} min-w-[170px]`,
-                                                        !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
-                                                    ),
-                                                    isPendingRowField(row, "prazoAcao")
+                                                type="date"
+                                                className={withRequiredHighlight(
+                                                    `${tableInputClass} min-w-[170px]`,
+                                                    !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
                                                 )}
-                                                value={formatDateForDisplay(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "")}
+                                                value={prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""}
                                                 onChange={(event) => {
-                                                    const value = maskDate(event.target.value);
+                                                    const value = event.target.value;
                                                     setPrazoAcaoByRowId((prev) => ({
                                                         ...prev,
                                                         [row.id]: value,
-                                                    }));
-                                                }}
-                                                onBlur={() => {
-                                                    const normalizedValue = normalizeDateInputValue(
-                                                        prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? ""
-                                                    );
-                                                    setPrazoAcaoByRowId((prev) => ({
-                                                        ...prev,
-                                                        [row.id]: normalizedValue,
                                                     }));
                                                     handlePlanRiskFieldChange(
                                                         row.gheId,
                                                         row.riskId,
                                                         "prazoAcao",
-                                                        normalizedValue,
+                                                        value,
                                                         row.groupTargets
                                                     );
                                                 }}
-                                                placeholder="DD/MM/AAAA"
                                             />
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
@@ -986,16 +789,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={withPendingHighlight(
-                                                    withRequiredHighlight(
-                                                        `${tableSelectClass} min-w-[180px]`,
-                                                        !String(
-                                                            acompanhamentoByRowId[row.id] ??
-                                                            row.acompanhamento ??
-                                                            defaultAcompanhamento
-                                                        ).trim()
-                                                    ),
-                                                    isPendingRowField(row, "acompanhamento")
+                                                className={withRequiredHighlight(
+                                                    `${tableSelectClass} min-w-[180px]`,
+                                                    !String(
+                                                        acompanhamentoByRowId[row.id] ??
+                                                        row.acompanhamento ??
+                                                        defaultAcompanhamento
+                                                    ).trim()
                                                 )}
                                                 value={
                                                     acompanhamentoByRowId[row.id] ??
@@ -1025,16 +825,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         </td>
                                         <td className="border-l border-border/60 px-4 py-3 text-muted-foreground align-middle">
                                             <select
-                                                className={withPendingHighlight(
-                                                    withRequiredHighlight(
-                                                        `${tableSelectClass} min-w-[210px]`,
-                                                        !String(
-                                                            afericaoResultadoByRowId[row.id] ??
-                                                            row.afericaoResultado ??
-                                                            defaultAfericaoResultado
-                                                        ).trim()
-                                                    ),
-                                                    isPendingRowField(row, "afericaoResultado")
+                                                className={withRequiredHighlight(
+                                                    `${tableSelectClass} min-w-[210px]`,
+                                                    !String(
+                                                        afericaoResultadoByRowId[row.id] ??
+                                                        row.afericaoResultado ??
+                                                        defaultAfericaoResultado
+                                                    ).trim()
                                                 )}
                                                 value={
                                                     afericaoResultadoByRowId[row.id] ??

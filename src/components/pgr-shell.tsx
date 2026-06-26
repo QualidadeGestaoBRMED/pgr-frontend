@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -9,10 +10,8 @@ type PgrShellProps = {
   progressPercent?: number;
   stepStatusById?: Partial<Record<PgrStepId, boolean>>;
   alertSteps?: Partial<Record<PgrStepId, boolean>>;
-  accessibleStepIds?: PgrStepId[];
   cycleTimeMs?: number;
   cycleSessionStartedAtMs?: number | null;
-  onNavigateStep?: (stepId: PgrStepId) => void;
   children: ReactNode;
 };
 
@@ -67,10 +66,8 @@ export function PgrShell({
   progressPercent,
   stepStatusById,
   alertSteps,
-  accessibleStepIds,
   cycleTimeMs = 0,
   cycleSessionStartedAtMs = null,
-  onNavigateStep,
   children,
 }: PgrShellProps) {
   const totalSteps = pgrSteps.length;
@@ -95,8 +92,6 @@ export function PgrShell({
             const isAlert = Boolean(alertSteps?.[step.id]);
             const isDoneByRule = Boolean(stepStatusById?.[step.id]);
             const isDone = !isAlert && (isDoneByRule || index < clampedCompleted);
-            const isAccessible =
-              !accessibleStepIds || accessibleStepIds.includes(step.id);
             const circleClasses = isAlert
               ? "bg-[#ffe1e1] text-[#d14c4c] dark:bg-[#5a2a2a] dark:text-[#ffb6b6]"
               : isDone
@@ -105,54 +100,39 @@ export function PgrShell({
             const rowClasses = isCurrent
               ? "rounded-[10px] bg-primary/8 px-2 py-2 -mx-2 dark:bg-white/8"
               : "px-2 py-2 -mx-2";
-            const content = (
-              <>
-                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold ${circleClasses} ${isCurrent ? "ring-1 ring-primary/35 dark:ring-white/30" : ""}`}
-                  >
-                    {isDone && !isAlert ? <Check className="h-4 w-4" /> : index + 1}
-                  </div>
-                  {index < pgrSteps.length - 1 && (
-                    <span className="absolute left-1/2 top-8 h-10 w-px -translate-x-1/2 bg-border" />
-                  )}
-                </div>
-                <div className="min-w-0 pt-0.5 text-left">
-                  <span
-                    className={`inline-block text-[15px] font-semibold ${
-                      isCurrent
-                        ? "border-b border-[#e5e5e5] pb-0 text-foreground dark:border-white/25"
-                        : "text-foreground/80"
-                    }`}
-                  >
-                    {step.title}
-                  </span>
-                  <p className="mt-1 block text-[12px] leading-snug text-muted-foreground">
-                    {step.subtitle}
-                  </p>
-                </div>
-              </>
-            );
 
             return (
               <li key={step.id} className="relative">
-                {isAccessible ? (
-                  <button
-                    type="button"
-                    onClick={() => onNavigateStep?.(step.id)}
-                    className={`flex w-full items-start gap-4 ${rowClasses}`}
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <div
-                    aria-disabled="true"
-                    className={`flex w-full cursor-not-allowed items-start gap-4 opacity-55 ${rowClasses}`}
-                    title="Selecione um motivo da rejeição no Histórico para liberar as demais etapas."
-                  >
-                    {content}
+                <Link
+                  href={`/pgr/${pgrId}/${step.id}`}
+                  scroll={false}
+                  className={`flex w-full gap-4 ${rowClasses}`}
+                >
+                  <div className="relative flex h-8 w-8 items-center justify-center">
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold ${circleClasses} ${isCurrent ? "ring-1 ring-primary/35 dark:ring-white/30" : ""}`}
+                    >
+                      {isDone && !isAlert ? <Check className="h-4 w-4" /> : index + 1}
+                    </div>
+                    {index < pgrSteps.length - 1 && (
+                      <span className="absolute left-1/2 top-8 h-10 w-px -translate-x-1/2 bg-border" />
+                    )}
                   </div>
-                )}
+                  <div>
+                    <span
+                      className={`inline-block text-[15px] font-semibold ${
+                        isCurrent
+                          ? "border-b border-[#e5e5e5] pb-0 text-foreground dark:border-white/25"
+                          : "text-foreground/80"
+                      }`}
+                    >
+                      {step.title}
+                    </span>
+                    <p className="mt-1 text-[12px] text-muted-foreground">
+                      {step.subtitle}
+                    </p>
+                  </div>
+                </Link>
               </li>
             );
           })}
