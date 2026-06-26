@@ -1,6 +1,11 @@
 import { ChevronDown, PlusCircle, Search, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
+import {
+  isValidQuantitativeMeasurementValue,
+  normalizeQuantitativeMeasurementValue,
+  sanitizeQuantitativeMeasurementInput,
+} from "../validation/br-field-utils";
 import type { GheRisk, RiskGheGroup } from "../types";
 import type { CaracterizacaoStepCtx } from "./renderers/caracterizacao-renderer";
 
@@ -28,7 +33,12 @@ type DuplicateRiskStructureGroup = {
 };
 
 const PROBABILIDADE_OPTIONS = ["1", "2", "3", "4", "5"];
+const MEASURED_VALUE_OPTIONS = ["N/D", "<LQ"];
 const isNaValue = (value: string) => value.trim().toUpperCase() === "N/A";
+const supportsMeasuredValueShortcut = (tipoAgente: string) => {
+  const normalizedTipoAgente = normalizeText(String(tipoAgente || ""));
+  return normalizedTipoAgente.includes("quim");
+};
 type RequiredRiskField =
   | "tipoAgente"
   | "descricaoAgente"
@@ -91,7 +101,6 @@ const sanitizeNumericInput = (value: string) => {
 };
 const normalizeNumericInput = (value: string) =>
   sanitizeNumericInput(value).replace(/[.,]$/, "");
-const isStrictNumericValue = (value: string) => /^\d+(?:[.,]\d+)?$/.test(value);
 
 const stripTrailingMeasuredUnit = (value: string, measuredUnit: string) => {
   const trimmed = value.trim();
@@ -187,10 +196,20 @@ const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) =
   const isQualitativeEvaluation = normalizeText(String(risk.tipoAvaliacao || "")).includes(
     "qualit"
   );
+  const isQuantitativeEvaluation = normalizeText(String(risk.tipoAvaliacao || "")).includes(
+    "quantit"
+  );
+  const intensityValue = stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits);
   return {
     ...risk,
-    valorMedido: isQualitativeEvaluation ? "N/A" : sanitizeNumericInput(sanitizedValorMedido),
-    intensidade: stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits),
+    valorMedido: isQualitativeEvaluation
+      ? "N/A"
+      : isQuantitativeEvaluation
+        ? normalizeQuantitativeMeasurementValue(sanitizedValorMedido)
+        : sanitizeNumericInput(sanitizedValorMedido),
+    intensidade: isQuantitativeEvaluation
+      ? normalizeQuantitativeMeasurementValue(intensityValue)
+      : intensityValue,
     nivelAcao: stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
   };
 };
@@ -288,15 +307,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const [batchAssignFeedback, setBatchAssignFeedback] = useState<string>("");
   const [openMultiSelect, setOpenMultiSelect] = useState<null | {
     riskId: string;
-    field:
-      | "epc"
-      | "epi"
-      | "danosSaude"
-      | "fontes"
-      | "meioPropagacao"
-      | "unidadeMedida"
-      | "medidasControle"
-      | "normas";
+      field:
+        | "epc"
+        | "epi"
+        | "danosSaude"
+        | "fontes"
+        | "meioPropagacao"
+        | "unidadeMedida"
+        | "medidasControle"
+        | "normas"
+        | "valorMedido";
   }>(null);
   const [multiSelectQuery, setMultiSelectQuery] = useState("");
   const [, setTouchedRiskFields] = useState<
@@ -651,6 +671,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
         const isQuantitativeEvaluation = normalizeText(
           String(risk.tipoAvaliacao || "")
         ).includes("quantit");
+        const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(risk.tipoAgente);
         const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
         const isDuplicateDescription =
           !!descriptionKey &&
@@ -673,14 +694,24 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             : "",
           valorMedido: isQuantitativeEvaluation
             ? hasValue(risk.valorMedido)
-              ? ""
+              ? isValidQuantitativeMeasurementValue(String(risk.valorMedido || ""))
+                && (allowMeasuredValueShortcut ||
+                  !/^(N\/D|<LQ)$/i.test(String(risk.valorMedido || "").trim()))
+                ? ""
+                : allowMeasuredValueShortcut
+                  ? "Valor medido deve ser numérico, N/D, <LQ ou comparador válido, como <80, >80, <=80 ou >=80."
+                  : "Valor medido deve ser numérico ou comparador válido, como <80, >80, <=80 ou >=80."
               : "Valor medido é obrigatório para avaliação quantitativa."
             : "",
           tipoAvaliacao: hasValue(risk.tipoAvaliacao)
             ? ""
             : "Tipo de Avaliação é obrigatório.",
           intensidade: hasValue(risk.intensidade)
-            ? ""
+            ? isQuantitativeEvaluation
+              ? isValidQuantitativeMeasurementValue(String(risk.intensidade || ""))
+                ? ""
+                : "Intensidade/Concentração deve ser numérica ou comparador válido, como <80, >80, <=80 ou >=80."
+              : ""
             : "Intensidade/Concentração é obrigatória.",
           severidade: hasValue(risk.severidade) ? "" : "Severidade é obrigatória.",
           probabilidade: hasValue(risk.probabilidade) ? "" : "Probabilidade é obrigatória.",
@@ -1029,9 +1060,20 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             value,
                             measuredUnits
                           );
+                          const isQuantitativeEvaluation = normalizeText(
+                            String(risk.tipoAvaliacao || "")
+                          ).includes("quantit");
                           const sanitizedValue =
                             field === "valorMedido"
-                              ? sanitizeNumericInput(valueWithoutUnit)
+                              ? isQuantitativeEvaluation
+                                ? normalizeQuantitativeMeasurementValue(
+                                    sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                  )
+                                : sanitizeNumericInput(valueWithoutUnit)
+                              : field === "intensidade" && isQuantitativeEvaluation
+                                ? normalizeQuantitativeMeasurementValue(
+                                    sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                  )
                               : valueWithoutUnit;
                           return withComputedClassification({
                             ...risk,
@@ -1435,6 +1477,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.tipoAgente,
               risk.descricaoAgente
             );
+            const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(risk.tipoAgente);
             const selectedMeasuredUnits = parseMultiTextValues(
               risk.unidadeMedida || "",
               getUnidadeMedidaOptions(risk.tipoAgente, risk.descricaoAgente, "")
@@ -1448,17 +1491,26 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               String(risk.valorMedido || ""),
               selectedMeasuredUnits
             );
-            const numericValorMedido = sanitizeNumericInput(sanitizedValorMedido);
+            const normalizedValorMedido = isQuantitativeEvaluation
+              ? normalizeQuantitativeMeasurementValue(
+                  sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
+                )
+              : sanitizeNumericInput(sanitizedValorMedido);
             const sanitizedIntensidade = stripTrailingMeasuredUnits(
               String(risk.intensidade || ""),
               selectedMeasuredUnits
             );
+            const displayIntensidade = isQuantitativeEvaluation
+              ? normalizeQuantitativeMeasurementValue(
+                  sanitizeQuantitativeMeasurementInput(sanitizedIntensidade)
+                )
+              : sanitizedIntensidade;
             const sanitizedNivelAcao = stripTrailingMeasuredUnits(
               String(risk.nivelAcao || ""),
               selectedMeasuredUnits
             );
             const isMeasuredValueMissing =
-              isQuantitativeEvaluation && !String(numericValorMedido || "").trim();
+              isQuantitativeEvaluation && !String(normalizedValorMedido || "").trim();
             const qualitativeMeasuredValueLabel =
               "Aguardando Avaliação Quantitativa";
             const sanitizeOptionValues = (options: string[]) =>
@@ -2136,11 +2188,15 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 "intensidade",
                                 stackedInputClass
                               )}
-                              value={sanitizedIntensidade}
+                              value={displayIntensidade}
                               placeholder={measuredUnitPlaceholder}
                               onChange={(event) => {
                                 markRiskTouched(risk.id, "intensidade");
-                                handleRiskChange(risk.id, "intensidade", event.target.value);
+                                handleRiskChange(
+                                  risk.id,
+                                  "intensidade",
+                                  sanitizeQuantitativeMeasurementInput(event.target.value)
+                                );
                               }}
                             />
                             {getRiskFieldError(risk.id, "intensidade") ? (
@@ -2256,54 +2312,102 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 disabled
                               />
                             ) : (
-                              <input
-                                className={getRiskFieldClassName(
-                                  risk.id,
-                                  "valorMedido",
-                                  stackedInputClass
-                                )}
-                                value={numericValorMedido}
-                                placeholder={
-                                  isMeasuredValueMissing
-                                    ? "Valor medido é obrigatório para avaliação quantitativa"
-                                    : measuredUnitPlaceholder
-                                }
-                                inputMode="decimal"
-                                onChange={(event) => {
-                                  const nextValue = sanitizeNumericInput(event.target.value);
-                                  handleRiskChange(risk.id, "valorMedido", nextValue);
-                                }}
-                                onBlur={() => {
-                                  if (!isQuantitativeEvaluation) return;
-                                  const currentValue = String(risk.valorMedido || "").trim();
-                                  if (!currentValue) return;
-                                  const valueWithoutUnit = stripTrailingMeasuredUnit(
-                                    currentValue,
-                                    measuredUnit
-                                  );
-                                  const normalizedNumericValue =
-                                    normalizeNumericInput(valueWithoutUnit);
-
-                                  if (!normalizedNumericValue) {
-                                    handleRiskChange(risk.id, "valorMedido", "");
-                                    return;
+                              <div className="relative" data-multiselect>
+                                <input
+                                  className={`${getRiskFieldClassName(
+                                    risk.id,
+                                    "valorMedido",
+                                    stackedInputClass
+                                  )} pr-10`}
+                                  value={normalizedValorMedido}
+                                  placeholder={
+                                    isMeasuredValueMissing
+                                      ? "Valor medido é obrigatório para avaliação quantitativa"
+                                      : allowMeasuredValueShortcut
+                                        ? "80, <80, >80, <=80, >=80, N/D ou <LQ"
+                                        : "80, <80, >80, <=80 ou >=80"
                                   }
-
-                                  if (!isStrictNumericValue(normalizedNumericValue)) {
-                                    handleRiskChange(risk.id, "valorMedido", "");
-                                    return;
-                                  }
-
-                                  if (normalizedNumericValue !== currentValue) {
+                                  inputMode="text"
+                                  onChange={(event) => {
+                                    setOpenMultiSelect(null);
                                     handleRiskChange(
                                       risk.id,
                                       "valorMedido",
-                                      normalizedNumericValue
+                                      sanitizeQuantitativeMeasurementInput(event.target.value)
                                     );
-                                  }
-                                }}
-                                disabled={!isQuantitativeEvaluation}
-                              />
+                                  }}
+                                  onBlur={() => {
+                                    if (!isQuantitativeEvaluation) return;
+                                    const currentValue = String(risk.valorMedido || "").trim();
+                                    if (!currentValue) return;
+                                    const valueWithoutUnit = stripTrailingMeasuredUnit(
+                                      currentValue,
+                                      measuredUnit
+                                    );
+                                    const normalizedValue =
+                                      normalizeQuantitativeMeasurementValue(
+                                        sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                      );
+
+                                    if (normalizedValue !== currentValue) {
+                                      handleRiskChange(
+                                        risk.id,
+                                        "valorMedido",
+                                        normalizedValue
+                                      );
+                                    }
+                                  }}
+                                  disabled={!isQuantitativeEvaluation}
+                                />
+                                {allowMeasuredValueShortcut ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      aria-label="Abrir seleção de valor medido"
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                                      onClick={() =>
+                                        setOpenMultiSelect((prev) =>
+                                          prev?.riskId === risk.id &&
+                                          prev.field === "valorMedido"
+                                            ? null
+                                            : { riskId: risk.id, field: "valorMedido" }
+                                        )
+                                      }
+                                      disabled={!isQuantitativeEvaluation}
+                                    >
+                                      <ChevronDown
+                                        className={`h-4 w-4 transition-transform ${
+                                          openMultiSelect?.riskId === risk.id &&
+                                          openMultiSelect.field === "valorMedido"
+                                            ? "rotate-180"
+                                            : "rotate-0"
+                                        }`}
+                                      />
+                                    </button>
+                                    {openMultiSelect?.riskId === risk.id &&
+                                    openMultiSelect.field === "valorMedido" ? (
+                                      <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                                        <div className="space-y-1">
+                                          {MEASURED_VALUE_OPTIONS.map((option) => (
+                                            <button
+                                              key={`${risk.id}-valor-medido-${option}`}
+                                              type="button"
+                                              className="w-full rounded-[6px] px-2 py-1 text-left text-[12px] text-foreground hover:bg-muted"
+                                              onClick={() => {
+                                                markRiskTouched(risk.id, "valorMedido");
+                                                handleRiskChange(risk.id, "valorMedido", option);
+                                                setOpenMultiSelect(null);
+                                              }}
+                                            >
+                                              {option}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </>
+                                ) : null}
+                              </div>
                             )}
                             {isQuantitativeEvaluation &&
                             getRiskFieldError(risk.id, "valorMedido") ? (

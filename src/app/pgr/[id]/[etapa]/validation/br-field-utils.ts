@@ -117,4 +117,37 @@ export const isValidRiskGrade = (value: string) => {
   return Number.isFinite(parsed) && parsed >= 1 && parsed <= 4;
 };
 
+export const sanitizeQuantitativeMeasurementInput = (value: string) => {
+  const compact = String(value || "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  return compact.replace(/[^0-9N/DLQ<>=.,/]/g, "");
+};
+
+export const normalizeQuantitativeMeasurementValue = (value: string) => {
+  const compact = sanitizeQuantitativeMeasurementInput(value);
+  if (!compact) return "";
+
+  if (compact === "N/D" || compact === "<LQ") {
+    return compact;
+  }
+
+  const comparatorMatch = compact.match(/^(<=|>=|<|>)(\d+(?:[.,]\d+)?)$/);
+  if (comparatorMatch) {
+    return `${comparatorMatch[1]}${comparatorMatch[2]}`;
+  }
+
+  if (/^\d+(?:[.,]\d+)?$/.test(compact)) {
+    return compact;
+  }
+
+  return "";
+};
+
+export const isValidQuantitativeMeasurementValue = (value: string) => {
+  const normalized = normalizeQuantitativeMeasurementValue(value);
+  if (!normalized) return false;
+  return /^(N\/D|<LQ|(<=|>=|<|>)\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)$/.test(normalized);
+};
+
 export const toDigits = onlyDigits;

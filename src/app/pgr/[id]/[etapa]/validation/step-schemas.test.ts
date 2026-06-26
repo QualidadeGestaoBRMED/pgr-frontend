@@ -12,8 +12,11 @@ import {
   isValidEmail,
   isValidPhoneBr,
   isValidRiskGrade,
+  isValidQuantitativeMeasurementValue,
   maskCpf,
   maskPhoneBr,
+  sanitizeQuantitativeMeasurementInput,
+  normalizeQuantitativeMeasurementValue,
 } from "./br-field-utils";
 
 describe("step schemas", () => {
@@ -192,5 +195,26 @@ describe("step schemas", () => {
     expect(maskCpf("52998224725")).toBe("529.982.247-25");
     expect(isValidRiskGrade("1")).toBe(true);
     expect(isValidRiskGrade("5")).toBe(false);
+  });
+
+  it("normalizes and validates quantitative measurement values", () => {
+    expect(sanitizeQuantitativeMeasurementInput("ab<80x")).toBe("<80");
+    expect(sanitizeQuantitativeMeasurementInput("n / d")).toBe("N/D");
+    expect(sanitizeQuantitativeMeasurementInput(">=80")).toBe(">=80");
+
+    expect(normalizeQuantitativeMeasurementValue(" 80 ")).toBe("80");
+    expect(normalizeQuantitativeMeasurementValue(" < 80 ")).toBe("<80");
+    expect(normalizeQuantitativeMeasurementValue(">= 80")).toBe(">=80");
+    expect(normalizeQuantitativeMeasurementValue("n/d")).toBe("N/D");
+    expect(normalizeQuantitativeMeasurementValue("<lq")).toBe("<LQ");
+
+    expect(isValidQuantitativeMeasurementValue("80")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue("<80")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue(">80")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue("<=80")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue(">=80")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue("N/D")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue("<LQ")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue("abc")).toBe(false);
   });
 });

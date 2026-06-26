@@ -39,6 +39,11 @@ const isQuantitativeEvaluation = (value: string) => {
   return token.includes("quantit");
 };
 
+const isChemicalAgent = (value: string) => {
+  const token = normalizeToken(String(value || ""));
+  return token.includes("quim");
+};
+
 const parseNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return null;
@@ -305,7 +310,12 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
   }, [riskMatrix]);
 
   const calculateRiskClassification = useCallback(
-    (risk: Pick<GheRisk, "severidade" | "probabilidade" | "tipoAvaliacao" | "valorMedido" | "intensidade" | "nivelAcao">): RiskClassificationResult | null => {
+    (
+      risk: Pick<
+        GheRisk,
+        "severidade" | "probabilidade" | "tipoAvaliacao" | "valorMedido" | "intensidade" | "nivelAcao"
+      > & { tipoAgente?: string }
+    ): RiskClassificationResult | null => {
       if (!activeTemplateId) return null;
 
       const severityValue = parseInteger(risk.severidade);
@@ -325,6 +335,27 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
           qualitativeId: qualitative.qualitativeId,
         };
         return finalResult;
+      }
+
+      const shortcutValue = String(risk.valorMedido || "").trim().toUpperCase();
+      const isMeasuredShortcut =
+        isChemicalAgent(risk.tipoAgente || "") &&
+        (shortcutValue === "N/D" || shortcutValue === "<LQ");
+      if (isMeasuredShortcut) {
+        const quantLevel = 1;
+        const quantitativeKey = `${activeTemplateId}|${severityValue}|${quantLevel}`;
+        const quantitative = quantitativeByKey.get(quantitativeKey);
+
+        if (!quantitative) {
+          return null;
+        }
+
+        return {
+          classification: quantitative.classificationName,
+          classificationId: quantitative.classificationId,
+          levelId: quantitative.levelId,
+          quantitativeLevel: quantLevel,
+        };
       }
 
       const quantitativeInputs = resolveQuantitativeLevelInputs({
