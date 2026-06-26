@@ -10,6 +10,8 @@ type PgrShellProps = {
   progressPercent?: number;
   stepStatusById?: Partial<Record<PgrStepId, boolean>>;
   alertSteps?: Partial<Record<PgrStepId, boolean>>;
+  accessibleStepIds?: PgrStepId[];
+  onNavigateStep?: (stepId: PgrStepId) => void;
   cycleTimeMs?: number;
   cycleSessionStartedAtMs?: number | null;
   children: ReactNode;
@@ -66,6 +68,8 @@ export function PgrShell({
   progressPercent,
   stepStatusById,
   alertSteps,
+  accessibleStepIds,
+  onNavigateStep,
   cycleTimeMs = 0,
   cycleSessionStartedAtMs = null,
   children,

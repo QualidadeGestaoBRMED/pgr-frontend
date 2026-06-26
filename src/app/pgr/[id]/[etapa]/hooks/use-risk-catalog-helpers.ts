@@ -568,7 +568,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         epi: ppeDefaults.join(", "),
       };
     },
-    [healthDamagesByAgent, propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions, riskSourcesByAgent]
+    [healthDamagesByAgent, propagationPathsByAgent, resolveRiskAgentId, resolveTechnicalCriteriaOptions]
   );
 
   const applyMissingRiskDefaults = useCallback(

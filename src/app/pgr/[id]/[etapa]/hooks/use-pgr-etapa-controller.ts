@@ -11,12 +11,13 @@ import {
   initialDadosCadastrais,
   initialInicioDraft,
 } from "../defaults";
-import type { HistoricoData } from "../types";
+import type { HistoricoData, PlanGeneralMeasureRow, RiskGheGroup } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { slugify, truncatePreview } from "../utils/text";
 import { buildPgrDocxPayload } from "../utils/docx-payload";
 import { computeWeightedProgressPercent } from "../utils/progress";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
+import { parsePendingReviewFocus } from "../utils/pending-review";
 import { createGeneralActions } from "./create-general-actions";
 import { useDescricaoInteractions } from "./use-descricao-interactions";
 import { useHistoryUndo } from "./use-history-undo";
@@ -438,7 +439,13 @@ export function usePgrEtapaController({
   }, [params.id, weightedProgressPercent]);
 
   const buildStatePayload = useCallback(
-    (layoutOverride?: PdfLayoutState) => ({
+    (
+      layoutOverride?: PdfLayoutState,
+      overrides?: {
+        riskGheGroups?: RiskGheGroup[];
+        planGeneralMeasures?: PlanGeneralMeasureRow[];
+      }
+    ) => ({
       completedSteps: state.completedSteps,
       meta: {
         pgrId: params.id,
@@ -454,38 +461,19 @@ export function usePgrEtapaController({
       planAction: state.planAction,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
-      planGeneralMeasures: state.planGeneralMeasures,
+      planGeneralMeasures: overrides?.planGeneralMeasures ?? state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
       gheGroups: state.gheGroups,
       currentGheId: state.currentGheId,
-      riskGheGroups: state.riskGheGroups,
+      riskGheGroups: overrides?.riskGheGroups ?? state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
       pdfLayout: layoutOverride ?? state.pdfLayout,
       workflow: state.workflow,
     }),
     [
       params.id,
-      state.anexoDiretriz,
-      state.anexos,
-      state.cardMeta,
-      state.completedSteps,
-      state.currentGheId,
-      state.currentRiskGheId,
-      state.dadosCadastrais,
-      state.estabelecimentoSelecionado,
-      state.extraEstabelecimentoFields,
-      state.functionsData,
-      state.gheGroups,
-      state.historicoData,
-      state.inicioDraft,
-      state.pdfLayout,
-      state.planAction,
-      state.persistedOptionsByRowId,
-      state.planGeneralMeasures,
-      state.removedPlanRiskKeys,
-      state.riskGheGroups,
-      state.workflow,
+      state,
       weightedProgressPercent,
     ]
   );
@@ -497,9 +485,29 @@ export function usePgrEtapaController({
     [buildStatePayload, params.id]
   );
 
+  const persistPlanFieldsNow = useCallback(
+    async (overrides: {
+      riskGheGroups?: RiskGheGroup[];
+      planGeneralMeasures?: PlanGeneralMeasureRow[];
+    }) => {
+      await putPgrState(params.id, buildStatePayload(undefined, overrides));
+    },
+    [buildStatePayload, params.id]
+  );
+
   const rejectionReasonFromQuery = useMemo(
     () => String(searchParams?.get("rejectionReason") || "").trim(),
     [searchParams]
+  );
+
+  const pendingReviewFocus = useMemo(
+    () => parsePendingReviewFocus(searchParams),
+    [searchParams]
+  );
+
+  const accessibleStepIds = useMemo(
+    () => pgrSteps.slice(0, Math.min(pgrSteps.length, state.completedSteps + 1)).map((step) => step.id),
+    [state.completedSteps]
   );
 
   useEffect(() => {
@@ -1066,6 +1074,7 @@ export function usePgrEtapaController({
     helpers: {
       handleAdvanceApiSync,
       persistStateNow: () => persistStateNow(),
+      persistPlanFieldsNow,
     },
   });
 
@@ -1170,8 +1179,10 @@ export function usePgrEtapaController({
       progressPercent: state.progressPercent,
       alertSteps: derived.alertSteps,
       stepStatusById: derived.stepStatusById,
+      accessibleStepIds,
       cycleTimeMs: cycleTime.cycleTotalMs,
       cycleSessionStartedAtMs: cycleTime.activeSessionStartedAtMs,
+      onNavigateStep: (stepId: PgrStepId) => router.push(`/pgr/${params.id}/${stepId}`),
     },
     bodyCtx: {
       step,
@@ -1227,6 +1238,7 @@ export function usePgrEtapaController({
       setInfoModalError: setters.setInfoModalError,
       setIsInfoModalOpen: setters.setIsInfoModalOpen,
       currentGhe: derived.currentGhe,
+      setCurrentGheId: setters.setCurrentGheId,
       infoModalError: state.infoModalError,
       infoModalMode: state.infoModalMode,
       workflow: state.workflow,
@@ -1290,6 +1302,8 @@ export function usePgrEtapaController({
       isFinalizingPgr: state.isFinalizingPgr,
       stepStatusById: derived.stepStatusById,
       missingFieldsByStep: derived.missingFieldsByStep,
+      missingTargetsByStep: derived.missingTargetsByStep,
+      pendingReviewFocus,
       isPreviewModalOpen: state.isPreviewModalOpen,
       setIsPreviewModalOpen: setters.setIsPreviewModalOpen,
       fakePreviewLines,

@@ -40,7 +40,6 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       setPlanActionDescription: ctx.setPlanActionDescription,
       persistedOptionsByRowId: ctx.persistedOptionsByRowId,
       setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,
-      pendingReviewFocus: ctx.pendingReviewFocus,
       handleSavePlanActionModal: ctx.generalActions.handleSavePlanActionModal,
       handleCreateNrPlanRows: ctx.generalActions.handleCreateNrPlanRows,
     }}
