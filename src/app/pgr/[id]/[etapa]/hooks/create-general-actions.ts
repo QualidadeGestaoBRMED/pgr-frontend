@@ -158,6 +158,7 @@ type GeneralActionsContext = {
   current: {
     lastCepLookupRef: React.MutableRefObject<{
       empresa: string;
+      estabelecimentoByIndex: Record<string, string>;
       contratanteByIndex: Record<string, string>;
     }>;
     functionsData: PgrFunction[];
@@ -277,6 +278,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         case "responsavelPgrTelefone":
           return maskPhoneBr(value);
         case "empresaCep":
+        case "estabelecimentoCep":
         case "contratanteCep":
           return maskCep(value);
         case "responsavelPgrEmail":
@@ -304,6 +306,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           ...(field === "estabelecimentoCnpj" ? { cnpj: normalizedValue } : {}),
           ...(field === "estabelecimentoRazaoSocial" ? { razaoSocial: normalizedValue } : {}),
           ...(field === "estabelecimentoCnae" ? { cnae: normalizedValue } : {}),
+          ...(field === "estabelecimentoEndereco" ? { endereco: normalizedValue } : {}),
+          ...(field === "estabelecimentoCep" ? { cep: normalizedValue } : {}),
+          ...(field === "estabelecimentoCidade" ? { cidade: normalizedValue } : {}),
+          ...(field === "estabelecimentoEstado" ? { estado: normalizedValue } : {}),
           ...(field === "estabelecimentoGrauRisco" ? { grauRisco: normalizedValue } : {}),
           ...(field === "estabelecimentoAtividadePrincipal"
             ? { atividadePrincipal: normalizedValue }
@@ -339,31 +345,41 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleRecalculateByCep = async (
-    scope: "empresa" | "contratante",
+    scope: "empresa" | "estabelecimento" | "contratante",
     cepValue: string,
-    contractorIndex = 0
+    itemIndex = 0
   ) => {
     const cep = cepValue.replace(/\D/g, "");
     if (cep.length !== 8) {
       if (scope === "empresa") {
         lastCepLookupRef.current.empresa = "";
+      } else if (scope === "estabelecimento") {
+        lastCepLookupRef.current.estabelecimentoByIndex[String(itemIndex)] = "";
       } else {
-        lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] = "";
+        lastCepLookupRef.current.contratanteByIndex[String(itemIndex)] = "";
       }
       return;
     }
     if (scope === "empresa" && lastCepLookupRef.current.empresa === cep) return;
     if (
+      scope === "estabelecimento" &&
+      lastCepLookupRef.current.estabelecimentoByIndex[String(itemIndex)] === cep
+    ) {
+      return;
+    }
+    if (
       scope === "contratante" &&
-      lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] === cep
+      lastCepLookupRef.current.contratanteByIndex[String(itemIndex)] === cep
     ) {
       return;
     }
 
     if (scope === "empresa") {
       lastCepLookupRef.current.empresa = cep;
+    } else if (scope === "estabelecimento") {
+      lastCepLookupRef.current.estabelecimentoByIndex[String(itemIndex)] = cep;
     } else {
-      lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] = cep;
+      lastCepLookupRef.current.contratanteByIndex[String(itemIndex)] = cep;
     }
 
     try {
@@ -391,8 +407,32 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           };
         }
 
+        if (scope === "estabelecimento") {
+          const establishments = normalizeEstablishments(prev, "");
+          const safeIndex = Math.max(0, Math.min(itemIndex, establishments.length - 1));
+          const nextEstablishments = establishments.map((establishment, index) =>
+            index === safeIndex
+              ? {
+                  ...establishment,
+                  cep: maskCep(payload.cep || establishment.cep),
+                  endereco: payload.logradouro || establishment.endereco,
+                  cidade: payload.localidade || establishment.cidade,
+                  estado: payload.uf || establishment.estado,
+                }
+              : establishment
+          );
+
+          return syncLegacyDados(
+            {
+              ...prev,
+              estabelecimentos: nextEstablishments,
+            } as DadosCadastraisDraft,
+            nextEstablishments[0]?.tipo || ""
+          );
+        }
+
         const contractors = normalizeContractors(prev);
-        const safeIndex = Math.max(0, Math.min(contractorIndex, contractors.length - 1));
+        const safeIndex = Math.max(0, Math.min(itemIndex, contractors.length - 1));
         const nextContractors = contractors.map((contractor, index) =>
           index === safeIndex
             ? {
@@ -413,8 +453,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     } catch {
       if (scope === "empresa") {
         lastCepLookupRef.current.empresa = "";
+      } else if (scope === "estabelecimento") {
+        lastCepLookupRef.current.estabelecimentoByIndex[String(itemIndex)] = "";
       } else {
-        lastCepLookupRef.current.contratanteByIndex[String(contractorIndex)] = "";
+        lastCepLookupRef.current.contratanteByIndex[String(itemIndex)] = "";
       }
     }
   };
@@ -583,6 +625,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       switch (field) {
         case "cnpj":
           return maskCnpj(value);
+        case "cep":
+          return maskCep(value);
         case "grauRisco":
           return normalizeRiskGrade(value);
         default:

@@ -25,6 +25,10 @@ export type EstabelecimentoDraft = {
   cnpj: string;
   razaoSocial: string;
   cnae: string;
+  endereco: string;
+  cep: string;
+  cidade: string;
+  estado: string;
   grauRisco: string;
   atividadePrincipal: string;
 };
@@ -71,6 +75,10 @@ export type DadosCadastraisDraft = {
   estabelecimentoCnpj: string;
   estabelecimentoRazaoSocial: string;
   estabelecimentoCnae: string;
+  estabelecimentoEndereco: string;
+  estabelecimentoCep: string;
+  estabelecimentoCidade: string;
+  estabelecimentoEstado: string;
   estabelecimentoGrauRisco: string;
   estabelecimentoAtividadePrincipal: string;
   contratantes: ContratanteDraft[];

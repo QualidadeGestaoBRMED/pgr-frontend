@@ -823,6 +823,7 @@ export function usePgrEtapaController({
     if (state.workflow.isLocked) return;
     refs.lastCepLookupRef.current = {
       empresa: "",
+      estabelecimentoByIndex: {},
       contratanteByIndex: {},
     };
     setters.setDadosCadastrais(initialDadosCadastrais);
@@ -904,6 +905,7 @@ export function usePgrEtapaController({
 
     refs.lastCepLookupRef.current = {
       empresa: "",
+      estabelecimentoByIndex: {},
       contratanteByIndex: {},
     };
 

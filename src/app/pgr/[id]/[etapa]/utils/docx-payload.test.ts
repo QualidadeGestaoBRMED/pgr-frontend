@@ -196,4 +196,50 @@ describe("docx payload mapping", () => {
     expect(payload.anexos.totalArquivos).toBe(0);
     expect(payload.anexos.diretriz).toBe("Diretriz 1");
   });
+
+  it("adds merged address fields to the json payload", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "10",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        dadosCadastrais: {
+          empresaEndereco: "Rua A, 100",
+          empresaCidade: "São Paulo",
+          empresaEstado: "SP",
+          empresaCep: "01001-000",
+          estabelecimentoEndereco: "Av. B, 200",
+          estabelecimentoCidade: "Campinas",
+          estabelecimentoEstado: "SP",
+          estabelecimentoCep: "13010-000",
+          contratantes: [
+            {
+              id: "contratante-1",
+              nomeFantasia: "Cliente",
+              razaoSocial: "Cliente Ltda",
+              cnpj: "12.345.678/0001-99",
+              cnae: "6201-5/01",
+              endereco: "Rua C, 300",
+              cidade: "Santos",
+              estado: "SP",
+              cep: "11010-000",
+              grauRisco: "2",
+              atividadePrincipal: "Serviços",
+              camposAdicionais: [],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.dadosCadastrais.empresaEnderecoCompleto).toBe(
+      "Rua A, 100, São Paulo/SP, CEP: 01001-000"
+    );
+    expect(payload.dadosCadastrais.estabelecimentoEnderecoCompleto).toBe(
+      "Av. B, 200, Campinas/SP, CEP: 13010-000"
+    );
+    expect(payload.dadosCadastrais.contratantes[0]?.enderecoCompleto).toBe(
+      "Rua C, 300, Santos/SP, CEP: 11010-000"
+    );
+  });
 });

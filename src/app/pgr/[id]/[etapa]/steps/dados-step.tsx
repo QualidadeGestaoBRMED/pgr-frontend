@@ -13,6 +13,7 @@ import {
   isValidEmail,
   isValidPhoneBr,
   isValidRiskGrade,
+  maskCep,
 } from "../validation/br-field-utils";
 
 type SearchableSelectOption = {
@@ -63,6 +64,7 @@ type DadosStepProps = {
   onDadosChange: (field: keyof DadosCadastraisDraft, value: string) => void;
   onCepBlur: (scope: "empresa", value: string) => void;
   establishments: EstabelecimentoDraft[];
+  onEstablishmentCepBlur: (establishmentIndex: number, value: string) => void;
   onEstablishmentChange: (
     establishmentIndex: number,
     field: Exclude<keyof EstabelecimentoDraft, "id">,
@@ -120,6 +122,7 @@ export function DadosStep({
   onDadosChange,
   onCepBlur,
   establishments,
+  onEstablishmentCepBlur,
   onEstablishmentChange,
   onAddEstablishment,
   onDuplicateEstablishment,
@@ -183,6 +186,10 @@ export function DadosStep({
     | "cnpj"
     | "razaoSocial"
     | "cnae"
+    | "endereco"
+    | "cep"
+    | "cidade"
+    | "estado"
     | "grauRisco"
     | "atividadePrincipal";
 
@@ -311,6 +318,10 @@ export function DadosStep({
           : isValidCnpj(establishment.cnpj)
             ? ""
             : "CNPJ do estabelecimento inválido.",
+        endereco: "",
+        cep: "",
+        cidade: "",
+        estado: "",
         razaoSocial: "",
         cnae: "",
         grauRisco: !establishment.grauRisco.trim()
@@ -670,6 +681,17 @@ export function DadosStep({
     onDadosChange(field, value);
     if (value.replace(/\D/g, "").length === 8) {
       onCepBlur(scope, value);
+    }
+  };
+
+  const handleEstablishmentCepInputChange = (
+    establishmentIndex: number,
+    value: string
+  ) => {
+    const maskedValue = maskCep(value);
+    onEstablishmentChange(establishmentIndex, "cep", maskedValue);
+    if (maskedValue.replace(/\D/g, "").length === 8) {
+      onEstablishmentCepBlur(establishmentIndex, maskedValue);
     }
   };
 
@@ -1118,7 +1140,78 @@ export function DadosStep({
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1.6fr]">
+                <div className="mt-5 grid gap-4 md:grid-cols-[2fr_1fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Endereço:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "endereco")}
+                      value={establishment.endereco}
+                      onChange={(event) =>
+                        onEstablishmentChange(
+                          establishmentIndex,
+                          "endereco",
+                          event.target.value
+                        )
+                      }
+                      onBlur={() => markEstablishmentTouched(establishmentKey, "endereco")}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">CEP:</label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "cep")}
+                      value={establishment.cep}
+                      onChange={(event) =>
+                        handleEstablishmentCepInputChange(
+                          establishmentIndex,
+                          event.target.value
+                        )
+                      }
+                      onBlur={(event) => {
+                        markEstablishmentTouched(establishmentKey, "cep");
+                        onEstablishmentCepBlur(establishmentIndex, event.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_1fr_1.2fr_1.6fr]">
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Cidade:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "cidade")}
+                      value={establishment.cidade}
+                      onChange={(event) =>
+                        onEstablishmentChange(
+                          establishmentIndex,
+                          "cidade",
+                          event.target.value
+                        )
+                      }
+                      onBlur={() => markEstablishmentTouched(establishmentKey, "cidade")}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium text-foreground">
+                      Estado:
+                    </label>
+                    <input
+                      className={getEstablishmentFieldClassName(establishmentKey, "estado")}
+                      value={establishment.estado}
+                      onChange={(event) =>
+                        onEstablishmentChange(
+                          establishmentIndex,
+                          "estado",
+                          event.target.value
+                        )
+                      }
+                      onBlur={() => markEstablishmentTouched(establishmentKey, "estado")}
+                    />
+                  </div>
                   <div>
                     <label className="text-[12px] font-medium text-foreground">
                       Grau de Risco:

@@ -1,5 +1,5 @@
 import type { DadosCadastraisDraft, EstabelecimentoDraft } from "../steps/types";
-import { maskCnpj, normalizeRiskGrade } from "../validation/br-field-utils";
+import { maskCep, maskCnpj, normalizeRiskGrade } from "../validation/br-field-utils";
 
 let estabelecimentoIdSequence = 0;
 
@@ -15,6 +15,10 @@ export const createEmptyEstabelecimento = (): EstabelecimentoDraft => ({
   cnpj: "",
   razaoSocial: "",
   cnae: "",
+  endereco: "",
+  cep: "",
+  cidade: "",
+  estado: "",
   grauRisco: "",
   atividadePrincipal: "",
 });
@@ -23,12 +27,17 @@ const isBlankEstabelecimento = (
   estabelecimento: Pick<
     EstabelecimentoDraft,
     "nome" | "cnpj" | "razaoSocial" | "cnae" | "grauRisco" | "atividadePrincipal"
+    | "endereco" | "cep" | "cidade" | "estado"
   >,
 ) =>
   !estabelecimento.nome &&
   !estabelecimento.cnpj &&
   !estabelecimento.razaoSocial &&
   !estabelecimento.cnae &&
+  !estabelecimento.endereco &&
+  !estabelecimento.cep &&
+  !estabelecimento.cidade &&
+  !estabelecimento.estado &&
   !estabelecimento.grauRisco &&
   !estabelecimento.atividadePrincipal;
 
@@ -42,6 +51,10 @@ const fromLegacyFields = (
   cnpj: maskCnpj(String(dados.estabelecimentoCnpj || "")),
   razaoSocial: String(dados.estabelecimentoRazaoSocial || ""),
   cnae: String(dados.estabelecimentoCnae || ""),
+  endereco: String(dados.estabelecimentoEndereco || ""),
+  cep: maskCep(String(dados.estabelecimentoCep || "")),
+  cidade: String(dados.estabelecimentoCidade || ""),
+  estado: String(dados.estabelecimentoEstado || ""),
   grauRisco: normalizeRiskGrade(String(dados.estabelecimentoGrauRisco || "")),
   atividadePrincipal: String(dados.estabelecimentoAtividadePrincipal || ""),
 });
@@ -65,6 +78,10 @@ export const normalizeEstablishments = (
           cnpj: maskCnpj(String(source.cnpj || "")),
           razaoSocial: String(source.razaoSocial || ""),
           cnae: String(source.cnae || ""),
+          endereco: String(source.endereco || ""),
+          cep: maskCep(String(source.cep || "")),
+          cidade: String(source.cidade || ""),
+          estado: String(source.estado || ""),
           grauRisco: normalizeRiskGrade(String(source.grauRisco || "")),
           atividadePrincipal: String(source.atividadePrincipal || ""),
         };
@@ -97,6 +114,10 @@ export const syncLegacyEstablishmentFields = (
     estabelecimentoCnpj: first.cnpj || "",
     estabelecimentoRazaoSocial: first.razaoSocial || "",
     estabelecimentoCnae: first.cnae || "",
+    estabelecimentoEndereco: first.endereco || "",
+    estabelecimentoCep: first.cep || "",
+    estabelecimentoCidade: first.cidade || "",
+    estabelecimentoEstado: first.estado || "",
     estabelecimentoGrauRisco: first.grauRisco || "",
     estabelecimentoAtividadePrincipal: first.atividadePrincipal || "",
     estabelecimentoSelecionado: first.tipo || estabelecimentoSelecionado || "",

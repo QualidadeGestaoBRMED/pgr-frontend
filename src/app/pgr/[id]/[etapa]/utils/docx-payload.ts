@@ -30,6 +30,38 @@ const normalizeExtraScope = (scope: unknown): ExtraFieldScope => {
 
 const _asText = (value: unknown) => String(value ?? "").trim();
 
+const composeCityState = (city: unknown, state: unknown) => {
+  const cityText = _asText(city);
+  const stateText = _asText(state);
+  if (cityText && stateText) return `${cityText}/${stateText}`;
+  return cityText || stateText;
+};
+
+const buildAddressJson = ({
+  endereco,
+  bairro,
+  cidade,
+  estado,
+  cep,
+}: {
+  endereco: unknown;
+  bairro?: unknown;
+  cidade: unknown;
+  estado: unknown;
+  cep: unknown;
+}) => {
+  const enderecoText = _asText(endereco);
+  const bairroText = _asText(bairro);
+  const cidadeEstado = composeCityState(cidade, estado);
+  const cepText = _asText(cep);
+  return {
+    bairro: bairroText,
+    enderecoCompleto: [enderecoText, bairroText, cidadeEstado, cepText ? `CEP: ${cepText}` : ""]
+      .filter(Boolean)
+      .join(", "),
+  };
+};
+
 const normalizePriorityText = (value: unknown) => {
   const raw = String(value ?? "").trim();
   const normalized = raw
@@ -163,6 +195,22 @@ type BackendStateShape = {
   pdfLayout?: unknown;
 };
 
+type AddressJsonFields = {
+  bairro: string;
+  enderecoCompleto: string;
+};
+
+type DadosCadastraisJson = DadosCadastraisDraft & {
+  empresaBairro: string;
+  empresaEnderecoCompleto: string;
+  estabelecimentoBairro: string;
+  estabelecimentoEnderecoCompleto: string;
+  contratanteBairro: string;
+  contratanteEnderecoCompleto: string;
+  estabelecimentos: Array<(DadosCadastraisDraft["estabelecimentos"][number] & AddressJsonFields)>;
+  contratantes: Array<(DadosCadastraisDraft["contratantes"][number] & AddressJsonFields)>;
+};
+
 export type PgrDocxPayload = {
   meta: {
     pgrId: string;
@@ -172,7 +220,7 @@ export type PgrDocxPayload = {
     stepStatusById?: Partial<Record<string, boolean>>;
   };
   inicio: InicioDraft;
-  dadosCadastrais: DadosCadastraisDraft;
+  dadosCadastrais: DadosCadastraisJson;
   historico: HistoricoData;
   descricao: {
     gheCount: number;
@@ -401,6 +449,58 @@ export function buildPgrDocxPayload(input: {
         }))
     : [];
 
+  const empresaAddressJson = buildAddressJson({
+    endereco: input.dadosCadastrais.empresaEndereco,
+    cidade: input.dadosCadastrais.empresaCidade,
+    estado: input.dadosCadastrais.empresaEstado,
+    cep: input.dadosCadastrais.empresaCep,
+  });
+  const estabelecimentoAddressJson = buildAddressJson({
+    endereco: input.dadosCadastrais.estabelecimentoEndereco,
+    cidade: input.dadosCadastrais.estabelecimentoCidade,
+    estado: input.dadosCadastrais.estabelecimentoEstado,
+    cep: input.dadosCadastrais.estabelecimentoCep,
+  });
+  const contratantesJson = Array.isArray(input.dadosCadastrais.contratantes)
+    ? input.dadosCadastrais.contratantes.map((item) => ({
+        ...item,
+        ...buildAddressJson({
+          endereco: item.endereco,
+          cidade: item.cidade,
+          estado: item.estado,
+          cep: item.cep,
+        }),
+      }))
+    : [];
+  const contratanteAddressJson = buildAddressJson({
+    endereco: input.dadosCadastrais.contratanteEndereco,
+    cidade: input.dadosCadastrais.contratanteCidade,
+    estado: input.dadosCadastrais.contratanteEstado,
+    cep: input.dadosCadastrais.contratanteCep,
+  });
+  const estabelecimentosJson = Array.isArray(input.dadosCadastrais.estabelecimentos)
+    ? input.dadosCadastrais.estabelecimentos.map((item) => ({
+        ...item,
+        ...buildAddressJson({
+          endereco: item.endereco,
+          cidade: item.cidade,
+          estado: item.estado,
+          cep: item.cep,
+        }),
+      }))
+    : [];
+  const dadosCadastrais: DadosCadastraisJson = {
+    ...input.dadosCadastrais,
+    empresaBairro: empresaAddressJson.bairro,
+    empresaEnderecoCompleto: empresaAddressJson.enderecoCompleto,
+    estabelecimentoBairro: estabelecimentoAddressJson.bairro,
+    estabelecimentoEnderecoCompleto: estabelecimentoAddressJson.enderecoCompleto,
+    contratanteBairro: contratanteAddressJson.bairro,
+    contratanteEnderecoCompleto: contratanteAddressJson.enderecoCompleto,
+    estabelecimentos: estabelecimentosJson,
+    contratantes: contratantesJson,
+  };
+
   const totalArquivos = input.anexos.reduce((total, anexo) => total + anexo.files.length, 0);
   const totalEmployees = descricaoGhes.reduce(
     (groupTotal, ghe) =>
@@ -436,7 +536,7 @@ export function buildPgrDocxPayload(input: {
       stepStatusById: input.stepStatusById,
     },
     inicio: input.inicioDraft,
-    dadosCadastrais: input.dadosCadastrais,
+    dadosCadastrais,
     historico: input.historicoData,
     descricao: {
       gheCount: descricaoGhes.length,

@@ -24,6 +24,9 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     onDadosChange={ctx.generalActions.handleDadosCadastraisChange}
     onCepBlur={ctx.generalActions.handleRecalculateByCep}
     establishments={ctx.dadosCadastrais.estabelecimentos}
+    onEstablishmentCepBlur={(index, value) =>
+      ctx.generalActions.handleRecalculateByCep("estabelecimento", value, index)
+    }
     onEstablishmentChange={ctx.generalActions.handleEstablishmentChange}
     onAddEstablishment={ctx.generalActions.handleAddEstablishment}
     onDuplicateEstablishment={ctx.generalActions.handleDuplicateEstablishment}

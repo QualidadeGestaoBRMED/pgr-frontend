@@ -66,9 +66,11 @@ export function usePgrEtapaState({
   const importExcelInputRef = useRef<HTMLInputElement | null>(null);
   const lastCepLookupRef = useRef<{
     empresa: string;
+    estabelecimentoByIndex: Record<string, string>;
     contratanteByIndex: Record<string, string>;
   }>({
     empresa: "",
+    estabelecimentoByIndex: {},
     contratanteByIndex: {},
   });
 
