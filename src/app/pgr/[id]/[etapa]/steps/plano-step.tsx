@@ -427,6 +427,42 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     }, [defaultResponsibleActionName, handlePlanRiskFieldChange, planTableRows]);
 
     useEffect(() => {
+        planTableRows.forEach((row) => {
+            const acompanhamentoKey = `${row.id}_acompanhamento`;
+            if (!initializedRowsRef.current.has(acompanhamentoKey)) {
+                const existingAcompanhamento = String(row.acompanhamento || "").trim();
+                if (!existingAcompanhamento) {
+                    setAcompanhamentoByRowId((prev) => ({...prev, [row.id]: defaultAcompanhamento}));
+                    handlePlanRiskFieldChange(
+                        row.gheId,
+                        row.riskId,
+                        "acompanhamento",
+                        defaultAcompanhamento,
+                        row.groupTargets
+                    );
+                }
+                initializedRowsRef.current.add(acompanhamentoKey);
+            }
+
+            const afericaoKey = `${row.id}_afericaoResultado`;
+            if (!initializedRowsRef.current.has(afericaoKey)) {
+                const existingAfericao = String(row.afericaoResultado || "").trim();
+                if (!existingAfericao) {
+                    setAfericaoResultadoByRowId((prev) => ({...prev, [row.id]: defaultAfericaoResultado}));
+                    handlePlanRiskFieldChange(
+                        row.gheId,
+                        row.riskId,
+                        "afericaoResultado",
+                        defaultAfericaoResultado,
+                        row.groupTargets
+                    );
+                }
+                initializedRowsRef.current.add(afericaoKey);
+            }
+        });
+    }, [handlePlanRiskFieldChange, planTableRows]);
+
+    useEffect(() => {
         if (!isPlanActionModalOpen) return;
         setTouchedPlanActionDescription(false);
         setTouchedPlanActionGheSelection(false);

@@ -108,6 +108,12 @@ const toDisplayText = (value: string, fallback = "Não informado") => {
   return safeValue || fallback;
 };
 
+const defaultPlanAcompanhamento = "Programado";
+const defaultPlanAfericaoResultado = "Aguardando realização da Ação";
+
+const getEffectivePlanValue = (value: string | undefined, fallback: string) =>
+  String(value || "").trim() || fallback;
+
 const normalizePriorityText = (value: string) => {
   const normalized = String(value || "")
     .normalize("NFD")
@@ -564,8 +570,12 @@ export function usePgrEtapaDerived({
         row.medidasPrevencao.trim().length > 0 &&
         String(row.tipoMedida || "").trim().length > 0 &&
         String(row.prazoAcao || "").trim().length > 0 &&
-        String(row.acompanhamento || "").trim().length > 0 &&
-        String(row.afericaoResultado || "").trim().length > 0
+        getEffectivePlanValue(row.acompanhamento, defaultPlanAcompanhamento).length >
+          0 &&
+        getEffectivePlanValue(
+          row.afericaoResultado,
+          defaultPlanAfericaoResultado
+        ).length > 0
     );
   }, [rawPlanTableRowsForPlan]);
 
@@ -814,7 +824,11 @@ export function usePgrEtapaDerived({
             )
           );
         }
-        if (String(row.acompanhamento || "").trim().length === 0) {
+        if (
+          String(
+            getEffectivePlanValue(row.acompanhamento, defaultPlanAcompanhamento)
+          ).trim().length === 0
+        ) {
           missingPlano.push(
             buildPendingReviewTarget(
               "plano",
@@ -829,7 +843,14 @@ export function usePgrEtapaDerived({
             )
           );
         }
-        if (String(row.afericaoResultado || "").trim().length === 0) {
+        if (
+          String(
+            getEffectivePlanValue(
+              row.afericaoResultado,
+              defaultPlanAfericaoResultado
+            )
+          ).trim().length === 0
+        ) {
           missingPlano.push(
             buildPendingReviewTarget(
               "plano",

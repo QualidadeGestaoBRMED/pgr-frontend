@@ -528,8 +528,11 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                 tipoMedida: String(item?.tipoMedida || "").trim(),
                 prazoAcao: String(item?.prazoAcao || "").trim(),
                 responsavelAcao: String(item?.responsavelAcao || "").trim(),
-                acompanhamento: String(item?.acompanhamento || "").trim(),
-                afericaoResultado: String(item?.afericaoResultado || "").trim(),
+                acompanhamento:
+                  String(item?.acompanhamento || "").trim() || "Programado",
+                afericaoResultado:
+                  String(item?.afericaoResultado || "").trim() ||
+                  "Aguardando realização da Ação",
               }))
               .filter((item) => item.id && item.descricao)
           : [];
@@ -579,6 +582,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             ...existing,
             id: ghe.id,
             name: ghe.name,
+            risks: (existing.risks || []).map((risk) => ({
+              ...risk,
+              acompanhamento: String(risk?.acompanhamento || "").trim() || "Programado",
+              afericaoResultado:
+                String(risk?.afericaoResultado || "").trim() ||
+                "Aguardando realização da Ação",
+            })),
           };
         });
         const loadedCurrentRiskGheId =
