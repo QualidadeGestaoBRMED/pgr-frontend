@@ -179,19 +179,43 @@ export async function apiBlob(path: string, body?: unknown) {
   return response.blob();
 }
 
-export async function apiBlobGet(path: string) {
-  const headers = new Headers();
+type BlobGetRetryOptions = {
+  attempts?: number;
+  backoffMs?: number;
+  statuses?: number[];
+};
 
-  const response = await fetch(buildApiUrl(path), {
-    method: "GET",
-    headers,
-    credentials: "include",
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
   });
 
-  if (!response.ok) {
+export async function apiBlobGet(path: string, retry?: BlobGetRetryOptions) {
+  const headers = new Headers();
+  const attempts = Math.max(1, retry?.attempts ?? 1);
+  const backoffMs = Math.max(0, retry?.backoffMs ?? 250);
+  const retryStatuses = new Set(retry?.statuses ?? []);
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const response = await fetch(buildApiUrl(path), {
+      method: "GET",
+      headers,
+      credentials: "include",
+    });
+
+    if (response.ok) {
+      return response.blob();
+    }
+
+    const shouldRetry = retryStatuses.has(response.status) && attempt < attempts;
     const text = await response.text();
+    if (shouldRetry) {
+      await wait(backoffMs * attempt);
+      continue;
+    }
+
     throw new Error(extractErrorMessage(text, response.status));
   }
 
-  return response.blob();
+  throw new Error("Falha ao baixar arquivo.");
 }

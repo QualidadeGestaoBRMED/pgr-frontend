@@ -13,7 +13,7 @@ import {
 } from "../defaults";
 import type { HistoricoData, PlanGeneralMeasureRow, RiskGheGroup } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
-import { slugify, truncatePreview } from "../utils/text";
+import { truncatePreview } from "../utils/text";
 import { buildPgrDocxPayload } from "../utils/docx-payload";
 import { computeWeightedProgressPercent } from "../utils/progress";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
@@ -36,7 +36,8 @@ import {
 } from "../state/state-version";
 import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
-const PGR_EXPORT_POLL_INTERVAL_MS = 2000;
+const PGR_EXPORT_POLL_MIN_INTERVAL_MS = 5000;
+const PGR_EXPORT_POLL_MAX_INTERVAL_MS = 10000;
 const PGR_EXPORT_POLL_TIMEOUT_MS = 120000;
 const PIPEFY_ORGANIZATION_ID = "300527823";
 const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
@@ -130,6 +131,36 @@ const sortHistoricoChanges = <T extends { id: string; analysis: string; change: 
     return String(a.id).localeCompare(String(b.id));
   });
 
+const formatExportVersionCode = (value: string) => {
+  const numericCode = extractHistoricoNumericCode(value);
+  if (numericCode === Number.MAX_SAFE_INTEGER) return "00";
+  return String(Math.max(0, numericCode)).padStart(2, "0");
+};
+
+const sanitizeExportFilenamePart = (value: string) =>
+  String(value || "")
+    .replace(/[\\/:*?"<>|\x00-\x1F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const buildPgrExportFileBase = (args: {
+  companyName: string;
+  historico: HistoricoData;
+  fallbackPgrId: string;
+}) => {
+  const sortedChanges = sortHistoricoChanges(args.historico.changes || []);
+  const latestChange = sortedChanges[sortedChanges.length - 1];
+  const companyName =
+    sanitizeExportFilenamePart(args.companyName) ||
+    sanitizeExportFilenamePart(args.fallbackPgrId) ||
+    "DOCUMENTO";
+  const analysisCode = formatExportVersionCode(latestChange?.analysis || "00");
+  const changeCode = formatExportVersionCode(latestChange?.change || "00");
+  const year = new Date().getFullYear();
+
+  return `PGR - ${companyName} - ANL${analysisCode} - ALT${changeCode} - ${year}`;
+};
+
 async function startExternalExportJobWithResponse(
   pgrId: string,
   kind: ExternalExportKind,
@@ -166,6 +197,7 @@ async function waitForExternalExportCompletion(
   jobId: string
 ): Promise<ExternalJobStatusResponse> {
   const startedAt = Date.now();
+  let pollIntervalMs = PGR_EXPORT_POLL_MIN_INTERVAL_MS;
   while (Date.now() - startedAt <= PGR_EXPORT_POLL_TIMEOUT_MS) {
     const data = await apiGet<ExternalJobStatusResponse>(
       `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}`
@@ -178,7 +210,11 @@ async function waitForExternalExportCompletion(
       );
     }
 
-    await sleep(PGR_EXPORT_POLL_INTERVAL_MS);
+    await sleep(pollIntervalMs);
+    pollIntervalMs = Math.min(
+      PGR_EXPORT_POLL_MAX_INTERVAL_MS,
+      pollIntervalMs + PGR_EXPORT_POLL_MIN_INTERVAL_MS
+    );
   }
 
   throw new Error(`Tempo limite excedido na geração de ${kind.toUpperCase()}.`);
@@ -189,7 +225,11 @@ async function downloadExternalExport(
   kind: ExternalExportKind,
   jobId: string
 ): Promise<Blob> {
-  return apiBlobGet(`/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}/download`);
+  return apiBlobGet(`/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}/download`, {
+    attempts: 4,
+    backoffMs: 500,
+    statuses: [503],
+  });
 }
 
 const extractDocxJobIdFromDownloadUrl = (url: string): string => {
@@ -664,8 +704,11 @@ export function usePgrEtapaController({
       await persistStateNow();
 
       const exportPayload = await buildExternalExportRequestPayload(params.id);
-      const fileBase =
-        slugify(state.inicioDraft.companyName) || `pgr-${slugify(params.id) || "documento"}`;
+      const fileBase = buildPgrExportFileBase({
+        companyName: state.inicioDraft.companyName,
+        historico: state.historicoData,
+        fallbackPgrId: params.id,
+      });
 
       const [pdfStartResponse, xlsxJobId] = await Promise.all([
         startExternalExportJobWithResponse(params.id, "pdf", exportPayload),
@@ -697,9 +740,9 @@ export function usePgrEtapaController({
         pdfBlob,
         docxBlob,
         xlsxBlob,
-        pdfFilename: `${fileBase}-pgr.pdf`,
-        docxFilename: `${fileBase}-pgr.docx`,
-        xlsxFilename: `${fileBase}-pgr.xlsx`,
+        pdfFilename: `${fileBase}.pdf`,
+        docxFilename: `${fileBase}.docx`,
+        xlsxFilename: `${fileBase}.xlsx`,
       });
 
       const finalizedState = await apiPost<{
@@ -739,6 +782,7 @@ export function usePgrEtapaController({
     persistStateNow,
     params.id,
     setters,
+    state.historicoData,
     state.inicioDraft,
   ]);
 
@@ -747,8 +791,11 @@ export function usePgrEtapaController({
     try {
       await persistStateNow();
       const exportPayload = await buildExternalExportRequestPayload(params.id);
-      const fileBase =
-        slugify(state.inicioDraft.companyName) || `pgr-${slugify(params.id) || "documento"}`;
+      const fileBase = buildPgrExportFileBase({
+        companyName: state.inicioDraft.companyName,
+        historico: state.historicoData,
+        fallbackPgrId: params.id,
+      });
 
       const [pdfStartResponse, xlsxJobId] = await Promise.all([
         startExternalExportJobWithResponse(params.id, "pdf", exportPayload),
@@ -765,7 +812,7 @@ export function usePgrEtapaController({
       ]);
 
       const pdfBlob = await downloadExternalExport(params.id, "pdf", pdfJobId);
-      triggerBlobDownload(pdfBlob, `${fileBase}-pgr.pdf`);
+      triggerBlobDownload(pdfBlob, `${fileBase}.pdf`);
 
       const docxBlob = await downloadDocxFromUrlOrJob({
         pgrId: params.id,
@@ -773,10 +820,10 @@ export function usePgrEtapaController({
         docxDownloadUrl:
           extractDocxDownloadUrl(pdfStartResponse) || extractDocxDownloadUrl(pdfCompletion),
       });
-      triggerBlobDownload(docxBlob, `${fileBase}-pgr.docx`);
+      triggerBlobDownload(docxBlob, `${fileBase}.docx`);
 
       const xlsxBlob = await downloadExternalExport(params.id, "xlsx", xlsxJobId);
-      triggerBlobDownload(xlsxBlob, `${fileBase}-pgr.xlsx`);
+      triggerBlobDownload(xlsxBlob, `${fileBase}.xlsx`);
 
       setters.setLastFakePdfAt(new Date().toLocaleString("pt-BR"));
     } catch (error) {
@@ -794,6 +841,7 @@ export function usePgrEtapaController({
     persistStateNow,
     params.id,
     setters,
+    state.historicoData,
     state.inicioDraft,
   ]);
 
