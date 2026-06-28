@@ -121,14 +121,14 @@ export const sanitizeQuantitativeMeasurementInput = (value: string) => {
   const compact = String(value || "")
     .toUpperCase()
     .replace(/\s+/g, "");
-  return compact.replace(/[^0-9N/DLQ<>=.,/]/g, "");
+  return compact.replace(/[^0-9N/DLLQ<>=.,/]/g, "");
 };
 
 export const normalizeQuantitativeMeasurementValue = (value: string) => {
   const compact = sanitizeQuantitativeMeasurementInput(value);
   if (!compact) return "";
 
-  if (compact === "N/D" || compact === "<LQ") {
+  if (compact === "N/D" || compact === "<LQ" || compact === "LLD") {
     return compact;
   }
 
@@ -147,7 +147,7 @@ export const normalizeQuantitativeMeasurementValue = (value: string) => {
 export const isValidQuantitativeMeasurementValue = (value: string) => {
   const normalized = normalizeQuantitativeMeasurementValue(value);
   if (!normalized) return false;
-  return /^(N\/D|<LQ|(<=|>=|<|>)\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)$/.test(normalized);
+  return /^(N\/D|<LQ|LLD|(<=|>=|<|>)\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)$/.test(normalized);
 };
 
 export const toDigits = onlyDigits;

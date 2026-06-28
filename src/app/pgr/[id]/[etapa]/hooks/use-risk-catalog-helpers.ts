@@ -21,6 +21,27 @@ const isGenericPropagationValue = (value: string) =>
 const isChemicalAgentToken = (value: string) =>
   normalizeCatalogToken(value) === "quimico";
 
+const parseNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(/\s+/g, "").replace(/,/g, ".");
+  const match = normalized.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number.parseFloat(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isSymbolicQuantitativeValue = (value: string) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized === "N/D" || normalized === "<LQ" || normalized === "LLD";
+};
+
+const deriveActionLevelFromTolerance = (value: string) => {
+  const toleranceLimit = parseNumber(value);
+  if (toleranceLimit === null) return "";
+  return String(Number((toleranceLimit / 2).toFixed(2)));
+};
+
 const getFirstCatalogValue = (map: Map<number, string[]>, agentId?: number) => {
   if (!agentId) return "";
   const values = map.get(agentId);
@@ -554,7 +575,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         unidadeMedida: firstTechnicalCriteria?.unit || "",
         tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
         intensidade: calculatedDefaultValue || firstTechnicalCriteria?.intensity || "",
-        nivelAcao: firstTechnicalCriteria?.actionLevel || "",
+        nivelAcao: "",
         severidade: firstTechnicalCriteria?.severity || "3",
         probabilidade: "",
         classificacao: "",
@@ -579,13 +600,24 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       const shouldUseDefaultPropagation =
         !normalizedRisk.meioPropagacao ||
         isGenericPropagationValue(normalizedRisk.meioPropagacao);
+      const resolvedIntensity = String(
+        normalizedRisk.intensidade || defaults.intensidade || ""
+      ).trim();
+      const resolvedActionLevel = String(
+        normalizedRisk.nivelAcao ||
+          defaults.nivelAcao ||
+          (!isSymbolicQuantitativeValue(resolvedIntensity)
+            ? deriveActionLevelFromTolerance(resolvedIntensity)
+            : "") ||
+          ""
+      ).trim();
       const classification = calculateRiskClassification({
         severidade: normalizedRisk.severidade || defaults.severidade || "",
         probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
         tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
         valorMedido: normalizedRisk.valorMedido || "",
-        intensidade: normalizedRisk.intensidade || defaults.intensidade || "",
-        nivelAcao: normalizedRisk.nivelAcao || defaults.nivelAcao || "",
+        intensidade: resolvedIntensity,
+        nivelAcao: resolvedActionLevel,
       });
       return {
         ...normalizedRisk,
@@ -596,8 +628,8 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         danosSaude: defaults.danosSaude || normalizedRisk.danosSaude || "",
         unidadeMedida: normalizedRisk.unidadeMedida || defaults.unidadeMedida || "",
         tipoAvaliacao: normalizedRisk.tipoAvaliacao || defaults.tipoAvaliacao || "",
-        intensidade: normalizedRisk.intensidade || defaults.intensidade || "",
-        nivelAcao: normalizedRisk.nivelAcao || defaults.nivelAcao || "",
+        intensidade: resolvedIntensity,
+        nivelAcao: resolvedActionLevel,
         severidade: normalizedRisk.severidade || defaults.severidade || "",
         probabilidade: normalizedRisk.probabilidade || defaults.probabilidade || "",
         classificacao:
