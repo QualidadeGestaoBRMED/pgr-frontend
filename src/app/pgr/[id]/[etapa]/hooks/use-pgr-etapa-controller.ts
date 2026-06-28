@@ -139,11 +139,11 @@ const formatExportVersionCode = (value: string) => {
 
 const sanitizeExportFilenamePart = (value: string) =>
   String(value || "")
-    .replace(/[()]/g, " ")
-    .replace(/[\\/:*?"<>|\x00-\x1F]/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[\\/:*?"<>|\x00-\x1F()]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
     .trim()
-    .replace(/\s/g, "-");
+    .replace(/^-|-$/g, "");
 
 const buildPgrExportFileBase = (args: {
   companyName: string;
