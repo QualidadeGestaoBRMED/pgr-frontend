@@ -45,6 +45,8 @@ type ExternalJobStartResponse = {
   job_id?: string;
   jobId?: string;
   id?: string;
+  docxDownloadUrl?: string;
+  docx_download_url?: string;
 };
 
 type ExternalExportKind = "pdf" | "docx" | "xlsx";
@@ -55,6 +57,8 @@ type ExternalJobStatusResponse = {
   message?: string;
   detail?: string;
   error?: string;
+  docxDownloadUrl?: string;
+  docx_download_url?: string;
 };
 
 const sleep = (ms: number) =>
@@ -75,6 +79,33 @@ const extractJobStatus = (payload: ExternalJobStatusResponse) =>
 
 const extractJobError = (payload: ExternalJobStatusResponse) =>
   String(payload.error ?? payload.detail ?? payload.message ?? "").trim();
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const extractDocxDownloadUrl = (payload: unknown): string => {
+  if (!isRecord(payload)) return "";
+
+  const directUrl = String(
+    payload.docxDownloadUrl ?? payload.docx_download_url ?? ""
+  ).trim();
+  if (directUrl) return directUrl;
+
+  for (const value of Object.values(payload)) {
+    if (!isRecord(value) && !Array.isArray(value)) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const nestedUrl = extractDocxDownloadUrl(item);
+        if (nestedUrl) return nestedUrl;
+      }
+      continue;
+    }
+    const nestedUrl = extractDocxDownloadUrl(value);
+    if (nestedUrl) return nestedUrl;
+  }
+
+  return "";
+};
 
 const extractHistoricoNumericCode = (value: string) => {
   const match = String(value || "").match(/(\d{1,4})/);
@@ -133,14 +164,14 @@ async function waitForExternalExportCompletion(
   pgrId: string,
   kind: ExternalExportKind,
   jobId: string
-) {
+): Promise<ExternalJobStatusResponse> {
   const startedAt = Date.now();
   while (Date.now() - startedAt <= PGR_EXPORT_POLL_TIMEOUT_MS) {
     const data = await apiGet<ExternalJobStatusResponse>(
       `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}`
     );
     const status = extractJobStatus(data);
-    if (status === "completed") return;
+    if (status === "completed") return data;
     if (status === "failed" || status === "error" || status === "cancelled") {
       throw new Error(
         extractJobError(data) || `Geração de ${kind.toUpperCase()} falhou.`
@@ -159,6 +190,49 @@ async function downloadExternalExport(
   jobId: string
 ): Promise<Blob> {
   return apiBlobGet(`/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}/download`);
+}
+
+const extractDocxJobIdFromDownloadUrl = (url: string): string => {
+  const rawUrl = String(url || "").trim();
+  if (!rawUrl) return "";
+
+  let pathname = rawUrl;
+  try {
+    pathname = new URL(rawUrl, window.location.origin).pathname;
+  } catch {
+    pathname = rawUrl.split(/[?#]/, 1)[0] || "";
+  }
+
+  const segments = pathname.split("/").filter(Boolean);
+  const jobsIndex = segments.findIndex((segment) => segment === "jobs");
+  const jobId =
+    jobsIndex >= 0 &&
+    segments[jobsIndex + 1] === "docx" &&
+    segments[jobsIndex + 2] === "pgr" &&
+    segments[jobsIndex + 3] &&
+    segments[jobsIndex + 4] === "download"
+      ? segments[jobsIndex + 3]
+      : "";
+
+  return decodeURIComponent(jobId).trim();
+};
+
+async function downloadDocxFromUrlOrJob(args: {
+  pgrId: string;
+  exportPayload: unknown;
+  docxDownloadUrl?: string;
+}): Promise<Blob> {
+  const docxDownloadUrl = String(args.docxDownloadUrl || "").trim();
+  if (docxDownloadUrl) {
+    const docxJobId = extractDocxJobIdFromDownloadUrl(docxDownloadUrl);
+    if (docxJobId) {
+      return downloadExternalExport(args.pgrId, "docx", docxJobId);
+    }
+  }
+
+  const docxJobId = await startExternalExportJob(args.pgrId, "docx", args.exportPayload);
+  await waitForExternalExportCompletion(args.pgrId, "docx", docxJobId);
+  return downloadExternalExport(args.pgrId, "docx", docxJobId);
 }
 
 const triggerBlobDownload = (blob: Blob, filename: string) => {
@@ -602,7 +676,7 @@ export function usePgrEtapaController({
         throw new Error("API não retornou job_id para PDF.");
       }
 
-      await Promise.all([
+      const [pdfCompletion] = await Promise.all([
         waitForExternalExportCompletion(params.id, "pdf", pdfJobId),
         waitForExternalExportCompletion(params.id, "xlsx", xlsxJobId),
       ]);
@@ -611,9 +685,12 @@ export function usePgrEtapaController({
         downloadExternalExport(params.id, "pdf", pdfJobId),
         downloadExternalExport(params.id, "xlsx", xlsxJobId),
       ]);
-      const docxJobId = await startExternalExportJob(params.id, "docx", exportPayload);
-      await waitForExternalExportCompletion(params.id, "docx", docxJobId);
-      const docxBlob = await downloadExternalExport(params.id, "docx", docxJobId);
+      const docxBlob = await downloadDocxFromUrlOrJob({
+        pgrId: params.id,
+        exportPayload,
+        docxDownloadUrl:
+          extractDocxDownloadUrl(pdfStartResponse) || extractDocxDownloadUrl(pdfCompletion),
+      });
 
       await attachGeneratedFilesAndMarkPipefy({
         pgrId: params.id,
@@ -682,7 +759,7 @@ export function usePgrEtapaController({
         throw new Error("API não retornou job_id para PDF.");
       }
 
-      await Promise.all([
+      const [pdfCompletion] = await Promise.all([
         waitForExternalExportCompletion(params.id, "pdf", pdfJobId),
         waitForExternalExportCompletion(params.id, "xlsx", xlsxJobId),
       ]);
@@ -690,9 +767,12 @@ export function usePgrEtapaController({
       const pdfBlob = await downloadExternalExport(params.id, "pdf", pdfJobId);
       triggerBlobDownload(pdfBlob, `${fileBase}-pgr.pdf`);
 
-      const docxJobId = await startExternalExportJob(params.id, "docx", exportPayload);
-      await waitForExternalExportCompletion(params.id, "docx", docxJobId);
-      const docxBlob = await downloadExternalExport(params.id, "docx", docxJobId);
+      const docxBlob = await downloadDocxFromUrlOrJob({
+        pgrId: params.id,
+        exportPayload,
+        docxDownloadUrl:
+          extractDocxDownloadUrl(pdfStartResponse) || extractDocxDownloadUrl(pdfCompletion),
+      });
       triggerBlobDownload(docxBlob, `${fileBase}-pgr.docx`);
 
       const xlsxBlob = await downloadExternalExport(params.id, "xlsx", xlsxJobId);
