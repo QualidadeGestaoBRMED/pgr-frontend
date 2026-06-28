@@ -139,9 +139,11 @@ const formatExportVersionCode = (value: string) => {
 
 const sanitizeExportFilenamePart = (value: string) =>
   String(value || "")
+    .replace(/[()]/g, " ")
     .replace(/[\\/:*?"<>|\x00-\x1F]/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .replace(/\s/g, "-");
 
 const buildPgrExportFileBase = (args: {
   companyName: string;
@@ -158,7 +160,7 @@ const buildPgrExportFileBase = (args: {
   const changeCode = formatExportVersionCode(latestChange?.change || "00");
   const year = new Date().getFullYear();
 
-  return `PGR - ${companyName} - ANL${analysisCode} - ALT${changeCode} - ${year}`;
+  return `PGR-${companyName}-ANL${analysisCode}-ALT${changeCode}-${year}`;
 };
 
 async function startExternalExportJobWithResponse(
