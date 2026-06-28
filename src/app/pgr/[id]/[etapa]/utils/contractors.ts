@@ -50,6 +50,7 @@ export const createEmptyContratante = (): ContratanteDraft => ({
   cnae: "",
   endereco: "",
   numero: "",
+  bairro: "",
   cep: "",
   cidade: "",
   estado: "",

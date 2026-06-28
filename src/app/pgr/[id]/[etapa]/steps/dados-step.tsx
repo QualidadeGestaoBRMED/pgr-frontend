@@ -290,6 +290,7 @@ export function DadosStep({
             : "CNPJ da contratante inválido.",
         cnae: "",
         endereco: "",
+        bairro: "",
         cep: "",
         cidade: "",
         estado: "",
@@ -321,6 +322,7 @@ export function DadosStep({
             ? ""
             : "CNPJ do estabelecimento inválido.",
         endereco: "",
+        bairro: "",
         cep: "",
         cidade: "",
         estado: "",

@@ -17,6 +17,7 @@ export const createEmptyEstabelecimento = (): EstabelecimentoDraft => ({
   cnae: "",
   endereco: "",
   numero: "",
+  bairro: "",
   cep: "",
   cidade: "",
   estado: "",
