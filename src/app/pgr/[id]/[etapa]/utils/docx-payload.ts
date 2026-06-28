@@ -37,26 +37,48 @@ const composeCityState = (city: unknown, state: unknown) => {
   return cityText || stateText;
 };
 
+const withoutTrailingSegment = (value: unknown, segment: unknown) => {
+  const valueText = _asText(value);
+  const segmentText = _asText(segment);
+  if (!valueText || !segmentText) return valueText;
+
+  const parts = valueText.split(",").map((part) => part.trim()).filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && lastPart.toLocaleLowerCase("pt-BR") === segmentText.toLocaleLowerCase("pt-BR")) {
+    return parts.slice(0, -1).join(", ");
+  }
+  return valueText;
+};
+
 const buildAddressJson = ({
   endereco,
+  numero,
   bairro,
   cidade,
   estado,
   cep,
 }: {
   endereco: unknown;
+  numero?: unknown;
   bairro?: unknown;
   cidade: unknown;
   estado: unknown;
   cep: unknown;
 }) => {
-  const enderecoText = _asText(endereco);
   const bairroText = _asText(bairro);
+  const enderecoText = withoutTrailingSegment(endereco, bairroText);
+  const numeroText = _asText(numero);
   const cidadeEstado = composeCityState(cidade, estado);
   const cepText = _asText(cep);
   return {
-    bairro: bairroText,
-    enderecoCompleto: [enderecoText, bairroText, cidadeEstado, cepText ? `CEP: ${cepText}` : ""]
+    numero: numeroText,
+    enderecoCompleto: [
+      enderecoText,
+      numeroText,
+      bairroText,
+      cidadeEstado,
+      cepText ? `CEP: ${cepText}` : "",
+    ]
       .filter(Boolean)
       .join(", "),
   };
@@ -196,16 +218,16 @@ type BackendStateShape = {
 };
 
 type AddressJsonFields = {
-  bairro: string;
+  numero: string;
   enderecoCompleto: string;
 };
 
 type DadosCadastraisJson = DadosCadastraisDraft & {
-  empresaBairro: string;
+  empresaNumero: string;
   empresaEnderecoCompleto: string;
-  estabelecimentoBairro: string;
+  estabelecimentoNumero: string;
   estabelecimentoEnderecoCompleto: string;
-  contratanteBairro: string;
+  contratanteNumero: string;
   contratanteEnderecoCompleto: string;
   estabelecimentos: Array<(DadosCadastraisDraft["estabelecimentos"][number] & AddressJsonFields)>;
   contratantes: Array<(DadosCadastraisDraft["contratantes"][number] & AddressJsonFields)>;
@@ -451,51 +473,61 @@ export function buildPgrDocxPayload(input: {
 
   const empresaAddressJson = buildAddressJson({
     endereco: input.dadosCadastrais.empresaEndereco,
+    numero: input.dadosCadastrais.empresaNumero,
+    bairro: input.dadosCadastrais.empresaBairro,
     cidade: input.dadosCadastrais.empresaCidade,
     estado: input.dadosCadastrais.empresaEstado,
     cep: input.dadosCadastrais.empresaCep,
   });
   const estabelecimentoAddressJson = buildAddressJson({
     endereco: input.dadosCadastrais.estabelecimentoEndereco,
+    numero: input.dadosCadastrais.estabelecimentoNumero,
+    bairro: input.dadosCadastrais.estabelecimentoBairro,
     cidade: input.dadosCadastrais.estabelecimentoCidade,
     estado: input.dadosCadastrais.estabelecimentoEstado,
     cep: input.dadosCadastrais.estabelecimentoCep,
   });
   const contratantesJson = Array.isArray(input.dadosCadastrais.contratantes)
     ? input.dadosCadastrais.contratantes.map((item) => ({
-        ...item,
-        ...buildAddressJson({
-          endereco: item.endereco,
-          cidade: item.cidade,
-          estado: item.estado,
-          cep: item.cep,
-        }),
+      ...item,
+      ...buildAddressJson({
+        endereco: item.endereco,
+        numero: item.numero,
+        bairro: item.bairro,
+        cidade: item.cidade,
+        estado: item.estado,
+        cep: item.cep,
+      }),
       }))
     : [];
   const contratanteAddressJson = buildAddressJson({
     endereco: input.dadosCadastrais.contratanteEndereco,
+    numero: input.dadosCadastrais.contratanteNumero,
+    bairro: input.dadosCadastrais.contratanteBairro,
     cidade: input.dadosCadastrais.contratanteCidade,
     estado: input.dadosCadastrais.contratanteEstado,
     cep: input.dadosCadastrais.contratanteCep,
   });
   const estabelecimentosJson = Array.isArray(input.dadosCadastrais.estabelecimentos)
     ? input.dadosCadastrais.estabelecimentos.map((item) => ({
-        ...item,
-        ...buildAddressJson({
-          endereco: item.endereco,
-          cidade: item.cidade,
-          estado: item.estado,
-          cep: item.cep,
-        }),
+      ...item,
+      ...buildAddressJson({
+        endereco: item.endereco,
+        numero: item.numero,
+        bairro: item.bairro,
+        cidade: item.cidade,
+        estado: item.estado,
+        cep: item.cep,
+      }),
       }))
     : [];
   const dadosCadastrais: DadosCadastraisJson = {
     ...input.dadosCadastrais,
-    empresaBairro: empresaAddressJson.bairro,
+    empresaNumero: empresaAddressJson.numero,
     empresaEnderecoCompleto: empresaAddressJson.enderecoCompleto,
-    estabelecimentoBairro: estabelecimentoAddressJson.bairro,
+    estabelecimentoNumero: estabelecimentoAddressJson.numero,
     estabelecimentoEnderecoCompleto: estabelecimentoAddressJson.enderecoCompleto,
-    contratanteBairro: contratanteAddressJson.bairro,
+    contratanteNumero: contratanteAddressJson.numero,
     contratanteEnderecoCompleto: contratanteAddressJson.enderecoCompleto,
     estabelecimentos: estabelecimentosJson,
     contratantes: contratantesJson,

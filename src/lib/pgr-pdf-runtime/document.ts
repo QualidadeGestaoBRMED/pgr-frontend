@@ -23,6 +23,19 @@ function sanitizeText(value: unknown) {
     .trim();
 }
 
+function withoutTrailingSegment(value: unknown, segment: unknown) {
+  const valueText = sanitizeText(value);
+  const segmentText = sanitizeText(segment);
+  if (!valueText || !segmentText) return valueText;
+
+  const parts = valueText.split(",").map((part) => part.trim()).filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && lastPart.toLocaleLowerCase("pt-BR") === segmentText.toLocaleLowerCase("pt-BR")) {
+    return parts.slice(0, -1).join(", ");
+  }
+  return valueText;
+}
+
 function estimateWrappedLineCount(text: string, maxCharsPerLine: number) {
   const normalized = sanitizeText(text);
   if (!normalized) return 1;
@@ -841,7 +854,14 @@ function buildIdentificationAndProgramPages(
                 [
                   infoLabelCell("Endereço"),
                   bodyCell(
-                    [contractor.endereco, contractor.cidade, contractor.estado, contractor.cep]
+                    [
+                      withoutTrailingSegment(contractor.endereco, contractor.bairro),
+                      contractor.numero,
+                      contractor.bairro,
+                      contractor.cidade,
+                      contractor.estado,
+                      contractor.cep,
+                    ]
                       .filter(Boolean)
                       .join(" - ")
                   ),

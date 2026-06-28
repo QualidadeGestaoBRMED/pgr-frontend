@@ -204,11 +204,15 @@ describe("docx payload mapping", () => {
       totalSteps: 8,
       backendState: {
         dadosCadastrais: {
-          empresaEndereco: "Rua A, 100",
+          empresaEndereco: "Rua A, Centro",
+          empresaNumero: "100",
+          empresaBairro: "Centro",
           empresaCidade: "São Paulo",
           empresaEstado: "SP",
           empresaCep: "01001-000",
-          estabelecimentoEndereco: "Av. B, 200",
+          estabelecimentoEndereco: "Av. B, Cambuí",
+          estabelecimentoNumero: "200",
+          estabelecimentoBairro: "Cambuí",
           estabelecimentoCidade: "Campinas",
           estabelecimentoEstado: "SP",
           estabelecimentoCep: "13010-000",
@@ -219,7 +223,9 @@ describe("docx payload mapping", () => {
               razaoSocial: "Cliente Ltda",
               cnpj: "12.345.678/0001-99",
               cnae: "6201-5/01",
-              endereco: "Rua C, 300",
+              endereco: "Rua C, Centro",
+              numero: "300",
+              bairro: "Centro",
               cidade: "Santos",
               estado: "SP",
               cep: "11010-000",
@@ -233,13 +239,13 @@ describe("docx payload mapping", () => {
     });
 
     expect(payload.dadosCadastrais.empresaEnderecoCompleto).toBe(
-      "Rua A, 100, São Paulo/SP, CEP: 01001-000"
+      "Rua A, 100, Centro, São Paulo/SP, CEP: 01001-000"
     );
     expect(payload.dadosCadastrais.estabelecimentoEnderecoCompleto).toBe(
-      "Av. B, 200, Campinas/SP, CEP: 13010-000"
+      "Av. B, 200, Cambuí, Campinas/SP, CEP: 13010-000"
     );
     expect(payload.dadosCadastrais.contratantes[0]?.enderecoCompleto).toBe(
-      "Rua C, 300, Santos/SP, CEP: 11010-000"
+      "Rua C, 300, Centro, Santos/SP, CEP: 11010-000"
     );
   });
 });

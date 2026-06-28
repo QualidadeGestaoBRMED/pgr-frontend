@@ -45,9 +45,17 @@ describe("step schemas", () => {
       empresaCnpj: "04.252.011/0001-10",
       empresaCnae: "01.11-3-01",
       empresaEndereco: "Rua A",
+      empresaNumero: "123",
+      empresaBairro: "",
       empresaCidade: "Rio",
       empresaEstado: "RJ",
       empresaGrauRisco: "2",
+      estabelecimentoEndereco: "Rua Est",
+      estabelecimentoNumero: "10",
+      estabelecimentoBairro: "",
+      estabelecimentoCep: "20000-000",
+      estabelecimentoCidade: "Rio",
+      estabelecimentoEstado: "RJ",
       estabelecimentos: [
         {
           id: "est-1",
@@ -56,6 +64,12 @@ describe("step schemas", () => {
           cnpj: "33.000.167/0001-01",
           razaoSocial: "Unidade Centro LTDA",
           cnae: "01.11-3-01",
+          numero: "10",
+          endereco: "",
+          bairro: "",
+          cep: "",
+          cidade: "",
+          estado: "",
           grauRisco: "3",
           atividadePrincipal: "Operação",
         },
@@ -71,6 +85,8 @@ describe("step schemas", () => {
           cnpj: "45.543.915/0001-81",
           cnae: "62.01-5-01",
           endereco: "Rua B",
+          numero: "456",
+          bairro: "",
           cep: "20000-000",
           cidade: "Rio de Janeiro",
           estado: "RJ",
@@ -105,9 +121,17 @@ describe("step schemas", () => {
       empresaCnpj: "04.252.011/0001-10",
       empresaCnae: "01.11-3-01",
       empresaEndereco: "Rua A",
+      empresaNumero: "123",
+      empresaBairro: "",
       empresaCidade: "Rio",
       empresaEstado: "RJ",
       empresaGrauRisco: "2",
+      estabelecimentoEndereco: "Rua Est",
+      estabelecimentoNumero: "10",
+      estabelecimentoBairro: "",
+      estabelecimentoCep: "20000-000",
+      estabelecimentoCidade: "Rio",
+      estabelecimentoEstado: "RJ",
       estabelecimentos: [
         {
           id: "est-1",
@@ -116,6 +140,12 @@ describe("step schemas", () => {
           cnpj: "33.000.167/0001-01",
           razaoSocial: "Unidade Centro LTDA",
           cnae: "01.11-3-01",
+          numero: "10",
+          endereco: "",
+          bairro: "",
+          cep: "",
+          cidade: "",
+          estado: "",
           grauRisco: "3",
           atividadePrincipal: "Operação",
         },
@@ -207,6 +237,7 @@ describe("step schemas", () => {
     expect(normalizeQuantitativeMeasurementValue(">= 80")).toBe(">=80");
     expect(normalizeQuantitativeMeasurementValue("n/d")).toBe("N/D");
     expect(normalizeQuantitativeMeasurementValue("<lq")).toBe("<LQ");
+    expect(normalizeQuantitativeMeasurementValue("lld")).toBe("LLD");
 
     expect(isValidQuantitativeMeasurementValue("80")).toBe(true);
     expect(isValidQuantitativeMeasurementValue("<80")).toBe(true);
@@ -215,6 +246,7 @@ describe("step schemas", () => {
     expect(isValidQuantitativeMeasurementValue(">=80")).toBe(true);
     expect(isValidQuantitativeMeasurementValue("N/D")).toBe(true);
     expect(isValidQuantitativeMeasurementValue("<LQ")).toBe(true);
+    expect(isValidQuantitativeMeasurementValue("LLD")).toBe(true);
     expect(isValidQuantitativeMeasurementValue("abc")).toBe(false);
   });
 });

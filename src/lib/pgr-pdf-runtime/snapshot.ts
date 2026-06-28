@@ -78,6 +78,8 @@ export type RuntimeSnapshot = {
     cnpj: string;
     cnae: string;
     endereco: string;
+    numero: string;
+    bairro: string;
     cep: string;
     cidade: string;
     estado: string;
@@ -122,6 +124,19 @@ function sanitizeText(value: unknown) {
   return String(value ?? "")
     .replace(/[\r\n\t]+/g, " ")
     .trim();
+}
+
+function withoutTrailingSegment(value: unknown, segment: unknown) {
+  const valueText = sanitizeText(value);
+  const segmentText = sanitizeText(segment);
+  if (!valueText || !segmentText) return valueText;
+
+  const parts = valueText.split(",").map((part) => part.trim()).filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && lastPart.toLocaleLowerCase("pt-BR") === segmentText.toLocaleLowerCase("pt-BR")) {
+    return parts.slice(0, -1).join(", ");
+  }
+  return valueText;
 }
 
 function normalizeRevisionReason(value: unknown) {
@@ -354,6 +369,8 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       cnpj: sanitizeText(item?.cnpj),
       cnae: sanitizeText(item?.cnae),
       endereco: sanitizeText(item?.endereco),
+      numero: sanitizeText(item?.numero),
+      bairro: sanitizeText(item?.bairro),
       cep: sanitizeText(item?.cep),
       cidade: sanitizeText(item?.cidade),
       estado: sanitizeText(item?.estado),
@@ -371,6 +388,8 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       cnpj: sanitizeText(dados?.contratanteCnpj),
       cnae: sanitizeText(dados?.contratanteCnae),
       endereco: sanitizeText(dados?.contratanteEndereco),
+      numero: sanitizeText(dados?.contratanteNumero),
+      bairro: sanitizeText(dados?.contratanteBairro),
       cep: sanitizeText(dados?.contratanteCep),
       cidade: sanitizeText(dados?.contratanteCidade),
       estado: sanitizeText(dados?.contratanteEstado),
@@ -563,7 +582,9 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       atividadePrincipal: sanitizeText(dados?.empresaAtividadePrincipal),
       grauRisco: sanitizeText(dados?.empresaGrauRisco),
       enderecoCompleto: [
-        sanitizeText(dados?.empresaEndereco),
+        withoutTrailingSegment(dados?.empresaEndereco, dados?.empresaBairro),
+        sanitizeText(dados?.empresaNumero),
+        sanitizeText(dados?.empresaBairro),
         sanitizeText(dados?.empresaCidade),
         sanitizeText(dados?.empresaEstado),
         sanitizeText(dados?.empresaCep),

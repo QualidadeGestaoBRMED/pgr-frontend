@@ -167,6 +167,7 @@ export function DadosStep({
     | "cnpj"
     | "cnae"
     | "endereco"
+    | "bairro"
     | "cep"
     | "cidade"
     | "estado"
@@ -187,6 +188,7 @@ export function DadosStep({
     | "razaoSocial"
     | "cnae"
     | "endereco"
+    | "bairro"
     | "cep"
     | "cidade"
     | "estado"
@@ -853,7 +855,7 @@ export function DadosStep({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
+        <div className="mt-5 grid gap-4 md:grid-cols-[2.1fr_1.1fr_0.7fr_1.3fr_1.1fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
               Endereço *
@@ -870,6 +872,16 @@ export function DadosStep({
             {errors.empresaEndereco ? (
               <p className="mt-1 text-[12px] text-danger">{errors.empresaEndereco}</p>
             ) : null}
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">Número:</label>
+            <input
+              className={inputBaseClass}
+              value={dadosCadastrais.empresaNumero}
+              onChange={(event) =>
+                onDadosChange("empresaNumero", event.target.value)
+              }
+            />
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">CEP:</label>
@@ -1140,11 +1152,11 @@ export function DadosStep({
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-[2fr_1fr]">
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">
-                      Endereço:
-                    </label>
+        <div className="mt-5 grid gap-4 md:grid-cols-[1.8fr_1.2fr_1fr]">
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Endereço:
+            </label>
                     <input
                       className={getEstablishmentFieldClassName(establishmentKey, "endereco")}
                       value={establishment.endereco}
@@ -1155,13 +1167,27 @@ export function DadosStep({
                           event.target.value
                         )
                       }
-                      onBlur={() => markEstablishmentTouched(establishmentKey, "endereco")}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[12px] font-medium text-foreground">CEP:</label>
-                    <input
-                      className={getEstablishmentFieldClassName(establishmentKey, "cep")}
+              onBlur={() => markEstablishmentTouched(establishmentKey, "endereco")}
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">Número:</label>
+            <input
+              className={inputBaseClass}
+              value={establishment.numero}
+              onChange={(event) =>
+                onEstablishmentChange(
+                  establishmentIndex,
+                  "numero",
+                  event.target.value
+                )
+              }
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">CEP:</label>
+            <input
+              className={getEstablishmentFieldClassName(establishmentKey, "cep")}
                       value={establishment.cep}
                       onChange={(event) =>
                         handleEstablishmentCepInputChange(
@@ -1395,7 +1421,7 @@ export function DadosStep({
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-[2.4fr_0.7fr_1.6fr_1.1fr]">
+              <div className="mt-5 grid gap-4 md:grid-cols-[2.1fr_1.1fr_0.7fr_1.3fr_1.1fr]">
                 <div>
                   <label className="text-[12px] font-medium text-foreground">
                     Endereço
@@ -1417,6 +1443,16 @@ export function DadosStep({
                       {contractorErrorsById[contractorKey].endereco}
                     </p>
                   ) : null}
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-foreground">Número:</label>
+                  <input
+                    className={inputBaseClass}
+                    value={contractor.numero}
+                    onChange={(event) =>
+                      onContractorChange(contractorIndex, "numero", event.target.value)
+                    }
+                  />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-foreground">

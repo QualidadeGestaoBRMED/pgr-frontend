@@ -26,6 +26,8 @@ export type EstabelecimentoDraft = {
   razaoSocial: string;
   cnae: string;
   endereco: string;
+  numero: string;
+  bairro: string;
   cep: string;
   cidade: string;
   estado: string;
@@ -40,6 +42,8 @@ export type ContratanteDraft = {
   cnpj: string;
   cnae: string;
   endereco: string;
+  numero: string;
+  bairro: string;
   cep: string;
   cidade: string;
   estado: string;
@@ -65,6 +69,8 @@ export type DadosCadastraisDraft = {
   empresaNome: string;
   empresaCnae: string;
   empresaEndereco: string;
+  empresaNumero: string;
+  empresaBairro: string;
   empresaCep: string;
   empresaCidade: string;
   empresaEstado: string;
@@ -76,6 +82,8 @@ export type DadosCadastraisDraft = {
   estabelecimentoRazaoSocial: string;
   estabelecimentoCnae: string;
   estabelecimentoEndereco: string;
+  estabelecimentoNumero: string;
+  estabelecimentoBairro: string;
   estabelecimentoCep: string;
   estabelecimentoCidade: string;
   estabelecimentoEstado: string;
@@ -87,6 +95,8 @@ export type DadosCadastraisDraft = {
   contratanteCnpj: string;
   contratanteCnae: string;
   contratanteEndereco: string;
+  contratanteNumero: string;
+  contratanteBairro: string;
   contratanteCep: string;
   contratanteCidade: string;
   contratanteEstado: string;

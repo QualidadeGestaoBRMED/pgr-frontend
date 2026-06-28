@@ -78,6 +78,13 @@ function readNullableNumber(
   return null;
 }
 
+const composeViaCepAddress = (logradouro?: string, bairro?: string) => {
+  const street = String(logradouro || "").trim();
+  const neighborhood = String(bairro || "").trim();
+  if (street && neighborhood) return `${street}, ${neighborhood}`;
+  return street || "";
+};
+
 function normalizeInicioDraftFromPipefy(
   source: Partial<InicioDraft> | Record<string, unknown> | undefined,
   cardMetaSource?: Record<string, unknown>
@@ -307,6 +314,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           ...(field === "estabelecimentoRazaoSocial" ? { razaoSocial: normalizedValue } : {}),
           ...(field === "estabelecimentoCnae" ? { cnae: normalizedValue } : {}),
           ...(field === "estabelecimentoEndereco" ? { endereco: normalizedValue } : {}),
+          ...(field === "estabelecimentoNumero" ? { numero: normalizedValue } : {}),
+          ...(field === "estabelecimentoBairro" ? { bairro: normalizedValue } : {}),
           ...(field === "estabelecimentoCep" ? { cep: normalizedValue } : {}),
           ...(field === "estabelecimentoCidade" ? { cidade: normalizedValue } : {}),
           ...(field === "estabelecimentoEstado" ? { estado: normalizedValue } : {}),
@@ -330,6 +339,8 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           ...(field === "contratanteCnpj" ? { cnpj: normalizedValue } : {}),
           ...(field === "contratanteCnae" ? { cnae: normalizedValue } : {}),
           ...(field === "contratanteEndereco" ? { endereco: normalizedValue } : {}),
+          ...(field === "contratanteNumero" ? { numero: normalizedValue } : {}),
+          ...(field === "contratanteBairro" ? { bairro: normalizedValue } : {}),
           ...(field === "contratanteCep" ? { cep: normalizedValue } : {}),
           ...(field === "contratanteCidade" ? { cidade: normalizedValue } : {}),
           ...(field === "contratanteEstado" ? { estado: normalizedValue } : {}),
@@ -388,6 +399,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         data?: {
           cep?: string;
           logradouro?: string;
+          bairro?: string;
           localidade?: string;
           uf?: string;
         };
@@ -395,13 +407,16 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
 
       if (!response.found || !response.data) return;
       const payload = response.data;
+      const viaCepAddress = composeViaCepAddress(payload.logradouro, payload.bairro);
 
       setDadosCadastrais((prev) => {
         if (scope === "empresa") {
           return {
             ...prev,
             empresaCep: maskCep(payload.cep || prev.empresaCep),
-            empresaEndereco: payload.logradouro || prev.empresaEndereco,
+            empresaEndereco: viaCepAddress || prev.empresaEndereco,
+            empresaNumero: prev.empresaNumero,
+            empresaBairro: payload.bairro || prev.empresaBairro,
             empresaCidade: payload.localidade || prev.empresaCidade,
             empresaEstado: payload.uf || prev.empresaEstado,
           };
@@ -415,10 +430,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
               ? {
                   ...establishment,
                   cep: maskCep(payload.cep || establishment.cep),
-                  endereco: payload.logradouro || establishment.endereco,
+                  endereco: viaCepAddress || establishment.endereco,
+                  numero: establishment.numero,
+                  bairro: payload.bairro || establishment.bairro,
                   cidade: payload.localidade || establishment.cidade,
                   estado: payload.uf || establishment.estado,
-                }
+              }
               : establishment
           );
 
@@ -438,7 +455,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             ? {
                 ...contractor,
                 cep: maskCep(payload.cep || contractor.cep),
-                endereco: payload.logradouro || contractor.endereco,
+                endereco: viaCepAddress || contractor.endereco,
+                numero: contractor.numero,
+                bairro: payload.bairro || contractor.bairro,
                 cidade: payload.localidade || contractor.cidade,
                 estado: payload.uf || contractor.estado,
               }
