@@ -65,6 +65,13 @@ const optionalEmailField = (label: string) =>
 const optionalStringOrArrayField = () =>
   z.union([z.string(), z.array(z.string())]).optional();
 
+const isQuantitativeEvaluation = (value: string | undefined) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .includes("quantit");
+
 export const inicioDraftSchema = z.object({
   documentTitle: requiredText("Título do card"),
   companyName: requiredText("Nome da empresa"),
@@ -155,21 +162,32 @@ export const gheInfoSchema = z.object({
   ambiente: requiredText("Ambiente"),
 });
 
-export const gheRiskSchema = z.object({
-  tipoAgente: requiredText("Tipo de agente"),
-  descricaoAgente: requiredText("Descrição do agente"),
-  perigo: z.string().optional(),
-  meioPropagacao: requiredText("Meio de propagação"),
-  fontes: requiredText("Fontes"),
-  tipoAvaliacao: requiredText("Tipo de avaliação"),
-  intensidade: requiredText("Intensidade"),
-  severidade: requiredText("Severidade"),
-  probabilidade: requiredText("Probabilidade"),
-  classificacao: requiredText("Classificação"),
-  medidasControle: requiredText("Medidas de controle"),
-  epc: optionalStringOrArrayField(),
-  epi: optionalStringOrArrayField(),
-});
+export const gheRiskSchema = z
+  .object({
+    tipoAgente: requiredText("Tipo de agente"),
+    descricaoAgente: requiredText("Descrição do agente"),
+    perigo: z.string().optional(),
+    meioPropagacao: requiredText("Meio de propagação"),
+    fontes: requiredText("Fontes"),
+    tipoAvaliacao: requiredText("Tipo de avaliação"),
+    intensidade: requiredText("Intensidade"),
+    severidade: requiredText("Severidade"),
+    probabilidade: z.string().optional(),
+    classificacao: z.string().optional(),
+    medidasControle: requiredText("Medidas de controle"),
+    epc: optionalStringOrArrayField(),
+    epi: optionalStringOrArrayField(),
+  })
+  .superRefine((risk, ctx) => {
+    if (isQuantitativeEvaluation(risk.tipoAvaliacao)) return;
+    if (String(risk.probabilidade || "").trim()) return;
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Probabilidade é obrigatório",
+      path: ["probabilidade"],
+    });
+  });
 
 export function isInicioDraftComplete(input: InicioDraft): boolean {
   return inicioDraftSchema.safeParse(input).success;

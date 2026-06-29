@@ -21,27 +21,6 @@ const isGenericPropagationValue = (value: string) =>
 const isChemicalAgentToken = (value: string) =>
   normalizeCatalogToken(value) === "quimico";
 
-const parseNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return null;
-  const normalized = value.replace(/\s+/g, "").replace(/,/g, ".");
-  const match = normalized.match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const parsed = Number.parseFloat(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const isSymbolicQuantitativeValue = (value: string) => {
-  const normalized = String(value || "").trim().toUpperCase();
-  return normalized === "N/D" || normalized === "<LQ" || normalized === "LLD";
-};
-
-const deriveActionLevelFromTolerance = (value: string) => {
-  const toleranceLimit = parseNumber(value);
-  if (toleranceLimit === null) return "";
-  return String(Number((toleranceLimit / 2).toFixed(2)));
-};
-
 const getFirstCatalogValue = (map: Map<number, string[]>, agentId?: number) => {
   if (!agentId) return "";
   const values = map.get(agentId);
@@ -236,7 +215,7 @@ const resolveActionLevel = (item: TechnicalCriteriaCatalogItem) => {
   const rawActionLevel = item.actionLevel ?? item.action_level;
   const actionLevelText = toSafeCatalogText(rawActionLevel);
   const unitText = resolveUnitValues(item)[0] || "";
-  if (!actionLevelText) return "Calculado";
+  if (!actionLevelText) return "";
   return `${actionLevelText}${unitText ? ` ${unitText}` : ""}`;
 };
 
@@ -604,12 +583,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         normalizedRisk.intensidade || defaults.intensidade || ""
       ).trim();
       const resolvedActionLevel = String(
-        normalizedRisk.nivelAcao ||
-          defaults.nivelAcao ||
-          (!isSymbolicQuantitativeValue(resolvedIntensity)
-            ? deriveActionLevelFromTolerance(resolvedIntensity)
-            : "") ||
-          ""
+        normalizedRisk.nivelAcao || defaults.nivelAcao || ""
       ).trim();
       const classification = calculateRiskClassification({
         severidade: normalizedRisk.severidade || defaults.severidade || "",
@@ -770,8 +744,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           (item) => item.actionLevel
         )
       );
-      const options = optionsFromCriteria.length ? optionsFromCriteria : ["Calculado"];
-      return withCurrentValue(options, currentValue);
+      return withCurrentValue(optionsFromCriteria, currentValue);
     },
     [resolveTechnicalCriteriaOptions]
   );

@@ -664,7 +664,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                 <tr>
                                     <th className="px-4 py-3 font-semibold">GHE</th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
-                                        Descrição agente de risco
+                                        Perigo ou Fator de Risco Ocupacional
                                     </th>
                                     <th className="border-l border-border/60 px-4 py-3 font-semibold">
                                         Prioridade

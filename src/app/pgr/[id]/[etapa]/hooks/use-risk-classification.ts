@@ -82,16 +82,14 @@ const resolveQuantitativeLevelInputs = (risk: {
   const toleranceLimit = parseNumber(risk.intensidade);
   const parsedActionLevel = parseNumber(risk.nivelAcao);
 
-  if (measuredValue === null || toleranceLimit === null) return null;
-
-  // Mantém compatibilidade com regra de backend onde, em ausência de nível de ação,
-  // usa o próprio limite de tolerância como referência.
-  const actionLevel = parsedActionLevel ?? toleranceLimit;
+  if (measuredValue === null || toleranceLimit === null || parsedActionLevel === null) {
+    return null;
+  }
 
   return {
     measuredValue,
     toleranceLimit,
-    actionLevel,
+    actionLevel: parsedActionLevel,
   };
 };
 

@@ -718,10 +718,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               : ""
             : "Intensidade/Concentração é obrigatória.",
           severidade: hasValue(risk.severidade) ? "" : "Severidade é obrigatória.",
-          probabilidade: hasValue(risk.probabilidade) ? "" : "Probabilidade é obrigatória.",
-          classificacao: hasValue(risk.classificacao)
-            ? ""
-            : "Classificação de Risco é obrigatória.",
+          probabilidade:
+            isQuantitativeEvaluation || hasValue(risk.probabilidade)
+              ? ""
+              : "Probabilidade é obrigatória.",
+          classificacao: "",
           medidasControle: hasValue(risk.medidasControle)
             ? ""
             : "Medidas de Controle é obrigatório.",
@@ -2230,7 +2231,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </div>
                           <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
-                              Nível de Ação *
+                              Nível de Ação
                             </label>
                             <input
                               className={stackedInputClass}
@@ -2485,15 +2486,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </div>
                           <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
-                              Probabilidade *
+                              Probabilidade{isQuantitativeEvaluation ? "" : " *"}
                             </label>
                             {isQuantitativeEvaluation ? (
                               <input
-                                className={getRiskFieldClassName(
-                                  risk.id,
-                                  "probabilidade",
-                                  stackedInputClass
-                                )}
+                                className={stackedInputClass}
                                 value={risk.probabilidade}
                                 placeholder="Nível calculado"
                                 disabled
@@ -2521,7 +2518,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 />
                               </div>
                             )}
-                            {getRiskFieldError(risk.id, "probabilidade") ? (
+                            {isQuantitativeEvaluation ? (
+                              <p className="mt-1 text-[12px] text-muted-foreground">
+                                Esse campo é calculado automaticamente
+                              </p>
+                            ) : getRiskFieldError(risk.id, "probabilidade") ? (
                               <p className="mt-1 text-[12px] text-danger">
                                 {getRiskFieldError(risk.id, "probabilidade")}
                               </p>
@@ -2529,25 +2530,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </div>
                           <div className={formGroupClass}>
                             <label className="text-[12px] font-medium text-foreground">
-                              Classificação de Risco *
+                              Classificação de Risco
                             </label>
                             <input
-                              className={getRiskFieldClassName(
-                                risk.id,
-                                "classificacao",
-                                stackedInputClass
-                              )}
+                              className={stackedInputClass}
                               value={risk.classificacao}
                               onChange={(event) =>
                                 handleRiskChange(risk.id, "classificacao", event.target.value)
                               }
                               disabled
                             />
-                            {getRiskFieldError(risk.id, "classificacao") ? (
-                              <p className="mt-1 text-[12px] text-danger">
-                                {getRiskFieldError(risk.id, "classificacao")}
-                              </p>
-                            ) : null}
+                            <p className="mt-1 text-[12px] text-muted-foreground">
+                              Esse campo é gerado automaticamente
+                            </p>
                           </div>
                         </div>
                       </>
@@ -2624,25 +2619,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         </div>
                         <div className={formGroupClass}>
                           <label className="text-[12px] font-medium text-foreground">
-                            Classificação de Risco *
+                            Classificação de Risco
                           </label>
                           <input
-                            className={getRiskFieldClassName(
-                              risk.id,
-                              "classificacao",
-                              stackedInputClass
-                            )}
+                            className={stackedInputClass}
                             value={risk.classificacao}
                             onChange={(event) =>
                               handleRiskChange(risk.id, "classificacao", event.target.value)
                             }
                             disabled
                           />
-                          {getRiskFieldError(risk.id, "classificacao") ? (
-                            <p className="mt-1 text-[12px] text-danger">
-                              {getRiskFieldError(risk.id, "classificacao")}
-                            </p>
-                          ) : null}
+                          <p className="mt-1 text-[12px] text-muted-foreground">
+                            Esse campo é calculado automaticamente
+                          </p>
                         </div>
                       </div>
                     )}

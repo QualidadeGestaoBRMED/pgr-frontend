@@ -212,6 +212,39 @@ describe("step schemas", () => {
     expect(isRiskComplete(uiRisk as never)).toBe(true);
   });
 
+  it("does not require calculated fields", () => {
+    const quantitativeRisk = {
+      id: "r-quantitative-1",
+      tipoAgente: "Fisico",
+      descricaoAgente: "Ruido",
+      meioPropagacao: "Ar",
+      fontes: "Maquinas",
+      tipoAvaliacao: "Quantitativa",
+      intensidade: "85 dB",
+      severidade: "Alta",
+      probabilidade: "",
+      classificacao: "",
+      medidasControle: "Isolamento",
+      epc: "",
+      epi: "",
+    };
+
+    expect(isRiskComplete(quantitativeRisk as never)).toBe(true);
+    expect(
+      isRiskComplete({
+        ...quantitativeRisk,
+        tipoAvaliacao: "Qualitativa",
+      } as never)
+    ).toBe(false);
+    expect(
+      isRiskComplete({
+        ...quantitativeRisk,
+        tipoAvaliacao: "Qualitativa",
+        probabilidade: "Media",
+      } as never)
+    ).toBe(true);
+  });
+
   it("validates cpf/cnpj/email/phone/risk-grade helpers", () => {
     expect(isValidCpf("529.982.247-25")).toBe(true);
     expect(isValidCpf("111.111.111-11")).toBe(false);
