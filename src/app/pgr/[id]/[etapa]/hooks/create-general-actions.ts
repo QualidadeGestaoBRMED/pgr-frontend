@@ -1019,7 +1019,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     if (planActionScope === "risk" && selectedRiskIds.size === 0) return;
     if (planActionScope === "risk" && selectedGheIds.size === 0) return;
 
-    if (planActionScope === "all") {
+    if (planActionScope === "all" || planActionScope === "ghe") {
       const row = buildPlanActionGeneralMeasureRow({
         description: actionDescription,
         nr: planAction.nr || "",
@@ -1068,8 +1068,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         const applyForGhe =
-          (planActionScope === "ghe" && ghe.id === planActionGheId) ||
-          (planActionScope === "risk" && selectedGheIds.has(ghe.id));
+          planActionScope === "risk" && selectedGheIds.has(ghe.id);
         if (!applyForGhe) return ghe;
 
         const risks = ghe.risks.map((risk) => {

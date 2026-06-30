@@ -43,6 +43,22 @@ describe("plan action helpers", () => {
     expect(row?.gheName).toBe("Todos os GHEs");
   });
 
+  it("labels a single selected GHE without touching other GHEs", () => {
+    const row = buildPlanActionGeneralMeasureRow({
+      description: "Substituir protecao coletiva",
+      nr: "NR-01",
+      gheIds: ["g-2"],
+      idSeed: "test-single-ghe",
+      availableGheGroups: [
+        { id: "g-1", name: "GHE 1", risks: [] },
+        { id: "g-2", name: "GHE 2", risks: [] },
+      ],
+    });
+
+    expect(row?.gheName).toBe("GHE 2");
+    expect(row?.targetGheIds).toEqual(["g-2"]);
+  });
+
   it("does not create a row without description or target GHE", () => {
     expect(
       buildPlanActionGeneralMeasureRow({
