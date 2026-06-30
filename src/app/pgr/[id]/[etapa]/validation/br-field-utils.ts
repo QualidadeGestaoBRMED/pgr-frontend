@@ -1,5 +1,10 @@
 const onlyDigits = (value: string) => String(value || "").replace(/\D/g, "");
 
+export const CALCULATED_LIMIT_VALUE = "Calculado";
+
+export const isCalculatedLimitValue = (value: string) =>
+  String(value || "").trim().toLowerCase() === CALCULATED_LIMIT_VALUE.toLowerCase();
+
 export const normalizeEmail = (value: string) => String(value || "").trim().toLowerCase();
 
 export const maskCnpj = (value: string) => {

@@ -13,6 +13,7 @@ import {
   isValidPhoneBr,
   isValidRiskGrade,
   isValidQuantitativeMeasurementValue,
+  isCalculatedLimitValue,
   maskCpf,
   maskPhoneBr,
   sanitizeQuantitativeMeasurementInput,
@@ -245,6 +246,27 @@ describe("step schemas", () => {
     ).toBe(true);
   });
 
+  it("accepts calculated tolerance limit text for qualitative risks", () => {
+    const calculatedRisk = {
+      id: "r-calculated-1",
+      tipoAgente: "Fisico",
+      descricaoAgente: "Calor",
+      meioPropagacao: "Ar",
+      fontes: "Ambiente externo",
+      tipoAvaliacao: "Qualitativa",
+      intensidade: "Calculado",
+      nivelAcao: "Calculado",
+      severidade: "Alta",
+      probabilidade: "Media",
+      classificacao: "",
+      medidasControle: "Pausas programadas",
+      epc: "",
+      epi: "",
+    };
+
+    expect(isRiskComplete(calculatedRisk as never)).toBe(true);
+  });
+
   it("validates cpf/cnpj/email/phone/risk-grade helpers", () => {
     expect(isValidCpf("529.982.247-25")).toBe(true);
     expect(isValidCpf("111.111.111-11")).toBe(false);
@@ -258,6 +280,8 @@ describe("step schemas", () => {
     expect(maskCpf("52998224725")).toBe("529.982.247-25");
     expect(isValidRiskGrade("1")).toBe(true);
     expect(isValidRiskGrade("5")).toBe(false);
+    expect(isCalculatedLimitValue(" calculado ")).toBe(true);
+    expect(isCalculatedLimitValue("85")).toBe(false);
   });
 
   it("normalizes and validates quantitative measurement values", () => {

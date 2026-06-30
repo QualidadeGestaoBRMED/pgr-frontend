@@ -4,6 +4,7 @@ import type {
   RiskCatalogPayload,
   TechnicalCriteriaCatalogItem,
 } from "../types";
+import { CALCULATED_LIMIT_VALUE } from "../validation/br-field-utils";
 import { useRiskClassification } from "./use-risk-classification";
 
 const normalizeCatalogToken = (value: string) =>
@@ -539,7 +540,10 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         risk.descricaoAgente
       );
       const firstTechnicalCriteria = technicalCriteriaDefaults[0];
-      const shouldManualFillQuantitativeLimits = Boolean(firstTechnicalCriteria?.isCalculated);
+      const isCalculatedCriteria = Boolean(firstTechnicalCriteria?.isCalculated);
+      const isCalculatedQualitativeCriteria =
+        isCalculatedCriteria &&
+        normalizeCatalogToken(firstTechnicalCriteria?.evaluationType || "").includes("qualit");
       const controlMeasureDefaults = uniqueNonEmptyValues(
         technicalCriteriaDefaults.map((item) => item.controlMeasureValues).flat()
       );
@@ -567,14 +571,20 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
           firstTechnicalCriteria?.propagationPath ||
           getFirstCatalogValue(propagationPathsByAgent, agentId),
         fontes: "",
-        unidadeMedida: firstTechnicalCriteria?.unit || "",
+        unidadeMedida: isCalculatedQualitativeCriteria
+          ? ""
+          : firstTechnicalCriteria?.unit || "",
         tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
-        intensidade: shouldManualFillQuantitativeLimits
-          ? ""
-          : firstTechnicalCriteria?.intensity || "",
-        nivelAcao: shouldManualFillQuantitativeLimits
-          ? ""
-          : firstTechnicalCriteria?.actionLevel || "",
+        intensidade: isCalculatedQualitativeCriteria
+          ? CALCULATED_LIMIT_VALUE
+          : isCalculatedCriteria
+            ? ""
+            : firstTechnicalCriteria?.intensity || "",
+        nivelAcao: isCalculatedQualitativeCriteria
+          ? CALCULATED_LIMIT_VALUE
+          : isCalculatedCriteria
+            ? ""
+            : firstTechnicalCriteria?.actionLevel || "",
         severidade: firstTechnicalCriteria?.severity || "3",
         probabilidade: "",
         classificacao: "",

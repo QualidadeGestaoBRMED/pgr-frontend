@@ -2,6 +2,8 @@ import { ChevronDown, PlusCircle, Search, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import {
+  CALCULATED_LIMIT_VALUE,
+  isCalculatedLimitValue,
   isValidQuantitativeMeasurementValue,
   normalizeQuantitativeMeasurementValue,
   sanitizeQuantitativeMeasurementInput,
@@ -205,15 +207,21 @@ const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) =
     valorMedido: isQualitativeEvaluation
       ? "N/A"
       : isQuantitativeEvaluation
-        ? sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
+        ? isNaValue(sanitizedValorMedido)
+          ? ""
+          : sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
         : sanitizeNumericInput(sanitizedValorMedido),
     intensidade: isQuantitativeEvaluation
-      ? sanitizeQuantitativeMeasurementInput(intensityValue)
+      ? isNaValue(intensityValue)
+        ? ""
+        : sanitizeQuantitativeMeasurementInput(intensityValue)
       : intensityValue,
     nivelAcao: isQuantitativeEvaluation
-      ? sanitizeQuantitativeMeasurementInput(
-          stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits)
-        )
+      ? isNaValue(stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits))
+        ? ""
+        : sanitizeQuantitativeMeasurementInput(
+            stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits)
+          )
       : stripTrailingMeasuredUnits(String(risk.nivelAcao || ""), measuredUnits),
   };
 };
@@ -286,6 +294,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     getTipoAvaliacaoOptions,
     getUnidadeMedidaOptions,
     getHasQuantitativeCriteria,
+    getIsCalculatedCriteria,
     getMedidasControleOptions,
     getNormasOptions,
     getEpiOptions,
@@ -675,6 +684,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
         const isQuantitativeEvaluation = normalizeText(
           String(risk.tipoAvaliacao || "")
         ).includes("quantit");
+        const isQualitativeEvaluation = normalizeText(
+          String(risk.tipoAvaliacao || "")
+        ).includes("qualit");
+        const isCalculatedQualitativeEvaluation =
+          isQualitativeEvaluation &&
+          getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
         const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(risk.tipoAgente);
         const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
         const isDuplicateDescription =
@@ -710,7 +725,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           tipoAvaliacao: hasValue(risk.tipoAvaliacao)
             ? ""
             : "Tipo de Avaliação é obrigatório.",
-          intensidade: hasValue(risk.intensidade)
+          intensidade: isCalculatedQualitativeEvaluation
+            ? ""
+            : hasValue(risk.intensidade)
             ? isQuantitativeEvaluation
               ? isValidQuantitativeMeasurementValue(String(risk.intensidade || ""))
                 ? ""
@@ -1026,9 +1043,46 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         }
 
                         if (field === "tipoAvaliacao") {
+                          const isNextQualitativeEvaluation = normalizeText(value).includes(
+                            "qualit"
+                          );
+                          const isNextQuantitativeEvaluation = normalizeText(value).includes(
+                            "quantit"
+                          );
+                          const isNextCalculatedQualitative =
+                            isNextQualitativeEvaluation &&
+                            getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
+                          const defaultMeasuredUnit = getUnidadeMedidaOptions(
+                            risk.tipoAgente,
+                            risk.descricaoAgente,
+                            ""
+                          ).find((option) => !isNaValue(option)) || "";
+                          const shouldClearCalculatedValues =
+                            !isNextQualitativeEvaluation &&
+                            (isCalculatedLimitValue(String(risk.intensidade || "")) ||
+                              isCalculatedLimitValue(String(risk.nivelAcao || "")));
                           const nextRisk = {
                             ...risk,
                             tipoAvaliacao: value,
+                            unidadeMedida: isNextCalculatedQualitative
+                              ? ""
+                              : isNextQuantitativeEvaluation
+                                ? risk.unidadeMedida || defaultMeasuredUnit
+                                : risk.unidadeMedida,
+                            valorMedido:
+                              isNextQuantitativeEvaluation && isNaValue(String(risk.valorMedido || ""))
+                                ? ""
+                                : risk.valorMedido,
+                            intensidade: isNextCalculatedQualitative
+                              ? CALCULATED_LIMIT_VALUE
+                              : shouldClearCalculatedValues
+                                ? ""
+                                : risk.intensidade,
+                            nivelAcao: isNextCalculatedQualitative
+                              ? CALCULATED_LIMIT_VALUE
+                              : shouldClearCalculatedValues
+                                ? ""
+                                : risk.nivelAcao,
                             probabilidade: "",
                             classificacao: "",
                           };
@@ -1481,6 +1535,9 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.tipoAgente,
               risk.descricaoAgente
             );
+            const isCalculatedQualitativeEvaluation =
+              isQualitativeEvaluation &&
+              getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
             const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(risk.tipoAgente);
             const selectedMeasuredUnits = parseMultiTextValues(
               risk.unidadeMedida || "",
@@ -1496,22 +1553,32 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               selectedMeasuredUnits
             );
             const normalizedValorMedido = isQuantitativeEvaluation
-              ? sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
+              ? isNaValue(sanitizedValorMedido)
+                ? ""
+                : sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
               : sanitizeNumericInput(sanitizedValorMedido);
             const sanitizedIntensidade = stripTrailingMeasuredUnits(
               String(risk.intensidade || ""),
               selectedMeasuredUnits
             );
             const displayIntensidade = isQuantitativeEvaluation
-              ? sanitizeQuantitativeMeasurementInput(sanitizedIntensidade)
-              : sanitizedIntensidade;
+              ? isNaValue(sanitizedIntensidade)
+                ? ""
+                : sanitizeQuantitativeMeasurementInput(sanitizedIntensidade)
+              : isCalculatedQualitativeEvaluation
+                ? CALCULATED_LIMIT_VALUE
+                : sanitizedIntensidade;
             const sanitizedNivelAcao = stripTrailingMeasuredUnits(
               String(risk.nivelAcao || ""),
               selectedMeasuredUnits
             );
             const displayNivelAcao = isQuantitativeEvaluation
-              ? sanitizeQuantitativeMeasurementInput(sanitizedNivelAcao)
-              : sanitizedNivelAcao;
+              ? isNaValue(sanitizedNivelAcao)
+                ? ""
+                : sanitizeQuantitativeMeasurementInput(sanitizedNivelAcao)
+              : isCalculatedQualitativeEvaluation
+                ? CALCULATED_LIMIT_VALUE
+                : sanitizedNivelAcao;
             const isMeasuredValueMissing =
               isQuantitativeEvaluation && !String(normalizedValorMedido || "").trim();
             const qualitativeMeasuredValueLabel =
@@ -2189,11 +2256,15 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               className={getRiskFieldClassName(
                                 risk.id,
                                 "intensidade",
-                                stackedInputClass
+                                isCalculatedQualitativeEvaluation
+                                  ? `${stackedInputClass} bg-muted/40 text-muted-foreground`
+                                  : stackedInputClass
                               )}
                               value={displayIntensidade}
                               placeholder={measuredUnitPlaceholder}
+                              readOnly={isCalculatedQualitativeEvaluation}
                               onChange={(event) => {
+                                if (isCalculatedQualitativeEvaluation) return;
                                 markRiskTouched(risk.id, "intensidade");
                                 handleRiskChange(
                                   risk.id,
@@ -2202,6 +2273,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 );
                               }}
                               onBlur={() => {
+                                if (isCalculatedQualitativeEvaluation) return;
                                 if (!isQuantitativeEvaluation) return;
                                 const currentValue = String(risk.intensidade || "").trim();
                                 if (!currentValue) return;
@@ -2234,10 +2306,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               Nível de Ação
                             </label>
                             <input
-                              className={stackedInputClass}
+                              className={
+                                isCalculatedQualitativeEvaluation
+                                  ? `${stackedInputClass} bg-muted/40 text-muted-foreground`
+                                  : stackedInputClass
+                              }
                               value={displayNivelAcao}
                               placeholder={measuredUnitPlaceholder}
+                              readOnly={isCalculatedQualitativeEvaluation}
                               onChange={(event) => {
+                                if (isCalculatedQualitativeEvaluation) return;
                                 handleRiskChange(
                                   risk.id,
                                   "nivelAcao",
@@ -2245,6 +2323,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 );
                               }}
                               onBlur={() => {
+                                if (isCalculatedQualitativeEvaluation) return;
                                 if (!isQuantitativeEvaluation) return;
                                 const currentValue = String(risk.nivelAcao || "").trim();
                                 if (!currentValue) return;
@@ -2267,87 +2346,89 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               }}
                             />
                           </div>
-                          <div className={formGroupClass}>
-                            <label className="text-[12px] font-medium text-foreground">
-                              Unidade de Medida *
-                            </label>
-                            <div>
-                              <div className="relative" data-multiselect>
-                                <button
-                                  type="button"
-                                  className={`${selectSmallClass} flex items-center justify-between text-left`}
-                                  onClick={() =>
-                                    setOpenMultiSelect((prev) =>
-                                      prev?.riskId === risk.id &&
-                                      prev.field === "unidadeMedida"
-                                        ? null
-                                        : { riskId: risk.id, field: "unidadeMedida" }
-                                    )
-                                  }
-                                >
-                                  <span className="truncate">
-                                    {selectedMeasuredUnits.length
-                                      ? selectedMeasuredUnits.join(", ")
-                                      : "Selecione as unidades"}
-                                  </span>
-                                  <ChevronDown
-                                    className={`h-4 w-4 transition-transform ${
-                                      openMultiSelect?.riskId === risk.id &&
-                                      openMultiSelect.field === "unidadeMedida"
-                                        ? "rotate-180"
-                                        : "rotate-0"
-                                    }`}
-                                  />
-                                </button>
-                                {openMultiSelect?.riskId === risk.id &&
-                                openMultiSelect.field === "unidadeMedida" ? (
-                                  <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
-                                    <div className="relative mb-2">
-                                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                      <input
-                                        className={`${inputInlineClass} pl-8`}
-                                        value={multiSelectQuery}
-                                        onChange={(event) => setMultiSelectQuery(event.target.value)}
-                                        placeholder="Filtrar unidade"
-                                      />
+                          {!isCalculatedQualitativeEvaluation ? (
+                            <div className={formGroupClass}>
+                              <label className="text-[12px] font-medium text-foreground">
+                                Unidade de Medida *
+                              </label>
+                              <div>
+                                <div className="relative" data-multiselect>
+                                  <button
+                                    type="button"
+                                    className={`${selectSmallClass} flex items-center justify-between text-left`}
+                                    onClick={() =>
+                                      setOpenMultiSelect((prev) =>
+                                        prev?.riskId === risk.id &&
+                                        prev.field === "unidadeMedida"
+                                          ? null
+                                          : { riskId: risk.id, field: "unidadeMedida" }
+                                      )
+                                    }
+                                  >
+                                    <span className="truncate">
+                                      {selectedMeasuredUnits.length
+                                        ? selectedMeasuredUnits.join(", ")
+                                        : "Selecione as unidades"}
+                                    </span>
+                                    <ChevronDown
+                                      className={`h-4 w-4 transition-transform ${
+                                        openMultiSelect?.riskId === risk.id &&
+                                        openMultiSelect.field === "unidadeMedida"
+                                          ? "rotate-180"
+                                          : "rotate-0"
+                                      }`}
+                                    />
+                                  </button>
+                                  {openMultiSelect?.riskId === risk.id &&
+                                  openMultiSelect.field === "unidadeMedida" ? (
+                                    <div className="absolute z-20 mt-2 w-full rounded-[10px] border border-border bg-popover p-2 shadow-md">
+                                      <div className="relative mb-2">
+                                        <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <input
+                                          className={`${inputInlineClass} pl-8`}
+                                          value={multiSelectQuery}
+                                          onChange={(event) => setMultiSelectQuery(event.target.value)}
+                                          placeholder="Filtrar unidade"
+                                        />
+                                      </div>
+                                      <div className="max-h-44 space-y-1 overflow-auto">
+                                        {filteredUnidadeMedidaOptions.length ? (
+                                          filteredUnidadeMedidaOptions.map((option) => {
+                                            const isChecked = selectedMeasuredUnits.includes(option);
+                                            return (
+                                              <label
+                                                key={`${risk.id}-unidade-${option}`}
+                                                className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isChecked}
+                                                  onChange={() => {
+                                                    markRiskTouched(risk.id, "unidadeMedida");
+                                                    handleToggleRiskMultiSelect(
+                                                      risk.id,
+                                                      "unidadeMedida",
+                                                      option,
+                                                      unidadeMedidaOptions
+                                                    );
+                                                  }}
+                                                />
+                                                <span>{option}</span>
+                                              </label>
+                                            );
+                                          })
+                                        ) : (
+                                          <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                                            Nenhuma unidade encontrada.
+                                          </p>
+                                        )}
+                                      </div>
                                     </div>
-                                    <div className="max-h-44 space-y-1 overflow-auto">
-                                      {filteredUnidadeMedidaOptions.length ? (
-                                        filteredUnidadeMedidaOptions.map((option) => {
-                                          const isChecked = selectedMeasuredUnits.includes(option);
-                                          return (
-                                            <label
-                                              key={`${risk.id}-unidade-${option}`}
-                                              className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1 text-[12px] hover:bg-muted"
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={isChecked}
-                                                onChange={() => {
-                                                  markRiskTouched(risk.id, "unidadeMedida");
-                                                  handleToggleRiskMultiSelect(
-                                                    risk.id,
-                                                    "unidadeMedida",
-                                                    option,
-                                                    unidadeMedidaOptions
-                                                  );
-                                                }}
-                                              />
-                                              <span>{option}</span>
-                                            </label>
-                                          );
-                                        })
-                                      ) : (
-                                        <p className="px-2 py-1 text-[12px] text-muted-foreground">
-                                          Nenhuma unidade encontrada.
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : null}
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          ) : null}
                         </div>
                         <div className="mt-4 grid auto-rows-min items-start gap-x-4 gap-y-6 md:grid-cols-4">
                           <div className={formGroupClass}>
