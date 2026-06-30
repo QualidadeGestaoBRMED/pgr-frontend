@@ -455,7 +455,7 @@ export function buildPgrDocxPayload(input: {
     ? input.planGeneralMeasures
         .filter((item) => String(item.descricao || "").trim().length > 0)
         .map((item) => ({
-          ghe: "Todos os GHEs",
+          ghe: item.gheName || "Todos os GHEs",
           risco: "Medidas Gerais",
           prioridade: "Média",
           classificacao: "Risco Moderado",
@@ -763,6 +763,10 @@ export function buildPgrDocxPayloadFromBackendState(input: {
             id: String(item?.id || "").trim(),
             nr: String(item?.nr || "").trim(),
             descricao: String(item?.descricao || "").trim(),
+            gheName: String(item?.gheName || "").trim(),
+            targetGheIds: Array.isArray(item?.targetGheIds)
+              ? item.targetGheIds.map((id) => String(id || "").trim()).filter(Boolean)
+              : [],
             tipoMedida: String(item?.tipoMedida || "").trim(),
             prazoAcao: String(item?.prazoAcao || "").trim(),
             responsavelAcao: String(item?.responsavelAcao || "").trim(),

@@ -178,6 +178,31 @@ describe("docx payload mapping", () => {
     expect(payload.planoAcao.itens[0]?.medida).toBe("");
   });
 
+  it("keeps target GHE label for independent general plan actions", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planGeneralMeasures: [
+          {
+            id: "plan-action-1",
+            nr: "NR-01",
+            descricao: "Implantar ventilacao local exaustora",
+            gheName: "GHE 2",
+            targetGheIds: ["g-2"],
+          },
+        ],
+      },
+    });
+
+    expect(payload.planoAcao.itens[0]?.ghe).toBe("GHE 2");
+    expect(payload.planoAcao.itens[0]?.risco).toBe("Medidas Gerais");
+    expect(payload.planoAcao.itens[0]?.medida).toBe(
+      "Implantar ventilacao local exaustora"
+    );
+  });
+
   it("falls back to defaults when backend state is invalid", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1",

@@ -75,6 +75,8 @@ export type PlanGeneralMeasureRow = {
   id: string;
   nr: string;
   descricao: string;
+  gheName?: string;
+  targetGheIds?: string[];
   tipoMedida?: string;
   prazoAcao?: string;
   responsavelAcao?: string;

@@ -424,7 +424,7 @@ export function usePgrEtapaDerived({
         id: `plan-general-${item.id}`,
         gheId: PLAN_ALL_GHE_ID,
         riskId: item.id,
-        gheName: "Todos os GHEs",
+        gheName: item.gheName || "Todos os GHEs",
         tipoAgente: "Medidas Gerais",
         descricaoAgente: "Medidas Gerais",
         prioridade: "Média",

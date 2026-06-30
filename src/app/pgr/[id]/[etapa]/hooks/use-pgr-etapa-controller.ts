@@ -1189,6 +1189,7 @@ export function usePgrEtapaController({
       functionsData: state.functionsData,
       gheGroups: state.gheGroups,
       planActionScope: state.planActionScope,
+      planAction: state.planAction,
       riskGheGroups: state.riskGheGroups,
       planActionGheId: state.planActionGheId,
       planActionRiskId: state.planActionRiskId,

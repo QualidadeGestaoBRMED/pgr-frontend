@@ -41,6 +41,7 @@ import {
   syncLegacyEstablishmentFields,
 } from "../utils/establishments";
 import { completeVigenciaInterval, maskVigenciaInterval } from "../utils/vigencia";
+import { buildPlanActionGeneralMeasureRow } from "../utils/plan-actions";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -171,6 +172,7 @@ type GeneralActionsContext = {
     functionsData: PgrFunction[];
     gheGroups: PersistedPgrState["gheGroups"];
     planActionScope: "all" | "ghe" | "risk";
+    planAction: { nr: string; vigencia: string };
     riskGheGroups: RiskGheGroup[];
     planActionGheId: string;
     planActionRiskId: string;
@@ -238,6 +240,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     functionsData,
     gheGroups,
     planActionScope,
+    planAction,
     riskGheGroups,
     planActionGheId,
     planActionRiskId,
@@ -252,7 +255,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     draggedAnexoId,
   } = current;
 
-  const { handleAdvanceApiSync, persistStateNow } = helpers;
+  const { handleAdvanceApiSync, persistStateNow, persistPlanFieldsNow } = helpers;
   const availablePlanActionGheGroups = riskGheGroups.filter((ghe) => ghe.risks.length > 0);
   const syncLegacyDados = (dados: DadosCadastraisDraft, estabelecimentoSelecionado = "") =>
     syncLegacyContractorFields(syncLegacyEstablishmentFields(dados, estabelecimentoSelecionado));
@@ -1016,6 +1019,26 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     if (planActionScope === "risk" && selectedRiskIds.size === 0) return;
     if (planActionScope === "risk" && selectedGheIds.size === 0) return;
 
+    if (planActionScope === "all") {
+      const row = buildPlanActionGeneralMeasureRow({
+        description: actionDescription,
+        nr: planAction.nr || "",
+        gheIds: Array.from(selectedGheIds),
+        availableGheGroups: availablePlanActionGheGroups,
+        idSeed: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      });
+      if (!row) return;
+
+      setPlanGeneralMeasures((prev) => {
+        const next = [...prev, row];
+        void persistPlanFieldsNow({ planGeneralMeasures: next });
+        return next;
+      });
+      setPlanActionDescription("");
+      setIsPlanActionModalOpen(false);
+      return;
+    }
+
     const getRiskContentKey = (risk: GheRisk) =>
       [risk.descricaoAgente, risk.classificacao]
         .map((value) => String(value || "").trim().toLowerCase())
@@ -1045,7 +1068,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
         const applyForGhe =
-          (planActionScope === "all" && selectedGheIds.has(ghe.id)) ||
           (planActionScope === "ghe" && ghe.id === planActionGheId) ||
           (planActionScope === "risk" && selectedGheIds.has(ghe.id));
         if (!applyForGhe) return ghe;
