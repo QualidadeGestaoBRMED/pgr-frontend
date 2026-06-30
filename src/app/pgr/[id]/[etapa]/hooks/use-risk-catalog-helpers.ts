@@ -13,8 +13,6 @@ const normalizeCatalogToken = (value: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
-const isNaSelection = (value: string) => normalizeCatalogToken(value) === "na";
-
 const isGenericPropagationValue = (value: string) =>
   normalizeCatalogToken(value) === "agentequimico";
 
@@ -291,6 +289,28 @@ type TechnicalCriteriaResolved = {
   cpeValues: string[];
 };
 
+const hasTechnicalCriteriaQuantitativeLimits = (item: TechnicalCriteriaResolved) =>
+  Boolean(
+    item.intensity.trim() &&
+      !["na", "naoaplicavel"].includes(normalizeCatalogToken(item.intensity))
+  ) || Boolean(item.actionLevel.trim());
+
+const getTechnicalCriteriaDefaultPriority = (item: TechnicalCriteriaResolved) => {
+  if (item.isCalculated) return 3;
+  if (hasTechnicalCriteriaQuantitativeLimits(item)) return 2;
+  if (item.hasQuantitative || normalizeCatalogToken(item.evaluationType).startsWith("quantit")) {
+    return 1;
+  }
+  return 0;
+};
+
+const sortTechnicalCriteriaForDefaults = (items: TechnicalCriteriaResolved[]) =>
+  [...items].sort(
+    (left, right) =>
+      getTechnicalCriteriaDefaultPriority(right) -
+      getTechnicalCriteriaDefaultPriority(left)
+  );
+
 export const hasMeaningfulSelections = (values: string[] | undefined) =>
   Array.isArray(values) && values.some((item) => item.trim().length > 0);
 
@@ -504,9 +524,9 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
       if (!agentId) return [];
       const options = technicalCriteriaByAgent.get(agentId) || [];
       const safeDescriptionToken = normalizeCatalogToken(String(descricaoAgente || "").trim());
-      if (!safeDescriptionToken) return options;
+      if (!safeDescriptionToken) return sortTechnicalCriteriaForDefaults(options);
       const filtered = options.filter((item) => item.descriptionToken === safeDescriptionToken);
-      return filtered.length ? filtered : options;
+      return sortTechnicalCriteriaForDefaults(filtered.length ? filtered : options);
     },
     [resolveRiskAgentId, technicalCriteriaByAgent]
   );
@@ -519,11 +539,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         risk.descricaoAgente
       );
       const firstTechnicalCriteria = technicalCriteriaDefaults[0];
-      const calculatedDefaultValue =
-        firstTechnicalCriteria?.isCalculated &&
-        (!firstTechnicalCriteria?.intensity || isNaSelection(firstTechnicalCriteria.intensity))
-          ? "Calculado"
-          : "";
+      const shouldManualFillQuantitativeLimits = Boolean(firstTechnicalCriteria?.isCalculated);
       const controlMeasureDefaults = uniqueNonEmptyValues(
         technicalCriteriaDefaults.map((item) => item.controlMeasureValues).flat()
       );
@@ -553,8 +569,12 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
         fontes: "",
         unidadeMedida: firstTechnicalCriteria?.unit || "",
         tipoAvaliacao: firstTechnicalCriteria?.evaluationType || "",
-        intensidade: calculatedDefaultValue || firstTechnicalCriteria?.intensity || "",
-        nivelAcao: "",
+        intensidade: shouldManualFillQuantitativeLimits
+          ? ""
+          : firstTechnicalCriteria?.intensity || "",
+        nivelAcao: shouldManualFillQuantitativeLimits
+          ? ""
+          : firstTechnicalCriteria?.actionLevel || "",
         severidade: firstTechnicalCriteria?.severity || "3",
         probabilidade: "",
         classificacao: "",

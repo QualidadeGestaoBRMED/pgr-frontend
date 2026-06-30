@@ -703,8 +703,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   !/^(N\/D|<LQ)$/i.test(String(risk.valorMedido || "").trim()))
                 ? ""
                 : allowMeasuredValueShortcut
-                  ? "Valor medido deve ser numérico, N/D, <LQ ou comparador válido, como <80, >80, <=80 ou >=80."
-                  : "Valor medido deve ser numérico ou comparador válido, como <80, >80, <=80 ou >=80."
+                  ? "Valor medido deve ser numérico, N/D, <LQ."
+                  : "Valor medido deve ser numérico"
               : "Valor medido é obrigatório para avaliação quantitativa."
             : "",
           tipoAvaliacao: hasValue(risk.tipoAvaliacao)
@@ -2373,7 +2373,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     isMeasuredValueMissing
                                       ? "Valor medido é obrigatório para avaliação quantitativa"
                                       : allowMeasuredValueShortcut
-                                        ? "80, <80, >80, <=80, >=80, N/D ou <LQ"
+                                        ? "N/D ou <LQ"
                                         : "80, <80, >80, <=80 ou >=80"
                                   }
                                   inputMode="text"
