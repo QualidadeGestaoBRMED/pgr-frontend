@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { useRiskCatalogHelpers } from "./use-risk-catalog-helpers";
 import {
@@ -22,6 +22,7 @@ import type {
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, HistoricoData } from "../types";
 import { buildPendingReviewTarget } from "../utils/pending-review";
+import { buildCommonRiskOptionsForGhes } from "../utils/plan-actions";
 
 type PlanTableRow = {
   id: string;
@@ -982,15 +983,15 @@ export function usePgrEtapaDerived({
   const selectedPlanActionGhe =
     planActionAvailableGheGroups.find((ghe) => ghe.id === planActionGheId) ??
     planActionAvailableGheGroups[0];
-  const planActionRiskOptions = useMemo(() => {
-    if (!selectedPlanActionGhe) return [];
-    return selectedPlanActionGhe.risks.map((risk, index) => ({
-      label: `${risk.descricaoAgente || `Risco ${index + 1}`} · ${
-        risk.classificacao || "Sem classificação"
-      }`,
-      value: risk.id,
-    }));
-  }, [selectedPlanActionGhe]);
+  const getPlanActionRiskOptions = useCallback(
+    (selectedGheIds: string[]) =>
+      buildCommonRiskOptionsForGhes(planActionAvailableGheGroups, selectedGheIds),
+    [planActionAvailableGheGroups]
+  );
+  const planActionRiskOptions = useMemo(
+    () => getPlanActionRiskOptions(selectedPlanActionGhe ? [selectedPlanActionGhe.id] : []),
+    [getPlanActionRiskOptions, selectedPlanActionGhe]
+  );
 
   const planTableTotalPages = Math.max(1, Math.ceil(planTableRows.length / planTablePageSize));
   const planTableCurrentPage = Math.min(planTablePage, planTableTotalPages);
@@ -1044,6 +1045,7 @@ export function usePgrEtapaDerived({
     missingTargetsByStep,
     alertSteps,
     planActionGheOptions,
+    getPlanActionRiskOptions,
     planActionRiskOptions,
     planTableTotalPages,
     planTableCurrentPage,

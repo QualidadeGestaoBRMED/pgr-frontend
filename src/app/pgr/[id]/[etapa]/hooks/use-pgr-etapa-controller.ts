@@ -1420,6 +1420,7 @@ export function usePgrEtapaController({
       planActionGheOptions: derived.planActionGheOptions,
       planActionRiskId: state.planActionRiskId,
       setPlanActionRiskId: setters.setPlanActionRiskId,
+      getPlanActionRiskOptions: derived.getPlanActionRiskOptions,
       planActionRiskOptions: derived.planActionRiskOptions,
       planActionDescription: state.planActionDescription,
       setPlanActionDescription: setters.setPlanActionDescription,

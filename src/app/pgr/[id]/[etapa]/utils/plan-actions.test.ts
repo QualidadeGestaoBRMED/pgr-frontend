@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPlanActionGeneralMeasureRow } from "./plan-actions";
+import {
+  buildCommonRiskOptionsForGhes,
+  buildPlanActionGeneralMeasureRow,
+} from "./plan-actions";
 
 describe("plan action helpers", () => {
   it("creates an independent general plan row for selected GHEs", () => {
@@ -78,5 +81,87 @@ describe("plan action helpers", () => {
         availableGheGroups: [{ id: "g-1", name: "GHE 1", risks: [] }],
       })
     ).toBeNull();
+  });
+
+  it("lists only risks that are common to every selected GHE", () => {
+    const options = buildCommonRiskOptionsForGhes(
+      [
+        {
+          id: "g-1",
+          name: "GHE 1",
+          risks: [
+            {
+              id: "r-ruido-g1",
+              tipoAgente: "Fisico",
+              descricaoAgente: "Ruido",
+              classificacao: "Risco Alto",
+            } as never,
+            {
+              id: "r-calor-g1",
+              tipoAgente: "Fisico",
+              descricaoAgente: "Calor",
+              classificacao: "Risco Moderado",
+            } as never,
+          ],
+        },
+        {
+          id: "g-2",
+          name: "GHE 2",
+          risks: [
+            {
+              id: "r-ruido-g2",
+              tipoAgente: "Fisico",
+              descricaoAgente: "Ruido",
+              classificacao: "Risco Alto",
+            } as never,
+            {
+              id: "r-quimico-g2",
+              tipoAgente: "Quimico",
+              descricaoAgente: "Poeira",
+              classificacao: "Risco Moderado",
+            } as never,
+          ],
+        },
+      ],
+      ["g-1", "g-2"]
+    );
+
+    expect(options).toEqual([
+      {
+        label: "Ruido · Risco Alto",
+        value: "r-ruido-g1",
+      },
+    ]);
+  });
+
+  it("lists all risks when a single GHE is selected", () => {
+    const options = buildCommonRiskOptionsForGhes(
+      [
+        {
+          id: "g-1",
+          name: "GHE 1",
+          risks: [
+            {
+              id: "r-ruido-g1",
+              tipoAgente: "Fisico",
+              descricaoAgente: "Ruido",
+              classificacao: "Risco Alto",
+            } as never,
+            {
+              id: "r-calor-g1",
+              tipoAgente: "Fisico",
+              descricaoAgente: "Calor",
+              classificacao: "Risco Moderado",
+            } as never,
+          ],
+        },
+      ],
+      ["g-1"]
+    );
+
+    expect(options.map((option) => option.value)).toEqual([
+      "r-ruido-g1",
+      "r-calor-g1",
+    ]);
   });
 });

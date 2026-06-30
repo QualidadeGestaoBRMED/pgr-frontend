@@ -142,6 +142,7 @@ type PlanoStepProps = {
         planActionGheOptions: SearchableSelectProps["options"];
         planActionRiskId: string;
         setPlanActionRiskId: Dispatch<SetStateAction<string>>;
+        getPlanActionRiskOptions: (selectedGheIds: string[]) => SearchableSelectProps["options"];
         planActionRiskOptions: SearchableSelectProps["options"];
         planActionDescription: string;
         setPlanActionDescription: Dispatch<SetStateAction<string>>;
@@ -263,6 +264,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         planActionGheOptions,
         planActionRiskId,
         setPlanActionRiskId,
+        getPlanActionRiskOptions,
         planActionRiskOptions,
         planActionDescription,
         setPlanActionDescription,
@@ -317,6 +319,18 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const autoPrazoAcaoByRowIdRef = useRef<Record<string, string>>({});
 
     const { persistedOptionsByRowId, setPersistedOptionsByRowId } = ctx;
+    const effectivePlanActionRiskOptions = useMemo(
+        () =>
+            planActionScope === "risk"
+                ? getPlanActionRiskOptions(selectedPlanActionGheIds)
+                : planActionRiskOptions,
+        [
+            getPlanActionRiskOptions,
+            planActionRiskOptions,
+            planActionScope,
+            selectedPlanActionGheIds,
+        ]
+    );
 
     // Capture initial values and automatic changes into persisted options
     useEffect(() => {
@@ -510,6 +524,21 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         planActionScope,
         planActionGheId,
         planActionGheOptions,
+    ]);
+
+    useEffect(() => {
+        if (!isPlanActionModalOpen || planActionScope !== "risk") return;
+        const optionValues = effectivePlanActionRiskOptions.map((option) =>
+            String(option.value)
+        );
+        if (optionValues.includes(planActionRiskId)) return;
+        setPlanActionRiskId(optionValues[0] || "");
+    }, [
+        effectivePlanActionRiskOptions,
+        isPlanActionModalOpen,
+        planActionRiskId,
+        planActionScope,
+        setPlanActionRiskId,
     ]);
 
     useEffect(() => {
@@ -1126,10 +1155,10 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                         <SearchableSelect
                                                             value={planActionRiskId}
                                                             onChange={setPlanActionRiskId}
-                                                            options={planActionRiskOptions}
+                                                            options={effectivePlanActionRiskOptions}
                                                             buttonClassName={selectBaseClass}
                                                             searchPlaceholder="Filtrar risco"
-                                                            disabled={!planActionRiskOptions.length}
+                                                            disabled={!effectivePlanActionRiskOptions.length}
                                                         />
                                                     </div>
                                                 </div>
