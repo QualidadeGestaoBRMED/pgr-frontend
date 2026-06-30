@@ -23,6 +23,8 @@ import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, HistoricoData } from "../types";
 import { buildPendingReviewTarget } from "../utils/pending-review";
 import { buildCommonRiskOptionsForGhes } from "../utils/plan-actions";
+import { calculateAutomaticActionDueDate } from "../utils/action-date";
+import { calculatePlanActionVigencia } from "../utils/vigencia";
 
 type PlanTableRow = {
   id: string;
@@ -563,6 +565,20 @@ export function usePgrEtapaDerived({
   const hasDuplicatedRiskStructure = duplicatedRiskStructureNameGroups.length > 0;
   const isCaracterizacaoStepComplete =
     isCaracterizacaoComplete && !hasDuplicatedRiskStructure;
+  const calculatedPlanActionVigencia = useMemo(
+    () => calculatePlanActionVigencia(historicoData.changes),
+    [historicoData.changes]
+  );
+  const getEffectivePrazoAcao = useCallback(
+    (row: PlanTableRow) =>
+      String(row.prazoAcao || "").trim() ||
+      calculateAutomaticActionDueDate({
+        vigencia: calculatedPlanActionVigencia,
+        prioridade: row.prioridade || "",
+        classificacao: row.classificacao || "",
+      }),
+    [calculatedPlanActionVigencia]
+  );
 
   const isPlanoComplete = useMemo(() => {
     if (!rawPlanTableRowsForPlan.length) return false;
@@ -570,7 +586,7 @@ export function usePgrEtapaDerived({
       (row) =>
         row.medidasPrevencao.trim().length > 0 &&
         String(row.tipoMedida || "").trim().length > 0 &&
-        String(row.prazoAcao || "").trim().length > 0 &&
+        getEffectivePrazoAcao(row).length > 0 &&
         getEffectivePlanValue(row.acompanhamento, defaultPlanAcompanhamento).length >
           0 &&
         getEffectivePlanValue(
@@ -578,7 +594,7 @@ export function usePgrEtapaDerived({
           defaultPlanAfericaoResultado
         ).length > 0
     );
-  }, [rawPlanTableRowsForPlan]);
+  }, [getEffectivePrazoAcao, rawPlanTableRowsForPlan]);
 
   // Histórico é uma etapa sempre considerada completa por regra de negócio.
   const isHistoricoComplete = true;
@@ -810,7 +826,7 @@ export function usePgrEtapaDerived({
             )
           );
         }
-        if (String(row.prazoAcao || "").trim().length === 0) {
+        if (getEffectivePrazoAcao(row).length === 0) {
           missingPlano.push(
             buildPendingReviewTarget(
               "plano",
@@ -886,6 +902,7 @@ export function usePgrEtapaDerived({
     gheGroups,
     inicioDraft,
     rawPlanTableRowsForPlan,
+    getEffectivePrazoAcao,
     remainingCount,
     riskGheGroups,
     hasDuplicatedRiskStructure,

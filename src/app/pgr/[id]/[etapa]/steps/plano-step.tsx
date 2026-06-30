@@ -2,50 +2,13 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import type {Dispatch, SetStateAction} from "react";
 import {ChevronDown, MinusCircle, Search} from "lucide-react";
 import {SearchableSelect, type SearchableSelectProps} from "./searchable-select";
-
-const toUtcBrDate = (date: Date) => {
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const year = date.getUTCFullYear();
-    return `${day}/${month}/${year}`;
-};
-
-const maskActionDate = (value: string) => {
-    const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
-    if (!digits) return "";
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-};
-
-const normalizeActionDate = (value: string) => {
-    const masked = maskActionDate(value);
-    const match = masked.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!match) return masked;
-    const day = Number(match[1]);
-    const month = Number(match[2]);
-    const year = Number(match[3]);
-    const parsed = new Date(Date.UTC(year, month - 1, day));
-    if (
-        Number.isNaN(parsed.getTime()) ||
-        parsed.getUTCFullYear() !== year ||
-        parsed.getUTCMonth() !== month - 1 ||
-        parsed.getUTCDate() !== day
-    ) {
-        return masked;
-    }
-    return toUtcBrDate(parsed);
-};
-
-const toBrDateValue = (value: string) => {
-    const safe = String(value || "").trim();
-    if (!safe) return "";
-    const isoMatch = safe.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (isoMatch) {
-        return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-    }
-    return normalizeActionDate(safe);
-};
+import {
+    calculateAutomaticActionDueDate,
+    maskActionDate,
+    normalizeActionDate,
+    resolveActionDateValue,
+    toBrDateValue,
+} from "../utils/action-date";
 
 type PlanoStepProps = {
     ctx: {
@@ -203,37 +166,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const toMultiTextValue = (values: string[]) =>
         Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
 
-    const parseHistoricoDate = (raw: string) => {
-        const value = String(raw || "").trim();
-        if (!value) return null;
-        const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
-        if (isoMatch) {
-            const date = new Date(Date.UTC(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])));
-            return Number.isNaN(date.getTime()) ? null : date;
-        }
-
-        const brMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}(?::\d{2})?)?$/);
-        if (brMatch) {
-            const date = new Date(Date.UTC(Number(brMatch[3]), Number(brMatch[2]) - 1, Number(brMatch[1])));
-            return Number.isNaN(date.getTime()) ? null : date;
-        }
-        return null;
-    };
-
-    const parseVigenciaStartDate = (raw: string) => {
-        const value = String(raw || "").trim();
-        if (!value) return null;
-        const startDateToken = value.split(/\s*-\s*/)[0]?.trim() || value;
-        return parseHistoricoDate(startDateToken);
-    };
-
-    const addDays = (date: Date, days: number) => {
-        const next = new Date(date.getTime());
-        next.setUTCDate(next.getUTCDate() + days);
-        return next;
-    };
-
-
     const {
         inputBaseClass,
         textareaBaseClass,
@@ -354,18 +286,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         });
     }, [planTableRows, focusedRowId, setPersistedOptionsByRowId]);
 
-    const inicioVigenciaBase = parseVigenciaStartDate(planAction.vigencia || "");
-
     useEffect(() => {
-        if (!inicioVigenciaBase) return;
-        const getPrazoDaysByPriority = (prioridade: string, classificacao: string) => {
-            const text = normalizeText(`${prioridade} ${classificacao}`);
-            if (text.includes("imediat") || text.includes("critic")) return 30;
-            if (text.includes("alt")) return 90;
-            if (text.includes("media") || text.includes("moderad")) return 180;
-            return null;
-        };
-
         const nextAutoPrazoByRowId: Record<string, string> = {};
         const rowsToUpdate: Array<{
             row: (typeof planTableRows)[number];
@@ -373,10 +294,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         }> = [];
 
         planTableRows.forEach((row) => {
-            const days = getPrazoDaysByPriority(row.prioridade || "", row.classificacao || "");
-            if (!days) return;
-
-            const prazoCalculado = toUtcBrDate(addDays(inicioVigenciaBase, days));
+            const prazoCalculado = calculateAutomaticActionDueDate({
+                vigencia: planAction.vigencia || "",
+                prioridade: row.prioridade || "",
+                classificacao: row.classificacao || "",
+            });
+            if (!prazoCalculado) return;
             nextAutoPrazoByRowId[row.id] = prazoCalculado;
 
             const currentValue = String(
@@ -418,8 +341,8 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             );
         });
     }, [
-        inicioVigenciaBase,
         handlePlanRiskFieldChange,
+        planAction.vigencia,
         planTableRows,
         prazoAcaoByRowId,
     ]);
@@ -724,7 +647,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                 </tr>
                                 </thead>
                                 <tbody>
-                                {planTableRows.map((row) => (
+                                {planTableRows.map((row) => {
+                                    const prazoAcaoValue = resolveActionDateValue(
+                                        prazoAcaoByRowId[row.id],
+                                        row.prazoAcao
+                                    );
+
+                                    return (
                                     <tr key={row.id} className="border-t border-border/60 align-middle">
                                         <td className="px-4 py-3 text-foreground align-middle">{row.gheName}</td>
                                         <td className="border-l border-border/60 px-4 py-3 text-foreground align-middle">
@@ -887,9 +816,9 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                 type="text"
                                                 className={withRequiredHighlight(
                                                     `${tableInputClass} min-w-[170px]`,
-                                                    !String(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "").trim()
+                                                    !prazoAcaoValue.trim()
                                                 )}
-                                                value={toBrDateValue(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "")}
+                                                value={prazoAcaoValue}
                                                 onChange={(event) => {
                                                     const value = maskActionDate(event.target.value);
                                                     setPrazoAcaoByRowId((prev) => ({
@@ -1041,7 +970,8 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                                 </tbody>
                             </table>
                         </div>
