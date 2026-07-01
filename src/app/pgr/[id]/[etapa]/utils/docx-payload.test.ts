@@ -307,6 +307,24 @@ describe("docx payload mapping", () => {
           estabelecimentoEstado: "SP",
           estabelecimentoCep: "13010-000",
           contratanteNumero: "300",
+          estabelecimentos: [
+            {
+              id: "estabelecimento-1",
+              tipo: "Operacional",
+              nome: "Unidade Campinas",
+              razaoSocial: "Unidade Campinas Ltda",
+              cnpj: "12.345.678/0001-90",
+              cnae: "6201-5/01",
+              endereco: "Av. B, Cambuí",
+              bairro: "Cambuí",
+              cidade: "Campinas",
+              estado: "SP",
+              cep: "13010-000",
+              grauRisco: "2",
+              atividadePrincipal: "Serviços",
+              camposAdicionais: [],
+            },
+          ],
           contratantes: [
             {
               id: "contratante-1",
@@ -332,6 +350,9 @@ describe("docx payload mapping", () => {
       "Rua A, 100, Centro, São Paulo/SP, CEP: 01001-000"
     );
     expect(payload.dadosCadastrais.estabelecimentoEnderecoCompleto).toBe(
+      "Av. B, 200, Cambuí, Campinas/SP, CEP: 13010-000"
+    );
+    expect(payload.dadosCadastrais.estabelecimentos[0]?.enderecoCompleto).toBe(
       "Av. B, 200, Cambuí, Campinas/SP, CEP: 13010-000"
     );
     expect(payload.dadosCadastrais.contratantes[0]?.enderecoCompleto).toBe(

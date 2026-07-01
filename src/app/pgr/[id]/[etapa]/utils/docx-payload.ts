@@ -614,11 +614,11 @@ export function buildPgrDocxPayload(input: {
     cep: input.dadosCadastrais.contratanteCep,
   });
   const estabelecimentosJson = Array.isArray(input.dadosCadastrais.estabelecimentos)
-    ? input.dadosCadastrais.estabelecimentos.map((item) => ({
+    ? input.dadosCadastrais.estabelecimentos.map((item, index) => ({
       ...item,
       ...buildAddressJson({
         endereco: item.endereco,
-        numero: item.numero,
+        numero: item.numero || (index === 0 ? input.dadosCadastrais.estabelecimentoNumero : ""),
         bairro: item.bairro,
         cidade: item.cidade,
         estado: item.estado,
