@@ -205,7 +205,7 @@ const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) =
   return {
     ...risk,
     valorMedido: isQualitativeEvaluation
-      ? "N/A"
+      ? "Aguardando Avaliação Quantitativa"
       : isQuantitativeEvaluation
         ? isNaValue(sanitizedValorMedido)
           ? ""
