@@ -40,9 +40,13 @@ type DuplicateRiskStructureGroup = {
 const PROBABILIDADE_OPTIONS = ["1", "2", "3", "4", "5"];
 const MEASURED_VALUE_OPTIONS = ["N/D", "<LQ"];
 const isNaValue = (value: string) => value.trim().toUpperCase() === "N/A";
-const supportsMeasuredValueShortcut = (tipoAgente: string) => {
+const supportsMeasuredValueShortcut = (tipoAgente: string, descricaoAgente?: string) => {
   const normalizedTipoAgente = normalizeText(String(tipoAgente || ""));
-  return normalizedTipoAgente.includes("quim");
+  const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || ""));
+  return (
+    normalizedTipoAgente.includes("quim") ||
+    (normalizedTipoAgente.includes("fisic") && normalizedDescricaoAgente === "calor")
+  );
 };
 type RequiredRiskField =
   | "tipoAgente"
@@ -693,7 +697,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
         const isCalculatedQualitativeEvaluation =
           isQualitativeEvaluation &&
           getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
-        const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(risk.tipoAgente);
+        const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(
+          risk.tipoAgente,
+          risk.descricaoAgente
+        );
         const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
         const isDuplicateDescription =
           !!descriptionKey &&
@@ -1541,7 +1548,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const isCalculatedQualitativeEvaluation =
               isQualitativeEvaluation &&
               getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
-            const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(risk.tipoAgente);
+            const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            );
             const selectedMeasuredUnits = parseMultiTextValues(
               risk.unidadeMedida || "",
               getUnidadeMedidaOptions(risk.tipoAgente, risk.descricaoAgente, "")
