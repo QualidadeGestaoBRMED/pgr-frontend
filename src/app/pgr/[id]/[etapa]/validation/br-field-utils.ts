@@ -155,4 +155,50 @@ export const isValidQuantitativeMeasurementValue = (value: string) => {
   return /^(N\/D|<LQ|LLD|(<=|>=|<|>)\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)$/.test(normalized);
 };
 
+const sanitizeDecimalMeasurementInput = (value: string) => {
+  const filtered = String(value || "").replace(/[^\d.,]/g, "");
+  const separatorIndex = filtered.search(/[.,]/);
+  if (separatorIndex === -1) return filtered;
+  const separator = filtered[separatorIndex];
+  const integerPart = filtered.slice(0, separatorIndex).replace(/[.,]/g, "");
+  const decimalPart = filtered.slice(separatorIndex + 1).replace(/[.,]/g, "");
+  return `${integerPart}${separator}${decimalPart}`;
+};
+
+export const sanitizeMeasuredValueInput = (value: string) => {
+  const compact = String(value || "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  if (!compact) return "";
+
+  if (compact.replace(/\//g, "") === "ND") {
+    return "N/D";
+  }
+  if (compact === "<LQ") {
+    return "<LQ";
+  }
+
+  return sanitizeDecimalMeasurementInput(compact);
+};
+
+export const normalizeMeasuredValue = (value: string) => {
+  const compact = String(value || "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  if (!compact) return "";
+  if (compact.replace(/\//g, "") === "ND") return "N/D";
+  if (compact === "<LQ") return "<LQ";
+  if (/^\d+(?:[.,]\d+)?$/.test(compact)) return compact;
+  return "";
+};
+
+export const isValidMeasuredValue = (value: string, options?: { allowShortcuts?: boolean }) => {
+  const normalized = normalizeMeasuredValue(value);
+  if (!normalized) return false;
+  if (normalized === "N/D" || normalized === "<LQ") {
+    return options?.allowShortcuts !== false;
+  }
+  return /^\d+(?:[.,]\d+)?$/.test(normalized);
+};
+
 export const toDigits = onlyDigits;

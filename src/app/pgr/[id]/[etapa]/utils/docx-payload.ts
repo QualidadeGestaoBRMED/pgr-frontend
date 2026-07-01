@@ -1,7 +1,9 @@
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
+import type { PlanTableRow } from "../hooks/use-pgr-etapa-derived";
 import type {
   AnexoItem,
   GheGroup,
+  GheRisk,
   HistoricoData,
   PgrFunction,
   PlanGeneralMeasureRow,
@@ -191,6 +193,7 @@ type BackendStateShape = {
   gheGroups?: GheGroup[];
   riskGheGroups?: RiskGheGroup[];
   planGeneralMeasures?: PlanGeneralMeasureRow[];
+  planTableRows?: PlanTableRow[];
   removedPlanRiskKeys?: string[];
   functions?: PgrFunction[];
   planAction?: {
@@ -233,6 +236,77 @@ type DadosCadastraisJson = DadosCadastraisDraft & {
   contratantes: Array<(DadosCadastraisDraft["contratantes"][number] & AddressJsonFields)>;
 };
 
+type DuplicateRiskStructureInfo = {
+  duplicated: boolean;
+  duplicatedWith: string[];
+};
+
+const normalizeRiskStructureText = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join(", ");
+  }
+  return String(value || "").trim();
+};
+
+const getRiskStructureKey = (risk: GheRisk) =>
+  [
+    risk.tipoAgente,
+    risk.descricaoAgente,
+    (risk as unknown as { danosSaude?: string; healthDamage?: string }).danosSaude ||
+      (risk as unknown as { healthDamage?: string }).healthDamage ||
+      "",
+    risk.meioPropagacao,
+    risk.fontes,
+    risk.unidadeMedida || "",
+    risk.valorMedido || "",
+    risk.tipoAvaliacao,
+    risk.intensidade,
+    risk.nivelAcao || "",
+    risk.severidade,
+    risk.probabilidade,
+    risk.classificacao,
+    risk.medidasControle,
+    (risk as unknown as { normas?: string }).normas || "",
+    normalizeRiskStructureText(risk.epc),
+    normalizeRiskStructureText(risk.epi),
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .join("||");
+
+const buildDuplicateRiskStructureInfoByGheId = (
+  riskGheGroups: RiskGheGroup[]
+): Map<string, DuplicateRiskStructureInfo> => {
+  const grouped = new Map<string, Array<{ id: string; name: string }>>();
+
+  riskGheGroups.forEach((ghe) => {
+    if (!Array.isArray(ghe.risks) || !ghe.risks.length) return;
+    const structureKey = ghe.risks
+      .map((risk) => getRiskStructureKey(risk))
+      .sort()
+      .join("##");
+    const existing = grouped.get(structureKey) || [];
+    existing.push({ id: ghe.id, name: ghe.name });
+    grouped.set(structureKey, existing);
+  });
+
+  const result = new Map<string, DuplicateRiskStructureInfo>();
+  grouped.forEach((group) => {
+    if (group.length <= 1) return;
+    group.forEach((ghe) => {
+      result.set(ghe.id, {
+        duplicated: true,
+        duplicatedWith: group
+          .filter((item) => item.id !== ghe.id)
+          .map((item) => item.name),
+      });
+    });
+  });
+  return result;
+};
+
 export type PgrDocxPayload = {
   meta: {
     pgrId: string;
@@ -266,6 +340,8 @@ export type PgrDocxPayload = {
     ghes: Array<{
       id: string;
       nome: string;
+      estruturaDuplicada: boolean;
+      estruturaDuplicadaCom: string[];
       riscos: Array<{
         id: string;
         tipoAgente: string;
@@ -355,6 +431,7 @@ export function buildPgrDocxPayload(input: {
   gheGroups: GheGroup[];
   riskGheGroups: RiskGheGroup[];
   planGeneralMeasures?: PlanGeneralMeasureRow[];
+  planTableRows?: PlanTableRow[];
   removedPlanRiskKeys?: string[];
   functionsData: PgrFunction[];
   planAction: {
@@ -390,37 +467,45 @@ export function buildPgrDocxPayload(input: {
     }),
   }));
 
-  const caracterizacaoGhes = input.riskGheGroups.map((ghe) => ({
-    id: ghe.id,
-    nome: ghe.name,
-    riscos: ghe.risks.map((risk) => ({
-      id: risk.id,
-      tipoAgente: risk.tipoAgente,
-      descricaoAgente: risk.descricaoAgente,
-      meioPropagacao: risk.meioPropagacao,
-      fontes: risk.fontes,
-      danosSaude: (risk as unknown as { danosSaude?: string; healthDamage?: string }).danosSaude
-        || (risk as unknown as { danosSaude?: string; healthDamage?: string }).healthDamage
-        || (risk as unknown as { perigo?: string }).perigo
-        || "",
-      unidadeMedida: risk.unidadeMedida || "",
-      valorMedido: risk.valorMedido || "",
-      nivelAcao: risk.nivelAcao || "",
-      limiteTolerancia: (risk as unknown as { limiteTolerancia?: string; toleranceLimit?: string }).limiteTolerancia
-        || (risk as unknown as { limiteTolerancia?: string; toleranceLimit?: string }).toleranceLimit
-        || risk.intensidade
-        || "",
-      tipoAvaliacao: risk.tipoAvaliacao,
-      intensidade: risk.intensidade,
-      severidade: risk.severidade,
-      probabilidade: risk.probabilidade,
-      classificacao: risk.classificacao,
-      medidasControle: risk.medidasControle,
-      medidasPrevencaoPlano: risk.medidasPrevencaoPlano || "",
-      epc: risk.epc,
-      epi: risk.epi,
-    })),
-  }));
+  const duplicateRiskStructureInfoByGheId = buildDuplicateRiskStructureInfoByGheId(
+    input.riskGheGroups
+  );
+  const caracterizacaoGhes = input.riskGheGroups.map((ghe) => {
+    const duplicateInfo = duplicateRiskStructureInfoByGheId.get(ghe.id);
+    return {
+      id: ghe.id,
+      nome: ghe.name,
+      estruturaDuplicada: duplicateInfo?.duplicated ?? false,
+      estruturaDuplicadaCom: duplicateInfo?.duplicatedWith ?? [],
+      riscos: ghe.risks.map((risk) => ({
+        id: risk.id,
+        tipoAgente: risk.tipoAgente,
+        descricaoAgente: risk.descricaoAgente,
+        meioPropagacao: risk.meioPropagacao,
+        fontes: risk.fontes,
+        danosSaude: (risk as unknown as { danosSaude?: string; healthDamage?: string }).danosSaude
+          || (risk as unknown as { danosSaude?: string; healthDamage?: string }).healthDamage
+          || (risk as unknown as { perigo?: string }).perigo
+          || "",
+        unidadeMedida: risk.unidadeMedida || "",
+        valorMedido: risk.valorMedido || "",
+        nivelAcao: risk.nivelAcao || "",
+        limiteTolerancia: (risk as unknown as { limiteTolerancia?: string; toleranceLimit?: string }).limiteTolerancia
+          || (risk as unknown as { limiteTolerancia?: string; toleranceLimit?: string }).toleranceLimit
+          || risk.intensidade
+          || "",
+        tipoAvaliacao: risk.tipoAvaliacao,
+        intensidade: risk.intensidade,
+        severidade: risk.severidade,
+        probabilidade: risk.probabilidade,
+        classificacao: risk.classificacao,
+        medidasControle: risk.medidasControle,
+        medidasPrevencaoPlano: risk.medidasPrevencaoPlano || "",
+        epc: risk.epc,
+        epi: risk.epi,
+      })),
+    };
+  });
 
   const excludedPlanKeys = new Set(input.removedPlanRiskKeys ?? []);
   const planoItens = caracterizacaoGhes.flatMap((ghe) =>
@@ -471,6 +556,26 @@ export function buildPgrDocxPayload(input: {
         }))
     : [];
 
+  const planoItensOverride = Array.isArray(input.planTableRows)
+    ? input.planTableRows
+        .filter((row) => String(row.medidasPrevencao || "").trim().length > 0)
+        .map((row) => ({
+          ghe: row.gheName || "Todos os GHEs",
+          risco: row.descricaoAgente || "",
+          prioridade: normalizePriorityText(row.prioridade),
+          classificacao: row.classificacao || row.prioridade || "",
+          medida: row.medidasPrevencao || "",
+          medidas: row.medidasPrevencao || "",
+          epc: "",
+          epi: "",
+          tipoMedida: row.tipoMedida || "",
+          prazoAcao: row.prazoAcao || "",
+          responsavelAcao: row.responsavelAcao || "",
+          acompanhamento: row.acompanhamento || "",
+          afericaoResultado: row.afericaoResultado || "",
+        }))
+    : [];
+
   const empresaAddressJson = buildAddressJson({
     endereco: input.dadosCadastrais.empresaEndereco,
     numero: input.dadosCadastrais.empresaNumero,
@@ -488,11 +593,11 @@ export function buildPgrDocxPayload(input: {
     cep: input.dadosCadastrais.estabelecimentoCep,
   });
   const contratantesJson = Array.isArray(input.dadosCadastrais.contratantes)
-    ? input.dadosCadastrais.contratantes.map((item) => ({
+    ? input.dadosCadastrais.contratantes.map((item, index) => ({
       ...item,
       ...buildAddressJson({
         endereco: item.endereco,
-        numero: item.numero,
+        numero: item.numero || (index === 0 ? input.dadosCadastrais.contratanteNumero : ""),
         bairro: item.bairro,
         cidade: item.cidade,
         estado: item.estado,
@@ -582,7 +687,7 @@ export function buildPgrDocxPayload(input: {
     planoAcao: {
       nr: input.planAction.nr,
       vigencia: input.planAction.vigencia,
-      itens: [...planoItensGerais, ...planoItens],
+      itens: planoItensOverride.length ? planoItensOverride : [...planoItensGerais, ...planoItens],
     },
     program: {
       nr: input.planAction.nr,
@@ -775,6 +880,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           }))
           .filter((item) => item.id && item.descricao)
       : [],
+    planTableRows: Array.isArray(state.planTableRows) ? state.planTableRows : undefined,
     removedPlanRiskKeys: Array.isArray(state.removedPlanRiskKeys)
       ? state.removedPlanRiskKeys.filter((item): item is string => typeof item === "string")
       : [],

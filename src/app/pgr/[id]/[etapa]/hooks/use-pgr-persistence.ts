@@ -3,6 +3,7 @@ import { apiGet } from "@/lib/api";
 import { putPgrState, setKnownUpdatedAt } from "../state/state-version";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
+import type { PlanTableRow } from "./use-pgr-etapa-derived";
 import type {
   AnexoItem,
   GheGroup,
@@ -45,6 +46,7 @@ type PersistPayload = {
   extraEstabelecimentoFields: ExtraField[];
   estabelecimentoSelecionado: string;
   planAction: PlanAction;
+  planTableRows?: PlanTableRow[];
   persistedOptionsByRowId: Record<string, string[]>;
   removedPlanRiskKeys: string[];
   planGeneralMeasures: PlanGeneralMeasureRow[];
@@ -72,6 +74,7 @@ type BackendStateResponse = Partial<{
   extraEstabelecimentoFields: Array<Partial<ExtraField>>;
   estabelecimentoSelecionado: string;
   planAction: Partial<PlanAction>;
+  planTableRows?: PlanTableRow[];
   persistedOptionsByRowId?: Record<string, string[]>;
   removedPlanRiskKeys: string[];
   planGeneralMeasures: PlanGeneralMeasureRow[];
@@ -132,6 +135,7 @@ type UsePgrPersistenceContext = {
     extraEstabelecimentoFields: ExtraField[];
     estabelecimentoSelecionado: string;
     planAction: PlanAction;
+    planTableRows?: PlanTableRow[];
     persistedOptionsByRowId: Record<string, string[]>;
     removedPlanRiskKeys: string[];
     planGeneralMeasures: PlanGeneralMeasureRow[];

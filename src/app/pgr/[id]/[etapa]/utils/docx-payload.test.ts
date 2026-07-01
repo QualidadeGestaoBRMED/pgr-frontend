@@ -203,6 +203,71 @@ describe("docx payload mapping", () => {
     );
   });
 
+  it("uses effective plan table rows for grouped plan export", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planTableRows: [
+          {
+            id: "plan-grouped-ghe-2-risk-calor-2",
+            gheId: "__group__",
+            riskId: "__group__",
+            gheName: "GHE 2, 3",
+            tipoAgente: "Físico",
+            descricaoAgente: "Calor",
+            prioridade: "Prioridade Média",
+            classificacao: "Risco Alto",
+            exposureValue: 2,
+            medidasPrevencao: "Monitorar IBUTG e pausas térmicas",
+            tipoMedida: "Administrativa",
+            prazoAcao: "2026-12-07",
+            responsavelAcao: "Segurança do Trabalho",
+            acompanhamento: "Mensal",
+            afericaoResultado: "Relatório de acompanhamento",
+            groupTargets: [
+              { gheId: "ghe-2", riskId: "risk-calor-2" },
+              { gheId: "ghe-3", riskId: "risk-calor-3" },
+            ],
+          },
+        ],
+        caracterizacao: {
+          ghes: [
+            {
+              id: "ghe-2",
+              nome: "GHE 2",
+              riscos: [
+                {
+                  id: "risk-calor-2",
+                  descricaoAgente: "Calor",
+                  tipoAgente: "Físico",
+                  meioPropagacao: "Ar",
+                  fontes: "Ambiente externo",
+                  tipoAvaliacao: "Qualitativa",
+                  intensidade: "N/A",
+                  severidade: "Alta",
+                  probabilidade: "Alta",
+                  classificacao: "Risco Alto",
+                  medidasControle: "Controle de inventário",
+                  medidasPrevencaoPlano: "Monitorar IBUTG e pausas térmicas",
+                  epc: "",
+                  epi: "",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.planoAcao.itens).toHaveLength(1);
+    expect(payload.planoAcao.itens[0]?.ghe).toBe("GHE 2, 3");
+    expect(payload.planoAcao.itens[0]?.risco).toBe("Calor");
+    expect(payload.planoAcao.itens[0]?.prioridade).toBe("Média");
+    expect(payload.planoAcao.itens[0]?.classificacao).toBe("Risco Alto");
+  });
+
   it("falls back to defaults when backend state is invalid", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1",
@@ -241,6 +306,7 @@ describe("docx payload mapping", () => {
           estabelecimentoCidade: "Campinas",
           estabelecimentoEstado: "SP",
           estabelecimentoCep: "13010-000",
+          contratanteNumero: "300",
           contratantes: [
             {
               id: "contratante-1",
@@ -249,7 +315,6 @@ describe("docx payload mapping", () => {
               cnpj: "12.345.678/0001-99",
               cnae: "6201-5/01",
               endereco: "Rua C, Centro",
-              numero: "300",
               bairro: "Centro",
               cidade: "Santos",
               estado: "SP",
@@ -272,5 +337,70 @@ describe("docx payload mapping", () => {
     expect(payload.dadosCadastrais.contratantes[0]?.enderecoCompleto).toBe(
       "Rua C, 300, Centro, Santos/SP, CEP: 11010-000"
     );
+  });
+
+  it("mirrors duplicated GHE risk structure in the json payload", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "10",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        riskGheGroups: [
+          {
+            id: "ghe-1",
+            name: "GHE 1",
+            risks: [
+              {
+                id: "risk-1",
+                tipoAgente: "Fisico",
+                descricaoAgente: "Ruido",
+                meioPropagacao: "Ar",
+                fontes: "Maquina",
+                unidadeMedida: "dB(A)",
+                valorMedido: "85",
+                tipoAvaliacao: "Quantitativa",
+                intensidade: "85",
+                nivelAcao: "80",
+                severidade: "4",
+                probabilidade: "2",
+                classificacao: "Moderado",
+                medidasControle: "Protetor auditivo",
+                epc: "",
+                epi: "Protetor",
+              },
+            ],
+          },
+          {
+            id: "ghe-2",
+            name: "GHE 2",
+            risks: [
+              {
+                id: "risk-2",
+                tipoAgente: "Fisico",
+                descricaoAgente: "Ruido",
+                meioPropagacao: "Ar",
+                fontes: "Maquina",
+                unidadeMedida: "dB(A)",
+                valorMedido: "85",
+                tipoAvaliacao: "Quantitativa",
+                intensidade: "85",
+                nivelAcao: "80",
+                severidade: "4",
+                probabilidade: "2",
+                classificacao: "Moderado",
+                medidasControle: "Protetor auditivo",
+                epc: "",
+                epi: "Protetor",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(payload.caracterizacao.ghes[0]?.estruturaDuplicada).toBe(true);
+    expect(payload.caracterizacao.ghes[0]?.estruturaDuplicadaCom).toEqual(["GHE 2"]);
+    expect(payload.caracterizacao.ghes[1]?.estruturaDuplicada).toBe(true);
+    expect(payload.caracterizacao.ghes[1]?.estruturaDuplicadaCom).toEqual(["GHE 1"]);
   });
 });

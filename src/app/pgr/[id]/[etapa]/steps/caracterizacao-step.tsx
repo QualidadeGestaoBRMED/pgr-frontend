@@ -4,8 +4,11 @@ import { SearchableSelect } from "./searchable-select";
 import {
   CALCULATED_LIMIT_VALUE,
   isCalculatedLimitValue,
+  isValidMeasuredValue,
   isValidQuantitativeMeasurementValue,
+  normalizeMeasuredValue,
   normalizeQuantitativeMeasurementValue,
+  sanitizeMeasuredValueInput,
   sanitizeQuantitativeMeasurementInput,
 } from "../validation/br-field-utils";
 import type { GheRisk, RiskGheGroup } from "../types";
@@ -209,7 +212,7 @@ const sanitizeRiskMeasurementFields = (risk: GheRisk, measuredUnits: string[]) =
       : isQuantitativeEvaluation
         ? isNaValue(sanitizedValorMedido)
           ? ""
-          : sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
+          : sanitizeMeasuredValueInput(sanitizedValorMedido)
         : sanitizeNumericInput(sanitizedValorMedido),
     intensidade: isQuantitativeEvaluation
       ? isNaValue(intensityValue)
@@ -713,13 +716,13 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             : "",
           valorMedido: isQuantitativeEvaluation
             ? hasValue(risk.valorMedido)
-              ? isValidQuantitativeMeasurementValue(String(risk.valorMedido || ""))
-                && (allowMeasuredValueShortcut ||
-                  !/^(N\/D|<LQ)$/i.test(String(risk.valorMedido || "").trim()))
+              ? isValidMeasuredValue(String(risk.valorMedido || ""), {
+                  allowShortcuts: allowMeasuredValueShortcut,
+                })
                 ? ""
                 : allowMeasuredValueShortcut
-                  ? "Valor medido deve ser numérico, N/D, <LQ."
-                  : "Valor medido deve ser numérico"
+                  ? "Valor medido deve ser N/D, <LQ ou numérico."
+                  : "Valor medido deve ser numérico."
               : "Valor medido é obrigatório para avaliação quantitativa."
             : "",
           tipoAvaliacao: hasValue(risk.tipoAvaliacao)
@@ -749,7 +752,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       });
     });
     return map;
-  }, [riskGheGroups]);
+  }, [getIsCalculatedCriteria, riskGheGroups]);
 
   const markRiskTouched = (riskId: string, field: RequiredRiskField) => {
     setTouchedRiskFields((prev) => ({
@@ -1555,7 +1558,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const normalizedValorMedido = isQuantitativeEvaluation
               ? isNaValue(sanitizedValorMedido)
                 ? ""
-                : sanitizeQuantitativeMeasurementInput(sanitizedValorMedido)
+                : sanitizeMeasuredValueInput(sanitizedValorMedido)
               : sanitizeNumericInput(sanitizedValorMedido);
             const sanitizedIntensidade = stripTrailingMeasuredUnits(
               String(risk.intensidade || ""),
@@ -2454,8 +2457,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     isMeasuredValueMissing
                                       ? "Valor medido é obrigatório para avaliação quantitativa"
                                       : allowMeasuredValueShortcut
-                                        ? "N/D ou <LQ"
-                                        : "80, <80, >80, <=80 ou >=80"
+                                        ? "N/D, <LQ ou 80,5"
+                                        : "80,5"
                                   }
                                   inputMode="text"
                                   onChange={(event) => {
@@ -2463,7 +2466,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                     handleRiskChange(
                                       risk.id,
                                       "valorMedido",
-                                      sanitizeQuantitativeMeasurementInput(event.target.value)
+                                      sanitizeMeasuredValueInput(event.target.value)
                                     );
                                   }}
                                   onBlur={() => {
@@ -2475,8 +2478,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                       measuredUnit
                                     );
                                     const normalizedValue =
-                                      normalizeQuantitativeMeasurementValue(
-                                        sanitizeQuantitativeMeasurementInput(valueWithoutUnit)
+                                      normalizeMeasuredValue(
+                                        sanitizeMeasuredValueInput(valueWithoutUnit)
                                       );
 
                                     if (normalizedValue !== currentValue) {

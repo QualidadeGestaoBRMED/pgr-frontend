@@ -22,11 +22,15 @@ import type {
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { AnexoItem, HistoricoData } from "../types";
 import { buildPendingReviewTarget } from "../utils/pending-review";
-import { buildCommonRiskOptionsForGhes } from "../utils/plan-actions";
+import {
+  buildCommonRiskOptionsForGhes,
+  calculateAffectedWorkersRange,
+  calculatePlanActionPriority,
+} from "../utils/plan-actions";
 import { calculateAutomaticActionDueDate } from "../utils/action-date";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
 
-type PlanTableRow = {
+export type PlanTableRow = {
   id: string;
   gheId: string;
   riskId: string;
@@ -384,7 +388,9 @@ export function usePgrEtapaDerived({
               totalWorkersAllGhes > 0 ? gheWorkers / totalWorkersAllGhes : null;
             const exposureFromWorkforce =
               calculateExposureFromWorkforceRatio(workforceRatio);
-            const exposureValue = exposureFromWorkforce?.exposureValue;
+            const affectedWorkersRange = calculateAffectedWorkersRange(workforceRatio);
+            const exposureValue =
+              affectedWorkersRange || exposureFromWorkforce?.exposureValue;
             const actionPlanCalculated =
               riskCalculated?.classificationId && exposureValue
                 ? calculateActionPlanClassification({
@@ -392,6 +398,10 @@ export function usePgrEtapaDerived({
                     exposure: exposureValue,
                   })
                 : null;
+            const planActionPriority = calculatePlanActionPriority(
+              riskCalculated?.classification || risk.classificacao,
+              affectedWorkersRange || exposureValue
+            );
 
             return {
               id: `${ghe.id}-${risk.id}`,
@@ -400,11 +410,13 @@ export function usePgrEtapaDerived({
               gheName: ghe.name,
               tipoAgente: risk.tipoAgente || "",
               descricaoAgente: risk.descricaoAgente || "Não informado",
-              prioridade: normalizePriorityText(
-                actionPlanCalculated?.classification ||
+              prioridade:
+                planActionPriority ||
+                normalizePriorityText(
+                  actionPlanCalculated?.classification ||
                   riskCalculated?.classification ||
                   risk.classificacao
-              ),
+                ),
               classificacao: toDisplayText(risk.classificacao),
               exposureValue,
               medidasPrevencao:

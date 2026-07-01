@@ -3,9 +3,68 @@ import { describe, expect, it } from "vitest";
 import {
   buildCommonRiskOptionsForGhes,
   buildPlanActionGeneralMeasureRow,
+  calculateAffectedWorkersRange,
+  calculatePlanActionPriority,
+  resolveRiskGradationValue,
 } from "./plan-actions";
 
 describe("plan action helpers", () => {
+  it.each([
+    [1, 1, "Nenhuma ação adicional é necessária"],
+    [1, 2, "Nenhuma ação adicional é necessária"],
+    [1, 3, "Prioridade Baixa"],
+    [1, 4, "Prioridade Baixa"],
+    [1, 5, "Prioridade Média"],
+    [2, 1, "Nenhuma ação adicional é necessária"],
+    [2, 2, "Prioridade Baixa"],
+    [2, 3, "Prioridade Média"],
+    [2, 4, "Prioridade Média"],
+    [2, 5, "Prioridade Média"],
+    [3, 1, "Prioridade Baixa"],
+    [3, 2, "Prioridade Média"],
+    [3, 3, "Prioridade Média"],
+    [3, 4, "Prioridade Alta"],
+    [3, 5, "Prioridade Alta"],
+    [4, 1, "Prioridade Baixa"],
+    [4, 2, "Prioridade Média"],
+    [4, 3, "Prioridade Alta"],
+    [4, 4, "Prioridade Alta"],
+    [4, 5, "Ações Imediatas"],
+    [5, 1, "Prioridade Média"],
+    [5, 2, "Prioridade Média"],
+    [5, 3, "Prioridade Alta"],
+    [5, 4, "Ações Imediatas"],
+    [5, 5, "Ações Imediatas"],
+  ])(
+    "calculates plan priority for risk %i and affected workers range %i",
+    (riskGrade, affectedWorkersRange, expectedPriority) => {
+      expect(calculatePlanActionPriority(riskGrade, affectedWorkersRange)).toBe(
+        expectedPriority
+      );
+    }
+  );
+
+  it("accepts textual risk gradation labels when calculating plan priority", () => {
+    expect(calculatePlanActionPriority("Risco Crítico", 4)).toBe("Ações Imediatas");
+    expect(calculatePlanActionPriority("Moderado", "Faixa 2")).toBe("Prioridade Média");
+    expect(resolveRiskGradationValue("Risco Baixo")).toBe(2);
+  });
+
+  it("does not calculate plan priority outside the 1 to 5 ranges", () => {
+    expect(calculatePlanActionPriority(0, 1)).toBeNull();
+    expect(calculatePlanActionPriority(1, 6)).toBeNull();
+    expect(calculatePlanActionPriority("sem classificação", 3)).toBeNull();
+  });
+
+  it("classifies exactly 50 percent of affected workers as range 3", () => {
+    expect(calculateAffectedWorkersRange(0.1)).toBe(1);
+    expect(calculateAffectedWorkersRange(0.1001)).toBe(2);
+    expect(calculateAffectedWorkersRange(0.5)).toBe(3);
+    expect(calculateAffectedWorkersRange(0.5001)).toBe(4);
+    expect(calculateAffectedWorkersRange(0.75)).toBe(4);
+    expect(calculateAffectedWorkersRange(0.7501)).toBe(5);
+  });
+
   it("creates an independent general plan row for selected GHEs", () => {
     const row = buildPlanActionGeneralMeasureRow({
       description: "Instalar ventilacao local exaustora",

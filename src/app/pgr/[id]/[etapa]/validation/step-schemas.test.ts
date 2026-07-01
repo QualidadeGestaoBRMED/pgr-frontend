@@ -12,11 +12,14 @@ import {
   isValidEmail,
   isValidPhoneBr,
   isValidRiskGrade,
+  isValidMeasuredValue,
   isValidQuantitativeMeasurementValue,
   isCalculatedLimitValue,
   maskCpf,
   maskPhoneBr,
+  normalizeMeasuredValue,
   sanitizeQuantitativeMeasurementInput,
+  sanitizeMeasuredValueInput,
   normalizeQuantitativeMeasurementValue,
 } from "./br-field-utils";
 
@@ -305,5 +308,31 @@ describe("step schemas", () => {
     expect(isValidQuantitativeMeasurementValue("<LQ")).toBe(true);
     expect(isValidQuantitativeMeasurementValue("LLD")).toBe(true);
     expect(isValidQuantitativeMeasurementValue("abc")).toBe(false);
+  });
+
+  it("normalizes and validates measured values", () => {
+    expect(sanitizeMeasuredValueInput("n / d")).toBe("N/D");
+    expect(sanitizeMeasuredValueInput("<lq")).toBe("<LQ");
+    expect(sanitizeMeasuredValueInput("<80")).toBe("80");
+    expect(sanitizeMeasuredValueInput("12,5")).toBe("12,5");
+    expect(sanitizeMeasuredValueInput("12.5")).toBe("12.5");
+    expect(sanitizeMeasuredValueInput("12,5.8")).toBe("12,58");
+
+    expect(normalizeMeasuredValue(" 80 ")).toBe("80");
+    expect(normalizeMeasuredValue("12,5")).toBe("12,5");
+    expect(normalizeMeasuredValue("12.5")).toBe("12.5");
+    expect(normalizeMeasuredValue("n/d")).toBe("N/D");
+    expect(normalizeMeasuredValue("<lq")).toBe("<LQ");
+    expect(normalizeMeasuredValue("lld")).toBe("");
+
+    expect(isValidMeasuredValue("80")).toBe(true);
+    expect(isValidMeasuredValue("12,5")).toBe(true);
+    expect(isValidMeasuredValue("12.5")).toBe(true);
+    expect(isValidMeasuredValue("N/D")).toBe(true);
+    expect(isValidMeasuredValue("<LQ")).toBe(true);
+    expect(isValidMeasuredValue("N/D", { allowShortcuts: false })).toBe(false);
+    expect(isValidMeasuredValue("<80")).toBe(false);
+    expect(isValidMeasuredValue("LLD")).toBe(false);
+    expect(isValidMeasuredValue("abc")).toBe(false);
   });
 });

@@ -419,6 +419,7 @@ export function usePgrEtapaController({
       extraEstabelecimentoFields: state.extraEstabelecimentoFields,
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
       planAction: state.planAction,
+      planTableRows: derived.planTableRows,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
       planGeneralMeasures: state.planGeneralMeasures,
@@ -524,6 +525,7 @@ export function usePgrEtapaController({
       extraEstabelecimentoFields: state.extraEstabelecimentoFields,
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
       planAction: state.planAction,
+      planTableRows: derived.planTableRows,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
       planGeneralMeasures: overrides?.planGeneralMeasures ?? state.planGeneralMeasures,
@@ -538,6 +540,7 @@ export function usePgrEtapaController({
     }),
     [
       params.id,
+      derived.planTableRows,
       state,
       weightedProgressPercent,
     ]
@@ -615,6 +618,7 @@ export function usePgrEtapaController({
         historicoData: state.historicoData,
         gheGroups: state.gheGroups,
         riskGheGroups: state.riskGheGroups,
+        planTableRows: derived.planTableRows,
         planGeneralMeasures: state.planGeneralMeasures,
         removedPlanRiskKeys: state.removedPlanRiskKeys,
         functionsData: state.functionsData,
@@ -626,6 +630,7 @@ export function usePgrEtapaController({
       }),
     [
       derived.stepStatusById,
+      derived.planTableRows,
       params.id,
       state.anexoDiretriz,
       state.anexos,
