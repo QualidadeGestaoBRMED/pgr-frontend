@@ -587,7 +587,6 @@ export function usePgrEtapaDerived({
       calculateAutomaticActionDueDate({
         vigencia: calculatedPlanActionVigencia,
         prioridade: row.prioridade || "",
-        classificacao: row.classificacao || "",
       }),
     [calculatedPlanActionVigencia]
   );

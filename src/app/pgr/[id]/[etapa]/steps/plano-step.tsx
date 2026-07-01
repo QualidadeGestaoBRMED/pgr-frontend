@@ -297,7 +297,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             const prazoCalculado = calculateAutomaticActionDueDate({
                 vigencia: planAction.vigencia || "",
                 prioridade: row.prioridade || "",
-                classificacao: row.classificacao || "",
             });
             if (!prazoCalculado) return;
             nextAutoPrazoByRowId[row.id] = prazoCalculado;

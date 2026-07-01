@@ -72,8 +72,8 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-export const getActionDueDaysByPriority = (prioridade: string, classificacao: string) => {
-  const text = normalizeText(`${prioridade} ${classificacao}`);
+export const getActionDueDaysByPriority = (prioridade: string) => {
+  const text = normalizeText(prioridade);
   if (text.includes("imediat") || text.includes("critic")) return 30;
   if (text.includes("alt")) return 90;
   if (text.includes("media") || text.includes("moderad")) return 180;
@@ -89,15 +89,13 @@ export const addUtcDays = (date: Date, days: number) => {
 export const calculateAutomaticActionDueDate = ({
   vigencia,
   prioridade,
-  classificacao,
 }: {
   vigencia: string;
   prioridade: string;
-  classificacao: string;
 }) => {
   const startDate = parseVigenciaStartDate(vigencia);
   if (!startDate) return "";
-  const days = getActionDueDaysByPriority(prioridade, classificacao);
+  const days = getActionDueDaysByPriority(prioridade);
   if (!days) return "";
   return toUtcBrDate(addUtcDays(startDate, days));
 };

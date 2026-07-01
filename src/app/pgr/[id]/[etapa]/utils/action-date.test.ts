@@ -30,15 +30,28 @@ describe("action date helpers", () => {
       calculateAutomaticActionDueDate({
         vigencia: "01/01/2026 - 31/12/2027",
         prioridade: "Alta",
-        classificacao: "",
       })
     ).toBe("01/04/2026");
     expect(
       calculateAutomaticActionDueDate({
         vigencia: "01/01/2026 - 31/12/2027",
-        prioridade: "",
-        classificacao: "Risco Moderado",
+        prioridade: "Prioridade Média",
       })
     ).toBe("30/06/2026");
+  });
+
+  it("does not fall back to risk classification when calculating due dates", () => {
+    expect(
+      calculateAutomaticActionDueDate({
+        vigencia: "01/01/2026 - 31/12/2027",
+        prioridade: "Prioridade Média",
+      })
+    ).toBe("30/06/2026");
+    expect(
+      calculateAutomaticActionDueDate({
+        vigencia: "01/01/2026 - 31/12/2027",
+        prioridade: "",
+      })
+    ).toBe("");
   });
 });
