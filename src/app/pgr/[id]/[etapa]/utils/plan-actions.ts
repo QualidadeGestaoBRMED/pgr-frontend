@@ -32,7 +32,7 @@ export const PLAN_ACTION_PRIORITY_MATRIX = {
         2: "Média",
         3: "Alta",
         4: "Alta",
-        5: "Ações Imediatas",
+        5: "Imediatas",
     },
     5: {
         1: "Média",
