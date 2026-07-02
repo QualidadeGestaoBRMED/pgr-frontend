@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-import fs from "node:fs/promises";
-import path from "node:path";
-
 const API_BASE_URL = (process.env.API_BASE_URL || "http://127.0.0.1:8001").replace(
   /\/$/,
   ""
@@ -48,26 +45,6 @@ async function requestJson(method, route, body) {
   }
 
   return response.json();
-}
-
-async function requestPdf(route, body) {
-  const response = await fetch(`${API_BASE_URL}${joinRoute(route)}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(sessionCookie ? { Cookie: sessionCookie } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  updateCookieFromResponse(response);
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`[POST ${joinRoute(route)}] HTTP ${response.status}: ${text}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
 }
 
 async function requestMultipart(method, route, formData) {
@@ -203,11 +180,6 @@ async function run() {
     nr: planAction.nr || "NR-01",
     vigencia: planAction.vigencia || "",
   };
-
-  const pdfBuffer = await requestPdf(`/pgr/${pgrId}/fake-pdf`, fakePdfPayload);
-  const outputFile = path.join("/tmp", `${pgrId}-smoke.pdf`);
-  await fs.writeFile(outputFile, pdfBuffer);
-  checks.push(`pdf fake gerado (${outputFile})`);
 
   console.log(`\nSmoke test concluído em ${nowBr}`);
   console.log(`API base: ${API_BASE_URL}`);

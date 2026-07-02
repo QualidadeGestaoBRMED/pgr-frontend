@@ -1,15 +1,13 @@
-# Mapeamento de Template - PGR Runtime (pdfmake)
+# Mapeamento de Template - PGR PDF
 
 ## Fonte de dados
 Payload consolidado gerado em:
 - `src/app/pgr/[id]/[etapa]/utils/docx-payload.ts`
 
-Endpoint atual de geração:
-- `POST /api/pgr/generate-pdf`
-- arquivo: `src/pages/api/pgr/generate-pdf.ts`
-- engine: `runtime-pdfmake-v1`
+Geração atual:
+- `document-generator-api`
 
-Pipeline runtime:
+Pipeline de payload:
 - normalização: `src/lib/pgr-pdf-runtime/snapshot.ts`
 - documento: `src/lib/pgr-pdf-runtime/document.ts`
 - fontes do template: `src/lib/pgr-pdf-runtime/fonts.ts`

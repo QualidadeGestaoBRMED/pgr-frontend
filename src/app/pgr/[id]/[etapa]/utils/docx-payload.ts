@@ -826,8 +826,6 @@ export function buildPgrDocxPayloadFromBackendState(input: {
               orientation:
                 file?.orientation ||
                 file?.orientacao ||
-                item?.orientation ||
-                item?.orientacao ||
                 "auto",
               url: file?.url,
             }))

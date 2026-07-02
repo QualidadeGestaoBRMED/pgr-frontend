@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, notFound, useSearchParams } from "next/navigation";
-import { apiBlob, apiBlobGet, apiGet, apiPost, apiPostForm } from "@/lib/api";
+import { apiBlobGet, apiGet, apiPost, apiPostForm } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import {
   defaultAnexos,
@@ -805,20 +805,24 @@ export function usePgrEtapaController({
     async (layoutOverride?: PdfLayoutState) => {
       const effectiveLayout = layoutOverride ?? state.pdfLayout;
       await persistStateNow(effectiveLayout);
-      const blob = await apiBlob("/api/pgr/generate-pdf", {
-        ...docxPayload,
-        pdfLayout: effectiveLayout,
-        meta: {
-          ...docxPayload.meta,
-          generatedAt: new Date().toLocaleString("pt-BR"),
-        },
-      });
+      const exportPayload = await buildExternalExportRequestPayload(params.id);
+      const pdfStartResponse = await startExternalExportJobWithResponse(
+        params.id,
+        "pdf",
+        exportPayload
+      );
+      const pdfJobId = extractJobId(pdfStartResponse);
+      if (!pdfJobId) {
+        throw new Error("API não retornou job_id para PDF.");
+      }
+      await waitForExternalExportCompletion(params.id, "pdf", pdfJobId);
+      const blob = await downloadExternalExport(params.id, "pdf", pdfJobId);
       return window.URL.createObjectURL(blob);
     },
     [
       state.pdfLayout,
       persistStateNow,
-      docxPayload,
+      params.id,
     ]
   );
 

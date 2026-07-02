@@ -24,8 +24,6 @@ npm run smoke:once
 - `GET /api/frontend/pgr/{id}/state`
 - `PUT /api/frontend/pgr/{id}/state`
 - `POST /api/frontend/pgr/{id}/sync-pipefy`
-- `POST /api/frontend/pgr/{id}/fake-pdf`
-- Resultado esperado: PDF em `/tmp/<pgr-id>-smoke.pdf`.
 
 ## 4) Subir front para uso manual
 ```bash
