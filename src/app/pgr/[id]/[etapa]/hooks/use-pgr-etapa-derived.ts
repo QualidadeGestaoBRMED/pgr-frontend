@@ -11,6 +11,13 @@ import {
   isInicioDraftComplete,
   isRiskComplete,
 } from "../validation/step-schemas";
+import {
+  isValidCpf,
+  isValidEmail,
+  isValidMeasuredValue,
+  isValidPhoneBr,
+  isValidQuantitativeMeasurementValue,
+} from "../validation/br-field-utils";
 import type {
   GheGroup,
   PendingReviewTarget,
@@ -64,10 +71,17 @@ const uniqueValues = (values: string[]) =>
 const riskIssueFieldMap: Record<string, string> = {
   "Tipo de agente e obrigatorio": "tipoAgente",
   "Descricao do agente e obrigatorio": "descricaoAgente",
+  "Este risco ja foi cadastrado neste ghe": "descricaoAgente",
   "Meio de propagacao e obrigatorio": "meioPropagacao",
   "Fontes e obrigatorio": "fontes",
+  "Unidade de medida e obrigatoria": "unidadeMedida",
+  "Valor medido e obrigatorio para avaliacao quantitativa": "valorMedido",
+  "Valor medido deve ser nd lq ou numerico": "valorMedido",
+  "Valor medido deve ser numerico": "valorMedido",
   "Tipo de avaliacao e obrigatorio": "tipoAvaliacao",
   "Intensidade e obrigatorio": "intensidade",
+  "Intensidadeconcentracao e obrigatoria": "intensidade",
+  "Intensidadeconcentracao deve ser numerica ou comparador valido como 80 80 80 ou 80": "intensidade",
   "Severidade e obrigatorio": "severidade",
   "Probabilidade e obrigatorio": "probabilidade",
   "Classificacao e obrigatorio": "classificacao",
@@ -78,6 +92,24 @@ const riskIssueFieldMap: Record<string, string> = {
 
 const getRiskIssueFieldKey = (issue: string) =>
   riskIssueFieldMap[normalizeText(issue).replace(/[^\w\s]/g, "").trim()] || undefined;
+
+const hasValue = (value: string | undefined | null) => String(value || "").trim().length > 0;
+
+const getRiskDescriptionKey = (tipoAgente: string, descricaoAgente: string) => {
+  const normalizedTipoAgente = normalizeText(String(tipoAgente || "").trim());
+  const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || "").trim());
+  if (!normalizedTipoAgente || !normalizedDescricaoAgente) return "";
+  return `${normalizedTipoAgente}::${normalizedDescricaoAgente}`;
+};
+
+const supportsMeasuredValueShortcut = (tipoAgente: string, descricaoAgente: string) => {
+  const normalizedTipoAgente = normalizeText(String(tipoAgente || ""));
+  const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || ""));
+  return (
+    normalizedTipoAgente.includes("quim") ||
+    (normalizedTipoAgente.includes("fisic") && normalizedDescricaoAgente === "calor")
+  );
+};
 
 const extractGheToken = (gheName: string) => {
   const token = gheName.replace(/^ghe\s*/i, "").trim();
@@ -668,9 +700,57 @@ export function usePgrEtapaDerived({
                             ? "grauRisco"
                             : normalized.includes("nome do responsavel pgr")
                               ? "responsavelPgrNome"
+                              : normalized.includes("telefone do responsavel pgr")
+                                ? "responsavelPgrTelefone"
+                                : normalized.includes("email do responsavel pgr")
+                                  ? "responsavelPgrEmail"
+                                  : normalized.includes("cpf do responsavel pgr")
+                                    ? "responsavelPgrCpf"
                               : undefined,
       });
     });
+    const technicalCoordinator = dadosCadastrais.responsaveisCoordenacaoTecnica?.[0];
+    if (technicalCoordinator) {
+      const coordinatorIssues = [
+        !technicalCoordinator.nome.trim() ? "Responsável técnico: Nome é obrigatório." : "",
+        !technicalCoordinator.funcao.trim() ? "Responsável técnico: Função é obrigatória." : "",
+        !technicalCoordinator.telefone.trim()
+          ? "Responsável técnico: Telefone é obrigatório."
+          : isValidPhoneBr(technicalCoordinator.telefone)
+            ? ""
+            : "Responsável técnico: Telefone inválido.",
+        !technicalCoordinator.email.trim()
+          ? "Responsável técnico: E-mail é obrigatório."
+          : isValidEmail(technicalCoordinator.email)
+            ? ""
+            : "Responsável técnico: E-mail inválido.",
+        !technicalCoordinator.cpf.trim()
+          ? "Responsável técnico: CPF é obrigatório."
+          : isValidCpf(technicalCoordinator.cpf)
+            ? ""
+            : "Responsável técnico: CPF inválido.",
+      ].filter(Boolean);
+      coordinatorIssues.forEach((message) => {
+        const normalized = normalizeText(message);
+        missingDados.push(
+          buildPendingReviewTarget("dados", message, {
+            sectionKey: "technical-coordinators",
+            itemIndex: 0,
+            fieldKey: normalized.includes("nome")
+              ? "technicalCoordinatorNome"
+              : normalized.includes("funcao")
+                ? "technicalCoordinatorFuncao"
+                : normalized.includes("telefone")
+                  ? "technicalCoordinatorTelefone"
+                  : normalized.includes("email")
+                    ? "technicalCoordinatorEmail"
+                    : normalized.includes("cpf")
+                      ? "technicalCoordinatorCpf"
+                      : undefined,
+          })
+        );
+      });
+    }
 
     const missingDescricao: PendingReviewTarget[] = [];
     if (!gheGroups.length) {
@@ -740,6 +820,19 @@ export function usePgrEtapaDerived({
         )
       );
     } else {
+      const duplicateCountByGhe = new Map<string, Map<string, number>>();
+      riskGheGroups.forEach((ghe) => {
+        const countByDescriptionKey = new Map<string, number>();
+        ghe.risks.forEach((risk) => {
+          const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
+          if (!descriptionKey) return;
+          countByDescriptionKey.set(
+            descriptionKey,
+            (countByDescriptionKey.get(descriptionKey) || 0) + 1
+          );
+        });
+        duplicateCountByGhe.set(ghe.id, countByDescriptionKey);
+      });
       riskGheGroups.forEach((ghe) => {
         if (!ghe.risks.length) {
           missingCaracterizacao.push(
@@ -757,12 +850,69 @@ export function usePgrEtapaDerived({
           return;
         }
         ghe.risks.forEach((risk, index) => {
-          const riskIssues = getRiskIssues(risk);
-          riskIssues.forEach((issue) => {
+          const riskLabelParts = [
+            String(risk.tipoAgente || "").trim(),
+            String(risk.descricaoAgente || "").trim(),
+          ].filter(Boolean);
+          const riskLabel =
+            riskLabelParts.length > 0
+              ? riskLabelParts.join(" · ")
+              : `Risco ${index + 1}`;
+          const descriptionKey = getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente);
+          const isDuplicateDescription =
+            !!descriptionKey &&
+            (duplicateCountByGhe.get(ghe.id)?.get(descriptionKey) || 0) > 1;
+          const isQuantitativeEvaluation = normalizeText(
+            String(risk.tipoAvaliacao || "")
+          ).includes("quantit");
+          const isQualitativeEvaluation = normalizeText(
+            String(risk.tipoAvaliacao || "")
+          ).includes("qualit");
+          const isCalculatedQualitativeEvaluation =
+            isQualitativeEvaluation &&
+            getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
+          const allowMeasuredValueShortcut = supportsMeasuredValueShortcut(
+            risk.tipoAgente,
+            risk.descricaoAgente
+          );
+          const extendedRiskIssues = uniqueValues([
+            ...getRiskIssues(risk),
+            !hasValue(risk.descricaoAgente)
+              ? ""
+              : isDuplicateDescription
+                ? "Este risco já foi cadastrado neste GHE."
+                : "",
+            isQuantitativeEvaluation
+              ? hasValue(risk.unidadeMedida)
+                ? ""
+                : "Unidade de Medida é obrigatória."
+              : "",
+            isQuantitativeEvaluation
+              ? hasValue(risk.valorMedido)
+                ? isValidMeasuredValue(String(risk.valorMedido || ""), {
+                    allowShortcuts: allowMeasuredValueShortcut,
+                  })
+                  ? ""
+                  : allowMeasuredValueShortcut
+                    ? "Valor medido deve ser N/D, <LQ ou numérico."
+                    : "Valor medido deve ser numérico."
+                : "Valor medido é obrigatório para avaliação quantitativa."
+              : "",
+            isCalculatedQualitativeEvaluation
+              ? ""
+              : hasValue(risk.intensidade)
+                ? isQuantitativeEvaluation
+                  ? isValidQuantitativeMeasurementValue(String(risk.intensidade || ""))
+                    ? ""
+                    : "Intensidade/Concentração deve ser numérica ou comparador válido, como <80, >80, <=80 ou >=80."
+                  : ""
+                : "Intensidade/Concentração é obrigatória.",
+          ]);
+          extendedRiskIssues.forEach((issue) => {
             missingCaracterizacao.push(
               buildPendingReviewTarget(
                 "caracterizacao",
-                `${ghe.name} · Risco ${index + 1}: ${issue}`,
+                `${ghe.name} · ${riskLabel}: ${issue}`,
                 {
                   gheId: ghe.id,
                   gheName: ghe.name,
@@ -911,6 +1061,7 @@ export function usePgrEtapaDerived({
   }, [
     dadosCadastrais,
     gheGroups,
+    getIsCalculatedCriteria,
     inicioDraft,
     rawPlanTableRowsForPlan,
     getEffectivePrazoAcao,

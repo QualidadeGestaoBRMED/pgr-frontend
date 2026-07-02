@@ -742,6 +742,13 @@ export function DadosStep({
         `[data-contractor-index="${pendingReviewFocus.itemIndex}"]`
       );
       contractorCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (pendingReviewFocus.sectionKey === "technical-coordinators") {
+      const section = document.querySelector<HTMLElement>(
+        '[data-pending-section="technical-coordinators"]'
+      );
+      section?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [pendingReviewFocus]);
 
@@ -767,7 +774,10 @@ export function DadosStep({
         </div>
       </section>
 
-      <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
+      <section
+        className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60"
+        data-pending-section="technical-coordinators"
+      >
         {pendingReviewFocus?.stepId === "dados" ? (
           <div className="mb-5 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
             Pendência destacada: {pendingReviewFocus.message}
@@ -1701,7 +1711,7 @@ export function DadosStep({
             <label className="text-[12px] font-medium text-foreground">
               Nome:
             </label>
-            <div className="mt-2">
+            <div className="mt-2" data-pending-field="technicalCoordinatorNome">
               <SearchableSelect
                 value={technicalCoordinator.nome}
                 onChange={(value) => {
@@ -1737,6 +1747,7 @@ export function DadosStep({
               className={getDisabledFieldClassName(
                 getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "funcao")
               )}
+              data-pending-field="technicalCoordinatorFuncao"
               value={technicalCoordinator.funcao}
               disabled
               readOnly
@@ -1769,6 +1780,7 @@ export function DadosStep({
               className={getDisabledFieldClassName(
                 getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "telefone")
               )}
+              data-pending-field="technicalCoordinatorTelefone"
               value={technicalCoordinator.telefone}
               disabled
               readOnly
@@ -1787,6 +1799,7 @@ export function DadosStep({
               className={getDisabledFieldClassName(
                 getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "email")
               )}
+              data-pending-field="technicalCoordinatorEmail"
               value={technicalCoordinator.email}
               disabled
               readOnly
@@ -1805,6 +1818,7 @@ export function DadosStep({
               className={getDisabledFieldClassName(
                 getTechnicalCoordinatorFieldClassName(technicalCoordinatorKey, "cpf")
               )}
+              data-pending-field="technicalCoordinatorCpf"
               value={technicalCoordinator.cpf}
               disabled
               readOnly

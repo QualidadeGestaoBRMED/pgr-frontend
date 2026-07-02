@@ -51,7 +51,7 @@ export function RevisaoStep({
   const reviewItems = useMemo(
     () =>
       pgrSteps
-        .filter((item) => item.id !== "revisao" && item.id !== "inicio")
+        .filter((item) => item.id !== "revisao")
         .map((item, index) => {
           const fallbackByProgress = index < completedSteps;
           const isDone =
@@ -68,6 +68,7 @@ export function RevisaoStep({
             id: item.id,
             title: item.title,
             isDone,
+            hasWarnings: isDone && missingItems.length > 0,
             missingItems,
             missingTargets,
           };
@@ -121,8 +122,8 @@ export function RevisaoStep({
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
         <div className="space-y-3">
           {reviewItems.map((item) => {
-              const { isDone, missingItems } = item;
-              const statusLabel = isDone ? "Completo" : "Incompleto";
+              const { isDone, hasWarnings, missingItems } = item;
+              const statusLabel = !isDone ? "Incompleto" : hasWarnings ? "Atenção" : "Completo";
               return (
                 <div
                   key={item.id}
@@ -131,15 +132,19 @@ export function RevisaoStep({
                   <div className="flex items-center gap-3">
                     <div
                       className={`flex h-7 w-7 items-center justify-center rounded-full border ${
-                        isDone
-                          ? "border-emerald-300 bg-emerald-100 text-emerald-700"
-                          : "border-rose-300 bg-rose-50 text-rose-600"
+                        !isDone
+                          ? "border-rose-300 bg-rose-50 text-rose-600"
+                          : hasWarnings
+                            ? "border-amber-300 bg-amber-50 text-amber-700"
+                            : "border-emerald-300 bg-emerald-100 text-emerald-700"
                       }`}
                     >
-                      {isDone ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
+                      {!isDone ? (
                         <TriangleAlert className="h-4 w-4" />
+                      ) : hasWarnings ? (
+                        <TriangleAlert className="h-4 w-4" />
+                      ) : (
+                        <Check className="h-4 w-4" />
                       )}
                     </div>
                     <div>
@@ -151,12 +156,16 @@ export function RevisaoStep({
                   <div className="flex items-center gap-3">
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                        isDone ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
+                        !isDone
+                          ? "bg-rose-500 text-white"
+                          : hasWarnings
+                            ? "bg-amber-500 text-white"
+                            : "bg-emerald-500 text-white"
                       }`}
                     >
                       {statusLabel}
                     </span>
-                    {!isDone && missingItems.length > 0 ? (
+                    {missingItems.length > 0 ? (
                       <button
                         type="button"
                         onClick={() => setOpenMissingStepId(item.id)}
