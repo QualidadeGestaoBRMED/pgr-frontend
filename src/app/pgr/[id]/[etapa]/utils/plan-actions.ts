@@ -145,18 +145,18 @@ export function buildPlanActionGeneralMeasureRow({
         .filter((ghe) => selectedIdSet.has(ghe.id))
         .map((ghe) => String(ghe.name || "").trim())
         .filter(Boolean);
-    const allAvailableSelected =
-        availableGheGroups.length > 0 &&
-        selectedGheIds.length === availableGheGroups.length &&
-        availableGheGroups.every((ghe) => selectedIdSet.has(ghe.id));
-
+    const gheTokens = selectedGheNames
+        .map((name) => name.replace(/^ghe\s*/i, "").trim())
+        .filter(Boolean);
+    const formattedGheName =
+        gheTokens.length === selectedGheNames.length && gheTokens.length > 0
+            ? `GHE ${gheTokens.join(", ")}`
+            : selectedGheNames.join(", ");
     return {
         id: `plan-action-${String(idSeed || Date.now()).replace(/[^a-zA-Z0-9_-]+/g, "-")}`,
         nr: safeNr,
         descricao: safeDescription,
-        gheName: allAvailableSelected
-            ? "Todos os GHEs"
-            : selectedGheNames.join(", ") || "Todos os GHEs",
+        gheName: formattedGheName || "Todos os GHEs",
         targetGheIds: selectedGheIds,
         tipoMedida: "",
         prazoAcao: "",

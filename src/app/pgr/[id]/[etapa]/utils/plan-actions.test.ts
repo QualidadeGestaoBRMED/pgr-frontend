@@ -82,7 +82,7 @@ describe("plan action helpers", () => {
             id: "plan-action-test-1",
             nr: "NR-01",
             descricao: "Instalar ventilacao local exaustora",
-            gheName: "GHE 1, GHE 2",
+            gheName: "GHE 1, 2",
             targetGheIds: ["g-2", "g-1"],
             tipoMedida: "",
             prazoAcao: "",
@@ -90,7 +90,7 @@ describe("plan action helpers", () => {
         });
     });
 
-    it("labels the row as all GHEs when every available GHE is selected", () => {
+    it("lists every selected GHE when all available GHEs are selected", () => {
         const row = buildPlanActionGeneralMeasureRow({
             description: "Treinar todos os trabalhadores",
             nr: "NR-01",
@@ -102,7 +102,8 @@ describe("plan action helpers", () => {
             ],
         });
 
-        expect(row?.gheName).toBe("Todos os GHEs");
+        expect(row?.gheName).toBe("GHE 1, 2");
+        expect(row?.targetGheIds).toEqual(["g-1", "g-2"]);
     });
 
     it("labels a single selected GHE without touching other GHEs", () => {

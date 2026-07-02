@@ -72,17 +72,14 @@ const buildAddressJson = ({
   const numeroText = _asText(numero);
   const cidadeEstado = composeCityState(cidade, estado);
   const cepText = _asText(cep);
+  const enderecoCompleto = enderecoText
+    ? [enderecoText, numeroText, bairroText, cidadeEstado, cepText ? `CEP: ${cepText}` : ""]
+        .filter(Boolean)
+        .join(", ")
+    : "";
   return {
     numero: numeroText,
-    enderecoCompleto: [
-      enderecoText,
-      numeroText,
-      bairroText,
-      cidadeEstado,
-      cepText ? `CEP: ${cepText}` : "",
-    ]
-      .filter(Boolean)
-      .join(", "),
+    enderecoCompleto,
   };
 };
 

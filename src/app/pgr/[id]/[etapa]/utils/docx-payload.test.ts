@@ -360,6 +360,52 @@ describe("docx payload mapping", () => {
     );
   });
 
+  it("keeps enderecoCompleto empty when endereco is missing", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        dadosCadastrais: {
+          empresa: {
+            nomeFantasia: "Empresa",
+            razaoSocial: "Empresa Ltda",
+            cnpj: "12.345.678/0001-90",
+            cnae: "6201-5/01",
+            endereco: "",
+            numero: "100",
+            bairro: "Centro",
+            cidade: "Sao Paulo",
+            estado: "SP",
+            cep: "01001-000",
+            grauRisco: "2",
+            atividadePrincipal: "Servicos",
+            camposAdicionais: [],
+          },
+          estabelecimento: {
+            nomeFantasia: "Matriz",
+            razaoSocial: "Matriz Ltda",
+            cnpj: "12.345.678/0001-90",
+            cnae: "6201-5/01",
+            endereco: "",
+            numero: "200",
+            bairro: "Centro",
+            cidade: "Sao Paulo",
+            estado: "SP",
+            cep: "01001-000",
+            grauRisco: "2",
+            atividadePrincipal: "Servicos",
+            camposAdicionais: [],
+          },
+          contratantes: [],
+        },
+      },
+    });
+
+    expect(payload.dadosCadastrais.empresaEnderecoCompleto).toBe("");
+    expect(payload.dadosCadastrais.estabelecimentoEnderecoCompleto).toBe("");
+  });
+
   it("mirrors duplicated GHE risk structure in the json payload", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "10",

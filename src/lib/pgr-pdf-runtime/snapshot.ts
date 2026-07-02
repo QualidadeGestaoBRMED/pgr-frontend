@@ -555,6 +555,7 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
   const hasInventario = ghes.some((ghe) => ghe.funcoes.length > 0 || ghe.riscos.length > 0);
   const hasMedidas = ghes.some((ghe) => ghe.riscos.length > 0);
   const hasPlano = ghes.some((ghe) => ghe.planoItens.length > 0);
+  const companyStreet = withoutTrailingSegment(dados?.empresaEndereco, dados?.empresaBairro);
 
   return {
     schemaVersion: "pgr.runtime.v1",
@@ -581,16 +582,18 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       cnae: sanitizeText(dados?.empresaCnae),
       atividadePrincipal: sanitizeText(dados?.empresaAtividadePrincipal),
       grauRisco: sanitizeText(dados?.empresaGrauRisco),
-      enderecoCompleto: [
-        withoutTrailingSegment(dados?.empresaEndereco, dados?.empresaBairro),
-        sanitizeText(dados?.empresaNumero),
-        sanitizeText(dados?.empresaBairro),
-        sanitizeText(dados?.empresaCidade),
-        sanitizeText(dados?.empresaEstado),
-        sanitizeText(dados?.empresaCep),
-      ]
-        .filter(Boolean)
-        .join(" - "),
+      enderecoCompleto: companyStreet
+        ? [
+            companyStreet,
+            sanitizeText(dados?.empresaNumero),
+            sanitizeText(dados?.empresaBairro),
+            sanitizeText(dados?.empresaCidade),
+            sanitizeText(dados?.empresaEstado),
+            sanitizeText(dados?.empresaCep),
+          ]
+            .filter(Boolean)
+            .join(" - ")
+        : "",
     },
     establishment: {
       name: sanitizeText(dados?.estabelecimentoNome) || establishmentName,

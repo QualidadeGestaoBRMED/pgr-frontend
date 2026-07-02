@@ -529,6 +529,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                 id: String(item?.id || "").trim(),
                 nr: String(item?.nr || "").trim(),
                 descricao: String(item?.descricao || "").trim(),
+                gheName: String(item?.gheName || "").trim(),
+                targetGheIds: Array.isArray(item?.targetGheIds)
+                  ? item.targetGheIds.map((id) => String(id || "").trim()).filter(Boolean)
+                  : [],
                 tipoMedida: String(item?.tipoMedida || "").trim(),
                 prazoAcao: String(item?.prazoAcao || "").trim(),
                 responsavelAcao: String(item?.responsavelAcao || "").trim(),
