@@ -44,6 +44,12 @@ const isChemicalAgent = (value: string) => {
   return token.includes("quim");
 };
 
+const isPhysicalHeatRisk = (tipoAgente: string, descricaoAgente: string) => {
+  const agentToken = normalizeToken(String(tipoAgente || ""));
+  const descriptionToken = normalizeToken(String(descricaoAgente || ""));
+  return agentToken.includes("fisic") && descriptionToken === "calor";
+};
+
 const parseNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return null;
@@ -311,8 +317,13 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
     (
       risk: Pick<
         GheRisk,
-        "severidade" | "probabilidade" | "tipoAvaliacao" | "valorMedido" | "intensidade" | "nivelAcao"
-      > & { tipoAgente?: string }
+        | "severidade"
+        | "probabilidade"
+        | "tipoAvaliacao"
+        | "valorMedido"
+        | "intensidade"
+        | "nivelAcao"
+      > & { tipoAgente?: string; descricaoAgente?: string }
     ): RiskClassificationResult | null => {
       if (!activeTemplateId) return null;
 
@@ -337,7 +348,8 @@ export function useRiskClassification(riskCatalogs: RiskCatalogPayload | null) {
 
       const shortcutValue = String(risk.valorMedido || "").trim().toUpperCase();
       const isMeasuredShortcut =
-        isChemicalAgent(risk.tipoAgente || "") &&
+        (isChemicalAgent(risk.tipoAgente || "") ||
+          isPhysicalHeatRisk(risk.tipoAgente || "", risk.descricaoAgente || "")) &&
         (shortcutValue === "N/D" || shortcutValue === "<LQ");
       if (isMeasuredShortcut) {
         const quantLevel = 1;
