@@ -737,16 +737,12 @@ export function usePgrEtapaDerived({
       const coordinatorIssues = [
         !technicalCoordinator.nome.trim() ? "Responsável técnico: Nome é obrigatório." : "",
         !technicalCoordinator.funcao.trim() ? "Responsável técnico: Função é obrigatória." : "",
-        !technicalCoordinator.telefone.trim()
-          ? "Responsável técnico: Telefone é obrigatório."
-          : isValidPhoneBr(technicalCoordinator.telefone)
-            ? ""
-            : "Responsável técnico: Telefone inválido.",
-        !technicalCoordinator.email.trim()
-          ? "Responsável técnico: E-mail é obrigatório."
-          : isValidEmail(technicalCoordinator.email)
-            ? ""
-            : "Responsável técnico: E-mail inválido.",
+        technicalCoordinator.telefone.trim() && !isValidPhoneBr(technicalCoordinator.telefone)
+          ? "Responsável técnico: Telefone inválido."
+          : "",
+        technicalCoordinator.email.trim() && !isValidEmail(technicalCoordinator.email)
+          ? "Responsável técnico: E-mail inválido."
+          : "",
         !technicalCoordinator.cpf.trim()
           ? "Responsável técnico: CPF é obrigatório."
           : isValidCpf(technicalCoordinator.cpf)

@@ -197,6 +197,27 @@ const parseCommaSeparatedValues = (
   return [rawValue];
 };
 
+const isAwaitingQuantitativeEvaluationAllowed = (
+  tipoAgente: string,
+  descricaoAgente: string
+) => {
+  const normalizedTipoAgente = normalizeText(String(tipoAgente || ""));
+  const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || ""));
+
+  if (normalizedTipoAgente.includes("fisic") && normalizedDescricaoAgente === "calor") {
+    return true;
+  }
+
+  if (!normalizedTipoAgente.includes("quimic")) {
+    return false;
+  }
+
+  return [
+    "silica livre (silica livre cristalizada) - poeira respiravel",
+    "silica livre (silica livre cristalizada) - poeira total",
+  ].includes(normalizedDescricaoAgente);
+};
+
 const sanitizeRiskMeasurementFields = (
   risk: GheRisk,
   measuredUnits: string[],
@@ -212,11 +233,14 @@ const sanitizeRiskMeasurementFields = (
   const isQuantitativeEvaluation = normalizeText(String(risk.tipoAvaliacao || "")).includes(
     "quantit"
   );
+  const canAwaitQuantitativeEvaluation =
+    hasQuantitativeCriteria &&
+    isAwaitingQuantitativeEvaluationAllowed(risk.tipoAgente, risk.descricaoAgente);
   const intensityValue = stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits);
   return {
     ...risk,
     valorMedido: isQualitativeEvaluation
-      ? hasQuantitativeCriteria
+      ? canAwaitQuantitativeEvaluation
         ? "Aguardando Avaliação Quantitativa"
         : "N/A"
       : isQuantitativeEvaluation
@@ -1563,6 +1587,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.tipoAgente,
               risk.descricaoAgente
             );
+            const canAwaitQuantitativeEvaluation =
+              hasQuantitativeCriteria &&
+              isAwaitingQuantitativeEvaluationAllowed(
+                risk.tipoAgente,
+                risk.descricaoAgente
+              );
             const isCalculatedQualitativeEvaluation =
               isQualitativeEvaluation &&
               getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
@@ -1613,7 +1643,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const isMeasuredValueMissing =
               isQuantitativeEvaluation && !String(normalizedValorMedido || "").trim();
             const qualitativeMeasuredValueLabel =
-              hasQuantitativeCriteria ? "Aguardando Avaliação Quantitativa" : "N/A";
+              canAwaitQuantitativeEvaluation ? "Aguardando Avaliação Quantitativa" : "N/A";
             const sanitizeOptionValues = (options: string[]) =>
               Array.from(
                 new Set(
