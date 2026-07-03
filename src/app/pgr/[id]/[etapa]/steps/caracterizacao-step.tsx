@@ -203,6 +203,10 @@ const isAwaitingQuantitativeEvaluationAllowed = (
 ) => {
   const normalizedTipoAgente = normalizeText(String(tipoAgente || ""));
   const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || ""));
+  const awaitingQuantitativeDescriptions = [
+    "silica livre (silica livre cristalizada) - poeira respiravel",
+    "silica livre (silica livre cristalizada) - poeira total",
+  ];
 
   if (normalizedTipoAgente.includes("fisic") && normalizedDescricaoAgente === "calor") {
     return true;
@@ -212,10 +216,7 @@ const isAwaitingQuantitativeEvaluationAllowed = (
     return false;
   }
 
-  return [
-    "silica livre (silica livre cristalizada) - poeira respirável",
-    "silica livre (silica livre cristalizada) - poeira total",
-  ].includes(normalizedDescricaoAgente);
+  return awaitingQuantitativeDescriptions.includes(normalizedDescricaoAgente);
 };
 
 const sanitizeRiskMeasurementFields = (
