@@ -8,6 +8,7 @@ import type {
   RiskGheGroup,
 } from "../types";
 import type { PlanTableRow } from "../hooks/use-pgr-etapa-derived";
+import type { PersistedPlanActionItem } from "../utils/plan-action-items";
 import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 export type PersistedPgrState = {
@@ -33,7 +34,7 @@ export type PersistedPgrState = {
     scope: "empresa" | "estabelecimento" | "contratante" | "quantitativo";
   }>;
   estabelecimentoSelecionado: string;
-  planAction: { nr: string; vigencia: string };
+  planAction: { nr: string; vigencia: string; items?: PersistedPlanActionItem[] };
   planTableRows?: PlanTableRow[];
   persistedOptionsByRowId?: Record<string, string[]>;
   removedPlanRiskKeys: string[];

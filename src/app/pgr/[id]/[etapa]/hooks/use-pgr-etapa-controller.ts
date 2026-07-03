@@ -15,6 +15,7 @@ import type { HistoricoData, PlanGeneralMeasureRow, RiskGheGroup } from "../type
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { truncatePreview } from "../utils/text";
 import { buildPgrDocxPayload } from "../utils/docx-payload";
+import { buildPersistedPlanActionItems } from "../utils/plan-action-items";
 import { computeWeightedProgressPercent } from "../utils/progress";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
 import { parsePendingReviewFocus } from "../utils/pending-review";
@@ -524,7 +525,10 @@ export function usePgrEtapaController({
       functions: state.functionsData,
       extraEstabelecimentoFields: state.extraEstabelecimentoFields,
       estabelecimentoSelecionado: state.estabelecimentoSelecionado,
-      planAction: state.planAction,
+      planAction: {
+        ...state.planAction,
+        items: buildPersistedPlanActionItems(derived.planTableRows),
+      },
       planTableRows: derived.planTableRows,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
@@ -605,6 +609,14 @@ export function usePgrEtapaController({
     state.workflow,
   ]);
 
+  const resolvedPlanAction = useMemo(
+    () => ({
+      ...state.planAction,
+      items: buildPersistedPlanActionItems(derived.planTableRows),
+    }),
+    [derived.planTableRows, state.planAction]
+  );
+
   const docxPayload = useMemo(
     () =>
       buildPgrDocxPayload({
@@ -622,7 +634,7 @@ export function usePgrEtapaController({
         planGeneralMeasures: state.planGeneralMeasures,
         removedPlanRiskKeys: state.removedPlanRiskKeys,
         functionsData: state.functionsData,
-        planAction: state.planAction,
+        planAction: resolvedPlanAction,
         anexos: state.anexos,
         anexoDiretriz: state.anexoDiretriz,
         extraEstabelecimentoFields: state.extraEstabelecimentoFields,
@@ -641,7 +653,7 @@ export function usePgrEtapaController({
       state.gheGroups,
       state.historicoData,
       state.inicioDraft,
-      state.planAction,
+      resolvedPlanAction,
       state.planGeneralMeasures,
       state.pdfLayout,
       state.removedPlanRiskKeys,

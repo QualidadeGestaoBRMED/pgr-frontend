@@ -22,6 +22,10 @@ import {
 import { syncLegacyEstablishmentFields } from "../utils/establishments";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
 import {
+  buildPersistedPlanActionItems,
+  type PersistedPlanActionItem,
+} from "../utils/plan-action-items";
+import {
   DEFAULT_PDF_LAYOUT_STATE,
   normalizePdfLayoutState,
   type PdfLayoutState,
@@ -73,7 +77,7 @@ type BackendStateResponse = Partial<{
   functions: PgrFunction[];
   extraEstabelecimentoFields: Array<Partial<ExtraField>>;
   estabelecimentoSelecionado: string;
-  planAction: Partial<PlanAction>;
+  planAction: Partial<PlanAction> & { items?: PersistedPlanActionItem[]; itens?: PersistedPlanActionItem[] };
   planTableRows?: PlanTableRow[];
   persistedOptionsByRowId?: Record<string, string[]>;
   removedPlanRiskKeys: string[];
@@ -523,6 +527,11 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           vigencia:
             state.planAction?.vigencia ||
             calculatePlanActionVigencia(loadedHistoricoData.changes),
+          items: Array.isArray(state.planAction?.items)
+            ? state.planAction.items
+            : Array.isArray(state.planAction?.itens)
+              ? state.planAction.itens
+              : [],
         };
         const loadedPersistedOptions = (state as any).persistedOptionsByRowId ?? {};
         const loadedRemovedPlanRiskKeys = Array.isArray(state.removedPlanRiskKeys)
@@ -762,7 +771,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       functions: functionsData,
       extraEstabelecimentoFields,
       estabelecimentoSelecionado,
-      planAction,
+      planAction: {
+        ...planAction,
+        items: buildPersistedPlanActionItems(planTableRows),
+      },
       planTableRows,
       persistedOptionsByRowId,
       removedPlanRiskKeys,

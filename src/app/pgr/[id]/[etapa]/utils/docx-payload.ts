@@ -19,6 +19,7 @@ import {
   isModerateOrHigherPriority,
   normalizePriorityText,
 } from "./plan-priority";
+import type { PersistedPlanActionItem } from "./plan-action-items";
 
 type ExtraFieldScope = "empresa" | "estabelecimento" | "contratante" | "quantitativo";
 
@@ -185,6 +186,8 @@ type BackendStateShape = {
   planAction?: {
     nr?: string;
     vigencia?: string;
+    items?: PersistedPlanActionItem[];
+    itens?: PersistedPlanActionItem[];
   };
   planoAcao?: {
     nr?: string;
@@ -423,6 +426,7 @@ export function buildPgrDocxPayload(input: {
   planAction: {
     nr: string;
     vigencia: string;
+    items?: PersistedPlanActionItem[];
   };
   anexos: AnexoItem[];
   anexoDiretriz: string;
@@ -509,6 +513,28 @@ export function buildPgrDocxPayload(input: {
     afericaoResultado: row.afericaoResultado || "",
   });
 
+  const mapPersistedPlanActionItemToPreviewItem = (item: PersistedPlanActionItem) => ({
+    ghe: item.gheName || "Todos os GHEs",
+    risco: item.riskDescription || "",
+    prioridade: normalizePriorityText(item.prioridade),
+    classificacao: item.prioridade || "",
+    medida: item.medida || item.descricao || "",
+    medidas: item.medida || item.descricao || "",
+    epc: "",
+    epi: "",
+    tipoMedida: item.tipoMedida || "",
+    prazoAcao: item.prazo || "",
+    responsavelAcao: item.responsavel || "",
+    acompanhamento: item.acompanhamento || "",
+    afericaoResultado: item.afericaoResultado || "",
+  });
+
+  const planoItensFromPlanActionItems = Array.isArray(input.planAction.items)
+    ? input.planAction.items
+        .filter((item) => String(item.medida || item.descricao || "").trim().length > 0)
+        .map(mapPersistedPlanActionItemToPreviewItem)
+    : [];
+
   const planoItensFromPlanTableRows = Array.isArray(input.planTableRows)
     ? input.planTableRows
         .filter((row) => String(row.medidasPrevencao || "").trim().length > 0)
@@ -569,7 +595,9 @@ export function buildPgrDocxPayload(input: {
           afericaoResultado: item.afericaoResultado || "",
         }))
     : [];
-  const planoItens = planoItensFromPlanTableRows.length
+  const planoItens = planoItensFromPlanActionItems.length
+    ? planoItensFromPlanActionItems
+    : planoItensFromPlanTableRows.length
     ? planoItensFromPlanTableRows
     : [...planoItensGeraisFallback, ...planoItensFallback];
 
@@ -883,6 +911,11 @@ export function buildPgrDocxPayloadFromBackendState(input: {
     planAction: {
       nr: state.planAction?.nr || state.planoAcao?.nr || "NR-01",
       vigencia: state.planAction?.vigencia || state.planoAcao?.vigencia || "",
+      items: Array.isArray(state.planAction?.items)
+        ? state.planAction.items
+        : Array.isArray(state.planAction?.itens)
+          ? state.planAction.itens
+          : [],
     },
     anexos: Array.isArray(state.anexos) ? state.anexos : fallbackAnexos,
     anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Diretriz 1",

@@ -268,6 +268,56 @@ describe("docx payload mapping", () => {
     expect(payload.planoAcao.itens[0]?.classificacao).toBe("Risco Alto");
   });
 
+  it("prefers persisted plan action items over rederived plan table rows", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planAction: {
+          nr: "NR-01",
+          vigencia: "2026",
+          items: [
+            {
+              id: "plan-1",
+              gheId: "__group__",
+              gheName: "GHE 2, 3",
+              riscoId: "",
+              riskDescription: "Medidas Gerais",
+              descricao: "Snapshot do frontend",
+              medida: "Snapshot do frontend",
+              responsavel: "Segurança",
+              prazo: "2026-12-07",
+              acompanhamento: "Mensal",
+              status: "Pendente",
+              prioridade: "Média",
+              tipoMedida: "Administrativa",
+              afericaoResultado: "Checklist",
+            },
+          ],
+        },
+        planTableRows: [
+          {
+            id: "plan-row-legacy",
+            gheId: "ghe-1",
+            riskId: "risk-1",
+            gheName: "GHE 1",
+            tipoAgente: "Físico",
+            descricaoAgente: "Ruído",
+            prioridade: "Alta",
+            classificacao: "Risco Alto",
+            medidasPrevencao: "Linha legada",
+          },
+        ],
+      },
+    });
+
+    expect(payload.planoAcao.itens).toHaveLength(1);
+    expect(payload.planoAcao.itens[0]?.ghe).toBe("GHE 2, 3");
+    expect(payload.planoAcao.itens[0]?.risco).toBe("Medidas Gerais");
+    expect(payload.planoAcao.itens[0]?.medida).toBe("Snapshot do frontend");
+  });
+
   it("keeps grouped GHE label for general measures from persisted plan rows", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1309722312",
