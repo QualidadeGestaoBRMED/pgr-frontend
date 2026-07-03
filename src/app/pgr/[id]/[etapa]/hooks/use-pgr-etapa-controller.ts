@@ -1195,11 +1195,32 @@ export function usePgrEtapaController({
   }, [generalActions, isPipefySyncCoolingDown, state.isPipefySyncing]);
 
   const autoPipefySyncCardRef = useRef<string | null>(null);
+  const hasMeaningfulLocalState = useMemo(() => {
+    if (state.completedSteps > 0) return true;
+    if (state.functionsData.length > 0) return true;
+    if (state.planGeneralMeasures.length > 0) return true;
+    if (state.gheGroups.some((ghe) =>
+      ghe.items.length > 0 ||
+      String(ghe.info.processo || "").trim() ||
+      String(ghe.info.observacoes || "").trim() !== "-" ||
+      String(ghe.info.ambiente || "").trim() !== "A ser evidenciado na fase de reconhecimento"
+    )) {
+      return true;
+    }
+    return state.riskGheGroups.some((ghe) => ghe.risks.length > 0);
+  }, [
+    state.completedSteps,
+    state.functionsData.length,
+    state.gheGroups,
+    state.planGeneralMeasures.length,
+    state.riskGheGroups,
+  ]);
 
   useEffect(() => {
     if (state.isStateLoading) return;
     if (state.isPipefySyncing) return;
     if (state.inicioDraft.syncedAt) return;
+    if (hasMeaningfulLocalState) return;
     if (autoPipefySyncCardRef.current === params.id) return;
 
     autoPipefySyncCardRef.current = params.id;
@@ -1208,6 +1229,7 @@ export function usePgrEtapaController({
     });
   }, [
     generalActions,
+    hasMeaningfulLocalState,
     params.id,
     state.inicioDraft.syncedAt,
     state.isPipefySyncing,

@@ -231,6 +231,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
   const { saveTimerRef } = refs;
   const skipInitialPersistRef = useRef(true);
+  const skipPostHydrationPersistsRef = useRef(0);
   const pendingPersistPayloadRef = useRef<PersistPayload | null>(null);
   const latestRiskGheGroupsRef = useRef<RiskGheGroup[]>(riskGheGroups);
   const prevImmediatePersistRefs = useRef<{
@@ -671,6 +672,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setCurrentRiskGheId(loadedCurrentRiskGheId);
         setPdfLayout(loadedPdfLayout);
         setWorkflow(loadedWorkflow);
+        skipPostHydrationPersistsRef.current = 2;
 
         setRuntimeCachedStateFn(
           params.id,
@@ -752,6 +754,16 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     if (workflow.isLocked) return;
     if (skipInitialPersistRef.current) {
       skipInitialPersistRef.current = false;
+      prevImmediatePersistRefs.current = {
+        riskGheGroups,
+        removedPlanRiskKeys,
+        planGeneralMeasures,
+      };
+      return;
+    }
+
+    if (skipPostHydrationPersistsRef.current > 0) {
+      skipPostHydrationPersistsRef.current -= 1;
       prevImmediatePersistRefs.current = {
         riskGheGroups,
         removedPlanRiskKeys,

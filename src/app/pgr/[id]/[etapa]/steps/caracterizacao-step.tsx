@@ -213,7 +213,7 @@ const isAwaitingQuantitativeEvaluationAllowed = (
   }
 
   return [
-    "silica livre (silica livre cristalizada) - poeira respiravel",
+    "silica livre (silica livre cristalizada) - poeira respirável",
     "silica livre (silica livre cristalizada) - poeira total",
   ].includes(normalizedDescricaoAgente);
 };
