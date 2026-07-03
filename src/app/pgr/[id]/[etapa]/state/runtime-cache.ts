@@ -7,6 +7,7 @@ import type {
   PlanGeneralMeasureRow,
   RiskGheGroup,
 } from "../types";
+import type { PlanTableRow } from "../hooks/use-pgr-etapa-derived";
 import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
 export type PersistedPgrState = {
@@ -33,6 +34,7 @@ export type PersistedPgrState = {
   }>;
   estabelecimentoSelecionado: string;
   planAction: { nr: string; vigencia: string };
+  planTableRows?: PlanTableRow[];
   persistedOptionsByRowId?: Record<string, string[]>;
   removedPlanRiskKeys: string[];
   planGeneralMeasures: PlanGeneralMeasureRow[];

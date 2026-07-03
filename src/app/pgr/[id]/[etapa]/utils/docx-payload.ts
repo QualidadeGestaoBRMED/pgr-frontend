@@ -15,6 +15,10 @@ import {
   normalizePdfLayoutState,
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
+import {
+  isModerateOrHigherPriority,
+  normalizePriorityText,
+} from "./plan-priority";
 
 type ExtraFieldScope = "empresa" | "estabelecimento" | "contratante" | "quantitativo";
 
@@ -81,21 +85,6 @@ const buildAddressJson = ({
     numero: numeroText,
     enderecoCompleto,
   };
-};
-
-const normalizePriorityText = (value: unknown) => {
-  const raw = String(value ?? "").trim();
-  const normalized = raw
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-  if (!normalized) return "";
-  if (normalized.includes("imediat") || normalized.includes("critic")) return "Imediata";
-  if (normalized.includes("alta") || normalized.includes("alto")) return "Alta";
-  if (normalized.includes("media") || normalized.includes("moderad")) return "Média";
-  if (normalized.includes("baixa") || normalized.includes("baixo")) return "Baixa";
-  return raw;
 };
 
 type BackendDescricaoFunction = {
@@ -504,10 +493,38 @@ export function buildPgrDocxPayload(input: {
     };
   });
 
+  const mapPlanTableRowToPreviewItem = (row: PlanTableRow) => ({
+    ghe: row.gheName || "Todos os GHEs",
+    risco: row.descricaoAgente || "",
+    prioridade: normalizePriorityText(row.prioridade),
+    classificacao: row.classificacao || row.prioridade || "",
+    medida: row.medidasPrevencao || "",
+    medidas: row.medidasPrevencao || "",
+    epc: "",
+    epi: "",
+    tipoMedida: row.tipoMedida || "",
+    prazoAcao: row.prazoAcao || "",
+    responsavelAcao: row.responsavelAcao || "",
+    acompanhamento: row.acompanhamento || "",
+    afericaoResultado: row.afericaoResultado || "",
+  });
+
+  const planoItensFromPlanTableRows = Array.isArray(input.planTableRows)
+    ? input.planTableRows
+        .filter((row) => String(row.medidasPrevencao || "").trim().length > 0)
+        .map(mapPlanTableRowToPreviewItem)
+    : [];
+
   const excludedPlanKeys = new Set(input.removedPlanRiskKeys ?? []);
-  const planoItens = caracterizacaoGhes.flatMap((ghe) =>
+  const planoItensFallback = caracterizacaoGhes.flatMap((ghe) =>
     ghe.riscos
       .filter((risk) => !excludedPlanKeys.has(`${ghe.id}::${risk.id}`))
+      .filter((risk) =>
+        isModerateOrHigherPriority(
+          _asText((risk as unknown as { prioridade?: string }).prioridade) ||
+            _asText(risk.classificacao)
+        )
+      )
       .map((risk) => ({
         ghe: ghe.nome,
         risco: risk.descricaoAgente || "",
@@ -533,7 +550,7 @@ export function buildPgrDocxPayload(input: {
         ),
       }))
   );
-  const planoItensGerais = Array.isArray(input.planGeneralMeasures)
+  const planoItensGeraisFallback = Array.isArray(input.planGeneralMeasures)
     ? input.planGeneralMeasures
         .filter((item) => String(item.descricao || "").trim().length > 0)
         .map((item) => ({
@@ -552,26 +569,9 @@ export function buildPgrDocxPayload(input: {
           afericaoResultado: item.afericaoResultado || "",
         }))
     : [];
-
-  const planoItensOverride = Array.isArray(input.planTableRows)
-    ? input.planTableRows
-        .filter((row) => String(row.medidasPrevencao || "").trim().length > 0)
-        .map((row) => ({
-          ghe: row.gheName || "Todos os GHEs",
-          risco: row.descricaoAgente || "",
-          prioridade: normalizePriorityText(row.prioridade),
-          classificacao: row.classificacao || row.prioridade || "",
-          medida: row.medidasPrevencao || "",
-          medidas: row.medidasPrevencao || "",
-          epc: "",
-          epi: "",
-          tipoMedida: row.tipoMedida || "",
-          prazoAcao: row.prazoAcao || "",
-          responsavelAcao: row.responsavelAcao || "",
-          acompanhamento: row.acompanhamento || "",
-          afericaoResultado: row.afericaoResultado || "",
-        }))
-    : [];
+  const planoItens = planoItensFromPlanTableRows.length
+    ? planoItensFromPlanTableRows
+    : [...planoItensGeraisFallback, ...planoItensFallback];
 
   const empresaAddressJson = buildAddressJson({
     endereco: input.dadosCadastrais.empresaEndereco,
@@ -684,7 +684,7 @@ export function buildPgrDocxPayload(input: {
     planoAcao: {
       nr: input.planAction.nr,
       vigencia: input.planAction.vigencia,
-      itens: planoItensOverride.length ? planoItensOverride : [...planoItensGerais, ...planoItens],
+      itens: planoItens,
     },
     program: {
       nr: input.planAction.nr,

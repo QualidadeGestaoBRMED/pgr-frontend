@@ -34,6 +34,10 @@ import {
   calculateAffectedWorkersRange,
   calculatePlanActionPriority,
 } from "../utils/plan-actions";
+import {
+  isModerateOrHigherPriority,
+  normalizePriorityText,
+} from "../utils/plan-priority";
 import { calculateAutomaticActionDueDate } from "../utils/action-date";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
 
@@ -58,6 +62,8 @@ export type PlanTableRow = {
   hasPlanSnapshot?: boolean;
 };
 const PLAN_ALL_GHE_ID = "__plan_all_ghes__";
+export const DEFAULT_PLAN_ACOMPANHAMENTO = "Programado";
+export const DEFAULT_PLAN_AFERICAO_RESULTADO = "Aguardando realização da Ação";
 
 const normalizeText = (value: string) =>
   value
@@ -129,43 +135,40 @@ const compareGheTokens = (a: string, b: string) => {
 const isGeneralMeasuresPlanRow = (row: PlanTableRow) =>
   normalizeText(row.descricaoAgente).trim() === "medidas gerais";
 
-const isModerateOrHigherPriority = (priority: string) => {
-  const normalizedPriority = normalizeText(priority).trim();
-  if (!normalizedPriority) return false;
-  return (
-    normalizedPriority.includes("media") ||
-    normalizedPriority.includes("moderad") ||
-    normalizedPriority.includes("imediat") ||
-    normalizedPriority.includes("alta") ||
-    normalizedPriority.includes("alto") ||
-    normalizedPriority.includes("critic")
-  );
-};
-
 const toDisplayText = (value: string, fallback = "Não informado") => {
   const safeValue = String(value || "").trim();
   return safeValue || fallback;
 };
 
-const defaultPlanAcompanhamento = "Programado";
-const defaultPlanAfericaoResultado = "Aguardando realização da Ação";
-
 const getEffectivePlanValue = (value: string | undefined, fallback: string) =>
   String(value || "").trim() || fallback;
 
-const normalizePriorityText = (value: string) => {
-  const normalized = String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-
-  if (!normalized) return "";
-  if (normalized.includes("imediat") || normalized.includes("critic")) return "Imediata";
-  if (normalized.includes("alta") || normalized.includes("alto")) return "Alta";
-  if (normalized.includes("media") || normalized.includes("moderad")) return "Média";
-  if (normalized.includes("baixa") || normalized.includes("baixo")) return "Baixa";
-  return toDisplayText(value, "");
+export const materializeEffectivePlanRow = (
+  row: PlanTableRow,
+  args: {
+    calculatedPlanActionVigencia: string;
+    defaultResponsibleActionName?: string;
+  }
+): PlanTableRow => {
+  const defaultResponsible = String(args.defaultResponsibleActionName || "").trim();
+  return {
+    ...row,
+    prazoAcao:
+      String(row.prazoAcao || "").trim() ||
+      calculateAutomaticActionDueDate({
+        vigencia: args.calculatedPlanActionVigencia,
+        prioridade: row.prioridade || "",
+      }),
+    responsavelAcao: String(row.responsavelAcao || "").trim() || defaultResponsible,
+    acompanhamento: getEffectivePlanValue(
+      row.acompanhamento,
+      DEFAULT_PLAN_ACOMPANHAMENTO
+    ),
+    afericaoResultado: getEffectivePlanValue(
+      row.afericaoResultado,
+      DEFAULT_PLAN_AFERICAO_RESULTADO
+    ),
+  };
 };
 
 const getPlanPriorityText = (row: Pick<PlanTableRow, "prioridade" | "classificacao">) =>
@@ -399,6 +402,14 @@ export function usePgrEtapaDerived({
       ),
     [workersByGheId]
   );
+  const calculatedPlanActionVigencia = useMemo(
+    () => calculatePlanActionVigencia(historicoData.changes),
+    [historicoData.changes]
+  );
+  const defaultResponsibleActionName = useMemo(
+    () => String(inicioDraft.companyName || "").trim(),
+    [inicioDraft.companyName]
+  );
 
   const rawPlanTableRows = useMemo<PlanTableRow[]>(
     () => {
@@ -435,7 +446,8 @@ export function usePgrEtapaDerived({
               affectedWorkersRange || exposureValue
             );
 
-            return {
+            return materializeEffectivePlanRow(
+              {
               id: `${ghe.id}-${risk.id}`,
               gheId: ghe.id,
               riskId: risk.id,
@@ -464,33 +476,48 @@ export function usePgrEtapaDerived({
                 risk,
                 "medidasPrevencaoPlano"
               ),
-            };
+              },
+              {
+                calculatedPlanActionVigencia,
+                defaultResponsibleActionName,
+              }
+            );
           })
       );
-      const generalRows = planGeneralMeasures.map((item) => ({
-        id: `plan-general-${item.id}`,
-        gheId: PLAN_ALL_GHE_ID,
-        riskId: item.id,
-        gheName: item.gheName || "Todos os GHEs",
-        tipoAgente: "Medidas Gerais",
-        descricaoAgente: "Medidas Gerais",
-        prioridade: "Média",
-        classificacao: "Risco Moderado",
-        exposureValue: undefined,
-        medidasPrevencao: item.descricao || "",
-        tipoMedida: item.tipoMedida || "",
-        prazoAcao: item.prazoAcao || "",
-        responsavelAcao: item.responsavelAcao || "",
-        acompanhamento: item.acompanhamento || "",
-        afericaoResultado: item.afericaoResultado || "",
-        isCustomPlanRow: true,
-      }));
+      const generalRows = planGeneralMeasures.map((item) =>
+        materializeEffectivePlanRow(
+          {
+            id: `plan-general-${item.id}`,
+            gheId: PLAN_ALL_GHE_ID,
+            riskId: item.id,
+            gheName: item.gheName || "Todos os GHEs",
+            tipoAgente: "Medidas Gerais",
+            descricaoAgente: "Medidas Gerais",
+            prioridade: "Média",
+            classificacao: "Risco Moderado",
+            exposureValue: undefined,
+            medidasPrevencao: item.descricao || "",
+            tipoMedida: item.tipoMedida || "",
+            prazoAcao: item.prazoAcao || "",
+            responsavelAcao: item.responsavelAcao || "",
+            acompanhamento: item.acompanhamento || "",
+            afericaoResultado: item.afericaoResultado || "",
+            isCustomPlanRow: true,
+          },
+          {
+            calculatedPlanActionVigencia,
+            defaultResponsibleActionName,
+          }
+        )
+      );
       return [...generalRows, ...riskRows];
     },
     [
+      calculatedPlanActionVigencia,
       calculateActionPlanClassification,
       calculateExposureFromWorkforceRatio,
       calculateRiskClassification,
+      defaultResponsibleActionName,
       planGeneralMeasures,
       riskGheGroups,
       removedPlanRiskKeys,
@@ -609,10 +636,6 @@ export function usePgrEtapaDerived({
   const hasDuplicatedRiskStructure = duplicatedRiskStructureNameGroups.length > 0;
   const isCaracterizacaoStepComplete =
     isCaracterizacaoComplete && !hasDuplicatedRiskStructure;
-  const calculatedPlanActionVigencia = useMemo(
-    () => calculatePlanActionVigencia(historicoData.changes),
-    [historicoData.changes]
-  );
   const getEffectivePrazoAcao = useCallback(
     (row: PlanTableRow) =>
       String(row.prazoAcao || "").trim() ||
@@ -630,11 +653,11 @@ export function usePgrEtapaDerived({
         row.medidasPrevencao.trim().length > 0 &&
         String(row.tipoMedida || "").trim().length > 0 &&
         getEffectivePrazoAcao(row).length > 0 &&
-        getEffectivePlanValue(row.acompanhamento, defaultPlanAcompanhamento).length >
+        getEffectivePlanValue(row.acompanhamento, DEFAULT_PLAN_ACOMPANHAMENTO).length >
           0 &&
         getEffectivePlanValue(
           row.afericaoResultado,
-          defaultPlanAfericaoResultado
+          DEFAULT_PLAN_AFERICAO_RESULTADO
         ).length > 0
     );
   }, [getEffectivePrazoAcao, rawPlanTableRowsForPlan]);
@@ -1004,7 +1027,7 @@ export function usePgrEtapaDerived({
         }
         if (
           String(
-            getEffectivePlanValue(row.acompanhamento, defaultPlanAcompanhamento)
+            getEffectivePlanValue(row.acompanhamento, DEFAULT_PLAN_ACOMPANHAMENTO)
           ).trim().length === 0
         ) {
           missingPlano.push(
@@ -1025,7 +1048,7 @@ export function usePgrEtapaDerived({
           String(
             getEffectivePlanValue(
               row.afericaoResultado,
-              defaultPlanAfericaoResultado
+              DEFAULT_PLAN_AFERICAO_RESULTADO
             )
           ).trim().length === 0
         ) {

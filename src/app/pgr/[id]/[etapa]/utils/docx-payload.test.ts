@@ -54,7 +54,7 @@ describe("docx payload mapping", () => {
                   intensidade: "85 dB",
                   severidade: "Alta",
                   probabilidade: "Media",
-                  classificacao: "Significativo",
+                  classificacao: "Risco Alto",
                   medidasControle: "Isolamento",
                   epc: ["Barreira"],
                   epi: ["Protetor"],
@@ -116,7 +116,7 @@ describe("docx payload mapping", () => {
                   intensidade: "85 dB",
                   severidade: "Alta",
                   probabilidade: "Media",
-                  classificacao: "Significativo",
+                  classificacao: "Risco Alto",
                   medidasControle: "A ser evidenciado na fase de reconhecimento.",
                   medidasPrevencaoPlano: "Implementar enclausuramento acústico.",
                   epc: [],
@@ -162,7 +162,7 @@ describe("docx payload mapping", () => {
                   intensidade: "85 dB",
                   severidade: "Alta",
                   probabilidade: "Media",
-                  classificacao: "Significativo",
+                  classificacao: "Risco Alto",
                   medidasControle: "A ser evidenciado na fase de reconhecimento.",
                   epc: [],
                   epi: [],
@@ -266,6 +266,216 @@ describe("docx payload mapping", () => {
     expect(payload.planoAcao.itens[0]?.risco).toBe("Calor");
     expect(payload.planoAcao.itens[0]?.prioridade).toBe("Média");
     expect(payload.planoAcao.itens[0]?.classificacao).toBe("Risco Alto");
+  });
+
+  it("keeps grouped GHE label for general measures from persisted plan rows", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planTableRows: [
+          {
+            id: "plan-general-grouped-1",
+            gheId: "__plan_all_ghes__",
+            riskId: "general-1",
+            gheName: "GHE 1, 2",
+            tipoAgente: "Medidas Gerais",
+            descricaoAgente: "Medidas Gerais",
+            prioridade: "Média",
+            classificacao: "Risco Moderado",
+            medidasPrevencao: "Medida geral agrupada",
+            tipoMedida: "Administrativa",
+            prazoAcao: "2026-12-07",
+            responsavelAcao: "Segurança do Trabalho",
+            acompanhamento: "Mensal",
+            afericaoResultado: "Relatório",
+          },
+        ],
+      },
+    });
+
+    expect(payload.planoAcao.itens).toEqual([
+      expect.objectContaining({
+        ghe: "GHE 1, 2",
+        risco: "Medidas Gerais",
+        medida: "Medida geral agrupada",
+        medidas: "Medida geral agrupada",
+      }),
+    ]);
+  });
+
+  it("keeps targeted GHE label for general measures from persisted plan rows", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planTableRows: [
+          {
+            id: "plan-general-ghe-2",
+            gheId: "__plan_all_ghes__",
+            riskId: "general-2",
+            gheName: "GHE 2",
+            tipoAgente: "Medidas Gerais",
+            descricaoAgente: "Medidas Gerais",
+            prioridade: "Média",
+            classificacao: "Risco Moderado",
+            medidasPrevencao: "Medida geral do GHE 2",
+            tipoMedida: "Administrativa",
+            prazoAcao: "2026-12-07",
+            responsavelAcao: "Segurança do Trabalho",
+            acompanhamento: "Mensal",
+            afericaoResultado: "Relatório",
+          },
+        ],
+      },
+    });
+
+    expect(payload.planoAcao.itens).toEqual([
+      expect.objectContaining({
+        ghe: "GHE 2",
+        risco: "Medidas Gerais",
+        medida: "Medida geral do GHE 2",
+        medidas: "Medida geral do GHE 2",
+      }),
+    ]);
+  });
+
+  it("prefers persisted plan table rows over re-deriving plan items from risks", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planTableRows: [
+          {
+            id: "plan-custom-1",
+            gheId: "ghe-1",
+            riskId: "risk-1",
+            gheName: "GHE 1",
+            tipoAgente: "Físico",
+            descricaoAgente: "Ruído",
+            prioridade: "Média",
+            classificacao: "Risco Moderado",
+            medidasPrevencao: "Ação persistida",
+            tipoMedida: "Administrativa",
+            prazoAcao: "2026-12-07",
+            responsavelAcao: "Segurança do Trabalho",
+            acompanhamento: "Mensal",
+            afericaoResultado: "Relatório",
+          },
+        ],
+        caracterizacao: {
+          ghes: [
+            {
+              id: "ghe-1",
+              nome: "GHE 1",
+              riscos: [
+                {
+                  id: "risk-1",
+                  descricaoAgente: "Ruído",
+                  tipoAgente: "Físico",
+                  meioPropagacao: "Ar",
+                  fontes: "Máquina",
+                  tipoAvaliacao: "Qualitativa",
+                  intensidade: "N/A",
+                  severidade: "Baixa",
+                  probabilidade: "Baixa",
+                  classificacao: "Risco Baixo",
+                  medidasControle: "Controle antigo",
+                  medidasPrevencaoPlano: "Ação rederivada",
+                  tipoMedida: "Coletiva",
+                  prazoAcao: "2027-01-01",
+                  responsavelAcao: "Outro responsável",
+                  acompanhamento: "Semanal",
+                  afericaoResultado: "Outro relatório",
+                  epc: "",
+                  epi: "",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.planoAcao.itens).toEqual([
+      expect.objectContaining({
+        ghe: "GHE 1",
+        risco: "Ruído",
+        prioridade: "Média",
+        medida: "Ação persistida",
+        medidas: "Ação persistida",
+        tipoMedida: "Administrativa",
+        prazoAcao: "2026-12-07",
+      }),
+    ]);
+  });
+
+  it("filters fallback plan items to moderate priority or higher", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        caracterizacao: {
+          ghes: [
+            {
+              id: "ghe-1",
+              nome: "GHE 1",
+              riscos: [
+                {
+                  id: "risk-high",
+                  descricaoAgente: "Calor",
+                  tipoAgente: "Físico",
+                  meioPropagacao: "Ar",
+                  fontes: "Ambiente externo",
+                  tipoAvaliacao: "Qualitativa",
+                  intensidade: "N/A",
+                  severidade: "Alta",
+                  probabilidade: "Alta",
+                  classificacao: "Risco Alto",
+                  medidasControle: "Controle alto",
+                  medidasPrevencaoPlano: "Acao alta",
+                  tipoMedida: "Administrativa",
+                  prazoAcao: "2026-12-07",
+                  responsavelAcao: "Segurança do Trabalho",
+                  acompanhamento: "Mensal",
+                  afericaoResultado: "Relatório",
+                  epc: "",
+                  epi: "",
+                },
+                {
+                  id: "risk-low",
+                  descricaoAgente: "Ruido",
+                  tipoAgente: "Físico",
+                  meioPropagacao: "Ar",
+                  fontes: "Máquina",
+                  tipoAvaliacao: "Qualitativa",
+                  intensidade: "N/A",
+                  severidade: "Baixa",
+                  probabilidade: "Baixa",
+                  classificacao: "Risco Baixo",
+                  medidasControle: "Controle baixo",
+                  medidasPrevencaoPlano: "Acao baixa",
+                  tipoMedida: "Administrativa",
+                  prazoAcao: "2026-12-07",
+                  responsavelAcao: "Segurança do Trabalho",
+                  acompanhamento: "Mensal",
+                  afericaoResultado: "Relatório",
+                  epc: "",
+                  epi: "",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.planoAcao.itens).toHaveLength(1);
+    expect(payload.planoAcao.itens[0]?.risco).toBe("Calor");
   });
 
   it("falls back to defaults when backend state is invalid", () => {

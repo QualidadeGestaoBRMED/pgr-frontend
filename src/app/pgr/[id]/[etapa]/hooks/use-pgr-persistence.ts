@@ -210,6 +210,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraEstabelecimentoFields,
     estabelecimentoSelecionado,
     planAction,
+    planTableRows,
     persistedOptionsByRowId,
     removedPlanRiskKeys,
     planGeneralMeasures,
@@ -245,6 +246,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraFields,
     estabelecimento,
     plan,
+    planTableRows,
     removedPlanRiskKeys,
     planGeneralMeasures,
     anexosState,
@@ -267,6 +269,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraFields: ExtraField[];
     estabelecimento: string;
     plan: PlanAction;
+    planTableRows?: PlanTableRow[];
     removedPlanRiskKeys: string[];
     planGeneralMeasures: PlanGeneralMeasureRow[];
     anexosState: AnexoItem[];
@@ -291,6 +294,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     extraEstabelecimentoFields: extraFields,
     estabelecimentoSelecionado: estabelecimento,
     planAction: plan,
+    planTableRows,
     persistedOptionsByRowId: persistedOptions,
     removedPlanRiskKeys,
     planGeneralMeasures,
@@ -324,6 +328,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               extraFields: payload.extraEstabelecimentoFields,
               estabelecimento: payload.estabelecimentoSelecionado,
               plan: payload.planAction,
+              planTableRows: payload.planTableRows,
               persistedOptions: persistedOptionsByRowId,
               removedPlanRiskKeys: payload.removedPlanRiskKeys,
               planGeneralMeasures: payload.planGeneralMeasures,
@@ -758,6 +763,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       extraEstabelecimentoFields,
       estabelecimentoSelecionado,
       planAction,
+      planTableRows,
       persistedOptionsByRowId,
       removedPlanRiskKeys,
       planGeneralMeasures,
@@ -815,6 +821,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     persistPayload,
     persistedOptionsByRowId,
     planAction,
+    planTableRows,
     planGeneralMeasures,
     removedPlanRiskKeys,
     pdfLayout,
