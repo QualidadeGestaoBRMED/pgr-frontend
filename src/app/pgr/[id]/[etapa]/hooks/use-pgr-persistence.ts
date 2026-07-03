@@ -337,7 +337,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               estabelecimento: payload.estabelecimentoSelecionado,
               plan: payload.planAction,
               planTableRows: payload.planTableRows,
-              persistedOptions: persistedOptionsByRowId,
+              persistedOptions: payload.persistedOptionsByRowId,
               removedPlanRiskKeys: payload.removedPlanRiskKeys,
               planGeneralMeasures: payload.planGeneralMeasures,
               anexosState: payload.anexos,
@@ -357,7 +357,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           }
         });
     },
-    [params.id, persistedOptionsByRowId, setRuntimeCachedStateFn]
+    [params.id, setRuntimeCachedStateFn]
   );
 
   useEffect(() => {
@@ -865,12 +865,18 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   }, [persistPayload, saveTimerRef]);
 
   const persistLatestStateNow = useCallback(
-    async (payloadOverride?: PersistPayload) => {
+    async (args?: {
+      payloadOverride?: PersistPayload;
+      buildFallbackPayload?: () => PersistPayload;
+    }) => {
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      const payloadToPersist = payloadOverride ?? pendingPersistPayloadRef.current;
+      const payloadToPersist =
+        args?.payloadOverride ??
+        pendingPersistPayloadRef.current ??
+        args?.buildFallbackPayload?.();
       if (!payloadToPersist) return;
       await persistPayload(payloadToPersist);
     },

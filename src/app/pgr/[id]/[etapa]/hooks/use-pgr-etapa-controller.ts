@@ -374,7 +374,7 @@ export function usePgrEtapaController({
     setSaveConflict(false);
   }, [params.id]);
 
-  usePgrPersistence({
+  const { persistLatestStateNow } = usePgrPersistence({
     params,
     shouldHydrateFromApi,
     defaultHistorico,
@@ -546,9 +546,14 @@ export function usePgrEtapaController({
 
   const persistStateNow = useCallback(
     async (layoutOverride?: PdfLayoutState) => {
-      await putPgrState(params.id, buildStatePayload(layoutOverride));
+      await persistLatestStateNow({
+        payloadOverride: layoutOverride
+          ? buildStatePayload(layoutOverride)
+          : undefined,
+        buildFallbackPayload: () => buildStatePayload(layoutOverride),
+      });
     },
-    [buildStatePayload, params.id]
+    [buildStatePayload, persistLatestStateNow]
   );
 
   const rejectionReasonFromQuery = useMemo(
