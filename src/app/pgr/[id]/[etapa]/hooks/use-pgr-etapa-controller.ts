@@ -1330,6 +1330,7 @@ export function usePgrEtapaController({
       excelImportFeedback: state.excelImportFeedback,
       groupedFunctions: derived.groupedFunctions,
       selectedLeftIds: state.selectedLeftIds,
+      setSelectedLeftIds: setters.setSelectedLeftIds,
       currentItems: derived.currentItems,
       functionMap: derived.functionMap,
       selectedRightIds: state.selectedRightIds,

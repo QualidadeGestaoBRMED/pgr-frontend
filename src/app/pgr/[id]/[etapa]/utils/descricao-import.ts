@@ -22,19 +22,6 @@ const normalizeExcelCell = (value: unknown) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const isExcelInstructionText = (value: string) => {
-  const normalized = normalizeExcelHeader(value);
-  if (!normalized) return false;
-  const instructionTokens = [
-    "obrigatorio",
-    "deveestarcadastrado",
-    "apenasnumeros",
-    "formato",
-    "paraestrangeiros",
-  ];
-  return instructionTokens.some((token) => normalized.includes(token));
-};
-
 export class DescricaoImportMissingRequiredFieldsError extends Error {
   missingRequiredFieldRows: ExcelImportMissingRequiredFieldRow[];
 
@@ -133,9 +120,9 @@ export const parseDescricaoExcel = async (
     const rawDescricao = normalizeExcelCell(
       descricaoColumn ? row[descricaoColumn] : ""
     );
-    const setor = isExcelInstructionText(rawSetor) ? "" : rawSetor;
-    const funcao = isExcelInstructionText(rawFuncao) ? "" : rawFuncao;
-    const descricaoRaw = isExcelInstructionText(rawDescricao) ? "" : rawDescricao;
+    const setor = rawSetor;
+    const funcao = rawFuncao;
+    const descricaoRaw = rawDescricao;
     const descricao = descricaoRaw;
     const rawGheName = normalizeExcelCell(gheColumn ? row[gheColumn] : "");
     const rawFuncionarios = normalizeExcelCell(
@@ -151,7 +138,7 @@ export const parseDescricaoExcel = async (
         : 0;
     const funcionariosCount =
       countMode === "line" ? 1 : funcionariosByQuantitativo;
-    const sanitizedGhe = isExcelInstructionText(rawGheName) ? "" : rawGheName;
+    const sanitizedGhe = rawGheName;
     const gheNumericMatch =
       sanitizedGhe.match(/^ghe\s*0*(\d+)$/i) ?? sanitizedGhe.match(/^0*(\d+)$/);
     const gheName = gheNumericMatch

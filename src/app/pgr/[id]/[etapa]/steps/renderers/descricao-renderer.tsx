@@ -21,6 +21,7 @@ export const buildDescricaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
   excelImportFeedback: ctx.excelImportFeedback,
   groupedFunctions: ctx.groupedFunctions,
   selectedLeftIds: ctx.selectedLeftIds,
+  setSelectedLeftIds: ctx.setSelectedLeftIds,
   handleSelectionStart: ctx.descricaoInteractions.handleSelectionStart,
   leftListRef: ctx.descricaoInteractions.leftListRef,
   getSelectionStyle: ctx.descricaoInteractions.getSelectionStyle,

@@ -119,6 +119,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     excelImportFeedback,
     groupedFunctions,
     selectedLeftIds,
+    setSelectedLeftIds,
     handleSelectionStart,
     leftListRef,
     getSelectionStyle,
@@ -589,6 +590,19 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     [currentItems, functionMap]
   );
 
+  const toggleSectorSelection = (group: DescricaoGroup) => {
+    const groupIds = group.items.map((item) => item.id);
+    if (!groupIds.length) return;
+
+    setSelectedLeftIds((prev: string[]) => {
+      const allSelected = groupIds.every((id) => prev.includes(id));
+      if (allSelected) {
+        return prev.filter((id) => !groupIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...groupIds]));
+    });
+  };
+
   const excelImportMissingRows = useMemo(
     () => excelImportFeedback?.missingRequiredFieldRows ?? [],
     [excelImportFeedback]
@@ -832,9 +846,20 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   {visibleGroupedFunctions.length ? (
                     visibleGroupedFunctions.map((group: DescricaoGroup) => (
                       <div key={group.setor} className="space-y-3">
-                        <h3 className="text-[16px] font-semibold text-foreground">
-                          {group.setor}
-                        </h3>
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-[16px] font-semibold text-foreground">
+                            {group.setor}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => toggleSectorSelection(group)}
+                            className="text-[12px] font-semibold text-primary transition hover:text-primary/80"
+                          >
+                            {group.items.every((item) => selectedLeftIds.includes(item.id))
+                              ? "Limpar seleção"
+                              : "Selecionar todos"}
+                          </button>
+                        </div>
                         <div className="space-y-2 text-[13px] text-foreground/80">
                           {group.items.map((funcao: PgrFunction) => (
                             <label

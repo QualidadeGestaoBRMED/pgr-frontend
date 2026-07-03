@@ -31,6 +31,22 @@ import {
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
 
+const stableSerialize = (value: unknown): string => {
+  if (value === null || value === undefined) return "null";
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, entryValue]) => entryValue !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  return `{${entries
+    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableSerialize(entryValue)}`)
+    .join(",")}}`;
+};
+
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
 type PlanAction = PersistedPgrState["planAction"];
@@ -233,6 +249,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const skipInitialPersistRef = useRef(true);
   const skipPostHydrationPersistsRef = useRef(0);
   const pendingPersistPayloadRef = useRef<PersistPayload | null>(null);
+  const lastPersistedSignatureRef = useRef<string | null>(null);
   const latestRiskGheGroupsRef = useRef<RiskGheGroup[]>(riskGheGroups);
   const prevImmediatePersistRefs = useRef<{
     riskGheGroups: RiskGheGroup[];
@@ -319,11 +336,18 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
   const persistPayload = useCallback(
     (payload: PersistPayload) => {
+      const payloadSignature = stableSerialize(payload);
+      if (lastPersistedSignatureRef.current === payloadSignature) {
+        pendingPersistPayloadRef.current = null;
+        return Promise.resolve();
+      }
+
       pendingPersistPayloadRef.current = payload;
       return putPgrState(params.id, payload)
         .then((result) => {
           // result === null => save pausado por conflito; não atualiza cache.
           if (result === null) return;
+          lastPersistedSignatureRef.current = payloadSignature;
           setRuntimeCachedStateFn(
             params.id,
             buildRuntimeCacheState({
@@ -674,6 +698,34 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setWorkflow(loadedWorkflow);
         skipPostHydrationPersistsRef.current = 2;
 
+        lastPersistedSignatureRef.current = stableSerialize({
+          completedSteps: normalizedCompleted,
+          meta: {
+            pgrId: params.id,
+            progressPercent: normalizedProgress,
+          },
+          inicioDraft: loadedInicioDraft,
+          dadosCadastrais: migratedDadosCadastrais,
+          cardMeta: loadedCardMeta,
+          historico: loadedHistoricoData,
+          functions: loadedFunctions,
+          extraEstabelecimentoFields: loadedExtraFields,
+          estabelecimentoSelecionado: loadedEstabelecimento,
+          planAction: loadedPlanAction,
+          planTableRows: Array.isArray(state.planTableRows) ? state.planTableRows : undefined,
+          persistedOptionsByRowId: loadedPersistedOptions,
+          removedPlanRiskKeys: loadedRemovedPlanRiskKeys,
+          planGeneralMeasures: loadedPlanGeneralMeasures,
+          anexos: loadedAnexos,
+          anexoDiretriz: loadedAnexoDiretriz,
+          gheGroups: loadedGheGroups,
+          currentGheId: loadedCurrentGheId,
+          riskGheGroups: loadedRiskGheGroups,
+          currentRiskGheId: loadedCurrentRiskGheId,
+          pdfLayout: loadedPdfLayout,
+          workflow: loadedWorkflow,
+        });
+
         setRuntimeCachedStateFn(
           params.id,
           buildRuntimeCacheState({
@@ -806,6 +858,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       pdfLayout,
       workflow,
     };
+
+    const payloadSignature = stableSerialize(payload);
+    if (lastPersistedSignatureRef.current === payloadSignature) {
+      pendingPersistPayloadRef.current = null;
+      return;
+    }
 
     pendingPersistPayloadRef.current = payload;
     const shouldPersistImmediately =
