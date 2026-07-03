@@ -11,7 +11,7 @@ import {
   initialDadosCadastrais,
   initialInicioDraft,
 } from "../defaults";
-import type { HistoricoData, PlanGeneralMeasureRow, RiskGheGroup } from "../types";
+import type { HistoricoData } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import { truncatePreview } from "../utils/text";
 import { buildPgrDocxPayload } from "../utils/docx-payload";
@@ -506,13 +506,7 @@ export function usePgrEtapaController({
   }, [params.id, weightedProgressPercent]);
 
   const buildStatePayload = useCallback(
-    (
-      layoutOverride?: PdfLayoutState,
-      overrides?: {
-        riskGheGroups?: RiskGheGroup[];
-        planGeneralMeasures?: PlanGeneralMeasureRow[];
-      }
-    ) => ({
+    (layoutOverride?: PdfLayoutState) => ({
       completedSteps: state.completedSteps,
       meta: {
         pgrId: params.id,
@@ -532,12 +526,12 @@ export function usePgrEtapaController({
       planTableRows: derived.planTableRows,
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       removedPlanRiskKeys: state.removedPlanRiskKeys,
-      planGeneralMeasures: overrides?.planGeneralMeasures ?? state.planGeneralMeasures,
+      planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
       gheGroups: state.gheGroups,
       currentGheId: state.currentGheId,
-      riskGheGroups: overrides?.riskGheGroups ?? state.riskGheGroups,
+      riskGheGroups: state.riskGheGroups,
       currentRiskGheId: state.currentRiskGheId,
       pdfLayout: layoutOverride ?? state.pdfLayout,
       workflow: state.workflow,
@@ -553,16 +547,6 @@ export function usePgrEtapaController({
   const persistStateNow = useCallback(
     async (layoutOverride?: PdfLayoutState) => {
       await putPgrState(params.id, buildStatePayload(layoutOverride));
-    },
-    [buildStatePayload, params.id]
-  );
-
-  const persistPlanFieldsNow = useCallback(
-    async (overrides: {
-      riskGheGroups?: RiskGheGroup[];
-      planGeneralMeasures?: PlanGeneralMeasureRow[];
-    }) => {
-      await putPgrState(params.id, buildStatePayload(undefined, overrides));
     },
     [buildStatePayload, params.id]
   );
@@ -1177,7 +1161,6 @@ export function usePgrEtapaController({
     helpers: {
       handleAdvanceApiSync,
       persistStateNow: () => persistStateNow(),
-      persistPlanFieldsNow,
     },
   });
 

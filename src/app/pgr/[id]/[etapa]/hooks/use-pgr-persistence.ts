@@ -235,8 +235,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const latestRiskGheGroupsRef = useRef<RiskGheGroup[]>(riskGheGroups);
   const prevImmediatePersistRefs = useRef<{
     riskGheGroups: RiskGheGroup[];
+    removedPlanRiskKeys: string[];
+    planGeneralMeasures: PlanGeneralMeasureRow[];
   }>({
     riskGheGroups,
+    removedPlanRiskKeys,
+    planGeneralMeasures,
   });
 
   const buildRuntimeCacheState = ({
@@ -750,6 +754,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       skipInitialPersistRef.current = false;
       prevImmediatePersistRefs.current = {
         riskGheGroups,
+        removedPlanRiskKeys,
+        planGeneralMeasures,
       };
       return;
     }
@@ -791,10 +797,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
     pendingPersistPayloadRef.current = payload;
     const shouldPersistImmediately =
-      prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups;
+      prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups ||
+      prevImmediatePersistRefs.current.removedPlanRiskKeys !== removedPlanRiskKeys ||
+      prevImmediatePersistRefs.current.planGeneralMeasures !== planGeneralMeasures;
 
     prevImmediatePersistRefs.current = {
       riskGheGroups,
+      removedPlanRiskKeys,
+      planGeneralMeasures,
     };
 
     if (shouldPersistImmediately) {

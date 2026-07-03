@@ -192,10 +192,6 @@ type GeneralActionsContext = {
   helpers: {
     handleAdvanceApiSync: (nextCompleted: number) => void;
     persistStateNow: () => Promise<void>;
-    persistPlanFieldsNow: (overrides: {
-      riskGheGroups?: RiskGheGroup[];
-      planGeneralMeasures?: PlanGeneralMeasureRow[];
-    }) => Promise<void>;
   };
 };
 
@@ -255,7 +251,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     draggedAnexoId,
   } = current;
 
-  const { handleAdvanceApiSync, persistStateNow, persistPlanFieldsNow } = helpers;
+  const { handleAdvanceApiSync, persistStateNow } = helpers;
   const availablePlanActionGheGroups = riskGheGroups.filter((ghe) => ghe.risks.length > 0);
   const syncLegacyDados = (dados: DadosCadastraisDraft, estabelecimentoSelecionado = "") =>
     syncLegacyContractorFields(syncLegacyEstablishmentFields(dados, estabelecimentoSelecionado));
@@ -902,11 +898,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       const targetField =
         field === "medidasPrevencaoPlano" ? "descricao" : field;
       setPlanGeneralMeasures((prev) => {
-        const next = prev.map((item) =>
+        return prev.map((item) =>
           item.id === riskId ? { ...item, [targetField]: value } : item
         );
-        void helpers.persistPlanFieldsNow({ planGeneralMeasures: next });
-        return next;
       });
       return;
     }
@@ -916,7 +910,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
       );
       setRiskGheGroups((prev) => {
-        const next = prev.map((ghe) => ({
+        return prev.map((ghe) => ({
           ...ghe,
           risks: ghe.risks.map((risk) =>
             targetKeys.has(`${ghe.id}::${risk.id}`)
@@ -924,14 +918,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
               : risk
           ),
         }));
-        void helpers.persistPlanFieldsNow({ riskGheGroups: next });
-        return next;
       });
       return;
     }
 
     setRiskGheGroups((prev) => {
-      const next = prev.map((ghe) => {
+      return prev.map((ghe) => {
         if (ghe.id !== gheId) return ghe;
         return {
           ...ghe,
@@ -940,8 +932,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           ),
         };
       });
-      void helpers.persistPlanFieldsNow({ riskGheGroups: next });
-      return next;
     });
   };
 
@@ -1030,9 +1020,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       if (!row) return;
 
       setPlanGeneralMeasures((prev) => {
-        const next = [...prev, row];
-        void persistPlanFieldsNow({ planGeneralMeasures: next });
-        return next;
+        return [...prev, row];
       });
       setPlanActionDescription("");
       setIsPlanActionModalOpen(false);
