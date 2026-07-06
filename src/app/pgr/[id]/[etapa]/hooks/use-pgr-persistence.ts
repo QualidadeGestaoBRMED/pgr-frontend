@@ -598,6 +598,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                   : [],
                 tipoMedida: String(item?.tipoMedida || "").trim(),
                 prazoAcao: String(item?.prazoAcao || "").trim(),
+                disableAutoPrazoAcao: Boolean(item?.disableAutoPrazoAcao),
                 responsavelAcao: String(item?.responsavelAcao || "").trim(),
                 acompanhamento:
                   String(item?.acompanhamento || "").trim() || "Programado",

@@ -888,10 +888,11 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       | "medidasPrevencaoPlano"
       | "tipoMedida"
       | "prazoAcao"
+      | "disableAutoPrazoAcao"
       | "responsavelAcao"
       | "acompanhamento"
       | "afericaoResultado",
-    value: string,
+    value: string | boolean,
     groupTargets?: Array<{ gheId: string; riskId: string }>
   ) => {
     if (gheId === PLAN_ALL_GHE_ID) {

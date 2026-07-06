@@ -65,6 +65,7 @@ export type GheRisk = {
   epi: string;
   tipoMedida?: string;
   prazoAcao?: string;
+  disableAutoPrazoAcao?: boolean;
   responsavelAcao?: string;
   acompanhamento?: string;
   afericaoResultado?: string;
@@ -79,6 +80,7 @@ export type PlanGeneralMeasureRow = {
   targetGheIds?: string[];
   tipoMedida?: string;
   prazoAcao?: string;
+  disableAutoPrazoAcao?: boolean;
   responsavelAcao?: string;
   acompanhamento?: string;
   afericaoResultado?: string;

@@ -104,7 +104,8 @@ export const resolveActionDateValue = (
   localValue: string | undefined,
   persistedValue: string | undefined
 ) => {
-  const normalizedLocalValue = toBrDateValue(localValue || "");
-  if (normalizedLocalValue.trim()) return normalizedLocalValue;
+  if (localValue !== undefined) {
+    return toBrDateValue(localValue);
+  }
   return toBrDateValue(persistedValue || "");
 };

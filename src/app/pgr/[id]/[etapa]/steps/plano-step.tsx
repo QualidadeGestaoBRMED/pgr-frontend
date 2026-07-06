@@ -6,7 +6,6 @@ import {
     calculateAutomaticActionDueDate,
     maskActionDate,
     normalizeActionDate,
-    resolveActionDateValue,
     toBrDateValue,
 } from "../utils/action-date";
 
@@ -40,6 +39,7 @@ type PlanoStepProps = {
             medidasPrevencao: string;
             tipoMedida?: string;
             prazoAcao?: string;
+            disableAutoPrazoAcao?: boolean;
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
@@ -58,6 +58,7 @@ type PlanoStepProps = {
             medidasPrevencao: string;
             tipoMedida?: string;
             prazoAcao?: string;
+            disableAutoPrazoAcao?: boolean;
             responsavelAcao?: string;
             acompanhamento?: string;
             afericaoResultado?: string;
@@ -80,10 +81,11 @@ type PlanoStepProps = {
             field:
                 | "tipoMedida"
                 | "prazoAcao"
+                | "disableAutoPrazoAcao"
                 | "responsavelAcao"
                 | "acompanhamento"
                 | "afericaoResultado",
-            value: string,
+            value: string | boolean,
             groupTargets?: Array<{ gheId: string; riskId: string }>
         ) => void;
         handleDeleteMedidas: (
@@ -237,9 +239,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const [responsavelAcaoByRowId, setResponsavelAcaoByRowId] = useState<
         Record<string, string>
     >({});
-    const [prazoAcaoByRowId, setPrazoAcaoByRowId] = useState<Record<string, string>>(
-        {}
-    );
     const [acompanhamentoByRowId, setAcompanhamentoByRowId] = useState<
         Record<string, string>
     >({});
@@ -300,16 +299,14 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         }> = [];
 
         planTableRows.forEach((row) => {
+            if (row.disableAutoPrazoAcao) return;
             const prazoCalculado = calculateAutomaticActionDueDate({
                 vigencia: planAction.vigencia || "",
                 prioridade: row.prioridade || "",
             });
             if (!prazoCalculado) return;
             nextAutoPrazoByRowId[row.id] = prazoCalculado;
-
-            const currentValue = String(
-                toBrDateValue(prazoAcaoByRowId[row.id] ?? row.prazoAcao ?? "")
-            ).trim();
+            const currentValue = String(toBrDateValue(row.prazoAcao ?? "")).trim();
             const previousAutoValue = String(
                 toBrDateValue(autoPrazoAcaoByRowIdRef.current[row.id] || "")
             ).trim();
@@ -329,13 +326,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
         if (!rowsToUpdate.length) return;
 
-        setPrazoAcaoByRowId((prev) => ({
-            ...prev,
-            ...Object.fromEntries(
-                rowsToUpdate.map(({ row, prazoCalculado }) => [row.id, prazoCalculado])
-            ),
-        }));
-
         rowsToUpdate.forEach(({ row, prazoCalculado }) => {
             handlePlanRiskFieldChange(
                 row.gheId,
@@ -349,7 +339,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         handlePlanRiskFieldChange,
         planAction.vigencia,
         planTableRows,
-        prazoAcaoByRowId,
     ]);
 
     useEffect(() => {
@@ -367,6 +356,26 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             initializedRowsRef.current.add(row.id + "_resp");
         });
     }, [defaultResponsibleActionName, handlePlanRiskFieldChange, planTableRows]);
+
+    const handleClearActionDates = () => {
+        autoPrazoAcaoByRowIdRef.current = {};
+        planTableRows.forEach((row) => {
+            handlePlanRiskFieldChange(
+                row.gheId,
+                row.riskId,
+                "disableAutoPrazoAcao",
+                false,
+                row.groupTargets
+            );
+            handlePlanRiskFieldChange(
+                row.gheId,
+                row.riskId,
+                "prazoAcao",
+                "",
+                row.groupTargets
+            );
+        });
+    };
 
     useEffect(() => {
         planTableRows.forEach((row) => {
@@ -591,6 +600,15 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                             }
                             placeholder="Ex: 10/03/2025 - 10/03/2026"
                         />
+                        <div className="mt-2 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleClearActionDates}
+                                className="text-[12px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                            >
+                                Limpar prazos
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -658,10 +676,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                 </thead>
                                 <tbody>
                                 {planTableRows.map((row) => {
-                                    const prazoAcaoValue = resolveActionDateValue(
-                                        prazoAcaoByRowId[row.id],
-                                        row.prazoAcao
-                                    );
+                                    const prazoAcaoValue = toBrDateValue(row.prazoAcao || "");
 
                                     return (
                                     <tr key={row.id} className="border-t border-border/60 align-middle">
@@ -831,10 +846,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                 value={prazoAcaoValue}
                                                 onChange={(event) => {
                                                     const value = maskActionDate(event.target.value);
-                                                    setPrazoAcaoByRowId((prev) => ({
-                                                        ...prev,
-                                                        [row.id]: value,
-                                                    }));
+                                                    handlePlanRiskFieldChange(
+                                                        row.gheId,
+                                                        row.riskId,
+                                                        "disableAutoPrazoAcao",
+                                                        false,
+                                                        row.groupTargets
+                                                    );
                                                     handlePlanRiskFieldChange(
                                                         row.gheId,
                                                         row.riskId,
@@ -845,10 +863,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                 }}
                                                 onBlur={(event) => {
                                                     const value = normalizeActionDate(event.target.value);
-                                                    setPrazoAcaoByRowId((prev) => ({
-                                                        ...prev,
-                                                        [row.id]: value,
-                                                    }));
+                                                    handlePlanRiskFieldChange(
+                                                        row.gheId,
+                                                        row.riskId,
+                                                        "disableAutoPrazoAcao",
+                                                        false,
+                                                        row.groupTargets
+                                                    );
                                                     handlePlanRiskFieldChange(
                                                         row.gheId,
                                                         row.riskId,

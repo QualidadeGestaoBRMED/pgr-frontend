@@ -56,6 +56,7 @@ export type PlanTableRow = {
   medidasPrevencao: string;
   tipoMedida?: string;
   prazoAcao?: string;
+  disableAutoPrazoAcao?: boolean;
   responsavelAcao?: string;
   acompanhamento?: string;
   afericaoResultado?: string;
@@ -163,10 +164,12 @@ export const materializeEffectivePlanRow = (
     ...row,
     prazoAcao:
       String(row.prazoAcao || "").trim() ||
-      calculateAutomaticActionDueDate({
-        vigencia: args.calculatedPlanActionVigencia,
-        prioridade: row.prioridade || "",
-      }),
+      (row.disableAutoPrazoAcao
+        ? ""
+        : calculateAutomaticActionDueDate({
+            vigencia: args.calculatedPlanActionVigencia,
+            prioridade: row.prioridade || "",
+          })),
     responsavelAcao: String(row.responsavelAcao || "").trim() || defaultResponsible,
     acompanhamento: getEffectivePlanValue(
       row.acompanhamento,
@@ -449,8 +452,8 @@ export function usePgrEtapaDerived({
     [workersByGheId]
   );
   const calculatedPlanActionVigencia = useMemo(
-    () => calculatePlanActionVigencia(historicoData.changes),
-    [historicoData.changes]
+    () => planAction.vigencia || calculatePlanActionVigencia(historicoData.changes),
+    [planAction.vigencia, historicoData.changes]
   );
   const defaultResponsibleActionName = useMemo(
     () => String(inicioDraft.companyName || "").trim(),
@@ -515,6 +518,7 @@ export function usePgrEtapaDerived({
                   : risk.medidasControle) || "",
               tipoMedida: risk.tipoMedida || "",
               prazoAcao: risk.prazoAcao || "",
+              disableAutoPrazoAcao: Boolean(risk.disableAutoPrazoAcao),
               responsavelAcao: risk.responsavelAcao || "",
               acompanhamento: risk.acompanhamento || "",
               afericaoResultado: risk.afericaoResultado || "",
@@ -545,6 +549,7 @@ export function usePgrEtapaDerived({
             medidasPrevencao: item.descricao || "",
             tipoMedida: item.tipoMedida || "",
             prazoAcao: item.prazoAcao || "",
+            disableAutoPrazoAcao: Boolean(item.disableAutoPrazoAcao),
             responsavelAcao: item.responsavelAcao || "",
             acompanhamento: item.acompanhamento || "",
             afericaoResultado: item.afericaoResultado || "",
@@ -685,10 +690,12 @@ export function usePgrEtapaDerived({
   const getEffectivePrazoAcao = useCallback(
     (row: PlanTableRow) =>
       String(row.prazoAcao || "").trim() ||
-      calculateAutomaticActionDueDate({
-        vigencia: calculatedPlanActionVigencia,
-        prioridade: row.prioridade || "",
-      }),
+      (row.disableAutoPrazoAcao
+        ? ""
+        : calculateAutomaticActionDueDate({
+            vigencia: calculatedPlanActionVigencia,
+            prioridade: row.prioridade || "",
+          })),
     [calculatedPlanActionVigencia]
   );
 
