@@ -291,7 +291,7 @@ export function usePgrEtapaDerived({
   const diretrizOptions = useMemo<PgrDiretrizOption[]>(() => {
     const defaultOption: PgrDiretrizOption = {
       value: `default:${templateNrCode}`,
-      label: `Padrão da ${String(planAction.nr || "").trim() || "NR-01"}`,
+      label: `Padrão BRMED ${String(planAction.nr || "").trim() || "NR-01"}`,
       templateId: null,
       nrCode: templateNrCode,
       isDefault: true,
