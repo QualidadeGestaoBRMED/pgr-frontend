@@ -70,7 +70,7 @@ export const createEmptyResponsavelCoordenacaoTecnica =
     cpf: "",
   });
 
-const isBlankContratante = (
+export const isBlankContratante = (
   contratante: Pick<
     ContratanteDraft,
     | "nomeFantasia"

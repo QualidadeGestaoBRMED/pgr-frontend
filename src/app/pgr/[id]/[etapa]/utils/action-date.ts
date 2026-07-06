@@ -99,13 +99,3 @@ export const calculateAutomaticActionDueDate = ({
   if (!days) return "";
   return toUtcBrDate(addUtcDays(startDate, days));
 };
-
-export const resolveActionDateValue = (
-  localValue: string | undefined,
-  persistedValue: string | undefined
-) => {
-  if (localValue !== undefined) {
-    return toBrDateValue(localValue);
-  }
-  return toBrDateValue(persistedValue || "");
-};

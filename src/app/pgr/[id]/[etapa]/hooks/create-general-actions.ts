@@ -29,6 +29,7 @@ import {
 } from "../validation/br-field-utils";
 import {
   createEmptyContratante,
+  isBlankContratante,
   normalizeAdditionalFields,
   createEmptyResponsavelCoordenacaoTecnica,
   normalizeContractors,
@@ -587,12 +588,24 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAddContractor = () => {
-    setDadosCadastrais((prev) =>
-      syncLegacyDados({
+    let blockedByBlankContractor = false;
+    setDadosCadastrais((prev) => {
+      const contractors = normalizeContractors(prev);
+      const lastContractor = contractors[contractors.length - 1];
+      if (lastContractor && isBlankContratante(lastContractor)) {
+        blockedByBlankContractor = true;
+        return prev;
+      }
+      return syncLegacyDados({
         ...prev,
-        contratantes: [...normalizeContractors(prev), createEmptyContratante()],
-      })
-    );
+        contratantes: [...contractors, createEmptyContratante()],
+      });
+    });
+    if (blockedByBlankContractor && typeof window !== "undefined") {
+      window.alert(
+        "Preencha os dados da contratante atual antes de adicionar uma nova."
+      );
+    }
   };
 
   const handleDuplicateContractor = (contractorIndex: number) => {
