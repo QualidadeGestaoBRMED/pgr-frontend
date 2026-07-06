@@ -20,7 +20,6 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
       }
       onGenerateFakePdf={ctx.handleGenerateFakePdf}
       onFinalizePgr={ctx.handleFinalizePgr}
-      onResetData={ctx.handleResetAllData}
     />
   </>
 );

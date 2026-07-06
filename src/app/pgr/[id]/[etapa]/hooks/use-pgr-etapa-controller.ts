@@ -996,81 +996,6 @@ export function usePgrEtapaController({
     );
   }, [setters, state.historicoData.changes, state.workflow.isLocked]);
 
-  const handleResetAllData = useCallback(() => {
-    if (state.workflow.isLocked) return;
-
-    refs.lastCepLookupRef.current = {
-      empresa: "",
-      estabelecimentoByIndex: {},
-      contratanteByIndex: {},
-    };
-
-    const currentSyncedAt = state.inicioDraft.syncedAt;
-
-    setters.setCompletedSteps(0);
-    setters.setProgressPercent(0);
-    setters.setInicioDraft({
-      ...initialInicioDraft,
-      syncedAt: currentSyncedAt,
-    });
-    setters.setDadosCadastrais(initialDadosCadastrais);
-    setters.setCardMeta({
-      pipefyCardId: "",
-      cardName: "",
-      dueDate: "",
-      companyId: null,
-      responsibleId: null,
-    });
-    setters.setHistoricoData(defaultHistorico);
-    setters.setFunctionsData(defaultFunctions);
-    setters.setExtraEstabelecimentoFields([]);
-    setters.setEstabelecimentoSelecionado("");
-    setters.setPlanAction({
-      nr: "NR-01",
-      vigencia: calculatePlanActionVigencia(defaultHistorico.changes),
-    });
-    setters.setRemovedPlanRiskKeys([]);
-    setters.setPlanGeneralMeasures([]);
-    setters.setAnexos(defaultAnexos);
-    setters.setAnexoDiretriz("Padrão da NR-01");
-    setters.setAnexoDiretrizTemplateId(null);
-    setters.setGheGroups(defaultGheGroups);
-    setters.setCurrentGheId(defaultGheGroups[0]?.id ?? "ghe-1");
-    setters.setRiskGheGroups(defaultRiskGheGroups);
-    setters.setCurrentRiskGheId(defaultRiskGheGroups[0]?.id ?? "ghe-1");
-    setters.setPdfLayout(DEFAULT_PDF_LAYOUT_STATE);
-    setters.setSearchTerm("");
-    setters.setSelectedLeftIds([]);
-    setters.setSelectedRightIds([]);
-    setters.setHistory([]);
-    setters.setGheSearch("");
-    setters.setGheFilterId("all");
-    setters.setIsGheListView(false);
-    setters.setIsGheModalOpen(false);
-    setters.setIsInfoModalOpen(false);
-    setters.setInfoModalError("");
-    setters.setInfoModalMode("next");
-    setters.setPlanActionScope("risk");
-    setters.setPlanActionGheId("");
-    setters.setPlanActionRiskId("");
-    setters.setPlanActionDescription("");
-    setters.setIsPlanActionModalOpen(false);
-    setters.setEditingMedidasId(null);
-    setters.setEditingMedidasValue("");
-    setters.setPlanTablePage(1);
-    setters.setDraggedAnexoId(null);
-    setters.setDragOverAnexoId(null);
-    setters.setLastGheNotice(null);
-    setters.setExcelImportFeedback(null);
-    setters.setIsPreviewModalOpen(false);
-    setters.setLastFakePdfAt(null);
-  }, [
-    refs.lastCepLookupRef,
-    setters,
-    state.inicioDraft.syncedAt,
-    state.workflow.isLocked,
-  ]);
-
   useEffect(() => {
     if (!state.workflow.isLocked) return;
     if (step.id === "historico" || step.id === "revisao") return;
@@ -1472,7 +1397,6 @@ export function usePgrEtapaController({
       handleResetDescricaoData,
       handleResetCaracterizacaoData,
       handleResetPlanoData,
-      handleResetAllData,
       generalActions,
       handleSyncPipefy,
       descricaoInteractions,
