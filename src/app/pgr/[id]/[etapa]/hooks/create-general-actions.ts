@@ -588,12 +588,15 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   };
 
   const handleAddContractor = () => {
-    let blockedByBlankContractor = false;
     setDadosCadastrais((prev) => {
       const contractors = normalizeContractors(prev);
       const lastContractor = contractors[contractors.length - 1];
       if (lastContractor && isBlankContratante(lastContractor)) {
-        blockedByBlankContractor = true;
+        if (typeof window !== "undefined") {
+          window.alert(
+            "Preencha os dados da contratante atual antes de adicionar uma nova."
+          );
+        }
         return prev;
       }
       return syncLegacyDados({
@@ -601,11 +604,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         contratantes: [...contractors, createEmptyContratante()],
       });
     });
-    if (blockedByBlankContractor && typeof window !== "undefined") {
-      window.alert(
-        "Preencha os dados da contratante atual antes de adicionar uma nova."
-      );
-    }
   };
 
   const handleDuplicateContractor = (contractorIndex: number) => {
