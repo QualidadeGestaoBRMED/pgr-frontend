@@ -3,6 +3,7 @@ import { defaultHistorico } from "../defaults";
 import type {
   AnexoItem,
   GheGroup,
+  PgrDocxTemplateOption,
   PgrFunction,
   PlanGeneralMeasureRow,
   RiskGheGroup,
@@ -41,6 +42,8 @@ export type PersistedPgrState = {
   planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
+  anexoDiretrizTemplateId?: number | null;
+  pgrDocxTemplates?: PgrDocxTemplateOption[];
   gheGroups: GheGroup[];
   currentGheId: string;
   riskGheGroups: RiskGheGroup[];

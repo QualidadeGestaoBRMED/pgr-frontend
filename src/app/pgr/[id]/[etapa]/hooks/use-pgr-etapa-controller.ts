@@ -329,6 +329,8 @@ export function usePgrEtapaController({
     dadosCadastrais: state.dadosCadastrais,
     historicoData: state.historicoData,
     anexos: state.anexos,
+    planAction: state.planAction,
+    pgrDocxTemplates: state.pgrDocxTemplates,
     completedSteps: state.completedSteps,
     currentStepId: step.id,
   });
@@ -401,6 +403,8 @@ export function usePgrEtapaController({
       setPlanGeneralMeasures: setters.setPlanGeneralMeasures,
       setAnexos: setters.setAnexos,
       setAnexoDiretriz: setters.setAnexoDiretriz,
+      setAnexoDiretrizTemplateId: setters.setAnexoDiretrizTemplateId,
+      setPgrDocxTemplates: setters.setPgrDocxTemplates,
       setGheGroups: setters.setGheGroups,
       setCurrentGheId: setters.setCurrentGheId,
       setRiskGheGroups: setters.setRiskGheGroups,
@@ -426,6 +430,8 @@ export function usePgrEtapaController({
       planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
+      anexoDiretrizTemplateId: state.anexoDiretrizTemplateId,
+      pgrDocxTemplates: state.pgrDocxTemplates,
       gheGroups: state.gheGroups,
       currentGheId: state.currentGheId,
       riskGheGroups: state.riskGheGroups,
@@ -529,6 +535,7 @@ export function usePgrEtapaController({
       planGeneralMeasures: state.planGeneralMeasures,
       anexos: state.anexos,
       anexoDiretriz: state.anexoDiretriz,
+      anexoDiretrizTemplateId: state.anexoDiretrizTemplateId,
       gheGroups: state.gheGroups,
       currentGheId: state.currentGheId,
       riskGheGroups: state.riskGheGroups,
@@ -1025,7 +1032,8 @@ export function usePgrEtapaController({
     setters.setRemovedPlanRiskKeys([]);
     setters.setPlanGeneralMeasures([]);
     setters.setAnexos(defaultAnexos);
-    setters.setAnexoDiretriz("Diretriz 1");
+    setters.setAnexoDiretriz("Padrão da NR-01");
+    setters.setAnexoDiretrizTemplateId(null);
     setters.setGheGroups(defaultGheGroups);
     setters.setCurrentGheId(defaultGheGroups[0]?.id ?? "ghe-1");
     setters.setRiskGheGroups(defaultRiskGheGroups);
@@ -1093,6 +1101,35 @@ export function usePgrEtapaController({
       setters.setPlanTablePage(derived.planTableTotalPages);
     }
   }, [derived.planTableTotalPages, setters, state.planTablePage]);
+
+  useEffect(() => {
+    const selectedTemplateId = state.anexoDiretrizTemplateId;
+    const selectedOption =
+      selectedTemplateId === null
+        ? derived.diretrizOptions[0]
+        : derived.diretrizOptions.find((item) => item.templateId === selectedTemplateId);
+
+    if (!selectedOption) {
+      const fallbackOption = derived.diretrizOptions[0];
+      if (!fallbackOption) return;
+      if (state.anexoDiretriz !== fallbackOption.label) {
+        setters.setAnexoDiretriz(fallbackOption.label);
+      }
+      if (state.anexoDiretrizTemplateId !== fallbackOption.templateId) {
+        setters.setAnexoDiretrizTemplateId(fallbackOption.templateId);
+      }
+      return;
+    }
+
+    if (state.anexoDiretriz !== selectedOption.label) {
+      setters.setAnexoDiretriz(selectedOption.label);
+    }
+  }, [
+    derived.diretrizOptions,
+    setters,
+    state.anexoDiretriz,
+    state.anexoDiretrizTemplateId,
+  ]);
 
   useEffect(
     () => () => {
@@ -1408,7 +1445,9 @@ export function usePgrEtapaController({
       persistedOptionsByRowId: state.persistedOptionsByRowId,
       setPersistedOptionsByRowId: setters.setPersistedOptionsByRowId,
       anexoDiretriz: state.anexoDiretriz,
+      anexoDiretrizTemplateId: state.anexoDiretrizTemplateId,
       setAnexoDiretriz: setters.setAnexoDiretriz,
+      setAnexoDiretrizTemplateId: setters.setAnexoDiretrizTemplateId,
       diretrizOptions: derived.diretrizOptions,
       anexos: state.anexos,
       dragOverAnexoId: state.dragOverAnexoId,

@@ -1,12 +1,14 @@
 import type {Dispatch, DragEvent, SetStateAction} from "react";
 import {SearchableSelect} from "./searchable-select";
-import type {AnexoOrientation} from "../types";
+import type {AnexoOrientation, PgrDiretrizOption} from "../types";
 
 type AnexosStepProps = {
     ctx: {
         anexoDiretriz: string;
+        anexoDiretrizTemplateId: number | null;
         setAnexoDiretriz: Dispatch<SetStateAction<string>>;
-        diretrizOptions: string[];
+        setAnexoDiretrizTemplateId: Dispatch<SetStateAction<number | null>>;
+        diretrizOptions: PgrDiretrizOption[];
         selectBaseClass: string;
         handleAnexoFiles: (anexoId: string, files: FileList | null) => void;
         anexos: Array<{
@@ -44,7 +46,9 @@ type AnexosStepProps = {
 export function AnexosStep({ctx}: AnexosStepProps) {
     const {
         anexoDiretriz,
+        anexoDiretrizTemplateId,
         setAnexoDiretriz,
+        setAnexoDiretrizTemplateId,
         diretrizOptions,
         selectBaseClass,
         handleAnexoFiles,
@@ -79,6 +83,13 @@ export function AnexosStep({ctx}: AnexosStepProps) {
         const [, dd, mm, yyyy] = brMatch;
         return `${yyyy}-${mm}-${dd}`;
     };
+
+    const selectedDiretrizValue =
+        anexoDiretrizTemplateId === null
+            ? (diretrizOptions[0]?.value ?? "")
+            : (diretrizOptions.find((option) => option.templateId === anexoDiretrizTemplateId)?.value ??
+                diretrizOptions[0]?.value ??
+                "");
 
     const handleAttachmentInput = (anexoId: string, files: FileList | null) => {
         handleAnexoFiles(anexoId, files);
@@ -119,11 +130,18 @@ export function AnexosStep({ctx}: AnexosStepProps) {
                         </label>
                         <div className="mt-2">
                             <SearchableSelect
-                                value={anexoDiretriz}
-                                onChange={(value) => setAnexoDiretriz(value)}
+                                value={selectedDiretrizValue}
+                                onChange={(value) => {
+                                    const selectedOption =
+                                        diretrizOptions.find((option) => option.value === value) ??
+                                        diretrizOptions[0];
+                                    if (!selectedOption) return;
+                                    setAnexoDiretriz(selectedOption.label);
+                                    setAnexoDiretrizTemplateId(selectedOption.templateId);
+                                }}
                                 options={diretrizOptions.map((option) => ({
-                                    label: option,
-                                    value: option,
+                                    label: option.label,
+                                    value: option.value,
                                 }))}
                                 buttonClassName={selectBaseClass}
                                 searchPlaceholder="Filtrar diretriz"

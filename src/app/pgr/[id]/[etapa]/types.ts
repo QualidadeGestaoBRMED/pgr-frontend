@@ -159,6 +159,27 @@ export type RiskMatrixPayload = {
   actionPlan?: RiskMatrixActionPlanItem[];
 };
 
+export type PgrDocxTemplateOption = {
+  id: number;
+  name: string;
+  description?: string;
+  nrCode: string;
+  validationProfile?: string;
+  companyId?: number | null;
+  companyName?: string;
+  baseTemplateId?: number | null;
+  version?: number;
+  isActive?: boolean;
+};
+
+export type PgrDiretrizOption = {
+  value: string;
+  label: string;
+  templateId: number | null;
+  nrCode: string;
+  isDefault: boolean;
+};
+
 export type TechnicalCriteriaCatalogItem = {
   description: string;
   standard?: string;

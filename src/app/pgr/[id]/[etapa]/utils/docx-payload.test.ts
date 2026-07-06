@@ -544,7 +544,7 @@ describe("docx payload mapping", () => {
     expect(payload.caracterizacao.riskCount).toBe(0);
     expect(payload.program.totalEmployees).toBe(0);
     expect(payload.anexos.totalArquivos).toBe(0);
-    expect(payload.anexos.diretriz).toBe("Diretriz 1");
+    expect(payload.anexos.diretriz).toBe("Padrão da NR-01");
   });
 
   it("adds merged address fields to the json payload", () => {

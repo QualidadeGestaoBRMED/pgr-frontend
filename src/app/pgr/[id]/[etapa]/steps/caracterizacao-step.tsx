@@ -219,6 +219,14 @@ const isAwaitingQuantitativeEvaluationAllowed = (
   return awaitingQuantitativeDescriptions.includes(normalizedDescricaoAgente);
 };
 
+const getQualitativeMeasuredValueFallback = (
+  tipoAgente: string,
+  descricaoAgente: string
+) =>
+  isAwaitingQuantitativeEvaluationAllowed(tipoAgente, descricaoAgente)
+    ? "Aguardando Avaliação Quantitativa"
+    : "N/A";
+
 const sanitizeRiskMeasurementFields = (
   risk: GheRisk,
   measuredUnits: string[],
@@ -234,16 +242,11 @@ const sanitizeRiskMeasurementFields = (
   const isQuantitativeEvaluation = normalizeText(String(risk.tipoAvaliacao || "")).includes(
     "quantit"
   );
-  const canAwaitQuantitativeEvaluation =
-    hasQuantitativeCriteria &&
-    isAwaitingQuantitativeEvaluationAllowed(risk.tipoAgente, risk.descricaoAgente);
   const intensityValue = stripTrailingMeasuredUnits(String(risk.intensidade || ""), measuredUnits);
   return {
     ...risk,
     valorMedido: isQualitativeEvaluation
-      ? canAwaitQuantitativeEvaluation
-        ? "Aguardando Avaliação Quantitativa"
-        : "N/A"
+      ? getQualitativeMeasuredValueFallback(risk.tipoAgente, risk.descricaoAgente)
       : isQuantitativeEvaluation
         ? isNaValue(sanitizedValorMedido)
           ? ""
@@ -1588,12 +1591,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.tipoAgente,
               risk.descricaoAgente
             );
-            const canAwaitQuantitativeEvaluation =
-              hasQuantitativeCriteria &&
-              isAwaitingQuantitativeEvaluationAllowed(
-                risk.tipoAgente,
-                risk.descricaoAgente
-              );
+            const canAwaitQuantitativeEvaluation = isAwaitingQuantitativeEvaluationAllowed(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            );
             const isCalculatedQualitativeEvaluation =
               isQualitativeEvaluation &&
               getIsCalculatedCriteria(risk.tipoAgente, risk.descricaoAgente);
@@ -1643,8 +1644,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 : sanitizedNivelAcao;
             const isMeasuredValueMissing =
               isQuantitativeEvaluation && !String(normalizedValorMedido || "").trim();
-            const qualitativeMeasuredValueLabel =
-              canAwaitQuantitativeEvaluation ? "Aguardando Avaliação Quantitativa" : "N/A";
+            const qualitativeMeasuredValueLabel = getQualitativeMeasuredValueFallback(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            );
             const sanitizeOptionValues = (options: string[]) =>
               Array.from(
                 new Set(

@@ -918,7 +918,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           : [],
     },
     anexos: Array.isArray(state.anexos) ? state.anexos : fallbackAnexos,
-    anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Diretriz 1",
+    anexoDiretriz: state.anexoDiretriz || nestedAnexos?.diretriz || "Padrão da NR-01",
     extraEstabelecimentoFields: Array.isArray(state.extraEstabelecimentoFields)
       ? state.extraEstabelecimentoFields
           .map((item): { id: string; title: string; value: string; scope: ExtraFieldScope } => ({

@@ -15,6 +15,7 @@ import type {
   ExcelImportFeedback,
   GheGroup,
   HistoryEntry,
+  PgrDocxTemplateOption,
   PlanGeneralMeasureRow,
   PgrFunction,
   RiskCatalogPayload,
@@ -113,7 +114,9 @@ export function usePgrEtapaState({
   const [planTablePage, setPlanTablePage] = useState(1);
   const planTablePageSize = 8;
   const [anexos, setAnexos] = useState<AnexoItem[]>(defaultAnexos);
-  const [anexoDiretriz, setAnexoDiretriz] = useState("Diretriz 1");
+  const [anexoDiretriz, setAnexoDiretriz] = useState("Padrão da NR-01");
+  const [anexoDiretrizTemplateId, setAnexoDiretrizTemplateId] = useState<number | null>(null);
+  const [pgrDocxTemplates, setPgrDocxTemplates] = useState<PgrDocxTemplateOption[]>([]);
   const [draggedAnexoId, setDraggedAnexoId] = useState<string | null>(null);
   const [dragOverAnexoId, setDragOverAnexoId] = useState<string | null>(null);
   const [selectedLeftIds, setSelectedLeftIds] = useState<string[]>([]);
@@ -231,6 +234,8 @@ export function usePgrEtapaState({
       planTablePageSize,
       anexos,
       anexoDiretriz,
+      anexoDiretrizTemplateId,
+      pgrDocxTemplates,
       draggedAnexoId,
       dragOverAnexoId,
       selectedLeftIds,
@@ -285,6 +290,8 @@ export function usePgrEtapaState({
       setPlanTablePage,
       setAnexos,
       setAnexoDiretriz,
+      setAnexoDiretrizTemplateId,
+      setPgrDocxTemplates,
       setDraggedAnexoId,
       setDragOverAnexoId,
       setSelectedLeftIds,

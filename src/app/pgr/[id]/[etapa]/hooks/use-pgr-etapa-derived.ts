@@ -21,6 +21,8 @@ import {
 import type {
   GheGroup,
   PendingReviewTarget,
+  PgrDiretrizOption,
+  PgrDocxTemplateOption,
   PgrFunction,
   PlanGeneralMeasureRow,
   RiskCatalogPayload,
@@ -73,6 +75,12 @@ const normalizeText = (value: string) =>
 
 const uniqueValues = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
+const resolveTemplateNrCode = (nr: string) => {
+  const normalized = String(nr || "").trim().toUpperCase();
+  if (normalized === "NR-30") return "NR-30";
+  return "NR-01";
+};
 
 const riskIssueFieldMap: Record<string, string> = {
   "Tipo de agente e obrigatorio": "tipoAgente",
@@ -212,6 +220,8 @@ export function usePgrEtapaDerived({
   dadosCadastrais,
   historicoData,
   anexos,
+  planAction,
+  pgrDocxTemplates,
   completedSteps,
   currentStepId,
 }: {
@@ -232,6 +242,11 @@ export function usePgrEtapaDerived({
   dadosCadastrais: DadosCadastraisDraft;
   historicoData: HistoricoData;
   anexos: AnexoItem[];
+  planAction: {
+    nr: string;
+    vigencia: string;
+  };
+  pgrDocxTemplates: PgrDocxTemplateOption[];
   completedSteps: number;
   currentStepId: PgrStepId;
 }) {
@@ -266,7 +281,38 @@ export function usePgrEtapaDerived({
   } =
     useRiskCatalogHelpers(riskCatalogs);
 
-  const diretrizOptions = ["Diretriz 1", "Diretriz 2", "Diretriz 3"];
+  const templateNrCode = useMemo(
+    () => resolveTemplateNrCode(planAction.nr),
+    [planAction.nr]
+  );
+  const diretrizOptions = useMemo<PgrDiretrizOption[]>(() => {
+    const defaultOption: PgrDiretrizOption = {
+      value: `default:${templateNrCode}`,
+      label: `Padrão da ${String(planAction.nr || "").trim() || "NR-01"}`,
+      templateId: null,
+      nrCode: templateNrCode,
+      isDefault: true,
+    };
+    const filteredTemplates = pgrDocxTemplates
+      .filter((item) => item.nrCode === templateNrCode)
+      .sort((left, right) => {
+        const leftCompany = left.companyId ? 1 : 0;
+        const rightCompany = right.companyId ? 1 : 0;
+        if (leftCompany !== rightCompany) return rightCompany - leftCompany;
+        const leftVersion = Number(left.version || 0);
+        const rightVersion = Number(right.version || 0);
+        if (leftVersion !== rightVersion) return rightVersion - leftVersion;
+        return left.name.localeCompare(right.name, "pt-BR");
+      })
+      .map<PgrDiretrizOption>((item) => ({
+        value: `template:${item.id}`,
+        label: item.name,
+        templateId: item.id,
+        nrCode: item.nrCode,
+        isDefault: false,
+      }));
+    return [defaultOption, ...filteredTemplates];
+  }, [pgrDocxTemplates, planAction.nr, templateNrCode]);
   const estabelecimentoOptions = ["Próprio", "Terceirizado"];
 
   const functionMap = useMemo(

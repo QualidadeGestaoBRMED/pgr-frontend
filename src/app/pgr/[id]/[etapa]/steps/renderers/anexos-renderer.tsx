@@ -5,7 +5,9 @@ export const renderAnexosStep: StepRenderer = (ctx) => (
   <AnexosStep
     ctx={{
       anexoDiretriz: ctx.anexoDiretriz,
+      anexoDiretrizTemplateId: ctx.anexoDiretrizTemplateId,
       setAnexoDiretriz: ctx.setAnexoDiretriz,
+      setAnexoDiretrizTemplateId: ctx.setAnexoDiretrizTemplateId,
       diretrizOptions: ctx.diretrizOptions,
       selectBaseClass: ctx.selectBaseClass,
       handleAnexoFiles: ctx.generalActions.handleAnexoFiles,

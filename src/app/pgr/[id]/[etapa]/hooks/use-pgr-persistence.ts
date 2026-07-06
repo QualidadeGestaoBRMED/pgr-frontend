@@ -9,6 +9,7 @@ import type {
   GheGroup,
   GheRisk,
   HistoricoData,
+  PgrDocxTemplateOption,
   PgrFunction,
   PlanGeneralMeasureRow,
   RiskCatalogPayload,
@@ -72,6 +73,7 @@ type PersistPayload = {
   planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
+  anexoDiretrizTemplateId: number | null;
   gheGroups: GheGroup[];
   currentGheId: string;
   riskGheGroups: RiskGheGroup[];
@@ -100,6 +102,8 @@ type BackendStateResponse = Partial<{
   planGeneralMeasures: PlanGeneralMeasureRow[];
   anexos: AnexoItem[];
   anexoDiretriz: string;
+  anexoDiretrizTemplateId?: number | null;
+  pgrDocxTemplates?: PgrDocxTemplateOption[];
   gheGroups: GheGroup[];
   currentGheId: string;
   riskGheGroups: Array<Omit<RiskGheGroup, "risks"> & { risks?: GheRisk[] }>;
@@ -136,6 +140,8 @@ type UsePgrPersistenceContext = {
     setPlanGeneralMeasures: Dispatch<SetStateAction<PlanGeneralMeasureRow[]>>;
     setAnexos: Dispatch<SetStateAction<AnexoItem[]>>;
     setAnexoDiretriz: Dispatch<SetStateAction<string>>;
+    setAnexoDiretrizTemplateId: Dispatch<SetStateAction<number | null>>;
+    setPgrDocxTemplates: Dispatch<SetStateAction<PgrDocxTemplateOption[]>>;
     setGheGroups: Dispatch<SetStateAction<GheGroup[]>>;
     setCurrentGheId: Dispatch<SetStateAction<string>>;
     setRiskGheGroups: Dispatch<SetStateAction<RiskGheGroup[]>>;
@@ -161,6 +167,8 @@ type UsePgrPersistenceContext = {
     planGeneralMeasures: PlanGeneralMeasureRow[];
     anexos: AnexoItem[];
     anexoDiretriz: string;
+    anexoDiretrizTemplateId: number | null;
+    pgrDocxTemplates: PgrDocxTemplateOption[];
     gheGroups: GheGroup[];
     currentGheId: string;
     riskGheGroups: RiskGheGroup[];
@@ -210,6 +218,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setPlanGeneralMeasures,
     setAnexos,
     setAnexoDiretriz,
+    setAnexoDiretrizTemplateId,
+    setPgrDocxTemplates,
     setGheGroups,
     setCurrentGheId,
     setRiskGheGroups,
@@ -236,6 +246,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     planGeneralMeasures,
     anexos,
     anexoDiretriz,
+    anexoDiretrizTemplateId,
+    pgrDocxTemplates,
     gheGroups,
     currentGheId,
     riskGheGroups,
@@ -277,6 +289,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     planGeneralMeasures,
     anexosState,
     diretriz,
+    diretrizTemplateId,
+    pgrDocxTemplates,
     ghes,
     gheId,
     riskGhes,
@@ -300,6 +314,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     planGeneralMeasures: PlanGeneralMeasureRow[];
     anexosState: AnexoItem[];
     diretriz: string;
+    diretrizTemplateId: number | null;
+    pgrDocxTemplates: PgrDocxTemplateOption[];
     ghes: GheGroup[];
     gheId: string;
     riskGhes: RiskGheGroup[];
@@ -326,6 +342,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     planGeneralMeasures,
     anexos: anexosState,
     anexoDiretriz: diretriz,
+    anexoDiretrizTemplateId: diretrizTemplateId,
+    pgrDocxTemplates,
     gheGroups: ghes,
     currentGheId: gheId,
     riskGheGroups: riskGhes,
@@ -367,6 +385,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               planGeneralMeasures: payload.planGeneralMeasures,
               anexosState: payload.anexos,
               diretriz: payload.anexoDiretriz,
+              diretrizTemplateId: payload.anexoDiretrizTemplateId,
+              pgrDocxTemplates,
               ghes: payload.gheGroups,
               gheId: payload.currentGheId,
               riskGhes: payload.riskGheGroups,
@@ -382,7 +402,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           }
         });
     },
-    [params.id, setRuntimeCachedStateFn]
+    [params.id, pgrDocxTemplates, setRuntimeCachedStateFn]
   );
 
   useEffect(() => {
@@ -588,7 +608,38 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               .filter((item) => item.id && item.descricao)
           : [];
         const loadedAnexos = Array.isArray(state.anexos) ? state.anexos : defaultAnexos;
-        const loadedAnexoDiretriz = state.anexoDiretriz || "Diretriz 1";
+        const loadedAnexoDiretriz = state.anexoDiretriz || "Padrão da NR-01";
+        const loadedAnexoDiretrizTemplateId =
+          typeof state.anexoDiretrizTemplateId === "number"
+            ? state.anexoDiretrizTemplateId
+            : null;
+        const loadedPgrDocxTemplates = Array.isArray(state.pgrDocxTemplates)
+          ? state.pgrDocxTemplates
+              .map((item) => ({
+                id: Number(item?.id || 0),
+                name: String(item?.name || "").trim(),
+                description: String(item?.description || "").trim(),
+                nrCode: String(item?.nrCode || "").trim(),
+                validationProfile: String(item?.validationProfile || "").trim(),
+                companyId:
+                  typeof item?.companyId === "number"
+                    ? item.companyId
+                    : item?.companyId === null
+                      ? null
+                      : undefined,
+                companyName: String(item?.companyName || "").trim(),
+                baseTemplateId:
+                  typeof item?.baseTemplateId === "number"
+                    ? item.baseTemplateId
+                    : item?.baseTemplateId === null
+                      ? null
+                      : undefined,
+                version: Number(item?.version || 0) || undefined,
+                isActive:
+                  typeof item?.isActive === "boolean" ? item.isActive : undefined,
+              }))
+              .filter((item) => item.id > 0 && item.name && item.nrCode)
+          : [];
         const loadedGheGroups = Array.isArray(state.gheGroups) ? state.gheGroups : gheGroups;
         const loadedCurrentGheId = state.currentGheId || loadedGheGroups[0]?.id || currentGheId;
         const normalizeHydratedRisk = (risk: GheRisk) => {
@@ -688,6 +739,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setPlanGeneralMeasures(loadedPlanGeneralMeasures);
         setAnexos(loadedAnexos);
         setAnexoDiretriz(loadedAnexoDiretriz);
+        setAnexoDiretrizTemplateId(loadedAnexoDiretrizTemplateId);
+        setPgrDocxTemplates(loadedPgrDocxTemplates);
 
         setGheGroups(loadedGheGroups);
         setCurrentGheId(loadedCurrentGheId);
@@ -718,6 +771,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           planGeneralMeasures: loadedPlanGeneralMeasures,
           anexos: loadedAnexos,
           anexoDiretriz: loadedAnexoDiretriz,
+          anexoDiretrizTemplateId: loadedAnexoDiretrizTemplateId,
           gheGroups: loadedGheGroups,
           currentGheId: loadedCurrentGheId,
           riskGheGroups: loadedRiskGheGroups,
@@ -744,6 +798,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             planGeneralMeasures: loadedPlanGeneralMeasures,
             anexosState: loadedAnexos,
             diretriz: loadedAnexoDiretriz,
+            diretrizTemplateId: loadedAnexoDiretrizTemplateId,
+            pgrDocxTemplates: loadedPgrDocxTemplates,
             ghes: loadedGheGroups,
             gheId: loadedCurrentGheId,
             riskGhes: loadedRiskGheGroups,
@@ -851,6 +907,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       planGeneralMeasures,
       anexos,
       anexoDiretriz,
+      anexoDiretrizTemplateId,
       gheGroups,
       currentGheId,
       riskGheGroups,
@@ -895,6 +952,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     };
   }, [
     anexoDiretriz,
+    anexoDiretrizTemplateId,
     anexos,
     cardMeta,
     completedSteps,

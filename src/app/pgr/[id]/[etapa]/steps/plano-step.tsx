@@ -117,6 +117,12 @@ type PlanoStepProps = {
 };
 
 export function PlanoStep({ctx}: PlanoStepProps) {
+    const nrTemplateMapping: Record<string, string> = {
+        "NR-01": "NR-01",
+        "NR-18": "NR-01",
+        "NR-29": "NR-01",
+        "NR-30": "NR-30",
+    };
     const nrActionPresets: Record<string, string[]> = {
         "NR-01": [
             "Antecipação dos riscos no local de trabalho",
@@ -508,6 +514,8 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         handleCreateNrPlanRows(nr, presetActions);
     };
 
+    const resolvedTemplateNr = nrTemplateMapping[planAction.nr] ?? "NR-01";
+
     return (
         <>
             <section className="px-2">
@@ -558,6 +566,9 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                 </button>
                             ))}
                         </div>
+                        <p className="mt-3 text-[12px] text-muted-foreground">
+                            Template aplicado na geração: <span className="font-semibold text-foreground">{resolvedTemplateNr}</span>
+                        </p>
                     </div>
                     <div>
                         <label className="text-[12px] font-semibold text-muted-foreground">
