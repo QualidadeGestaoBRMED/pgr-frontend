@@ -122,32 +122,23 @@ const extractDocxDownloadUrl = (payload: unknown): string => {
 
 async function startExternalExportJobWithResponse(
   pgrId: string,
-  kind: ExternalExportKind,
-  payload: unknown
+  kind: ExternalExportKind
 ) {
   return apiPost<ExternalJobStartResponse>(
     `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/start`,
-    payload
   );
 }
 
 async function startExternalExportJob(
   pgrId: string,
-  kind: ExternalExportKind,
-  payload: unknown
+  kind: ExternalExportKind
 ): Promise<string> {
-  const data = await startExternalExportJobWithResponse(pgrId, kind, payload);
+  const data = await startExternalExportJobWithResponse(pgrId, kind);
   const jobId = extractJobId(data);
   if (!jobId) {
     throw new Error(`API não retornou job_id para ${kind.toUpperCase()}.`);
   }
   return jobId;
-}
-
-async function buildExternalExportRequestPayload(pgrId: string) {
-  return apiPost<Record<string, unknown>>(
-    `/api/v1/frontend/pgr/${pgrId}/pdf-service-payload`
-  );
 }
 
 async function waitForExternalExportCompletion(
@@ -218,7 +209,6 @@ const extractDocxJobIdFromDownloadUrl = (url: string): string => {
 
 async function downloadDocxFromUrlOrJob(args: {
   pgrId: string;
-  exportPayload: unknown;
   docxDownloadUrl?: string;
 }): Promise<Blob> {
   const docxDownloadUrl = String(args.docxDownloadUrl || "").trim();
@@ -229,7 +219,7 @@ async function downloadDocxFromUrlOrJob(args: {
     }
   }
 
-  const docxJobId = await startExternalExportJob(args.pgrId, "docx", args.exportPayload);
+  const docxJobId = await startExternalExportJob(args.pgrId, "docx");
   await waitForExternalExportCompletion(args.pgrId, "docx", docxJobId);
   return downloadExternalExport(args.pgrId, "docx", docxJobId);
 }
@@ -686,8 +676,6 @@ export function usePgrEtapaController({
     setters.setIsFinalizingPgr(true);
     try {
       await persistStateNow();
-
-      const exportPayload = await buildExternalExportRequestPayload(params.id);
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
         historico: state.historicoData,
@@ -695,8 +683,8 @@ export function usePgrEtapaController({
       });
 
       const [pdfStartResponse, xlsxJobId] = await Promise.all([
-        startExternalExportJobWithResponse(params.id, "pdf", exportPayload),
-        startExternalExportJob(params.id, "xlsx", exportPayload),
+        startExternalExportJobWithResponse(params.id, "pdf"),
+        startExternalExportJob(params.id, "xlsx"),
       ]);
       const pdfJobId = extractJobId(pdfStartResponse);
       if (!pdfJobId) {
@@ -714,7 +702,6 @@ export function usePgrEtapaController({
       ]);
       const docxBlob = await downloadDocxFromUrlOrJob({
         pgrId: params.id,
-        exportPayload,
         docxDownloadUrl:
           extractDocxDownloadUrl(pdfStartResponse) || extractDocxDownloadUrl(pdfCompletion),
       });
@@ -774,7 +761,6 @@ export function usePgrEtapaController({
     setters.setIsGeneratingFakePdf(true);
     try {
       await persistStateNow();
-      const exportPayload = await buildExternalExportRequestPayload(params.id);
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
         historico: state.historicoData,
@@ -782,8 +768,8 @@ export function usePgrEtapaController({
       });
 
       const [pdfStartResponse, xlsxJobId] = await Promise.all([
-        startExternalExportJobWithResponse(params.id, "pdf", exportPayload),
-        startExternalExportJob(params.id, "xlsx", exportPayload),
+        startExternalExportJobWithResponse(params.id, "pdf"),
+        startExternalExportJob(params.id, "xlsx"),
       ]);
       const pdfJobId = extractJobId(pdfStartResponse);
       if (!pdfJobId) {
@@ -800,7 +786,6 @@ export function usePgrEtapaController({
 
       const docxBlob = await downloadDocxFromUrlOrJob({
         pgrId: params.id,
-        exportPayload,
         docxDownloadUrl:
           extractDocxDownloadUrl(pdfStartResponse) || extractDocxDownloadUrl(pdfCompletion),
       });
@@ -833,11 +818,9 @@ export function usePgrEtapaController({
     async (layoutOverride?: PdfLayoutState) => {
       const effectiveLayout = layoutOverride ?? state.pdfLayout;
       await persistStateNow(effectiveLayout);
-      const exportPayload = await buildExternalExportRequestPayload(params.id);
       const pdfStartResponse = await startExternalExportJobWithResponse(
         params.id,
-        "pdf",
-        exportPayload
+        "pdf"
       );
       const pdfJobId = extractJobId(pdfStartResponse);
       if (!pdfJobId) {
