@@ -43,7 +43,11 @@ import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-run
 
 const PGR_EXPORT_POLL_MIN_INTERVAL_MS = 5000;
 const PGR_EXPORT_POLL_MAX_INTERVAL_MS = 10000;
-const PGR_EXPORT_POLL_TIMEOUT_MS = 120000;
+// Deadline de espera do DOCX/PDF. Exportacoes com anexos pesados (ex.: PDF de
+// ~200 paginas) sao processadas no worker sob job_timeout de 1800s; 2 min nao
+// cobriam esse tempo e o usuario via "Tempo limite excedido" com o job ainda
+// rodando. 15 min da folga para os dois formatos na maquina de 1 CPU do Render.
+const PGR_EXPORT_POLL_TIMEOUT_MS = 900000;
 const PIPEFY_ORGANIZATION_ID = "300527823";
 const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
 
