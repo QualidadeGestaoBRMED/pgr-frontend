@@ -1,4 +1,4 @@
-import { Check, Eye, FileDown, LoaderCircle, Pencil, TriangleAlert, X } from "lucide-react";
+import { Check, Eye, FileDown, Hourglass, LoaderCircle, Pencil, TriangleAlert, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { PendingReviewTarget } from "../types";
@@ -19,6 +19,8 @@ type RevisaoStepProps = {
   lastFakePdfAt: string | null;
   isGeneratingFakePdf: boolean;
   isFinalizingPgr: boolean;
+  attachmentsAreLarge: boolean;
+  attachmentsTotalMb: number;
   onEditStep: (stepId: string) => void;
   onOpenPendingTarget: (target: PendingReviewTarget) => void;
   onGenerateFakePdf: () => void;
@@ -38,6 +40,8 @@ export function RevisaoStep({
   lastFakePdfAt,
   isGeneratingFakePdf,
   isFinalizingPgr,
+  attachmentsAreLarge,
+  attachmentsTotalMb,
   onEditStep,
   onOpenPendingTarget,
   onGenerateFakePdf,
@@ -254,6 +258,18 @@ export function RevisaoStep({
                 )}
               </button>
             </div>
+            {attachmentsAreLarge && (isGeneratingFakePdf || isFinalizingPgr) ? (
+              <div
+                role="status"
+                className="mt-3 flex items-start gap-2 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+              >
+                <Hourglass className="mt-0.5 h-4 w-4 shrink-0 animate-pulse" />
+                <span>
+                  Anexo grande ({attachmentsTotalMb} MB). A geração pode levar alguns
+                  minutos. Não feche esta página.
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

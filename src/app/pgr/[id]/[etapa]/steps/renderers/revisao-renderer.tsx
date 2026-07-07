@@ -14,6 +14,8 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
       lastFakePdfAt={ctx.lastFakePdfAt}
       isGeneratingFakePdf={ctx.isGeneratingFakePdf}
       isFinalizingPgr={ctx.isFinalizingPgr}
+      attachmentsAreLarge={ctx.attachmentsAreLarge}
+      attachmentsTotalMb={ctx.attachmentsTotalMb}
       onEditStep={(stepId) => ctx.router.push(`/pgr/${ctx.params.id}/${stepId}`)}
       onOpenPendingTarget={(target) =>
         ctx.router.push(buildPendingReviewHref(ctx.params.id, target))

@@ -48,6 +48,9 @@ const PGR_EXPORT_POLL_MAX_INTERVAL_MS = 10000;
 // cobriam esse tempo e o usuario via "Tempo limite excedido" com o job ainda
 // rodando. 15 min da folga para os dois formatos na maquina de 1 CPU do Render.
 const PGR_EXPORT_POLL_TIMEOUT_MS = 900000;
+// Anexos somando >= 10 MB fazem a geracao (rasterizacao + composicao) levar
+// alguns minutos na maquina de producao; avisamos o usuario ao clicar em gerar.
+const LARGE_ATTACHMENT_BYTES_THRESHOLD = 10 * 1024 * 1024;
 const PIPEFY_ORGANIZATION_ID = "300527823";
 const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
 
@@ -665,6 +668,19 @@ export function usePgrEtapaController({
     () => JSON.stringify(docxPayload, null, 2).split("\n"),
     [docxPayload]
   );
+
+  const attachmentsTotalBytes = useMemo(
+    () =>
+      state.anexos.reduce(
+        (groupTotal, anexo) =>
+          groupTotal +
+          anexo.files.reduce((fileTotal, file) => fileTotal + (file.sizeBytes ?? 0), 0),
+        0
+      ),
+    [state.anexos]
+  );
+  const attachmentsAreLarge = attachmentsTotalBytes >= LARGE_ATTACHMENT_BYTES_THRESHOLD;
+  const attachmentsTotalMb = Math.round(attachmentsTotalBytes / (1024 * 1024));
 
   const handleFinalizePgr = useCallback(async () => {
     setters.setIsFinalizingPgr(true);
@@ -1383,6 +1399,8 @@ export function usePgrEtapaController({
       lastFakePdfAt: state.lastFakePdfAt,
       isGeneratingFakePdf: state.isGeneratingFakePdf,
       isFinalizingPgr: state.isFinalizingPgr,
+      attachmentsAreLarge,
+      attachmentsTotalMb,
       stepStatusById: derived.stepStatusById,
       missingFieldsByStep: derived.missingFieldsByStep,
       missingTargetsByStep: derived.missingTargetsByStep,
