@@ -90,7 +90,7 @@ describe("plan action helpers", () => {
         });
     });
 
-    it("lists every selected GHE when all available GHEs are selected", () => {
+    it("labels all selected GHEs as Todos os GHEs when every available GHE is covered", () => {
         const row = buildPlanActionGeneralMeasureRow({
             description: "Treinar todos os trabalhadores",
             nr: "NR-01",
@@ -102,7 +102,7 @@ describe("plan action helpers", () => {
             ],
         });
 
-        expect(row?.gheName).toBe("GHE 1, 2");
+        expect(row?.gheName).toBe("Todos os GHEs");
         expect(row?.targetGheIds).toEqual(["g-1", "g-2"]);
     });
 

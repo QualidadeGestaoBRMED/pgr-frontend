@@ -141,6 +141,11 @@ export function buildPlanActionGeneralMeasureRow({
     if (!safeDescription || selectedGheIds.length === 0) return null;
 
     const selectedIdSet = new Set(selectedGheIds);
+    const availableGheIds = availableGheGroups
+        .map((ghe) => String(ghe.id || "").trim())
+        .filter(Boolean);
+    const appliesToAllGhes =
+        availableGheIds.length > 0 && availableGheIds.every((gheId) => selectedIdSet.has(gheId));
     const selectedGheNames = availableGheGroups
         .filter((ghe) => selectedIdSet.has(ghe.id))
         .map((ghe) => String(ghe.name || "").trim())
@@ -156,7 +161,7 @@ export function buildPlanActionGeneralMeasureRow({
         id: `plan-action-${String(idSeed || Date.now()).replace(/[^a-zA-Z0-9_-]+/g, "-")}`,
         nr: safeNr,
         descricao: safeDescription,
-        gheName: formattedGheName || "Todos os GHEs",
+        gheName: appliesToAllGhes ? "Todos os GHEs" : formattedGheName || "Todos os GHEs",
         targetGheIds: selectedGheIds,
         tipoMedida: "",
         prazoAcao: "",
