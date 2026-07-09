@@ -54,12 +54,34 @@ const LARGE_ATTACHMENT_BYTES_THRESHOLD = 10 * 1024 * 1024;
 const PIPEFY_ORGANIZATION_ID = "300527823";
 const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
 
+const PIPEFY_ATTACH_POLL_MIN_INTERVAL_MS = 5000;
+const PIPEFY_ATTACH_POLL_MAX_INTERVAL_MS = 10000;
+// Upload dos arquivos gerados + presign + PUT no S3 + 3 mutations GraphQL
+// (xlsx, pdf, checkbox), cada uma com leitura de confirmacao. Bem mais leve
+// que a geracao do PDF/DOCX (sem renderizacao), mas ainda assim ajustar este
+// valor se o backend mudar o job_timeout do worker do Celery.
+const PIPEFY_ATTACH_POLL_TIMEOUT_MS = 180000;
+const PIPEFY_ATTACH_WAIT_MESSAGE =
+  "Enviando arquivos para o Pipefy e confirmando os anexos...";
+
 type ExternalJobStartResponse = {
   job_id?: string;
   jobId?: string;
   id?: string;
   docxDownloadUrl?: string;
   docx_download_url?: string;
+};
+
+type PipefyAttachJobStartResponse = {
+  job_id: string;
+  status: string;
+};
+
+type PipefyAttachJobStatusResponse = {
+  job_id?: string;
+  status?: string;
+  error?: string;
+  steps?: { xlsx?: boolean; pdf?: boolean; checkbox?: boolean };
 };
 
 type ExternalExportKind = "pdf" | "docx" | "xlsx";
@@ -265,49 +287,54 @@ const triggerBlobDownload = (blob: Blob, filename: string) => {
   }, 200);
 };
 
-async function attachGeneratedFilesAndMarkPipefy(args: {
+async function startPipefyAttachJob(args: {
   pgrId: string;
   pdfBlob: Blob;
-  docxBlob?: Blob;
   xlsxBlob: Blob;
   pdfFilename: string;
-  docxFilename?: string;
   xlsxFilename: string;
-}) {
-  const candidatePaths = [
-    `/api/frontend/pgr/${args.pgrId}/pipefy/attach-files-and-mark`,
-    `/api/v1/frontend/pgr/${args.pgrId}/pipefy/attach-files-and-mark`,
-  ];
+}): Promise<string> {
+  const formData = new FormData();
+  formData.append("pdf_file", args.pdfBlob, args.pdfFilename);
+  formData.append("xlsx_file", args.xlsxBlob, args.xlsxFilename);
+  formData.append("organizationId", PIPEFY_ORGANIZATION_ID);
+  formData.append("checkboxFieldLabel", PIPEFY_CHECKBOX_FIELD_LABEL);
 
-  let lastError: Error | null = null;
+  const response = await apiPostForm<PipefyAttachJobStartResponse>(
+    `/api/v1/frontend/pgr/${args.pgrId}/pipefy/attach-files-and-mark/start`,
+    formData
+  );
+  const jobId = extractJobId(response);
+  if (!jobId) {
+    throw new Error("API não retornou job_id para o anexo no Pipefy.");
+  }
+  return jobId;
+}
 
-  for (const path of candidatePaths) {
-    try {
-      const formData = new FormData();
-      formData.append("pdf_file", args.pdfBlob, args.pdfFilename);
-      if (args.docxBlob && args.docxFilename) {
-        formData.append("docx_file", args.docxBlob, args.docxFilename);
-      }
-      formData.append("xlsx_file", args.xlsxBlob, args.xlsxFilename);
-      formData.append("organizationId", PIPEFY_ORGANIZATION_ID);
-      formData.append("checkboxFieldLabel", PIPEFY_CHECKBOX_FIELD_LABEL);
-      await apiPostForm<{ ok: boolean }>(path, formData);
-      return;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      lastError = err;
-      const rawMessage = err.message.toLowerCase();
-      const isNotFound =
-        rawMessage.includes("404") ||
-        rawMessage.includes("not found") ||
-        rawMessage.includes("não encontrado");
-      if (!isNotFound || path === candidatePaths[candidatePaths.length - 1]) {
-        throw err;
-      }
+async function waitForPipefyAttachJobCompletion(
+  pgrId: string,
+  jobId: string
+): Promise<void> {
+  const startedAt = Date.now();
+  let pollIntervalMs = PIPEFY_ATTACH_POLL_MIN_INTERVAL_MS;
+  while (Date.now() - startedAt <= PIPEFY_ATTACH_POLL_TIMEOUT_MS) {
+    const data = await apiGet<PipefyAttachJobStatusResponse>(
+      `/api/v1/frontend/pgr/${pgrId}/pipefy/attach-files-and-mark/${jobId}`
+    );
+    const status = extractJobStatus(data);
+    if (status === "succeeded") return;
+    if (status === "failed") {
+      throw new Error(extractJobError(data) || "Falha ao anexar arquivos no Pipefy.");
     }
+
+    await sleep(pollIntervalMs);
+    pollIntervalMs = Math.min(
+      PIPEFY_ATTACH_POLL_MAX_INTERVAL_MS,
+      pollIntervalMs + PIPEFY_ATTACH_POLL_MIN_INTERVAL_MS
+    );
   }
 
-  throw lastError ?? new Error("Falha ao anexar arquivos no Pipefy.");
+  throw new Error("Tempo limite excedido ao confirmar anexos no Pipefy.");
 }
 
 export function usePgrEtapaController({
@@ -723,7 +750,7 @@ export function usePgrEtapaController({
         throw new Error("API não retornou job_id para PDF.");
       }
 
-      const [pdfCompletion] = await Promise.all([
+      await Promise.all([
         waitForExternalExportCompletion(params.id, "pdf", pdfJobId),
         waitForExternalExportCompletion(params.id, "xlsx", xlsxJobId),
       ]);
@@ -732,21 +759,20 @@ export function usePgrEtapaController({
         downloadExternalExport(params.id, "pdf", pdfJobId),
         downloadExternalExport(params.id, "xlsx", xlsxJobId),
       ]);
-      const docxBlob = await downloadDocxFromUrlOrJob({
-        pgrId: params.id,
-        docxDownloadUrl:
-          extractDocxDownloadUrl(pdfStartResponse) || extractDocxDownloadUrl(pdfCompletion),
-      });
 
-      await attachGeneratedFilesAndMarkPipefy({
+      const pipefyAttachJobId = await startPipefyAttachJob({
         pgrId: params.id,
         pdfBlob,
-        docxBlob,
         xlsxBlob,
         pdfFilename: `${fileBase}.pdf`,
-        docxFilename: `${fileBase}.docx`,
         xlsxFilename: `${fileBase}.xlsx`,
       });
+      setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
+      try {
+        await waitForPipefyAttachJobCompletion(params.id, pipefyAttachJobId);
+      } finally {
+        setters.setHeavyGenerationWaitMessage(null);
+      }
 
       const finalizedState = await apiPost<{
         completedSteps: number;
