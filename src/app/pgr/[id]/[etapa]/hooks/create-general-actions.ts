@@ -1595,13 +1595,18 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     assignToCurrentGhe?: boolean;
     gheId?: string;
     funcionarios?: string;
+    quantitativo?: string;
   }) => {
     const setor = payload.setor.trim();
     const funcao = payload.funcao.trim();
     const descricao = payload.descricao.trim();
+    const quantitativo = (payload.quantitativo ?? "").trim();
 
     if (!setor || !funcao || !descricao) {
       throw new Error("Setor, Função e Descrição da Função são obrigatórios!");
+    }
+    if (quantitativo && !/^\d+$/.test(quantitativo)) {
+      throw new Error("Quantitativo deve ser um número inteiro maior ou igual a zero.");
     }
 
     let createdFunctionId = "";
@@ -1624,6 +1629,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           setor,
           funcao,
           descricao,
+          quantitativo,
         },
       ];
     });
@@ -1645,7 +1651,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             ...ghe.items,
             {
               functionId: createdFunctionId,
-              funcionarios: (payload.funcionarios || "").trim(),
+              funcionarios: (payload.funcionarios || "").trim() || quantitativo,
             },
           ],
         };

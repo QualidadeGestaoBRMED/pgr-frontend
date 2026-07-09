@@ -68,6 +68,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const [manualSetor, setManualSetor] = useState("");
   const [manualFuncao, setManualFuncao] = useState("");
   const [manualDescricao, setManualDescricao] = useState("");
+  const [manualQuantitativo, setManualQuantitativo] = useState("");
   const [manualAssignToCurrentGhe, setManualAssignToCurrentGhe] = useState(true);
   const [manualFeedback, setManualFeedback] = useState<null | {
     type: "success" | "error";
@@ -290,6 +291,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
         setor: manualSetor,
         funcao: manualFuncao,
         descricao: manualDescricao,
+        quantitativo: manualQuantitativo,
         assignToCurrentGhe: manualAssignToCurrentGhe,
         gheId: currentGhe?.id,
       });
@@ -302,6 +304,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       setManualSetor("");
       setManualFuncao("");
       setManualDescricao("");
+      setManualQuantitativo("");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Não foi possível cadastrar a função manual.";
@@ -1723,6 +1726,17 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       className={inputInlineClass}
                       placeholder="Descrição da função (obrigatório)"
                       required
+                    />
+                  </div>
+                  <div className="mt-3 md:max-w-[280px]">
+                    <input
+                      value={manualQuantitativo}
+                      onChange={(event) =>
+                        setManualQuantitativo(event.target.value.replace(/\D/g, ""))
+                      }
+                      inputMode="numeric"
+                      className={inputInlineClass}
+                      placeholder="Quantitativo de funcionários"
                     />
                   </div>
 
