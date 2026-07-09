@@ -14,6 +14,7 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
       lastFakePdfAt={ctx.lastFakePdfAt}
       isGeneratingFakePdf={ctx.isGeneratingFakePdf}
       isFinalizingPgr={ctx.isFinalizingPgr}
+      heavyGenerationWaitMessage={ctx.heavyGenerationWaitMessage}
       attachmentsAreLarge={ctx.attachmentsAreLarge}
       attachmentsTotalMb={ctx.attachmentsTotalMb}
       onEditStep={(stepId) => ctx.router.push(`/pgr/${ctx.params.id}/${stepId}`)}

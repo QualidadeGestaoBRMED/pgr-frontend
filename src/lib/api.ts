@@ -8,10 +8,12 @@ export function getApiBaseUrl() {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -32,13 +34,16 @@ function buildHttpErrorMessage(status: number) {
   return `HTTP ${status}`;
 }
 
-function extractErrorMessage(rawText: string, status: number) {
+function extractErrorMessage(
+  rawText: string,
+  status: number
+): { message: string; code?: string } {
   if (!rawText.trim()) {
-    return buildHttpErrorMessage(status);
+    return { message: buildHttpErrorMessage(status) };
   }
 
   if (isHtmlErrorPayload(rawText)) {
-    return buildHttpErrorMessage(status);
+    return { message: buildHttpErrorMessage(status) };
   }
 
   try {
@@ -76,9 +81,9 @@ function extractErrorMessage(rawText: string, status: number) {
           .join(" | ")}`
       : "";
     const suffix = parsed.request_id ? ` (request_id: ${parsed.request_id})` : "";
-    return `${message}${detailSuffix}${suffix}`;
+    return { message: `${message}${detailSuffix}${suffix}`, code: parsed.code };
   } catch {
-    return rawText;
+    return { message: rawText };
   }
 }
 
@@ -116,7 +121,8 @@ async function request<T>(
       }
     }
     const rawText = await response.text();
-    throw new ApiError(extractErrorMessage(rawText, response.status), response.status);
+    const { message, code } = extractErrorMessage(rawText, response.status);
+    throw new ApiError(message, response.status, code);
   }
 
   if (!expectJson) {
@@ -173,7 +179,8 @@ export async function apiBlob(path: string, body?: unknown) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(extractErrorMessage(text, response.status));
+    const { message, code } = extractErrorMessage(text, response.status);
+    throw new ApiError(message, response.status, code);
   }
 
   return response.blob();
@@ -214,7 +221,8 @@ export async function apiBlobGet(path: string, retry?: BlobGetRetryOptions) {
       continue;
     }
 
-    throw new Error(extractErrorMessage(text, response.status));
+    const { message, code } = extractErrorMessage(text, response.status);
+    throw new ApiError(message, response.status, code);
   }
 
   throw new Error("Falha ao baixar arquivo.");

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, notFound, useSearchParams } from "next/navigation";
-import { apiBlobGet, apiGet, apiPost, apiPostForm } from "@/lib/api";
+import { apiBlobGet, apiGet, apiPost, apiPostForm, ApiError } from "@/lib/api";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import {
   defaultAnexos,
@@ -120,20 +120,48 @@ const extractDocxDownloadUrl = (payload: unknown): string => {
   return "";
 };
 
+const HEAVY_GENERATION_IN_PROGRESS_CODE = "HEAVY_GENERATION_IN_PROGRESS";
+// Mesmo teto do polling de conclusao: se o job pesado que esta segurando o
+// slot tambem estiver perto do proprio timeout (1800s no worker), nao faz
+// sentido esperar mais que isso por um slot livre.
+const HEAVY_GENERATION_WAIT_TIMEOUT_MS = 900000;
+const HEAVY_GENERATION_RETRY_INTERVAL_MS = 8000;
+const HEAVY_GENERATION_WAIT_MESSAGE =
+  "Sistema ocupado gerando outro documento com anexos grandes. Aguardando para iniciar automaticamente...";
+
 async function startExternalExportJobWithResponse(
   pgrId: string,
-  kind: ExternalExportKind
+  kind: ExternalExportKind,
+  onHeavyWaitChange?: (message: string | null) => void
 ) {
-  return apiPost<ExternalJobStartResponse>(
-    `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/start`,
-  );
+  const startedAt = Date.now();
+  for (;;) {
+    try {
+      const response = await apiPost<ExternalJobStartResponse>(
+        `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/start`,
+      );
+      onHeavyWaitChange?.(null);
+      return response;
+    } catch (error) {
+      const isHeavyGenerationBusy =
+        error instanceof ApiError && error.code === HEAVY_GENERATION_IN_PROGRESS_CODE;
+      const waitedTooLong = Date.now() - startedAt >= HEAVY_GENERATION_WAIT_TIMEOUT_MS;
+      if (!isHeavyGenerationBusy || waitedTooLong) {
+        onHeavyWaitChange?.(null);
+        throw error;
+      }
+      onHeavyWaitChange?.(HEAVY_GENERATION_WAIT_MESSAGE);
+      await sleep(HEAVY_GENERATION_RETRY_INTERVAL_MS);
+    }
+  }
 }
 
 async function startExternalExportJob(
   pgrId: string,
-  kind: ExternalExportKind
+  kind: ExternalExportKind,
+  onHeavyWaitChange?: (message: string | null) => void
 ): Promise<string> {
-  const data = await startExternalExportJobWithResponse(pgrId, kind);
+  const data = await startExternalExportJobWithResponse(pgrId, kind, onHeavyWaitChange);
   const jobId = extractJobId(data);
   if (!jobId) {
     throw new Error(`API não retornou job_id para ${kind.toUpperCase()}.`);
@@ -683,7 +711,11 @@ export function usePgrEtapaController({
       });
 
       const [pdfStartResponse, xlsxJobId] = await Promise.all([
-        startExternalExportJobWithResponse(params.id, "pdf"),
+        startExternalExportJobWithResponse(
+          params.id,
+          "pdf",
+          setters.setHeavyGenerationWaitMessage
+        ),
         startExternalExportJob(params.id, "xlsx"),
       ]);
       const pdfJobId = extractJobId(pdfStartResponse);
@@ -768,7 +800,11 @@ export function usePgrEtapaController({
       });
 
       const [pdfStartResponse, xlsxJobId] = await Promise.all([
-        startExternalExportJobWithResponse(params.id, "pdf"),
+        startExternalExportJobWithResponse(
+          params.id,
+          "pdf",
+          setters.setHeavyGenerationWaitMessage
+        ),
         startExternalExportJob(params.id, "xlsx"),
       ]);
       const pdfJobId = extractJobId(pdfStartResponse);
@@ -820,7 +856,8 @@ export function usePgrEtapaController({
       await persistStateNow(effectiveLayout);
       const pdfStartResponse = await startExternalExportJobWithResponse(
         params.id,
-        "pdf"
+        "pdf",
+        setters.setHeavyGenerationWaitMessage
       );
       const pdfJobId = extractJobId(pdfStartResponse);
       if (!pdfJobId) {
@@ -834,6 +871,7 @@ export function usePgrEtapaController({
       state.pdfLayout,
       persistStateNow,
       params.id,
+      setters,
     ]
   );
 
@@ -1382,6 +1420,7 @@ export function usePgrEtapaController({
       lastFakePdfAt: state.lastFakePdfAt,
       isGeneratingFakePdf: state.isGeneratingFakePdf,
       isFinalizingPgr: state.isFinalizingPgr,
+      heavyGenerationWaitMessage: state.heavyGenerationWaitMessage,
       attachmentsAreLarge,
       attachmentsTotalMb,
       stepStatusById: derived.stepStatusById,

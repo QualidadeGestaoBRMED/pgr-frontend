@@ -1,4 +1,14 @@
-import { Check, Eye, FileDown, Hourglass, LoaderCircle, Pencil, TriangleAlert, X } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Eye,
+  FileDown,
+  Hourglass,
+  LoaderCircle,
+  Pencil,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { PendingReviewTarget } from "../types";
@@ -19,6 +29,7 @@ type RevisaoStepProps = {
   lastFakePdfAt: string | null;
   isGeneratingFakePdf: boolean;
   isFinalizingPgr: boolean;
+  heavyGenerationWaitMessage: string | null;
   attachmentsAreLarge: boolean;
   attachmentsTotalMb: number;
   onEditStep: (stepId: string) => void;
@@ -40,6 +51,7 @@ export function RevisaoStep({
   lastFakePdfAt,
   isGeneratingFakePdf,
   isFinalizingPgr,
+  heavyGenerationWaitMessage,
   attachmentsAreLarge,
   attachmentsTotalMb,
   onEditStep,
@@ -258,6 +270,16 @@ export function RevisaoStep({
                 )}
               </button>
             </div>
+            {heavyGenerationWaitMessage ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-3 flex items-start gap-2 rounded-[12px] border border-sky-300 bg-sky-50 px-4 py-3 text-[13px] text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200"
+              >
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 animate-pulse" />
+                <span>{heavyGenerationWaitMessage}</span>
+              </div>
+            ) : null}
             {attachmentsAreLarge && (isGeneratingFakePdf || isFinalizingPgr) ? (
               <div
                 role="status"

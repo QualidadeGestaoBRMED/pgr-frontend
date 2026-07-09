@@ -84,6 +84,11 @@ export function usePgrEtapaState({
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isGeneratingFakePdf, setIsGeneratingFakePdf] = useState(false);
   const [isFinalizingPgr, setIsFinalizingPgr] = useState(false);
+  // Preenchido enquanto o backend recusa iniciar a geracao porque ja existe
+  // outro documento com anexos grandes sendo processado (HEAVY_GENERATION_IN_PROGRESS).
+  const [heavyGenerationWaitMessage, setHeavyGenerationWaitMessage] = useState<string | null>(
+    null
+  );
   const [lastFakePdfAt, setLastFakePdfAt] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState("");
@@ -215,6 +220,7 @@ export function usePgrEtapaState({
       isPreviewModalOpen,
       isGeneratingFakePdf,
       isFinalizingPgr,
+      heavyGenerationWaitMessage,
       lastFakePdfAt,
       searchTerm,
       estabelecimentoSelecionado,
@@ -272,6 +278,7 @@ export function usePgrEtapaState({
       setIsPreviewModalOpen,
       setIsGeneratingFakePdf,
       setIsFinalizingPgr,
+      setHeavyGenerationWaitMessage,
       setLastFakePdfAt,
       setSearchTerm,
       setEstabelecimentoSelecionado,
