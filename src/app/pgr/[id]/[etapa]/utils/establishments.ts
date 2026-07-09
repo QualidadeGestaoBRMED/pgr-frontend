@@ -76,31 +76,29 @@ export const normalizeEstablishments = (
 ): EstabelecimentoDraft[] => {
   const rawItems = (dados as DadosCadastraisDraft & { estabelecimentos?: unknown }).estabelecimentos;
   if (Array.isArray(rawItems)) {
-    const normalized = rawItems
-      .map((item, index) => {
-        const source = item as Partial<EstabelecimentoDraft>;
-        const legacy = fromLegacyFields({}, source.id || `estabelecimento-${index + 1}`);
-        return {
-          ...legacy,
-          ...source,
-          id: String(source.id || legacy.id),
-          tipo: String(source.tipo || fallbackTipo || ""),
-          nome: String(source.nome || ""),
-          cnpj: maskCnpj(String(source.cnpj || "")),
-          razaoSocial: String(source.razaoSocial || ""),
-          cnae: String(source.cnae || ""),
-          endereco: String(source.endereco || ""),
-          numero: String(source.numero || (index === 0 ? dados.estabelecimentoNumero || "" : "")),
-          bairro: String(source.bairro || ""),
-          cep: maskCep(String(source.cep || "")),
-          cidade: String(source.cidade || ""),
-          estado: String(source.estado || ""),
-          grauRisco: normalizeRiskGrade(String(source.grauRisco || "")),
-          atividadePrincipal: String(source.atividadePrincipal || ""),
-          camposAdicionais: normalizeAdditionalFields(source.camposAdicionais),
-        };
-      })
-      .filter((item) => !isBlankEstabelecimento(item));
+    const normalized = rawItems.map((item, index) => {
+      const source = item as Partial<EstabelecimentoDraft>;
+      const legacy = fromLegacyFields({}, source.id || `estabelecimento-${index + 1}`);
+      return {
+        ...legacy,
+        ...source,
+        id: String(source.id || legacy.id),
+        tipo: String(source.tipo || fallbackTipo || ""),
+        nome: String(source.nome || ""),
+        cnpj: maskCnpj(String(source.cnpj || "")),
+        razaoSocial: String(source.razaoSocial || ""),
+        cnae: String(source.cnae || ""),
+        endereco: String(source.endereco || ""),
+        numero: String(source.numero || (index === 0 ? dados.estabelecimentoNumero || "" : "")),
+        bairro: String(source.bairro || ""),
+        cep: maskCep(String(source.cep || "")),
+        cidade: String(source.cidade || ""),
+        estado: String(source.estado || ""),
+        grauRisco: normalizeRiskGrade(String(source.grauRisco || "")),
+        atividadePrincipal: String(source.atividadePrincipal || ""),
+        camposAdicionais: normalizeAdditionalFields(source.camposAdicionais),
+      };
+    });
 
     if (normalized.length) return normalized;
   }
