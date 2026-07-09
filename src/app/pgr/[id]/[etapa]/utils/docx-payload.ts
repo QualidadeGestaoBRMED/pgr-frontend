@@ -37,6 +37,31 @@ const normalizeExtraScope = (scope: unknown): ExtraFieldScope => {
 
 const _asText = (value: unknown) => String(value ?? "").trim();
 
+const activityCollator = new Intl.Collator("pt-BR", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+const normalizeActivitySortText = (value: unknown) =>
+  _asText(value).replace(/\s+/g, " ").trim();
+
+const compareActivityText = (first: unknown, second: unknown) => {
+  const firstText = normalizeActivitySortText(first);
+  const secondText = normalizeActivitySortText(second);
+  if (Boolean(firstText) !== Boolean(secondText)) return firstText ? -1 : 1;
+  return activityCollator.compare(firstText, secondText);
+};
+
+const compareActivityFunctions = (
+  first: Pick<BackendDescricaoFunction, "setor" | "funcao">,
+  second: Pick<BackendDescricaoFunction, "setor" | "funcao">
+) => {
+  const setorComparison = compareActivityText(first.setor, second.setor);
+  if (setorComparison !== 0) return setorComparison;
+
+  return compareActivityText(first.funcao, second.funcao);
+};
+
 const composeCityState = (city: unknown, state: unknown) => {
   const cityText = _asText(city);
   const stateText = _asText(state);
@@ -446,15 +471,17 @@ export function buildPgrDocxPayload(input: {
     processo: ghe.info.processo,
     observacoes: ghe.info.observacoes,
     ambiente: ghe.info.ambiente,
-    funcoes: ghe.items.map((item) => {
-      const fn = functionById.get(item.functionId);
-      return {
-        setor: fn?.setor || "",
-        funcao: fn?.funcao || "",
-        descricaoAtividades: fn?.descricao || "",
-        numeroFuncionarios: item.funcionarios || "",
-      };
-    }),
+    funcoes: ghe.items
+      .map((item) => {
+        const fn = functionById.get(item.functionId);
+        return {
+          setor: fn?.setor || "",
+          funcao: fn?.funcao || "",
+          descricaoAtividades: fn?.descricao || "",
+          numeroFuncionarios: item.funcionarios || "",
+        };
+      })
+      .sort(compareActivityFunctions),
   }));
 
   const duplicateRiskStructureInfoByGheId = buildDuplicateRiskStructureInfoByGheId(

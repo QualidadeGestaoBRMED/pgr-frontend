@@ -94,6 +94,46 @@ describe("docx payload mapping", () => {
     expect(payload.anexos.diretriz).toBe("Diretriz custom");
   });
 
+  it("orders activity descriptions by setor and funcao", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        functions: [
+          { id: "fn-1", setor: "Administração", funcao: "Auxiliar 10", descricao: "Apoia" },
+          { id: "fn-2", setor: "Administração", funcao: "Auxiliar 2", descricao: "Apoia" },
+          { id: "fn-3", setor: "Administração", funcao: "Auxiliar 1", descricao: "Apoia" },
+          { id: "fn-4", setor: "Administração", funcao: "Auxiliar 3", descricao: "Apoia" },
+          { id: "fn-5", setor: "Operacional", funcao: "Soldador", descricao: "Solda" },
+        ],
+        gheGroups: [
+          {
+            id: "ghe-1",
+            name: "GHE 1",
+            info: { processo: "", observacoes: "", ambiente: "" },
+            items: [
+              { functionId: "fn-1", funcionarios: "10" },
+              { functionId: "fn-5", funcionarios: "5" },
+              { functionId: "fn-2", funcionarios: "2" },
+              { functionId: "fn-4", funcionarios: "3" },
+              { functionId: "fn-3", funcionarios: "1" },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(payload.descricao.ghes[0]?.funcoes.map((item) => item.funcao)).toEqual([
+      "Auxiliar 1",
+      "Auxiliar 2",
+      "Auxiliar 3",
+      "Auxiliar 10",
+      "Soldador",
+    ]);
+  });
+
+
   it("uses plan-specific prevention measures without changing inventory measures", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1309722312",
