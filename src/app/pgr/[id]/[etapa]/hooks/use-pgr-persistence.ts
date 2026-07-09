@@ -267,10 +267,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     riskGheGroups: RiskGheGroup[];
     removedPlanRiskKeys: string[];
     planGeneralMeasures: PlanGeneralMeasureRow[];
+    anexoDiretrizTemplateId: number | null;
   }>({
     riskGheGroups,
     removedPlanRiskKeys,
     planGeneralMeasures,
+    anexoDiretrizTemplateId,
   });
 
   const buildRuntimeCacheState = ({
@@ -867,6 +869,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         riskGheGroups,
         removedPlanRiskKeys,
         planGeneralMeasures,
+        anexoDiretrizTemplateId,
       };
       return;
     }
@@ -877,6 +880,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         riskGheGroups,
         removedPlanRiskKeys,
         planGeneralMeasures,
+        anexoDiretrizTemplateId,
       };
       return;
     }
@@ -927,12 +931,16 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     const shouldPersistImmediately =
       prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups ||
       prevImmediatePersistRefs.current.removedPlanRiskKeys !== removedPlanRiskKeys ||
-      prevImmediatePersistRefs.current.planGeneralMeasures !== planGeneralMeasures;
+      prevImmediatePersistRefs.current.planGeneralMeasures !== planGeneralMeasures ||
+      // Seleção da diretriz (template DOCX) persiste imediatamente: o valor
+      // define qual template a geração usa e não pode depender do debounce.
+      prevImmediatePersistRefs.current.anexoDiretrizTemplateId !== anexoDiretrizTemplateId;
 
     prevImmediatePersistRefs.current = {
       riskGheGroups,
       removedPlanRiskKeys,
       planGeneralMeasures,
+      anexoDiretrizTemplateId,
     };
 
     if (shouldPersistImmediately) {
