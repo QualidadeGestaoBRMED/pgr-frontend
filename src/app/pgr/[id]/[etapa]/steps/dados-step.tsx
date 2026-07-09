@@ -73,6 +73,14 @@ type DadosStepProps = {
   onAddEstablishment: () => void;
   onDuplicateEstablishment: (establishmentIndex: number) => void;
   onRemoveEstablishment: (establishmentIndex: number) => void;
+  onAddEstablishmentExtraField: (establishmentIndex: number) => void;
+  onEstablishmentExtraFieldChange: (
+    establishmentIndex: number,
+    fieldId: string,
+    field: "title" | "value",
+    value: string
+  ) => void;
+  onRemoveEstablishmentExtraField: (establishmentIndex: number, fieldId: string) => void;
   contractors: ContratanteDraft[];
   onContractorChange: (
     contractorIndex: number,
@@ -127,6 +135,9 @@ export function DadosStep({
   onAddEstablishment,
   onDuplicateEstablishment,
   onRemoveEstablishment,
+  onAddEstablishmentExtraField,
+  onEstablishmentExtraFieldChange,
+  onRemoveEstablishmentExtraField,
   contractors,
   onContractorChange,
   onContractorCepBlur,
@@ -621,9 +632,6 @@ export function DadosStep({
       : inputBaseClass;
 
   const empresaExtraFields = extraFields.filter((field) => field.scope === "empresa");
-  const estabelecimentoExtraFields = extraFields.filter(
-    (field) => field.scope === "estabelecimento"
-  );
   const quantitativoExtraFields = extraFields.filter(
     (field) => field.scope === "quantitativo"
   );
@@ -1300,24 +1308,31 @@ export function DadosStep({
                     />
                   </div>
                 </div>
+
+                {renderExtraFields(establishment.camposAdicionais, {
+                  onChange: (fieldId, field, value) =>
+                    onEstablishmentExtraFieldChange(
+                      establishmentIndex,
+                      fieldId,
+                      field,
+                      value
+                    ),
+                  onRemove: (fieldId) =>
+                    onRemoveEstablishmentExtraField(establishmentIndex, fieldId),
+                })}
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onAddEstablishmentExtraField(establishmentIndex)}
+                    className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
+                  >
+                    Adicionar Campo
+                  </button>
+                </div>
               </div>
             );
           })}
-        </div>
-
-        {renderExtraFields(estabelecimentoExtraFields, {
-          onChange: onExtraFieldChange,
-          onRemove: onRemoveExtraField,
-        })}
-
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={() => onAddExtraField("estabelecimento")}
-            className="btn-outline rounded-[10px] px-4 py-2 text-[14px]"
-          >
-            Adicionar Campo
-          </button>
         </div>
       </section>
 

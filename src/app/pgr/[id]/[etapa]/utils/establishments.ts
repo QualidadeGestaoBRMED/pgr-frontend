@@ -1,5 +1,6 @@
 import type { DadosCadastraisDraft, EstabelecimentoDraft } from "../steps/types";
 import { maskCep, maskCnpj, normalizeRiskGrade } from "../validation/br-field-utils";
+import { normalizeAdditionalFields } from "./contractors";
 
 let estabelecimentoIdSequence = 0;
 
@@ -23,6 +24,7 @@ export const createEmptyEstabelecimento = (): EstabelecimentoDraft => ({
   estado: "",
   grauRisco: "",
   atividadePrincipal: "",
+  camposAdicionais: [],
 });
 
 const isBlankEstabelecimento = (
@@ -61,6 +63,11 @@ const fromLegacyFields = (
   estado: String(dados.estabelecimentoEstado || ""),
   grauRisco: normalizeRiskGrade(String(dados.estabelecimentoGrauRisco || "")),
   atividadePrincipal: String(dados.estabelecimentoAtividadePrincipal || ""),
+  camposAdicionais: normalizeAdditionalFields(
+    (dados as DadosCadastraisDraft & {
+      estabelecimentoCamposAdicionais?: unknown;
+    }).estabelecimentoCamposAdicionais
+  ),
 });
 
 export const normalizeEstablishments = (
@@ -90,6 +97,7 @@ export const normalizeEstablishments = (
           estado: String(source.estado || ""),
           grauRisco: normalizeRiskGrade(String(source.grauRisco || "")),
           atividadePrincipal: String(source.atividadePrincipal || ""),
+          camposAdicionais: normalizeAdditionalFields(source.camposAdicionais),
         };
       })
       .filter((item) => !isBlankEstabelecimento(item));

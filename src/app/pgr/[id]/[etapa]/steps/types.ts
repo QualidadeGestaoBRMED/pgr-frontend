@@ -33,6 +33,7 @@ export type EstabelecimentoDraft = {
   estado: string;
   grauRisco: string;
   atividadePrincipal: string;
+  camposAdicionais: CampoAdicionalDraft[];
 };
 
 export type ContratanteDraft = {

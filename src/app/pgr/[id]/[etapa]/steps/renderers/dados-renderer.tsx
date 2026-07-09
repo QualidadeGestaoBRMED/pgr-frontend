@@ -31,6 +31,9 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     onAddEstablishment={ctx.generalActions.handleAddEstablishment}
     onDuplicateEstablishment={ctx.generalActions.handleDuplicateEstablishment}
     onRemoveEstablishment={ctx.generalActions.handleRemoveEstablishment}
+    onAddEstablishmentExtraField={ctx.generalActions.handleAddEstablishmentExtraField}
+    onEstablishmentExtraFieldChange={ctx.generalActions.handleEstablishmentExtraFieldChange}
+    onRemoveEstablishmentExtraField={ctx.generalActions.handleRemoveEstablishmentExtraField}
     contractors={ctx.dadosCadastrais.contratantes}
     onContractorChange={ctx.generalActions.handleContractorChange}
     onContractorCepBlur={(index, value) =>

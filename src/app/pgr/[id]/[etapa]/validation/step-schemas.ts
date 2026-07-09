@@ -124,6 +124,11 @@ const estabelecimentoSchema: z.ZodType<EstabelecimentoDraft> = z.object({
   estado: z.string().trim(),
   grauRisco: optionalRiskGradeField("Grau de risco do estabelecimento"),
   atividadePrincipal: z.string().trim(),
+  camposAdicionais: z.array(z.object({
+    id: z.string().trim(),
+    title: z.string().trim(),
+    value: z.string().trim(),
+  })),
 });
 
 export const dadosCadastraisSchema = z.object({

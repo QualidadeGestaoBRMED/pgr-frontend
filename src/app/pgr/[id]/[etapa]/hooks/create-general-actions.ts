@@ -728,6 +728,91 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     });
   };
 
+  const handleAddEstablishmentExtraField = (establishmentIndex: number) => {
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      const safeIndex = Math.max(0, Math.min(establishmentIndex, establishments.length - 1));
+      const nextEstablishments = establishments.map((establishment, index) =>
+        index === safeIndex
+          ? {
+              ...establishment,
+              camposAdicionais: [
+                ...normalizeAdditionalFields(establishment.camposAdicionais),
+                {
+                  id: `estabelecimento-field-${Date.now()}-${index + 1}`,
+                  title: "",
+                  value: "",
+                },
+              ],
+            }
+          : establishment
+      );
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: nextEstablishments,
+        } as DadosCadastraisDraft,
+        nextEstablishments[0]?.tipo || ""
+      );
+    });
+  };
+
+  const handleEstablishmentExtraFieldChange = (
+    establishmentIndex: number,
+    fieldId: string,
+    field: "title" | "value",
+    value: string
+  ) => {
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      const safeIndex = Math.max(0, Math.min(establishmentIndex, establishments.length - 1));
+      const nextEstablishments = establishments.map((establishment, index) =>
+        index === safeIndex
+          ? {
+              ...establishment,
+              camposAdicionais: normalizeAdditionalFields(establishment.camposAdicionais).map(
+                (item) => (item.id === fieldId ? { ...item, [field]: value } : item)
+              ),
+            }
+          : establishment
+      );
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: nextEstablishments,
+        } as DadosCadastraisDraft,
+        nextEstablishments[0]?.tipo || ""
+      );
+    });
+  };
+
+  const handleRemoveEstablishmentExtraField = (
+    establishmentIndex: number,
+    fieldId: string
+  ) => {
+    setDadosCadastrais((prev) => {
+      const establishments = normalizeEstablishments(prev, "");
+      const safeIndex = Math.max(0, Math.min(establishmentIndex, establishments.length - 1));
+      const nextEstablishments = establishments.map((establishment, index) =>
+        index === safeIndex
+          ? {
+              ...establishment,
+              camposAdicionais: normalizeAdditionalFields(establishment.camposAdicionais).filter(
+                (item) => item.id !== fieldId
+              ),
+            }
+          : establishment
+      );
+      return syncLegacyDados(
+        {
+          ...prev,
+          estabelecimentos: nextEstablishments,
+        } as DadosCadastraisDraft,
+        nextEstablishments[0]?.tipo || ""
+      );
+    });
+  };
+
   const handleTechnicalCoordinatorChange = (
     coordinatorIndex: number,
     field: keyof Omit<
@@ -1857,6 +1942,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleAddEstablishment,
     handleDuplicateEstablishment,
     handleRemoveEstablishment,
+    handleAddEstablishmentExtraField,
+    handleEstablishmentExtraFieldChange,
+    handleRemoveEstablishmentExtraField,
     handleContractorChange,
     handleAddContractorExtraField,
     handleContractorExtraFieldChange,
