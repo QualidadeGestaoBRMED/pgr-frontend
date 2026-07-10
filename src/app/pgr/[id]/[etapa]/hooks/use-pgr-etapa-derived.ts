@@ -796,11 +796,9 @@ export function usePgrEtapaDerived({
         technicalCoordinator.email.trim() && !isValidEmail(technicalCoordinator.email)
           ? "Responsável técnico: E-mail inválido."
           : "",
-        !technicalCoordinator.cpf.trim()
-          ? "Responsável técnico: CPF é obrigatório."
-          : isValidCpf(technicalCoordinator.cpf)
-            ? ""
-            : "Responsável técnico: CPF inválido.",
+        technicalCoordinator.cpf.trim() && !isValidCpf(technicalCoordinator.cpf)
+          ? "Responsável técnico: CPF inválido."
+          : "",
       ].filter(Boolean);
       coordinatorIssues.forEach((message) => {
         const normalized = normalizeText(message);

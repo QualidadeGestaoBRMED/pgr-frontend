@@ -482,21 +482,15 @@ export function DadosStep({
       map[coordinatorKey] = {
         nome: coordinator.nome.trim() ? "" : "Nome é obrigatório.",
         funcao: coordinator.funcao.trim() ? "" : "Função é obrigatória.",
-        telefone: !coordinator.telefone.trim()
-          ? "Telefone é obrigatório."
-          : isValidPhoneBr(coordinator.telefone)
-            ? ""
-            : "Telefone inválido.",
-        email: !coordinator.email.trim()
-          ? "E-mail é obrigatório."
-          : isValidEmail(coordinator.email)
-            ? ""
-            : "E-mail inválido.",
-        cpf: !coordinator.cpf.trim()
-          ? "CPF é obrigatório."
-          : isValidCpf(coordinator.cpf)
-            ? ""
-            : "CPF inválido.",
+        telefone: coordinator.telefone.trim() && !isValidPhoneBr(coordinator.telefone)
+          ? "Telefone inválido."
+          : "",
+        email: coordinator.email.trim() && !isValidEmail(coordinator.email)
+          ? "E-mail inválido."
+          : "",
+        cpf: coordinator.cpf.trim() && !isValidCpf(coordinator.cpf)
+          ? "CPF inválido."
+          : "",
       };
     });
     return map;
@@ -1789,7 +1783,7 @@ export function DadosStep({
         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_0.9fr]">
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Telefone *:
+              Telefone:
             </label>
             <input
               className={getDisabledFieldClassName(
@@ -1808,7 +1802,7 @@ export function DadosStep({
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Email *:
+              Email:
             </label>
             <input
               className={getDisabledFieldClassName(
@@ -1827,7 +1821,7 @@ export function DadosStep({
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              CPF *:
+              CPF:
             </label>
             <input
               className={getDisabledFieldClassName(
