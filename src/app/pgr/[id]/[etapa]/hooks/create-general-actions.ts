@@ -1662,14 +1662,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const maskDate = maskVigenciaInterval;
   const completeVigencia = completeVigenciaInterval;
 
-  const extractHistoricoNumericCode = (value: string) => {
-    const match = String(value || "").match(/(\d{1,4})/);
-    if (!match) return Number.MAX_SAFE_INTEGER;
-    const parsed = Number(match[1]);
-    if (!Number.isFinite(parsed) || parsed < 0) return Number.MAX_SAFE_INTEGER;
-    return parsed;
-  };
-
   const toDateInputValue = (value: string) => {
     const safe = String(value || "").trim();
     if (!safe) return "";
@@ -1692,23 +1684,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     return `${dd}/${mm}/${yyyy}`;
   };
 
-  const resolveCurrentRevisionEmissionDate = () => {
-    const changes = Array.isArray(historicoData?.changes) ? historicoData.changes : [];
-    if (!changes.length) return "";
-    const sorted = [...changes].sort((a, b) => {
-      const analysisA = extractHistoricoNumericCode(a.analysis);
-      const analysisB = extractHistoricoNumericCode(b.analysis);
-      if (analysisA !== analysisB) return analysisA - analysisB;
-
-      const changeA = extractHistoricoNumericCode(a.change);
-      const changeB = extractHistoricoNumericCode(b.change);
-      if (changeA !== changeB) return changeA - changeB;
-
-      return String(a.id).localeCompare(String(b.id));
-    });
-    return toDateBrValue(String(sorted[sorted.length - 1]?.date || ""));
-  };
-
   const handleAnexoFiles = (anexoId: string, files: FileList | null) => {
     if (!files?.length) return;
     const allowed = [".pdf", ".png", ".jpeg", ".jpg"];
@@ -1716,16 +1691,12 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       allowed.some((ext) => file.name.toLowerCase().endsWith(ext))
     );
     if (!selectedFiles.length) return;
-    const currentRevisionDate = resolveCurrentRevisionEmissionDate();
 
     void Promise.all(
       selectedFiles.map(async (file) => {
         const formData = new FormData();
         formData.append("anexoId", anexoId);
         formData.append("file", file);
-        if (currentRevisionDate) {
-          formData.append("revisionDate", currentRevisionDate);
-        }
 
         // Roteia o upload pela MESMA fila dos saves: serializa com o autosave
         // (senão o upload comita em paralelo a um autosave em voo → 409 falso)
@@ -1753,7 +1724,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           name: response.file.name,
           orientation: "auto",
           date:
-            currentRevisionDate ||
             toDateBrValue(response.file.date || "") ||
             toDateBrValue(response.file.uploadedAt || "") ||
             "",
