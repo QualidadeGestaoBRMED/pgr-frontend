@@ -212,7 +212,7 @@ export function RevisaoStep({
               <p className="text-[12px] text-muted-foreground">
                 {workflow.isLocked
                   ? "Documento finalizado. Para editar novamente, inicie uma nova versão no Histórico."
-                  : "Gere os arquivos finais (PDF, DOCX e XLSX) no template base do PGR."}
+                  : "Gere os arquivos finais (PDF, DOCX e XLSX) no modelo base do PGR."}
               </p>
               {lastFakePdfAt ? (
                 <p className="mt-1 text-[12px] text-muted-foreground">

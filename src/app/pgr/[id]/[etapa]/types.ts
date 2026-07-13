@@ -166,7 +166,6 @@ export type PgrDocxTemplateOption = {
   name: string;
   description?: string;
   nrCode: string;
-  validationProfile?: string;
   companyId?: number | null;
   companyName?: string;
   baseTemplateId?: number | null;

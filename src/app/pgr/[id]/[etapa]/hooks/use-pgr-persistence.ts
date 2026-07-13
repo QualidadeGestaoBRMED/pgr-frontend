@@ -623,7 +623,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                 name: String(item?.name || "").trim(),
                 description: String(item?.description || "").trim(),
                 nrCode: String(item?.nrCode || "").trim(),
-                validationProfile: String(item?.validationProfile || "").trim(),
                 companyId:
                   typeof item?.companyId === "number"
                     ? item.companyId
@@ -932,7 +931,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups ||
       prevImmediatePersistRefs.current.removedPlanRiskKeys !== removedPlanRiskKeys ||
       prevImmediatePersistRefs.current.planGeneralMeasures !== planGeneralMeasures ||
-      // Seleção da diretriz (template DOCX) persiste imediatamente: o valor
+      // Seleção do modelo DOCX persiste imediatamente: o valor
       // define qual template a geração usa e não pode depender do debounce.
       prevImmediatePersistRefs.current.anexoDiretrizTemplateId !== anexoDiretrizTemplateId;
 

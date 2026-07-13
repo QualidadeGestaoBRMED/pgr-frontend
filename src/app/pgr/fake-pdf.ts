@@ -86,7 +86,7 @@ export function buildFakePgrPreviewLines(input: FakePgrPdfInput) {
     `GHEs cadastrados: ${input.gheCount}`,
     `Riscos cadastrados: ${input.riskCount}`,
     `Total de anexos: ${input.anexoCount}`,
-    `Diretriz de PDF: ${input.diretriz || "-"}`,
+    `Modelo de PDF: ${input.diretriz || "-"}`,
     `NR principal: ${input.nr || "-"}`,
     `Vigencia: ${input.vigencia || "-"}`,
     "",

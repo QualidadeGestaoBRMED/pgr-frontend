@@ -126,7 +126,7 @@ export function AnexosStep({ctx}: AnexosStepProps) {
                 <div className="grid gap-4 md:grid-cols-[1.2fr_1.4fr]">
                     <div>
                         <label className="text-[12px] font-semibold text-muted-foreground">
-                            Diretriz para geração de PDF
+                            Modelo para geração de PDF
                         </label>
                         <div className="mt-2">
                             <SearchableSelect
@@ -144,7 +144,7 @@ export function AnexosStep({ctx}: AnexosStepProps) {
                                     value: option.value,
                                 }))}
                                 buttonClassName={selectBaseClass}
-                                searchPlaceholder="Filtrar diretriz"
+                                searchPlaceholder="Filtrar modelo"
                             />
                         </div>
                     </div>
