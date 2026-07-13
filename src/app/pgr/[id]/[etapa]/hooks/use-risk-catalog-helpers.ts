@@ -532,6 +532,18 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveRiskAgentId, technicalCriteriaByAgent]
   );
 
+  const resolveExactTechnicalCriteriaOptions = useCallback(
+    (tipoAgente: string, descricaoAgente: string) => {
+      const agentId = resolveRiskAgentId(tipoAgente);
+      const descriptionToken = normalizeCatalogToken(String(descricaoAgente || "").trim());
+      if (!agentId || !descriptionToken) return [];
+      return (technicalCriteriaByAgent.get(agentId) || []).filter(
+        (item) => item.descriptionToken === descriptionToken
+      );
+    },
+    [resolveRiskAgentId, technicalCriteriaByAgent]
+  );
+
   const getRiskDefaults = useCallback(
     (risk: GheRisk): Partial<GheRisk> => {
       const agentId = resolveRiskAgentId(risk.tipoAgente);
@@ -724,6 +736,14 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     [resolveTechnicalCriteriaOptions]
   );
 
+  const getHasExactQuantitativeCriteria = useCallback(
+    (tipoAgente: string, descricaoAgente: string) =>
+      resolveExactTechnicalCriteriaOptions(tipoAgente, descricaoAgente).some(
+        (item) => item.hasQuantitative
+      ),
+    [resolveExactTechnicalCriteriaOptions]
+  );
+
   const getHasQuantitativeCriteria = useCallback(
     (tipoAgente: string, descricaoAgente: string) =>
       resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).some(
@@ -868,6 +888,7 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
     getFontesOptions,
     getDanosSaudeOptions,
     getTipoAvaliacaoOptions,
+    getHasExactQuantitativeCriteria,
     getUnidadeMedidaOptions,
     getIntensidadeOptions,
     getIsCalculatedCriteria,

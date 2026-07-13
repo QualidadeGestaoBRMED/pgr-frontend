@@ -1400,6 +1400,7 @@ export function usePgrEtapaController({
       getFontesOptions: derived.getFontesOptions,
       getDanosSaudeOptions: derived.getDanosSaudeOptions,
       getTipoAvaliacaoOptions: derived.getTipoAvaliacaoOptions,
+      getHasExactQuantitativeCriteria: derived.getHasExactQuantitativeCriteria,
       getUnidadeMedidaOptions: derived.getUnidadeMedidaOptions,
       getIntensidadeOptions: derived.getIntensidadeOptions,
       getIsCalculatedCriteria: derived.getIsCalculatedCriteria,

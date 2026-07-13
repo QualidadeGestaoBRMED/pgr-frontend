@@ -197,40 +197,18 @@ const parseCommaSeparatedValues = (
   return [rawValue];
 };
 
-const isAwaitingQuantitativeEvaluationAllowed = (
-  tipoAgente: string,
-  descricaoAgente: string
-) => {
-  const normalizedTipoAgente = normalizeText(String(tipoAgente || ""));
-  const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || ""));
-  const awaitingQuantitativeDescriptions = [
-    "silica livre (silica livre cristalizada) - poeira respiravel",
-    "silica livre (silica livre cristalizada) - poeira total",
-  ];
+const AWAITING_QUANTITATIVE_EVALUATION_VALUE = "Aguardando Avaliação Quantitativa";
+const NOT_APPLICABLE_VALUE = "N/A";
 
-  if (normalizedTipoAgente.includes("fisic") && normalizedDescricaoAgente === "calor") {
-    return true;
-  }
-
-  if (!normalizedTipoAgente.includes("quimic")) {
-    return false;
-  }
-
-  return awaitingQuantitativeDescriptions.includes(normalizedDescricaoAgente);
-};
-
-const getQualitativeMeasuredValueFallback = (
-  tipoAgente: string,
-  descricaoAgente: string
-) =>
-  isAwaitingQuantitativeEvaluationAllowed(tipoAgente, descricaoAgente)
-    ? "Aguardando Avaliação Quantitativa"
-    : "N/A";
+const getQualitativeMeasuredValueFallback = (hasQualitativeAndQuantitativeOptions: boolean) =>
+  hasQualitativeAndQuantitativeOptions
+    ? AWAITING_QUANTITATIVE_EVALUATION_VALUE
+    : NOT_APPLICABLE_VALUE;
 
 const sanitizeRiskMeasurementFields = (
   risk: GheRisk,
   measuredUnits: string[],
-  hasQuantitativeCriteria = false
+  hasQualitativeAndQuantitativeOptions = false
 ) => {
   const sanitizedValorMedido = stripTrailingMeasuredUnits(
     String(risk.valorMedido || ""),
@@ -246,7 +224,7 @@ const sanitizeRiskMeasurementFields = (
   return {
     ...risk,
     valorMedido: isQualitativeEvaluation
-      ? getQualitativeMeasuredValueFallback(risk.tipoAgente, risk.descricaoAgente)
+      ? getQualitativeMeasuredValueFallback(hasQualitativeAndQuantitativeOptions)
       : isQuantitativeEvaluation
         ? isNaValue(sanitizedValorMedido)
           ? ""
@@ -333,6 +311,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     getFontesOptions,
     getDanosSaudeOptions,
     getTipoAvaliacaoOptions,
+    getHasExactQuantitativeCriteria,
     getUnidadeMedidaOptions,
     getHasQuantitativeCriteria,
     getIsCalculatedCriteria,
@@ -381,6 +360,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const formGroupClass = "flex min-w-0 self-start flex-col gap-2";
   const stackedInputClass = inputBaseClass.replace("mt-2 ", "");
   const getPersistedFonteKey = (riskId: string) => `risk-fontes:${riskId}`;
+
+  const hasQualitativeAndQuantitativeOptionsForRisk = (
+    tipoAgente: string,
+    descricaoAgente: string
+  ) => getHasExactQuantitativeCriteria(tipoAgente, descricaoAgente);
 
   useEffect(() => {
     setPersistedOptionsByRowId((prev) => {
@@ -1134,7 +1118,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             sanitizeRiskMeasurementFields(
                               nextRisk,
                               parseCommaSeparatedValues(risk.unidadeMedida),
-                              getHasQuantitativeCriteria(
+                              hasQualitativeAndQuantitativeOptionsForRisk(
                                 nextRisk.tipoAgente,
                                 nextRisk.descricaoAgente
                               )
@@ -1154,7 +1138,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 unidadeMedida: value,
                               },
                               [...previousMeasuredUnits, ...nextMeasuredUnits],
-                              getHasQuantitativeCriteria(risk.tipoAgente, risk.descricaoAgente)
+                              hasQualitativeAndQuantitativeOptionsForRisk(
+                                risk.tipoAgente,
+                                risk.descricaoAgente
+                              )
                             )
                           );
                         }
@@ -1230,7 +1217,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             descricaoAgente: nextRisk.descricaoAgente,
                           },
                           parseCommaSeparatedValues(defaultedRisk.unidadeMedida),
-                          getHasQuantitativeCriteria(
+                          hasQualitativeAndQuantitativeOptionsForRisk(
                             nextRisk.tipoAgente,
                             nextRisk.descricaoAgente
                           )
@@ -1281,7 +1268,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               return sanitizeRiskMeasurementFields(
                 { ...risk, unidadeMedida: nextValue },
                 [...current, ...next],
-                getHasQuantitativeCriteria(risk.tipoAgente, risk.descricaoAgente)
+                hasQualitativeAndQuantitativeOptionsForRisk(
+                  risk.tipoAgente,
+                  risk.descricaoAgente
+                )
               );
             }
             return { ...risk, [field]: nextValue };
@@ -1360,7 +1350,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     return sanitizeRiskMeasurementFields(
       clonedRisk,
       parseMultiTextValues(clonedRisk.unidadeMedida || "", unidadeMedidaOptions),
-      getHasQuantitativeCriteria(clonedRisk.tipoAgente, clonedRisk.descricaoAgente)
+      hasQualitativeAndQuantitativeOptionsForRisk(
+        clonedRisk.tipoAgente,
+        clonedRisk.descricaoAgente
+      )
     );
   };
 
@@ -1406,7 +1399,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
           const sanitizedRisk = sanitizeRiskMeasurementFields(
             risk,
             parseCommaSeparatedValues(risk.unidadeMedida),
-            getHasQuantitativeCriteria(risk.tipoAgente, risk.descricaoAgente)
+            hasQualitativeAndQuantitativeOptionsForRisk(
+              risk.tipoAgente,
+              risk.descricaoAgente
+            )
           );
           if (
             sanitizedRisk.valorMedido !== String(risk.valorMedido || "") ||
@@ -1591,7 +1587,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               risk.tipoAgente,
               risk.descricaoAgente
             );
-            const canAwaitQuantitativeEvaluation = isAwaitingQuantitativeEvaluationAllowed(
+            const canAwaitQuantitativeEvaluation = hasQualitativeAndQuantitativeOptionsForRisk(
               risk.tipoAgente,
               risk.descricaoAgente
             );
@@ -1645,8 +1641,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             const isMeasuredValueMissing =
               isQuantitativeEvaluation && !String(normalizedValorMedido || "").trim();
             const qualitativeMeasuredValueLabel = getQualitativeMeasuredValueFallback(
-              risk.tipoAgente,
-              risk.descricaoAgente
+              canAwaitQuantitativeEvaluation
             );
             const sanitizeOptionValues = (options: string[]) =>
               Array.from(

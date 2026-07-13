@@ -18,6 +18,7 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   getFontesOptions: ctx.getFontesOptions,
   getDanosSaudeOptions: ctx.getDanosSaudeOptions,
   getTipoAvaliacaoOptions: ctx.getTipoAvaliacaoOptions,
+  getHasExactQuantitativeCriteria: ctx.getHasExactQuantitativeCriteria,
   getUnidadeMedidaOptions: ctx.getUnidadeMedidaOptions,
   getIntensidadeOptions: ctx.getIntensidadeOptions,
   getIsCalculatedCriteria: ctx.getIsCalculatedCriteria,
