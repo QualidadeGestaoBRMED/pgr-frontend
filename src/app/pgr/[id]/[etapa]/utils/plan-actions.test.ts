@@ -65,6 +65,17 @@ describe("plan action helpers", () => {
         expect(calculateAffectedWorkersRange(0.7501)).toBe(5);
     });
 
+    it("classifies range 3 even when the 50% ratio arrives as an imprecise float", () => {
+        // Reproduz workersByGheId/totalWorkersAllGhes: soma sucessiva (reduce)
+        // de funcionarios por funcao, que pode nao fechar em 15/30 = 0.5 exato.
+        const gheWorkers = [1.1, 1.6000000000000005, 12.3].reduce((a, b) => a + b, 0);
+        const otherGheWorkers = [1, 1, 13].reduce((a, b) => a + b, 0);
+        const totalWorkers = gheWorkers + otherGheWorkers;
+        const ratio = gheWorkers / totalWorkers;
+        expect(ratio).not.toBe(0.5);
+        expect(calculateAffectedWorkersRange(ratio)).toBe(3);
+    });
+
     it("creates an independent general plan row for selected GHEs", () => {
         const row = buildPlanActionGeneralMeasureRow({
             description: "Instalar ventilacao local exaustora",

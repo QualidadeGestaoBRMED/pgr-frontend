@@ -121,7 +121,7 @@ type PlanoStepProps = {
 export function PlanoStep({ctx}: PlanoStepProps) {
     const nrTemplateMapping: Record<string, string> = {
         "NR-01": "NR-01",
-        "NR-18": "NR-01",
+        "NR-18": "NR-18",
         "NR-29": "NR-01",
         "NR-30": "NR-30",
     };

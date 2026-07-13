@@ -110,7 +110,10 @@ export const calculateAffectedWorkersRange = (
         return null;
     }
 
-    const ratio = Math.max(0, Math.min(1, affectedWorkersRatio));
+    const clamped = Math.max(0, Math.min(1, affectedWorkersRatio));
+    // Arredonda antes de comparar: somas sucessivas de funcionarios (float)
+    // podem produzir 0.49999999999999994 em vez de 0.5 exato.
+    const ratio = Math.round(clamped * 1e6) / 1e6;
     if (ratio <= 0.1) return 1;
     if (ratio < 0.5) return 2;
     if (ratio === 0.5) return 3;

@@ -491,7 +491,11 @@ export function usePgrEtapaDerived({
                   })
                 : null;
             const planActionPriority = calculatePlanActionPriority(
-              riskCalculated?.classification || risk.classificacao,
+              // Usa a mesma classificação persistida exibida na coluna
+              // "Classificação" — recalcular contra a matriz ativa aqui
+              // pode dessincronizar Prioridade e Classificação quando o
+              // template de matriz muda após o risco já ter sido salvo.
+              risk.classificacao || riskCalculated?.classification,
               affectedWorkersRange || exposureValue
             );
 
@@ -507,8 +511,8 @@ export function usePgrEtapaDerived({
                 planActionPriority ||
                 normalizePriorityText(
                   actionPlanCalculated?.classification ||
-                  riskCalculated?.classification ||
-                  risk.classificacao
+                  risk.classificacao ||
+                  riskCalculated?.classification
                 ),
               classificacao: toDisplayText(risk.classificacao),
               exposureValue,
