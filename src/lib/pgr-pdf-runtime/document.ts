@@ -1433,10 +1433,11 @@ function buildNarrativeCoreAndAnnexIndex(
             const artTitle = orderedArtNames.length
               ? `ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA (${orderedArtNames.join(" | ")})`
               : "ART – ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA";
+            const artDate = artItems.map((item) => item.data).find(Boolean) || "";
             rows.push([
               bodyCell(String.fromCharCode(nextCharCode)),
               bodyCell(artTitle),
-              bodyCell(snapshot.meta.generatedDate),
+              bodyCell(artDate || snapshot.meta.generatedDate),
             ]);
             nextCharCode += 1;
           }
@@ -1446,7 +1447,7 @@ function buildNarrativeCoreAndAnnexIndex(
             rows.push([
               bodyCell(String.fromCharCode(nextCharCode)),
               bodyCell(displayTitle),
-              bodyCell(snapshot.meta.generatedDate),
+              bodyCell(item.data || snapshot.meta.generatedDate),
             ]);
             nextCharCode += 1;
           });

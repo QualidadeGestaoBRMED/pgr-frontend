@@ -419,6 +419,7 @@ export type PgrDocxPayload = {
       arquivos: Array<{
         id: string;
         nome: string;
+        data?: string;
         orientation?: "auto" | "portrait" | "landscape";
         url?: string;
       }>;
@@ -759,6 +760,7 @@ export function buildPgrDocxPayload(input: {
         arquivos: anexo.files.map((file) => ({
           id: file.id,
           nome: file.name,
+          data: file.date || "",
           orientation: file.orientation ?? "auto",
           url: file.url,
         })),

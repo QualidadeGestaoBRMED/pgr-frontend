@@ -106,14 +106,17 @@ export type RuntimeSnapshot = {
     hasArtAnexo: boolean;
     artItems: Array<{
       titulo: string;
+      data: string;
       arquivos: string[];
     }>;
     otherItems: Array<{
       titulo: string;
+      data: string;
       arquivos: string[];
     }>;
     items: Array<{
       titulo: string;
+      data: string;
       arquivos: string[];
     }>;
   };
@@ -538,14 +541,26 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
   const anexoItems = Array.isArray(anexos?.itens) ? anexos.itens : [];
   const normalizedAnexoItems: RuntimeSnapshot["annexes"]["items"] = anexoItems.map(
     (item: unknown) => {
-      const parsedItem = (item ?? {}) as { titulo?: unknown; arquivos?: unknown[] };
+      const parsedItem = (item ?? {}) as {
+        titulo?: unknown;
+        data?: unknown;
+        arquivos?: unknown[];
+      };
+      const arquivos = Array.isArray(parsedItem.arquivos) ? parsedItem.arquivos : [];
       return {
         titulo: sanitizeText(parsedItem.titulo),
-        arquivos: Array.isArray(parsedItem.arquivos)
-          ? parsedItem.arquivos
-              .map((file: unknown) => sanitizeText((file as { nome?: unknown })?.nome))
-              .filter(Boolean)
-          : [],
+        data:
+          sanitizeText(parsedItem.data) ||
+          arquivos
+            .map((file: unknown) => {
+              const parsedFile = file as { data?: unknown; date?: unknown };
+              return sanitizeText(parsedFile?.data ?? parsedFile?.date);
+            })
+            .find(Boolean) ||
+          "",
+        arquivos: arquivos
+          .map((file: unknown) => sanitizeText((file as { nome?: unknown })?.nome))
+          .filter(Boolean),
       };
     }
   );
