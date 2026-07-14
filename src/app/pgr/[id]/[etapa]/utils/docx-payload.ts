@@ -159,6 +159,7 @@ type BackendCaracterizacaoRisk = {
   medidasPrevencaoPlano?: string;
   epc?: string;
   epi?: string;
+  ca?: string;
 };
 
 type BackendCaracterizacaoGhe = {
@@ -376,6 +377,7 @@ export type PgrDocxPayload = {
         medidasPrevencaoPlano?: string;
         epc: string;
         epi: string;
+        ca?: string;
       }>;
     }>;
   };
@@ -521,6 +523,7 @@ export function buildPgrDocxPayload(input: {
         medidasPrevencaoPlano: risk.medidasPrevencaoPlano || "",
         epc: risk.epc,
         epi: risk.epi,
+        ca: risk.ca || "",
       })),
     };
   });
@@ -863,6 +866,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
           medidasPrevencaoPlano: (risk as { medidasPrevencaoPlano?: string } | undefined)?.medidasPrevencaoPlano || "",
           epc: risk?.epc || "",
           epi: risk?.epi || "",
+          ca: risk?.ca || "",
         }))
       : [],
   }));

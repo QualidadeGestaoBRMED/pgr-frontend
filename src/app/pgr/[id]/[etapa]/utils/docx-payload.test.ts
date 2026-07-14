@@ -58,6 +58,7 @@ describe("docx payload mapping", () => {
                   medidasControle: "Isolamento",
                   epc: ["Barreira"],
                   epi: ["Protetor"],
+                  ca: "12345",
                 },
               ],
             },
@@ -84,6 +85,7 @@ describe("docx payload mapping", () => {
     expect(payload.meta.completedSteps).toBe(4);
     expect(payload.descricao.gheCount).toBe(1);
     expect(payload.caracterizacao.riskCount).toBe(1);
+    expect(payload.caracterizacao.ghes[0]?.riscos[0]?.ca).toBe("12345");
     expect(payload.planoAcao.nr).toBe("NR-01");
     expect(payload.program.nr).toBe("NR-01");
     expect(payload.program.totalEmployees).toBe(5);

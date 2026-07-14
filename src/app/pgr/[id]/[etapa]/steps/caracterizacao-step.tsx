@@ -907,6 +907,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       normas: "",
       epc: "",
       epi: "",
+      ca: "",
     };
     setRiskGheGroups((prev: RiskGheGroup[]) =>
       prev.map((ghe) =>
@@ -967,7 +968,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       | "medidasControle"
       | "normas"
       | "epi"
-      | "epc",
+      | "epc"
+      | "ca",
     value: string
   ) => {
     const withComputedClassification = (nextRisk: GheRisk) => {
@@ -1058,6 +1060,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           normas: "",
                           epc: "",
                           epi: "",
+                          ca: "",
                         };
                         return withComputedClassification({
                           ...nextRisk,
@@ -1198,6 +1201,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                         normas: "",
                         epc: "",
                         epi: "",
+                        ca: "",
                       };
 
                       if (!nextRisk.tipoAgente || !nextRisk.descricaoAgente) {
@@ -3152,6 +3156,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               {getRiskFieldError(risk.id, "epi")}
                             </p>
                           ) : null}
+                        </div>
+                        <div>
+                          <label className="text-[12px] font-medium text-foreground">
+                            C.A
+                          </label>
+                          <input
+                            className={`${stackedInputClass} mt-2`}
+                            value={risk.ca || ""}
+                            placeholder="Número do C.A"
+                            onChange={(event) =>
+                              handleRiskChange(risk.id, "ca", event.target.value)
+                            }
+                          />
                         </div>
                       </div>
                     </div>

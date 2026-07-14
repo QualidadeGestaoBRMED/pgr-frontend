@@ -182,6 +182,7 @@ export const gheRiskSchema = z
     medidasControle: requiredText("Medidas de controle"),
     epc: optionalStringOrArrayField(),
     epi: optionalStringOrArrayField(),
+    ca: z.string().optional(),
   })
   .superRefine((risk, ctx) => {
     if (isQuantitativeEvaluation(risk.tipoAvaliacao)) return;

@@ -63,6 +63,7 @@ export type GheRisk = {
   normas?: string;
   epc: string;
   epi: string;
+  ca?: string;
   tipoMedida?: string;
   prazoAcao?: string;
   disableAutoPrazoAcao?: boolean;
