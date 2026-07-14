@@ -1,5 +1,7 @@
 import { ChevronDown, PlusCircle, Search, TriangleAlert } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { WheelEvent } from "react";
+import { createPortal } from "react-dom";
 import { SearchableSelect } from "./searchable-select";
 import {
   CALCULATED_LIMIT_VALUE,
@@ -11,7 +13,11 @@ import {
   sanitizeMeasuredValueInput,
   sanitizeQuantitativeMeasurementInput,
 } from "../validation/br-field-utils";
-import type { GheRisk, RiskGheGroup } from "../types";
+import type { GheGroup, GheRisk, RiskGheGroup } from "../types";
+import {
+  buildGheFunctionSummary,
+  type GheFunctionSummaryGroup,
+} from "../utils/ghe-function-table";
 import type { CaracterizacaoStepCtx } from "./renderers/caracterizacao-renderer";
 
 type CaracterizacaoStepProps = {
@@ -297,6 +303,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const {
     handleResetCaracterizacaoData,
     riskGheGroups,
+    gheGroups,
+    functionMap,
     setRiskGheGroups,
     persistedOptionsByRowId,
     setPersistedOptionsByRowId,
@@ -338,6 +346,13 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const [selectedBatchRiskKey, setSelectedBatchRiskKey] = useState<string | null>(null);
   const [selectedBatchGheIds, setSelectedBatchGheIds] = useState<string[]>([]);
   const [batchAssignFeedback, setBatchAssignFeedback] = useState<string>("");
+  const [gheFunctionPreview, setGheFunctionPreview] = useState<null | {
+    gheId: string;
+    left: number;
+    top?: number;
+    bottom?: number;
+    maxHeight: number;
+  }>(null);
   const [openMultiSelect, setOpenMultiSelect] = useState<null | {
     riskId: string;
       field:
@@ -357,14 +372,128 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   >({});
   const [minimizedRiskIds, setMinimizedRiskIds] = useState<Record<string, boolean>>({});
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
+  const gheFunctionPreviewRef = useRef<HTMLDivElement | null>(null);
+  const gheFunctionPreviewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const formGroupClass = "flex min-w-0 self-start flex-col gap-2";
   const stackedInputClass = inputBaseClass.replace("mt-2 ", "");
   const getPersistedFonteKey = (riskId: string) => `risk-fontes:${riskId}`;
 
-  const hasQualitativeAndQuantitativeOptionsForRisk = (
-    tipoAgente: string,
-    descricaoAgente: string
-  ) => getHasExactQuantitativeCriteria(tipoAgente, descricaoAgente);
+  const gheFunctionSummaries = useMemo(() => {
+    const summaries = new Map<string, GheFunctionSummaryGroup[]>();
+    gheGroups.forEach((ghe: GheGroup) => {
+      summaries.set(ghe.id, buildGheFunctionSummary(ghe.items, functionMap));
+    });
+    return summaries;
+  }, [functionMap, gheGroups]);
+
+  const showGheFunctionPreview = (gheId: string, element: HTMLElement) => {
+    if (gheFunctionPreviewCloseTimerRef.current) {
+      clearTimeout(gheFunctionPreviewCloseTimerRef.current);
+      gheFunctionPreviewCloseTimerRef.current = null;
+    }
+    const rect = element.getBoundingClientRect();
+    const previewWidth = Math.min(320, window.innerWidth - 24);
+    const gap = 4;
+    const viewportMargin = 12;
+    const availableRight = window.innerWidth - rect.right - gap - viewportMargin;
+    const availableLeft = rect.left - gap - viewportMargin;
+    const placeOnRight =
+      availableRight >= previewWidth ||
+      (availableLeft < previewWidth && availableRight >= availableLeft);
+    const left = placeOnRight
+      ? Math.min(
+          rect.right + gap,
+          window.innerWidth - previewWidth - viewportMargin
+        )
+      : Math.max(viewportMargin, rect.left - previewWidth - gap);
+    const availableBelowFromTop = window.innerHeight - rect.top - viewportMargin;
+
+    if (availableBelowFromTop >= 120) {
+      setGheFunctionPreview({
+        gheId,
+        left,
+        top: Math.max(viewportMargin, rect.top),
+        maxHeight: Math.min(420, availableBelowFromTop),
+      });
+      return;
+    }
+
+    setGheFunctionPreview({
+      gheId,
+      left,
+      bottom: Math.max(viewportMargin, window.innerHeight - rect.bottom),
+      maxHeight: Math.min(420, Math.max(80, rect.bottom - viewportMargin)),
+    });
+  };
+
+  const keepGheFunctionPreviewOpen = () => {
+    if (!gheFunctionPreviewCloseTimerRef.current) return;
+    clearTimeout(gheFunctionPreviewCloseTimerRef.current);
+    gheFunctionPreviewCloseTimerRef.current = null;
+  };
+
+  const hideGheFunctionPreview = () => {
+    keepGheFunctionPreviewOpen();
+    gheFunctionPreviewCloseTimerRef.current = setTimeout(() => {
+      setGheFunctionPreview(null);
+      gheFunctionPreviewCloseTimerRef.current = null;
+    }, 400);
+  };
+
+  const handleGheFunctionPreviewWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    const maxScrollTop = element.scrollHeight - element.clientHeight;
+    const reachedTop = event.deltaY < 0 && element.scrollTop <= 0;
+    const reachedBottom = event.deltaY > 0 && element.scrollTop >= maxScrollTop - 1;
+
+    event.stopPropagation();
+    if (maxScrollTop <= 0 || reachedTop || reachedBottom) {
+      event.preventDefault();
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (gheFunctionPreviewCloseTimerRef.current) {
+        clearTimeout(gheFunctionPreviewCloseTimerRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!gheFunctionPreview) return;
+
+    const handleGheTriggerWheel = (event: globalThis.WheelEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        !target.closest("[data-ghe-function-preview-trigger]")
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (gheFunctionPreviewRef.current) {
+        gheFunctionPreviewRef.current.scrollTop += event.deltaY;
+      }
+    };
+
+    window.addEventListener("wheel", handleGheTriggerWheel, {
+      capture: true,
+      passive: false,
+    });
+    return () => {
+      window.removeEventListener("wheel", handleGheTriggerWheel, true);
+    };
+  }, [gheFunctionPreview]);
+
+  const hasQualitativeAndQuantitativeOptionsForRisk = useCallback(
+    (tipoAgente: string, descricaoAgente: string) =>
+      getHasExactQuantitativeCriteria(tipoAgente, descricaoAgente),
+    [getHasExactQuantitativeCriteria]
+  );
 
   useEffect(() => {
     setPersistedOptionsByRowId((prev) => {
@@ -1427,7 +1556,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       });
       return hasChanges ? next : prev;
     });
-  }, [riskGheGroups, setRiskGheGroups]);
+  }, [
+    hasQualitativeAndQuantitativeOptionsForRisk,
+    riskGheGroups,
+    setRiskGheGroups,
+  ]);
 
   useEffect(() => {
     setVisibleRiskGheCount(PROGRESSIVE_BATCH_SIZE);
@@ -3251,6 +3384,57 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
         </section>
       ) : null}
 
+      {gheFunctionPreview && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={gheFunctionPreviewRef}
+              id="ghe-function-preview"
+              role="tooltip"
+              onMouseEnter={keepGheFunctionPreviewOpen}
+              onMouseLeave={hideGheFunctionPreview}
+              onWheel={handleGheFunctionPreviewWheel}
+              className="fixed z-[100] w-[min(320px,calc(100vw-24px))] overflow-y-auto overscroll-contain rounded-[8px] border border-border/70 bg-popover p-4 text-popover-foreground shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+              style={{
+                position: "fixed",
+                left: gheFunctionPreview.left,
+                top: gheFunctionPreview.top,
+                bottom: gheFunctionPreview.bottom,
+                maxHeight: gheFunctionPreview.maxHeight,
+              }}
+            >
+              <p className="text-[13px] font-semibold text-foreground">
+                {riskGheGroups.find((ghe) => ghe.id === gheFunctionPreview.gheId)?.name ??
+                  "GHE"}
+              </p>
+              <p className="mt-1 border-b border-border/60 pb-2 text-[11px] text-muted-foreground">
+                Setores e funções associadas
+              </p>
+              <div className="mt-3 divide-y divide-border/60">
+                {(gheFunctionSummaries.get(gheFunctionPreview.gheId) ?? []).length ? (
+                  (gheFunctionSummaries.get(gheFunctionPreview.gheId) ?? []).map((group) => (
+                    <div key={group.setor} className="py-3 first:pt-0 last:pb-0">
+                      <p className="whitespace-normal text-[12px] text-foreground [hyphens:none] [overflow-wrap:normal] [word-break:normal]">
+                        <span className="font-semibold">Setor:</span> {group.setor}
+                      </p>
+                      <p className="mt-1 whitespace-normal text-[12px] leading-relaxed text-muted-foreground [hyphens:none] [overflow-wrap:normal] [word-break:normal]">
+                        <span className="font-semibold text-foreground">
+                          Funções associadas:
+                        </span>{" "}
+                        {group.funcoes.join("; ")}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[12px] text-muted-foreground">
+                    Nenhum setor ou função associado a este GHE.
+                  </p>
+                )}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
       <section
         className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60"
         data-pending-section="risk-list"
@@ -3400,7 +3584,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   <button
                     key={ghe.id}
                     type="button"
+                    data-ghe-function-preview-trigger
                     onClick={() => setCurrentRiskGheId(ghe.id)}
+                    onMouseEnter={(event) =>
+                      showGheFunctionPreview(ghe.id, event.currentTarget)
+                    }
+                    onMouseLeave={hideGheFunctionPreview}
+                    onFocus={(event) => showGheFunctionPreview(ghe.id, event.currentTarget)}
+                    onBlur={hideGheFunctionPreview}
+                    aria-describedby={
+                      gheFunctionPreview?.gheId === ghe.id
+                        ? "ghe-function-preview"
+                        : undefined
+                    }
                     className={`w-full rounded-[10px] border px-3 py-2 text-left text-[12px] transition ${
                       currentRiskGheId === ghe.id
                         ? duplicatedRiskStructureGheIds.has(ghe.id)
@@ -3479,7 +3675,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 <button
                   key={ghe.id}
                   type="button"
+                  data-ghe-function-preview-trigger
                   onClick={() => setCurrentRiskGheId(ghe.id)}
+                  onMouseEnter={(event) =>
+                    showGheFunctionPreview(ghe.id, event.currentTarget)
+                  }
+                  onMouseLeave={hideGheFunctionPreview}
+                  onFocus={(event) => showGheFunctionPreview(ghe.id, event.currentTarget)}
+                  onBlur={hideGheFunctionPreview}
+                  aria-describedby={
+                    gheFunctionPreview?.gheId === ghe.id
+                      ? "ghe-function-preview"
+                      : undefined
+                  }
                   className={`min-w-[150px] rounded-[12px] border px-3 py-2 text-left transition ${
                     currentRiskGheId === ghe.id
                       ? duplicatedRiskStructureGheIds.has(ghe.id)

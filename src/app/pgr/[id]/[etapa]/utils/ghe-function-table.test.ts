@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PgrFunction } from "../types";
 import {
+  buildGheFunctionSummary,
   calculateGheQuantity,
   calculateGheQuantityPercentage,
   filterAndSortGheFunctions,
@@ -84,5 +85,18 @@ describe("calculateGheQuantityPercentage", () => {
   it("returns zero when the total is zero or invalid", () => {
     expect(calculateGheQuantityPercentage(5, 0)).toBe(0);
     expect(calculateGheQuantityPercentage(5, Number.NaN)).toBe(0);
+  });
+});
+
+describe("buildGheFunctionSummary", () => {
+  it("groups functions by sector in natural alphanumeric order", () => {
+    expect(buildGheFunctionSummary(items, functions)).toEqual([
+      { setor: "Administração", funcoes: ["Auxiliar 1", "Auxiliar 10"] },
+      { setor: "Operacional", funcoes: ["Auxiliar 2"] },
+    ]);
+  });
+
+  it("ignores function ids that are not available", () => {
+    expect(buildGheFunctionSummary([{ functionId: "missing" }], functions)).toEqual([]);
   });
 });

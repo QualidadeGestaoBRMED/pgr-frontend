@@ -4,6 +4,8 @@ import type { StepRenderer } from "./types";
 export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
   handleResetCaracterizacaoData: ctx.handleResetCaracterizacaoData,
   riskGheGroups: ctx.riskGheGroups,
+  gheGroups: ctx.gheGroups,
+  functionMap: ctx.functionMap,
   setRiskGheGroups: ctx.setRiskGheGroups,
   persistedOptionsByRowId: ctx.persistedOptionsByRowId,
   setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,

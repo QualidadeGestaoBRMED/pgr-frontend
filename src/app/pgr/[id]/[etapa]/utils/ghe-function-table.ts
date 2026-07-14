@@ -14,6 +14,11 @@ export type GheFunctionSort = {
 
 export type GheFunctionFilters = Record<GheFunctionSortKey, string>;
 
+export type GheFunctionSummaryGroup = {
+  setor: string;
+  funcoes: string[];
+};
+
 const textCollator = new Intl.Collator("pt-BR", {
   sensitivity: "base",
   numeric: true,
@@ -90,4 +95,26 @@ export function calculateGheQuantity(items: GheFunctionTableItem[]): number {
 export function calculateGheQuantityPercentage(quantity: number, total: number): number {
   if (!Number.isFinite(quantity) || !Number.isFinite(total) || total <= 0) return 0;
   return (Math.max(0, quantity) / total) * 100;
+}
+
+export function buildGheFunctionSummary(
+  items: GheFunctionTableItem[],
+  functionMap: Map<string, PgrFunction>
+): GheFunctionSummaryGroup[] {
+  const sectors = new Map<string, Set<string>>();
+
+  items.forEach((item) => {
+    const data = functionMap.get(item.functionId);
+    if (!data) return;
+    const setor = data.setor.trim() || "Setor não informado";
+    const funcao = data.funcao.trim() || "Função não informada";
+    const functions = sectors.get(setor) ?? new Set<string>();
+    functions.add(funcao);
+    sectors.set(setor, functions);
+  });
+
+  return Array.from(sectors, ([setor, funcoes]) => ({
+    setor,
+    funcoes: Array.from(funcoes).sort(textCollator.compare),
+  })).sort((left, right) => textCollator.compare(left.setor, right.setor));
 }
