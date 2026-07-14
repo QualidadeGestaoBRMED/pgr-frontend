@@ -65,6 +65,7 @@ type DadosStepProps = {
   onCepBlur: (scope: "empresa", value: string) => void;
   establishments: EstabelecimentoDraft[];
   onEstablishmentCepBlur: (establishmentIndex: number, value: string) => void;
+  onEstablishmentCnpjBlur: (establishmentIndex: number, value: string) => void;
   onEstablishmentChange: (
     establishmentIndex: number,
     field: Exclude<keyof EstabelecimentoDraft, "id">,
@@ -88,6 +89,7 @@ type DadosStepProps = {
     value: string
   ) => void;
   onContractorCepBlur: (contractorIndex: number, value: string) => void;
+  onContractorCnpjBlur: (contractorIndex: number, value: string) => void;
   onAddContractorExtraField: (contractorIndex: number) => void;
   onContractorExtraFieldChange: (
     contractorIndex: number,
@@ -131,6 +133,7 @@ export function DadosStep({
   onCepBlur,
   establishments,
   onEstablishmentCepBlur,
+  onEstablishmentCnpjBlur,
   onEstablishmentChange,
   onAddEstablishment,
   onDuplicateEstablishment,
@@ -141,6 +144,7 @@ export function DadosStep({
   contractors,
   onContractorChange,
   onContractorCepBlur,
+  onContractorCnpjBlur,
   onAddContractorExtraField,
   onContractorExtraFieldChange,
   onRemoveContractorExtraField,
@@ -1098,7 +1102,10 @@ export function DadosStep({
                       onChange={(event) =>
                         onEstablishmentChange(establishmentIndex, "cnpj", event.target.value)
                       }
-                      onBlur={() => markEstablishmentTouched(establishmentKey, "cnpj")}
+                      onBlur={(event) => {
+                        markEstablishmentTouched(establishmentKey, "cnpj");
+                        onEstablishmentCnpjBlur(establishmentIndex, event.target.value);
+                      }}
                     />
                     {establishmentErrorsById[establishmentKey]?.cnpj ? (
                       <p className="mt-1 text-[12px] text-danger">
@@ -1414,7 +1421,10 @@ export function DadosStep({
                     onChange={(event) =>
                       onContractorChange(contractorIndex, "cnpj", event.target.value)
                     }
-                    onBlur={() => markContractorTouched(contractorKey, "cnpj")}
+                    onBlur={(event) => {
+                      markContractorTouched(contractorKey, "cnpj");
+                      onContractorCnpjBlur(contractorIndex, event.target.value);
+                    }}
                   />
                   {contractorErrorsById[contractorKey]?.cnpj ? (
                     <p className="mt-1 text-[12px] text-danger">

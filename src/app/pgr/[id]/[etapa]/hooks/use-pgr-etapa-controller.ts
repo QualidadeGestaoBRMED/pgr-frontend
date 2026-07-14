@@ -428,7 +428,7 @@ export function usePgrEtapaController({
     setSaveConflict(false);
   }, [params.id]);
 
-  const { persistLatestStateNow } = usePgrPersistence({
+  const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
     shouldHydrateFromApi,
     defaultHistorico,
@@ -903,40 +903,13 @@ export function usePgrEtapaController({
 
   const handleStartNewVersion = useCallback(async () => {
     try {
-      if (refs.saveTimerRef.current) {
-        window.clearTimeout(refs.saveTimerRef.current);
-        refs.saveTimerRef.current = null;
-      }
-
       const updatedState = await apiPost<{
-        completedSteps?: number;
-        historico?: HistoricoData;
-        workflow?: PersistedPgrState["workflow"];
-        meta?: { progressPercent?: number };
+        updatedAt?: string;
       }>(`/api/v1/frontend/pgr/${params.id}/new-version`);
 
-      const refreshedState = await apiGet<{
-        completedSteps?: number;
-        historico?: HistoricoData;
-        workflow?: PersistedPgrState["workflow"];
-        meta?: { progressPercent?: number };
-        updatedAt?: string;
-      }>(`/api/v1/frontend/pgr/${params.id}/state`).catch(() => updatedState);
-
-      setKnownUpdatedAt(params.id, (refreshedState as { updatedAt?: string })?.updatedAt);
-      if (refreshedState?.workflow) {
-        setters.setWorkflow(refreshedState.workflow);
-      }
-      if (typeof refreshedState?.completedSteps === "number") {
-        setters.setCompletedSteps(refreshedState.completedSteps);
-      }
-      if (typeof refreshedState?.meta?.progressPercent === "number") {
-        setters.setProgressPercent(refreshedState.meta.progressPercent);
-      }
-      if (refreshedState?.historico) {
-        setters.setHistoricoData(refreshedState.historico);
-      }
-      router.push(`/pgr/${params.id}/inicio`);
+      setKnownUpdatedAt(params.id, updatedState.updatedAt);
+      cancelPendingPersist();
+      window.location.assign(`/pgr/${params.id}/inicio`);
     } catch (error) {
       const message =
         error instanceof Error
@@ -946,7 +919,7 @@ export function usePgrEtapaController({
         window.alert(message);
       }
     }
-  }, [params.id, refs.saveTimerRef, router, setters]);
+  }, [cancelPendingPersist, params.id]);
 
   const handleEditCurrentVersion = useCallback(
     (reason: string) => {

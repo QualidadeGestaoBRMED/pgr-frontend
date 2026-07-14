@@ -27,6 +27,9 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     onEstablishmentCepBlur={(index, value) =>
       ctx.generalActions.handleRecalculateByCep("estabelecimento", value, index)
     }
+    onEstablishmentCnpjBlur={(index, value) =>
+      ctx.generalActions.handleRecalculateByCnpj("estabelecimento", index, value)
+    }
     onEstablishmentChange={ctx.generalActions.handleEstablishmentChange}
     onAddEstablishment={ctx.generalActions.handleAddEstablishment}
     onDuplicateEstablishment={ctx.generalActions.handleDuplicateEstablishment}
@@ -38,6 +41,9 @@ export const renderDadosStep: StepRenderer = (ctx) => (
     onContractorChange={ctx.generalActions.handleContractorChange}
     onContractorCepBlur={(index, value) =>
       ctx.generalActions.handleRecalculateByCep("contratante", value, index)
+    }
+    onContractorCnpjBlur={(index, value) =>
+      ctx.generalActions.handleRecalculateByCnpj("contratante", index, value)
     }
     onAddContractorExtraField={ctx.generalActions.handleAddContractorExtraField}
     onContractorExtraFieldChange={ctx.generalActions.handleContractorExtraFieldChange}

@@ -1019,7 +1019,16 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     [persistPayload, saveTimerRef]
   );
 
+  const cancelPendingPersist = useCallback(() => {
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    pendingPersistPayloadRef.current = null;
+  }, [saveTimerRef]);
+
   return {
     persistLatestStateNow,
+    cancelPendingPersist,
   };
 }

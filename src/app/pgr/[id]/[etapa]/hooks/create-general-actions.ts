@@ -20,6 +20,7 @@ import type {
 } from "../types";
 import type { PersistedPgrState } from "../state/runtime-cache";
 import {
+  isValidCnpj,
   maskCep,
   maskCnpj,
   maskCpf,
@@ -43,6 +44,7 @@ import {
 } from "../utils/establishments";
 import { completeVigenciaInterval, maskVigenciaInterval } from "../utils/vigencia";
 import { buildPlanActionGeneralMeasureRow } from "../utils/plan-actions";
+import { mapCnpjLookupToRegistration } from "../utils/cnpj-lookup";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -477,6 +479,85 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       } else {
         lastCepLookupRef.current.contratanteByIndex[String(itemIndex)] = "";
       }
+    }
+  };
+
+  const handleRecalculateByCnpj = async (
+    scope: "estabelecimento" | "contratante",
+    itemIndex: number,
+    cnpjValue: string
+  ) => {
+    const cnpj = cnpjValue.replace(/\D/g, "");
+    if (!isValidCnpj(cnpj)) return;
+
+    try {
+      const response = await apiPost<{
+        found: boolean;
+        riskDegree?: string | number | null;
+        data?: Record<string, unknown>;
+      }>("/api/v1/frontend/lookup/cnpj", { cnpj });
+      if (!response.found || !response.data) return;
+
+      const registration = mapCnpjLookupToRegistration(
+        response.data,
+        response.riskDegree
+      );
+      setDadosCadastrais((prev) => {
+        if (scope === "estabelecimento") {
+          const establishments = normalizeEstablishments(prev, "");
+          const target = establishments[itemIndex];
+          if (!target || target.cnpj.replace(/\D/g, "") !== cnpj) return prev;
+          const nextEstablishments = establishments.map((establishment, index) =>
+            index === itemIndex
+              ? {
+                  ...establishment,
+                  nome: registration.nomeFantasia || establishment.nome,
+                  razaoSocial: registration.razaoSocial || establishment.razaoSocial,
+                  cnae: registration.cnae || establishment.cnae,
+                  atividadePrincipal:
+                    registration.atividadePrincipal || establishment.atividadePrincipal,
+                  grauRisco: registration.grauRisco || establishment.grauRisco,
+                  endereco: registration.endereco || establishment.endereco,
+                  numero: registration.numero || establishment.numero,
+                  bairro: registration.bairro || establishment.bairro,
+                  cep: registration.cep || establishment.cep,
+                  cidade: registration.cidade || establishment.cidade,
+                  estado: registration.estado || establishment.estado,
+                }
+              : establishment
+          );
+          return syncLegacyDados(
+            { ...prev, estabelecimentos: nextEstablishments } as DadosCadastraisDraft,
+            nextEstablishments[0]?.tipo || ""
+          );
+        }
+
+        const contractors = normalizeContractors(prev);
+        const target = contractors[itemIndex];
+        if (!target || target.cnpj.replace(/\D/g, "") !== cnpj) return prev;
+        const nextContractors = contractors.map((contractor, index) =>
+          index === itemIndex
+            ? {
+                ...contractor,
+                nomeFantasia: registration.nomeFantasia || contractor.nomeFantasia,
+                razaoSocial: registration.razaoSocial || contractor.razaoSocial,
+                cnae: registration.cnae || contractor.cnae,
+                atividadePrincipal:
+                  registration.atividadePrincipal || contractor.atividadePrincipal,
+                grauRisco: registration.grauRisco || contractor.grauRisco,
+                endereco: registration.endereco || contractor.endereco,
+                numero: registration.numero || contractor.numero,
+                bairro: registration.bairro || contractor.bairro,
+                cep: registration.cep || contractor.cep,
+                cidade: registration.cidade || contractor.cidade,
+                estado: registration.estado || contractor.estado,
+              }
+            : contractor
+        );
+        return syncLegacyDados({ ...prev, contratantes: nextContractors });
+      });
+    } catch {
+      // A consulta não deve impedir o preenchimento manual dos dados cadastrais.
     }
   };
 
@@ -1914,6 +1995,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     handleInicioDraftChange,
     handleDadosCadastraisChange,
     handleRecalculateByCep,
+    handleRecalculateByCnpj,
     handleEstablishmentChange,
     handleAddEstablishment,
     handleDuplicateEstablishment,
