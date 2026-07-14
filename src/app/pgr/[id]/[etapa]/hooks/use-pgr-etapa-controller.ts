@@ -901,11 +901,13 @@ export function usePgrEtapaController({
     ]
   );
 
-  const handleStartNewVersion = useCallback(async () => {
+  const createNewVersion = useCallback(async (rejectionReason?: string) => {
     try {
       const updatedState = await apiPost<{
         updatedAt?: string;
-      }>(`/api/v1/frontend/pgr/${params.id}/new-version`);
+      }>(`/api/v1/frontend/pgr/${params.id}/new-version`, {
+        rejectionReason: String(rejectionReason || "").trim() || undefined,
+      });
 
       setKnownUpdatedAt(params.id, updatedState.updatedAt);
       cancelPendingPersist();
@@ -921,15 +923,16 @@ export function usePgrEtapaController({
     }
   }, [cancelPendingPersist, params.id]);
 
+  const handleStartNewVersion = useCallback(
+    () => createNewVersion(),
+    [createNewVersion]
+  );
+
   const handleEditCurrentVersion = useCallback(
     (reason: string) => {
-      const normalizedReason = String(reason || "").trim();
-      const suffix = normalizedReason
-        ? `?rejectionReason=${encodeURIComponent(normalizedReason)}`
-        : "";
-      router.push(`/pgr/${params.id}/inicio${suffix}`);
+      void createNewVersion(reason);
     },
-    [params.id, router]
+    [createNewVersion]
   );
 
   const handleHistoricoChangeField = useCallback(
