@@ -1,6 +1,8 @@
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Check,
   FileSpreadsheet,
   MinusCircle,
@@ -14,6 +16,14 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
 import type { PgrFunction } from "../types";
+import {
+  calculateGheQuantity,
+  calculateGheQuantityPercentage,
+  filterAndSortGheFunctions,
+  type GheFunctionFilters,
+  type GheFunctionSort,
+  type GheFunctionSortKey,
+} from "../utils/ghe-function-table";
 
 type DescricaoStepProps = {
   ctx: DescricaoStepCtx;
@@ -39,6 +49,9 @@ type RequiredGheInfoField = "processo" | "observacoes" | "ambiente";
 
 const PROGRESSIVE_THRESHOLD = 50;
 const PROGRESSIVE_BATCH_SIZE = 50;
+const quantityPercentageFormatter = new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 2,
+});
 
 function countGroupedItems(groups: DescricaoGroup[]): number {
   return groups.reduce((total, group) => total + group.items.length, 0);
@@ -374,6 +387,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
 
   const [leftVisibleCount, setLeftVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
   const [rightVisibleCount, setRightVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
+  const [rightFilters, setRightFilters] = useState<GheFunctionFilters>({
+    setor: "",
+    funcao: "",
+    descricao: "",
+    quantitativo: "",
+  });
+  const [rightSort, setRightSort] = useState<GheFunctionSort>(null);
   const [modalGroupsVisibleCount, setModalGroupsVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
   const [modalListVisibleCount, setModalListVisibleCount] = useState(PROGRESSIVE_BATCH_SIZE);
 
@@ -395,15 +415,22 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   );
   const hiddenLeftItems = Math.max(0, leftTotalItems - visibleLeftItems);
 
-  const shouldPaginateRight = currentItems.length > PROGRESSIVE_THRESHOLD;
+  const filteredAndSortedCurrentItems = useMemo(
+    () => filterAndSortGheFunctions(currentItems, functionMap, rightFilters, rightSort),
+    [currentItems, functionMap, rightFilters, rightSort]
+  );
+  const shouldPaginateRight = filteredAndSortedCurrentItems.length > PROGRESSIVE_THRESHOLD;
   const visibleCurrentItems = useMemo(
     () =>
       shouldPaginateRight
-        ? currentItems.slice(0, rightVisibleCount)
-        : currentItems,
-    [currentItems, rightVisibleCount, shouldPaginateRight]
+        ? filteredAndSortedCurrentItems.slice(0, rightVisibleCount)
+        : filteredAndSortedCurrentItems,
+    [filteredAndSortedCurrentItems, rightVisibleCount, shouldPaginateRight]
   );
-  const hiddenRightItems = Math.max(0, currentItems.length - visibleCurrentItems.length);
+  const hiddenRightItems = Math.max(
+    0,
+    filteredAndSortedCurrentItems.length - visibleCurrentItems.length
+  );
 
   const shouldPaginateModalGroups = gheGroups.length > PROGRESSIVE_THRESHOLD;
   const visibleModalGroups = useMemo(
@@ -414,6 +441,14 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     [gheGroups, modalGroupsVisibleCount, shouldPaginateModalGroups]
   );
   const hiddenModalGroups = Math.max(0, gheGroups.length - visibleModalGroups.length);
+  const totalGheQuantity = useMemo(
+    () =>
+      gheGroups.reduce(
+        (total: number, ghe: GheGroup) => total + calculateGheQuantity(ghe.items),
+        0
+      ),
+    [gheGroups]
+  );
 
   const shouldPaginateModalList = isGheListView
     ? filteredGheGroupsForList.length > PROGRESSIVE_THRESHOLD
@@ -444,7 +479,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
 
   useEffect(() => {
     setRightVisibleCount(PROGRESSIVE_BATCH_SIZE);
-  }, [currentGheName, currentItems.length]);
+  }, [currentGheName, currentItems.length, rightFilters, rightSort]);
 
   useEffect(() => {
     if (!editingFunctionIds.length) return;
@@ -604,6 +639,34 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       }
       return Array.from(new Set([...prev, ...groupIds]));
     });
+  };
+
+  const hasRightFilters = Object.values(rightFilters).some((value) => value.trim());
+
+  const handleRightFilterChange = (key: GheFunctionSortKey, value: string) => {
+    setRightFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleRightSort = (key: GheFunctionSortKey) => {
+    setRightSort((prev) => ({
+      key,
+      direction: prev?.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const clearRightFilters = () => {
+    setRightFilters({ setor: "", funcao: "", descricao: "", quantitativo: "" });
+  };
+
+  const renderSortIcon = (key: GheFunctionSortKey) => {
+    if (rightSort?.key !== key) {
+      return <ArrowDown className="h-3.5 w-3.5 opacity-35" aria-hidden="true" />;
+    }
+    return rightSort.direction === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+    );
   };
 
   const excelImportMissingRows = useMemo(
@@ -1025,13 +1088,78 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] gap-4 text-[12px] font-semibold text-muted-foreground">
+                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4 text-[12px] font-semibold text-muted-foreground">
                   <span />
-                  <span className="min-w-0 whitespace-normal break-words leading-tight" style={{ textWrap: "pretty" }}>Setor</span>
-                  <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Função</span>
-                  <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Descrição da Função</span>
-                  <span className="min-w-0 overflow-hidden whitespace-normal" style={{ textWrap: "pretty" }}>Nº de funcionários</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleRightSort("setor")}
+                    className="flex min-w-0 items-center gap-1 text-left leading-tight transition hover:text-foreground"
+                    title="Ordenar por setor"
+                    aria-pressed={rightSort?.key === "setor"}
+                  >
+                    <span className="min-w-0 break-words">Setor</span>
+                    {renderSortIcon("setor")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleRightSort("funcao")}
+                    className="flex min-w-0 items-center gap-1 text-left leading-tight transition hover:text-foreground"
+                    title="Ordenar por função"
+                    aria-pressed={rightSort?.key === "funcao"}
+                  >
+                    <span className="min-w-0 break-words">Função</span>
+                    {renderSortIcon("funcao")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleRightSort("descricao")}
+                    className="flex min-w-0 items-center gap-1 text-left leading-tight transition hover:text-foreground"
+                    title="Ordenar por descrição da atividade"
+                    aria-pressed={rightSort?.key === "descricao"}
+                  >
+                    <span className="min-w-0 break-words">Descrição da Atividade</span>
+                    {renderSortIcon("descricao")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleRightSort("quantitativo")}
+                    className="flex min-w-0 items-center gap-1 text-left leading-tight transition hover:text-foreground"
+                    title="Ordenar por quantitativo"
+                    aria-pressed={rightSort?.key === "quantitativo"}
+                  >
+                    <span className="min-w-0 break-words">Quantitativo</span>
+                    {renderSortIcon("quantitativo")}
+                  </button>
                   <span />
+                </div>
+                <div className="mt-2 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  {(["setor", "funcao", "descricao", "quantitativo"] as const).map(
+                    (key) => (
+                      <input
+                        key={key}
+                        type={key === "quantitativo" ? "number" : "search"}
+                        min={key === "quantitativo" ? 0 : undefined}
+                        value={rightFilters[key]}
+                        onChange={(event) => handleRightFilterChange(key, event.target.value)}
+                        className="h-8 min-w-0 rounded-[6px] border border-border/70 bg-background px-2 text-[12px] text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                        placeholder="Filtrar"
+                        aria-label={`Filtrar por ${
+                          key === "descricao" ? "descrição da atividade" : key
+                        }`}
+                      />
+                    )
+                  )}
+                  <button
+                    type="button"
+                    onClick={clearRightFilters}
+                    disabled={!hasRightFilters}
+                    className="flex h-8 w-8 items-center justify-center rounded-[6px] text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                    title="Limpar filtros"
+                    aria-label="Limpar filtros"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
                 <div className="mt-3 space-y-2">
                   {visibleCurrentItems.length ? (
@@ -1195,7 +1323,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     })
                   ) : (
                     <div className="rounded-[10px] border border-dashed border-border/70 px-3 py-6 text-center text-[13px] text-muted-foreground">
-                      Nenhuma função adicionada ao GHE.
+                      {hasRightFilters
+                        ? "Nenhuma função corresponde aos filtros."
+                        : "Nenhuma função adicionada ao GHE."}
                     </div>
                   )}
                   {shouldPaginateRight && hiddenRightItems > 0 ? (
@@ -1482,47 +1612,62 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           )}{" "}
                           funções associadas
                         </p>
+                        <p className="mt-1 text-[12px] text-muted-foreground">
+                          Quantitativo total: {totalGheQuantity} (
+                          {totalGheQuantity > 0 ? "100" : "0"}%)
+                        </p>
                       </button>
-                      {visibleModalGroups.map((ghe: GheGroup) => (
-                        <div
-                          key={ghe.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setGheFilterId(ghe.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setGheFilterId(ghe.id);
-                            }
-                          }}
-                          className={`rounded-[12px] border px-4 py-4 ${
-                            gheFilterId === ghe.id
-                              ? "border-primary/50 bg-primary/5"
-                              : "border-border/70 bg-background/40"
-                          } cursor-pointer`}
-                        >
-                          <div className="w-full text-left">
-                            <p className="text-[14px] font-semibold text-foreground">
-                              {ghe.name}
-                            </p>
-                            <p className="text-[12px] text-muted-foreground">
-                              {ghe.items.length} funções associadas
-                            </p>
+                      {visibleModalGroups.map((ghe: GheGroup) => {
+                        const gheQuantity = calculateGheQuantity(ghe.items);
+                        const ghePercentage = calculateGheQuantityPercentage(
+                          gheQuantity,
+                          totalGheQuantity
+                        );
+                        return (
+                          <div
+                            key={ghe.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setGheFilterId(ghe.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setGheFilterId(ghe.id);
+                              }
+                            }}
+                            className={`rounded-[12px] border px-4 py-4 ${
+                              gheFilterId === ghe.id
+                                ? "border-primary/50 bg-primary/5"
+                                : "border-border/70 bg-background/40"
+                            } cursor-pointer`}
+                          >
+                            <div className="w-full text-left">
+                              <p className="text-[14px] font-semibold text-foreground">
+                                {ghe.name}
+                              </p>
+                              <p className="text-[12px] text-muted-foreground">
+                                {ghe.items.length} funções associadas
+                              </p>
+                              <p className="mt-1 text-[12px] text-muted-foreground">
+                                Quantitativo: {gheQuantity} (
+                                {quantityPercentageFormatter.format(ghePercentage)}%)
+                              </p>
+                            </div>
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleSelectGhe(ghe.id);
+                                }}
+                                className="btn-outline px-3 py-1 text-[12px]"
+                              >
+                                Editar
+                              </button>
+                            </div>
                           </div>
-                          <div className="mt-3 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleSelectGhe(ghe.id);
-                              }}
-                              className="btn-outline px-3 py-1 text-[12px]"
-                            >
-                              Editar
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {shouldPaginateModalGroups && hiddenModalGroups > 0 ? (
                         <button
                           type="button"
