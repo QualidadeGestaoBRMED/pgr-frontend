@@ -10,17 +10,16 @@ type PreviousVersionDialogProps = {
   importing: boolean;
   error: string | null;
   onImport: () => void;
-  onStartFresh: () => void;
 };
 
 /**
  * Aviso de PGR anterior disponível.
  *
  * Aparece ao abrir um card novo (recém-sincronizado com o Pipefy) quando a
- * mesma empresa já possui um PGR finalizado guardado na plataforma. O usuário
- * escolhe importar os dados da versão anterior (dados cadastrais, funções,
- * GHEs, riscos, plano de ação e anexos) ou começar do zero — a escolha fica
- * registrada e o aviso não reaparece.
+ * mesma empresa já possui um PGR finalizado guardado na plataforma. É sempre
+ * o mesmo documento, só muda a revisão — não há opção de começar do zero: o
+ * único caminho é confirmar a importação dos dados da versão anterior (dados
+ * cadastrais, funções, GHEs, riscos, plano de ação e anexos).
  */
 export function PreviousVersionDialog({
   open,
@@ -30,7 +29,6 @@ export function PreviousVersionDialog({
   importing,
   error,
   onImport,
-  onStartFresh,
 }: PreviousVersionDialogProps) {
   if (!open) return null;
 
@@ -59,16 +57,12 @@ export function PreviousVersionDialog({
                 {finalizedAt ? <> em {finalizedAt}</> : null}.
               </p>
               <p className="mt-2 text-[13px] text-muted-foreground">
-                <strong>Importar dados:</strong> preenche este documento com os
-                dados cadastrais, funções, GHEs, riscos, plano de ação
+                Vamos preencher este documento com os dados cadastrais,
+                funções, GHEs, riscos, plano de ação
                 {attachmentsCount > 0
                   ? ` e ${attachmentsCount} anexo${attachmentsCount > 1 ? "s" : ""}`
                   : ""}{" "}
                 da versão anterior, abrindo a próxima revisão para edição.
-              </p>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                <strong>Começar do zero:</strong> mantém o documento em branco,
-                apenas com os dados sincronizados do Pipefy.
               </p>
               {error ? (
                 <p className="mt-2 text-[13px] font-medium text-rose-600">
@@ -77,15 +71,7 @@ export function PreviousVersionDialog({
               ) : null}
             </div>
           </div>
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onStartFresh}
-              disabled={importing}
-              className="btn-outline px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Começar do zero
-            </button>
+          <div className="mt-5 flex justify-end">
             <button
               type="button"
               onClick={onImport}

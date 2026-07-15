@@ -45,7 +45,6 @@ export default function PgrEtapaPage({
         importing={previousImportDialog.importing}
         error={previousImportDialog.error}
         onImport={previousImportDialog.onImport}
-        onStartFresh={previousImportDialog.onStartFresh}
       />
     </PgrShell>
   );

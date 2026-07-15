@@ -448,8 +448,9 @@ export function usePgrEtapaController({
   }, [params.id]);
 
   // PGR anterior finalizado da mesma empresa disponível para importação.
-  // Preenchido após o auto-sync com o Pipefy; a escolha do usuário fica
-  // registrada no servidor (meta.previousImportChoice) e não re-pergunta.
+  // Preenchido após o auto-sync com o Pipefy. Não há opção de recusar: uma
+  // vez importado, o destino passa a ter conteúdo próprio e a detecção não
+  // oferece de novo (guarda destination_has_content no backend).
   const [previousImport, setPreviousImport] = useState<{
     sourcePgrId: string;
     companyName: string;
@@ -977,22 +978,6 @@ export function usePgrEtapaController({
     }
   }, [cancelPendingPersist, isImportingPrevious, params.id, previousImport]);
 
-  const handleStartFreshFromPrevious = useCallback(() => {
-    setPreviousImport(null);
-    setPreviousImportError(null);
-    void apiPost<{ updatedAt?: string }>(
-      `/api/v1/frontend/pgr/${params.id}/import-previous/dismiss`
-    )
-      .then((response) => {
-        // Sincroniza o token do lock otimista para o próximo autosave não
-        // tomar 409 espúrio (mesmo padrão do sync-pipefy).
-        setKnownUpdatedAt(params.id, response?.updatedAt);
-      })
-      .catch(() => {
-        // Silencioso: no pior caso o aviso reaparece no próximo reload.
-      });
-  }, [params.id]);
-
   const handleStartNewVersion = useCallback(
     () => createNewVersion(),
     [createNewVersion]
@@ -1387,7 +1372,6 @@ export function usePgrEtapaController({
       onImport: () => {
         void handleImportPrevious();
       },
-      onStartFresh: handleStartFreshFromPrevious,
     },
     shellProps: {
       pgrId: params.id,
