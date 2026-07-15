@@ -109,7 +109,10 @@ type BackendStateResponse = Partial<{
   riskGheGroups: Array<Omit<RiskGheGroup, "risks"> & { risks?: GheRisk[] }>;
   currentRiskGheId: string;
   pdfLayout: unknown;
-  workflow: Partial<Workflow>;
+  // O backend expõe rejectionSourcePhaseId aninhado em `rejection` (não
+  // flattened como no resto do Workflow do frontend) — tipado à parte aqui
+  // só para a leitura do payload cru.
+  workflow: Partial<Workflow> & { rejection?: { sourcePhaseId?: string | null } };
   updatedAt: string;
 }>;
 
@@ -712,6 +715,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               ? state.workflow.rejectionReason
               : null,
           wasRejected: Boolean(state.workflow?.wasRejected),
+          rejectionSourcePhaseId:
+            typeof state.workflow?.rejection?.sourcePhaseId === "string"
+              ? state.workflow.rejection.sourcePhaseId
+              : null,
           finalizedAt:
             typeof state.workflow?.finalizedAt === "string"
               ? state.workflow.finalizedAt

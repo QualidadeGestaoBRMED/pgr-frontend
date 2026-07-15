@@ -16,6 +16,7 @@ type HistoricoStepProps = {
     isLocked: boolean;
     version: number;
     statusLabel?: string | null;
+    rejectionSourcePhaseId?: string | null;
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;

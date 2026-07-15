@@ -55,6 +55,10 @@ export type PersistedPgrState = {
     statusLabel?: string | null;
     rejectionReason?: string | null;
     wasRejected?: boolean;
+    // ID da fase do Pipefy que originou a rejeição (workflow.rejection.sourcePhaseId
+    // no backend). Usado para decidir se a correção pede o motivo por modal
+    // (rejeição pelo cliente) ou libera direto (retornos internos).
+    rejectionSourcePhaseId?: string | null;
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;

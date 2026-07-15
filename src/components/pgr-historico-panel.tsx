@@ -1,6 +1,15 @@
 import { ChevronDown, Download, LoaderCircle, PencilLine, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+// Fases de retorno interno (sem categorias de motivo próprias, ao contrário
+// da rejeição pelo cliente) — o botão libera direto para edição, sem passar
+// pelo modal de motivo, gravando o nome da fase de origem no histórico.
+const INTERNAL_RETURN_PHASE_REASONS: Record<string, string> = {
+  "315003822": "Retorno da Manut. BR NET",
+  "315003809": "Rejeitado pelo controle de qualidade",
+  "315003821": "Retorno da Saúde Ocupacional",
+};
+
 type PgrHistoricoPanelProps = {
   title: string;
   subtitle: string;
@@ -17,6 +26,7 @@ type PgrHistoricoPanelProps = {
     isLocked: boolean;
     version: number;
     statusLabel?: string | null;
+    rejectionSourcePhaseId?: string | null;
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;
@@ -239,6 +249,16 @@ export function PgrHistoricoPanel({
               onClick={() => {
                 if (!canClickStartNewVersion) return;
                 if (isEditingRejectedCurrentVersion) {
+                  const internalReturnReason = workflow.rejectionSourcePhaseId
+                    ? INTERNAL_RETURN_PHASE_REASONS[workflow.rejectionSourcePhaseId]
+                    : undefined;
+                  if (internalReturnReason) {
+                    // Retorno interno (Manut. BR NET, controle de qualidade,
+                    // saúde ocupacional): não tem categorias de motivo — libera
+                    // direto, sem o modal de "motivo da reprovação pelo cliente".
+                    onEditCurrentVersion(internalReturnReason);
+                    return;
+                  }
                   setSelectedRejectionReason("");
                   setIsRejectionReasonModalOpen(true);
                   return;
