@@ -110,8 +110,14 @@ export function PgrHistoricoPanel({
       ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
       : null;
   const canStartNewVersion = workflow.isLocked && Boolean(workflow.finalizedAt);
-  const isEditingRejectedCurrentVersion =
-    !workflow.isLocked && workflow.statusLabel === "Rejeitado";
+  // Independe de isLocked: um card rejeitado (ex.: Retorno da Manut. BR NET)
+  // quase sempre já foi finalizado antes de voltar para correção — o backend
+  // marca statusLabel="Rejeitado" mas mantém isLocked=true de propósito (não
+  // destrava sozinho sem ação do usuário). Exigir !isLocked aqui fazia esses
+  // cards caírem no fluxo genérico de "Iniciar nova versão", que chama
+  // create-new-version sem motivo e sempre falha com 422 para cards
+  // rejeitados (o backend exige o motivo da rejeição).
+  const isEditingRejectedCurrentVersion = workflow.statusLabel === "Rejeitado";
   const canClickStartNewVersion =
     isEditingRejectedCurrentVersion || (canStartNewVersion && !hasStartedNewVersion);
   const statusOptions = ["Em edição", "Documento finalizado"];
