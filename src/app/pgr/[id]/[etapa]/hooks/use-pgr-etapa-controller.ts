@@ -995,6 +995,31 @@ export function usePgrEtapaController({
     [createNewVersion]
   );
 
+  // Reabre a versão finalizada atual para correção pontual, SEM incrementar
+  // workflow.version nem criar uma nova linha no histórico (ao contrário de
+  // createNewVersion/handleStartNewVersion). Só se aplica a documentos
+  // finalizados sem rejeição pendente — o backend rejeita com 409 se o
+  // documento estiver rejeitado, que segue o fluxo dedicado que bumpa a
+  // versão (handleEditCurrentVersion acima).
+  const handleEditCurrentFinalizedVersion = useCallback(async () => {
+    try {
+      const updatedState = await apiPost<{ updatedAt?: string }>(
+        `/api/v1/frontend/pgr/${params.id}/edit-current-version`
+      );
+      setKnownUpdatedAt(params.id, updatedState.updatedAt);
+      cancelPendingPersist();
+      window.location.assign(`/pgr/${params.id}/inicio`);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível destravar a versão atual agora.";
+      if (typeof window !== "undefined") {
+        window.alert(message);
+      }
+    }
+  }, [cancelPendingPersist, params.id]);
+
   const handleHistoricoChangeField = useCallback(
     (
       changeId: string,
@@ -1526,6 +1551,7 @@ export function usePgrEtapaController({
       handleFinalizePgr,
       handleStartNewVersion,
       handleEditCurrentVersion,
+      handleEditCurrentFinalizedVersion,
       handleHistoricoChangeField,
       handleResetInicioData,
       handleResetDadosData,

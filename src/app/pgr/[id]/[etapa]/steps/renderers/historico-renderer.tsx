@@ -11,6 +11,7 @@ export const renderHistoricoStep: StepRenderer = (ctx) => (
     onDownloadPdf={ctx.handleGenerateFakePdf}
     onStartNewVersion={ctx.handleStartNewVersion}
     onEditCurrentVersion={ctx.handleEditCurrentVersion}
+    onEditCurrentFinalizedVersion={ctx.handleEditCurrentFinalizedVersion}
     onChangeField={ctx.handleHistoricoChangeField}
   />
 );

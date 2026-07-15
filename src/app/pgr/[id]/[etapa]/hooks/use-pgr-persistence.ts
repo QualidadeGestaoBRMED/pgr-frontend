@@ -731,6 +731,28 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             typeof state.workflow?.finalizedById === "number"
               ? state.workflow.finalizedById
               : null,
+          currentVersionEditHistory: Array.isArray(
+            state.workflow?.currentVersionEditHistory
+          )
+            ? state.workflow.currentVersionEditHistory
+                .filter(
+                  (item): item is {
+                    version: number;
+                    openedAt: string;
+                    openedBy: string;
+                    openedById: number | null;
+                  } =>
+                    Boolean(item) &&
+                    typeof item.version === "number" &&
+                    typeof item.openedAt === "string" &&
+                    typeof item.openedBy === "string"
+                )
+                .map((item) => ({
+                  ...item,
+                  openedById:
+                    typeof item.openedById === "number" ? item.openedById : null,
+                }))
+            : [],
         };
 
         setCompletedSteps(normalizedCompleted);

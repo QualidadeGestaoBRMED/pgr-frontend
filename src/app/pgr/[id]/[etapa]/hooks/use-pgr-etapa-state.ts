@@ -151,6 +151,7 @@ export function usePgrEtapaState({
       finalizedAt: null as string | null,
       finalizedBy: null as string | null,
       finalizedById: null as number | null,
+      currentVersionEditHistory: [],
     }
   );
   const [pdfLayout, setPdfLayout] = useState(() =>

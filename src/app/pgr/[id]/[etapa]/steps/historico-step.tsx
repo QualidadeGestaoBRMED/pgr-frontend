@@ -20,11 +20,18 @@ type HistoricoStepProps = {
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;
+    currentVersionEditHistory: Array<{
+      version: number;
+      openedAt: string;
+      openedBy: string;
+      openedById: number | null;
+    }>;
   };
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
   onEditCurrentVersion: (reason: string) => void;
+  onEditCurrentFinalizedVersion: () => void;
   onChangeField: (
     changeId: string,
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
@@ -41,6 +48,7 @@ export function HistoricoStep({
   onDownloadPdf,
   onStartNewVersion,
   onEditCurrentVersion,
+  onEditCurrentFinalizedVersion,
   onChangeField,
 }: HistoricoStepProps) {
   return (
@@ -53,6 +61,7 @@ export function HistoricoStep({
       onDownloadPdf={onDownloadPdf}
       onStartNewVersion={onStartNewVersion}
       onEditCurrentVersion={onEditCurrentVersion}
+      onEditCurrentFinalizedVersion={onEditCurrentFinalizedVersion}
       onChangeField={onChangeField}
     />
   );

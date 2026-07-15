@@ -30,11 +30,18 @@ type PgrHistoricoPanelProps = {
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;
+    currentVersionEditHistory: Array<{
+      version: number;
+      openedAt: string;
+      openedBy: string;
+      openedById: number | null;
+    }>;
   };
   isGeneratingFakePdf: boolean;
   onDownloadPdf: () => void;
   onStartNewVersion: () => void;
   onEditCurrentVersion: (reason: string) => void;
+  onEditCurrentFinalizedVersion: () => void;
   onChangeField: (
     changeId: string,
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
@@ -51,6 +58,7 @@ export function PgrHistoricoPanel({
   onDownloadPdf,
   onStartNewVersion,
   onEditCurrentVersion,
+  onEditCurrentFinalizedVersion,
   onChangeField,
 }: PgrHistoricoPanelProps) {
   const [hasStartedNewVersion, setHasStartedNewVersion] = useState(false);
@@ -116,9 +124,13 @@ export function PgrHistoricoPanel({
   };
 
   const finalizedInfo =
-    workflow.isLocked && workflow.finalizedAt
+    workflow.finalizedAt
       ? new Date(workflow.finalizedAt).toLocaleString("pt-BR")
       : null;
+  const currentVersionEditHistory = workflow.currentVersionEditHistory.filter(
+    (item) => item.version === workflow.version
+  );
+  const lastCurrentVersionEdit = currentVersionEditHistory.at(-1) ?? null;
   const canStartNewVersion = workflow.isLocked && Boolean(workflow.finalizedAt);
   // Independe de isLocked: um card rejeitado (ex.: Retorno da Manut. BR NET)
   // quase sempre já foi finalizado antes de voltar para correção — o backend
@@ -130,6 +142,9 @@ export function PgrHistoricoPanel({
   const isEditingRejectedCurrentVersion = workflow.statusLabel === "Rejeitado";
   const canClickStartNewVersion =
     isEditingRejectedCurrentVersion || (canStartNewVersion && !hasStartedNewVersion);
+  // Documento finalizado, sem rejeição pendente: oferece as duas ações lado a
+  // lado (editar a mesma versão in-place vs. abrir uma nova revisão).
+  const showFinalizedVersionActions = !isEditingRejectedCurrentVersion && canStartNewVersion;
   const statusOptions = ["Em edição", "Documento finalizado"];
   const allReasonOptions = useMemo(
     () =>
@@ -238,55 +253,110 @@ export function PgrHistoricoPanel({
             </p>
             {finalizedInfo ? (
               <p className="text-[12px] text-muted-foreground">
-                Finalizado em {finalizedInfo}
+                Última finalização em {finalizedInfo}
                 {workflow.finalizedBy ? ` por ${workflow.finalizedBy}` : ""}
+              </p>
+            ) : null}
+            {lastCurrentVersionEdit ? (
+              <p className="text-[12px] text-muted-foreground">
+                Versão atual reaberta para edição {currentVersionEditHistory.length}{" "}
+                {currentVersionEditHistory.length === 1 ? "vez" : "vezes"}. Última abertura em{" "}
+                {new Date(lastCurrentVersionEdit.openedAt).toLocaleString("pt-BR")}
+                {lastCurrentVersionEdit.openedBy
+                  ? ` por ${lastCurrentVersionEdit.openedBy}`
+                  : ""}
               </p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (!canClickStartNewVersion) return;
-                if (isEditingRejectedCurrentVersion) {
-                  const internalReturnReason = workflow.rejectionSourcePhaseId
-                    ? INTERNAL_RETURN_PHASE_REASONS[workflow.rejectionSourcePhaseId]
-                    : undefined;
-                  if (internalReturnReason) {
-                    // Retorno interno (Manut. BR NET, controle de qualidade,
-                    // saúde ocupacional): não tem categorias de motivo — libera
-                    // direto, sem o modal de "motivo da reprovação pelo cliente".
-                    onEditCurrentVersion(internalReturnReason);
+            {showFinalizedVersionActions ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (hasStartedNewVersion) return;
+                    setHasStartedNewVersion(true);
+                    onEditCurrentFinalizedVersion();
+                  }}
+                  disabled={hasStartedNewVersion}
+                  title={
+                    hasStartedNewVersion
+                      ? "Uma ação já foi iniciada."
+                      : "Corrige a versão atual sem abrir uma nova revisão."
+                  }
+                  className={
+                    hasStartedNewVersion
+                      ? "btn-disabled px-4 py-2 text-[14px]"
+                      : "btn-outline px-4 py-2 text-[14px]"
+                  }
+                >
+                  <PencilLine className="h-4 w-4" />
+                  Editar versão atual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (hasStartedNewVersion) return;
+                    setHasStartedNewVersion(true);
+                    onStartNewVersion();
+                  }}
+                  disabled={hasStartedNewVersion}
+                  title={
+                    hasStartedNewVersion
+                      ? "Uma ação já foi iniciada."
+                      : "Abre uma nova revisão numerada do documento."
+                  }
+                  className={
+                    hasStartedNewVersion
+                      ? "btn-disabled px-4 py-2 text-[14px]"
+                      : "btn-primary px-4 py-2 text-[14px]"
+                  }
+                >
+                  <PencilLine className="h-4 w-4" />
+                  Editar nova versão
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canClickStartNewVersion) return;
+                  if (isEditingRejectedCurrentVersion) {
+                    const internalReturnReason = workflow.rejectionSourcePhaseId
+                      ? INTERNAL_RETURN_PHASE_REASONS[workflow.rejectionSourcePhaseId]
+                      : undefined;
+                    if (internalReturnReason) {
+                      // Retorno interno (Manut. BR NET, controle de qualidade,
+                      // saúde ocupacional): não tem categorias de motivo — libera
+                      // direto, sem o modal de "motivo da reprovação pelo cliente".
+                      onEditCurrentVersion(internalReturnReason);
+                      return;
+                    }
+                    setSelectedRejectionReason("");
+                    setIsRejectionReasonModalOpen(true);
                     return;
                   }
-                  setSelectedRejectionReason("");
-                  setIsRejectionReasonModalOpen(true);
-                  return;
+                  setHasStartedNewVersion(true);
+                  onStartNewVersion();
+                }}
+                disabled={!canClickStartNewVersion}
+                title={
+                  canClickStartNewVersion
+                    ? isEditingRejectedCurrentVersion
+                      ? "Editar versão atual"
+                      : "Editar nova versão"
+                    : "Finalize a versão atual para habilitar a edição pelo histórico."
                 }
-                setHasStartedNewVersion(true);
-                onStartNewVersion();
-              }}
-              disabled={!canClickStartNewVersion}
-              title={
-                canClickStartNewVersion
-                  ? isEditingRejectedCurrentVersion
-                    ? "Editar versão atual"
-                    : "Iniciar nova versão"
-                  : !workflow.isLocked
-                    ? "Finalize a versão atual para habilitar a edição pelo histórico."
-                  : hasStartedNewVersion
-                    ? "A nova versão já foi iniciada."
-                    : "Finalize a versão atual para iniciar uma nova."
-              }
-              className={
-                canClickStartNewVersion
-                  ? "btn-primary px-4 py-2 text-[14px]"
-                  : "btn-disabled px-4 py-2 text-[14px]"
-              }
-            >
-              <PencilLine className="h-4 w-4" />
-              {isEditingRejectedCurrentVersion ? "Editar versão atual" : "Iniciar nova versão"}
-            </button>
+                className={
+                  canClickStartNewVersion
+                    ? "btn-primary px-4 py-2 text-[14px]"
+                    : "btn-disabled px-4 py-2 text-[14px]"
+                }
+              >
+                <PencilLine className="h-4 w-4" />
+                {isEditingRejectedCurrentVersion ? "Editar versão atual" : "Editar nova versão"}
+              </button>
+            )}
             <button
               type="button"
               onClick={onDownloadPdf}

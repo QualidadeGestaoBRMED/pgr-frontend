@@ -62,6 +62,12 @@ export type PersistedPgrState = {
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;
+    currentVersionEditHistory: Array<{
+      version: number;
+      openedAt: string;
+      openedBy: string;
+      openedById: number | null;
+    }>;
   };
 };
 
