@@ -77,6 +77,25 @@ type PipefyAttachJobStartResponse = {
   status: string;
 };
 
+type PreviousPgrResponse = {
+  available: boolean;
+  sourcePgrId?: string | null;
+  companyName?: string | null;
+  finalizedAt?: string | null;
+  finalizedBy?: string | null;
+  sourceVersion?: number | null;
+  attachmentsCount?: number;
+  reason?: string | null;
+};
+
+function formatIsoDateToBr(value?: string | null): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString("pt-BR");
+}
+
 type PipefyAttachJobStatusResponse = {
   job_id?: string;
   status?: string;
@@ -427,6 +446,20 @@ export function usePgrEtapaController({
     resumeSaving();
     setSaveConflict(false);
   }, [params.id]);
+
+  // PGR anterior finalizado da mesma empresa disponível para importação.
+  // Preenchido após o auto-sync com o Pipefy; a escolha do usuário fica
+  // registrada no servidor (meta.previousImportChoice) e não re-pergunta.
+  const [previousImport, setPreviousImport] = useState<{
+    sourcePgrId: string;
+    companyName: string;
+    finalizedAt: string;
+    attachmentsCount: number;
+  } | null>(null);
+  const [isImportingPrevious, setIsImportingPrevious] = useState(false);
+  const [previousImportError, setPreviousImportError] = useState<string | null>(
+    null
+  );
 
   const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
@@ -923,6 +956,43 @@ export function usePgrEtapaController({
     }
   }, [cancelPendingPersist, params.id]);
 
+  const handleImportPrevious = useCallback(async () => {
+    if (!previousImport || isImportingPrevious) return;
+    setIsImportingPrevious(true);
+    setPreviousImportError(null);
+    try {
+      // Não deixar um autosave em voo brigar com o import server-side.
+      cancelPendingPersist();
+      await apiPost(`/api/v1/frontend/pgr/${params.id}/import-previous`, {
+        sourcePgrId: previousImport.sourcePgrId,
+      });
+      window.location.assign(`/pgr/${params.id}/inicio`);
+    } catch (error) {
+      setIsImportingPrevious(false);
+      setPreviousImportError(
+        error instanceof ApiError && error.message
+          ? error.message
+          : "Não foi possível importar os dados agora. Tente novamente."
+      );
+    }
+  }, [cancelPendingPersist, isImportingPrevious, params.id, previousImport]);
+
+  const handleStartFreshFromPrevious = useCallback(() => {
+    setPreviousImport(null);
+    setPreviousImportError(null);
+    void apiPost<{ updatedAt?: string }>(
+      `/api/v1/frontend/pgr/${params.id}/import-previous/dismiss`
+    )
+      .then((response) => {
+        // Sincroniza o token do lock otimista para o próximo autosave não
+        // tomar 409 espúrio (mesmo padrão do sync-pipefy).
+        setKnownUpdatedAt(params.id, response?.updatedAt);
+      })
+      .catch(() => {
+        // Silencioso: no pior caso o aviso reaparece no próximo reload.
+      });
+  }, [params.id]);
+
   const handleStartNewVersion = useCallback(
     () => createNewVersion(),
     [createNewVersion]
@@ -1229,9 +1299,26 @@ export function usePgrEtapaController({
     if (autoPipefySyncCardRef.current === params.id) return;
 
     autoPipefySyncCardRef.current = params.id;
-    void generalActions.handleLoadPipefyMock().catch(() => {
-      // Mantém silencioso: usuário pode continuar preenchendo manualmente.
-    });
+    void generalActions
+      .handleLoadPipefyMock()
+      .then(async () => {
+        // Card novo recém-sincronizado: o servidor decide se existe um PGR
+        // anterior finalizado da mesma empresa disponível para importação.
+        const previous = await apiGet<PreviousPgrResponse>(
+          `/api/v1/frontend/pgr/${params.id}/previous-pgr`
+        );
+        if (previous?.available && previous.sourcePgrId) {
+          setPreviousImport({
+            sourcePgrId: previous.sourcePgrId,
+            companyName: String(previous.companyName || "").trim(),
+            finalizedAt: formatIsoDateToBr(previous.finalizedAt),
+            attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
+          });
+        }
+      })
+      .catch(() => {
+        // Mantém silencioso: usuário pode continuar preenchendo manualmente.
+      });
   }, [
     generalActions,
     hasMeaningfulLocalState,
@@ -1289,6 +1376,18 @@ export function usePgrEtapaController({
       open: saveConflict,
       onReload: reloadAfterConflict,
       onDismiss: dismissSaveConflict,
+    },
+    previousImportDialog: {
+      open: previousImport !== null,
+      companyName: previousImport?.companyName ?? "",
+      finalizedAt: previousImport?.finalizedAt ?? "",
+      attachmentsCount: previousImport?.attachmentsCount ?? 0,
+      importing: isImportingPrevious,
+      error: previousImportError,
+      onImport: () => {
+        void handleImportPrevious();
+      },
+      onStartFresh: handleStartFreshFromPrevious,
     },
     shellProps: {
       pgrId: params.id,

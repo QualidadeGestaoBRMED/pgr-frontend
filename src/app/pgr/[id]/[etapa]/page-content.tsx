@@ -4,6 +4,7 @@ import { PgrShell } from "@/components/pgr-shell";
 import { PgrStepBody } from "./steps/pgr-step-body";
 import { StepFooterActions } from "./steps/step-footer-actions";
 import { SaveConflictDialog } from "./steps/save-conflict-dialog";
+import { PreviousVersionDialog } from "./steps/previous-version-dialog";
 import { usePgrEtapaController } from "./hooks/use-pgr-etapa-controller";
 
 export default function PgrEtapaPage({
@@ -11,9 +12,10 @@ export default function PgrEtapaPage({
 }: {
   params: { id: string; etapa: string };
 }) {
-  const { conflict, shellProps, bodyCtx, footerProps } = usePgrEtapaController({
-    params,
-  });
+  const { conflict, previousImportDialog, shellProps, bodyCtx, footerProps } =
+    usePgrEtapaController({
+      params,
+    });
 
   return (
     <PgrShell
@@ -34,6 +36,16 @@ export default function PgrEtapaPage({
         open={conflict.open}
         onReload={conflict.onReload}
         onDismiss={conflict.onDismiss}
+      />
+      <PreviousVersionDialog
+        open={previousImportDialog.open}
+        companyName={previousImportDialog.companyName}
+        finalizedAt={previousImportDialog.finalizedAt}
+        attachmentsCount={previousImportDialog.attachmentsCount}
+        importing={previousImportDialog.importing}
+        error={previousImportDialog.error}
+        onImport={previousImportDialog.onImport}
+        onStartFresh={previousImportDialog.onStartFresh}
       />
     </PgrShell>
   );
