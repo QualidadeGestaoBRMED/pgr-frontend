@@ -852,7 +852,11 @@ export function usePgrEtapaController({
   const handleGenerateFakePdf = useCallback(async () => {
     setters.setIsGeneratingFakePdf(true);
     try {
-      await persistStateNow();
+      // A versão finalizada já está persistida e não pode ser salva novamente.
+      // Tentar persistir aqui recebe 409 e impede o download dos artefatos.
+      if (!state.workflow.isLocked) {
+        await persistStateNow();
+      }
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
         historico: state.historicoData,
@@ -908,6 +912,7 @@ export function usePgrEtapaController({
     setters,
     state.historicoData,
     state.inicioDraft,
+    state.workflow.isLocked,
   ]);
 
   const handleGeneratePreviewPdf = useCallback(
