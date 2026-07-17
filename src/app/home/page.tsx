@@ -78,7 +78,9 @@ export default function PgrsPage() {
 
   const loadHomeData = useCallback(async () => {
     try {
-      const data = await apiGet<HomeData>("/api/v1/frontend/home");
+      const data = await apiGet<HomeData>(
+        "/api/v1/frontend/home?page_size=200"
+      );
       setHomeData(normalizeHomeData(data));
       setLoadError(null);
     } catch (error) {
