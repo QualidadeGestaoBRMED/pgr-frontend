@@ -471,8 +471,17 @@ export function useDescricaoInteractions({
 
     if (!canCreateNextGhe) return;
     pushHistory();
-    const nextIndex = gheGroups.length + 1;
-    const newId = `ghe-${nextIndex}`;
+    // gheGroups.length + 1 sozinho reaproveita um id já usado quando algum
+    // GHE do meio da lista foi excluído (o array encolhe, mas os ids
+    // remanescentes não são renumerados) — daí o loop de checagem, no mesmo
+    // padrão de createImportedGheId em create-general-actions.ts.
+    const existingGheIds = new Set(gheGroups.map((ghe) => ghe.id));
+    let nextIndex = gheGroups.length + 1;
+    let newId = `ghe-${nextIndex}`;
+    while (existingGheIds.has(newId)) {
+      nextIndex += 1;
+      newId = `ghe-${nextIndex}`;
+    }
     const nextName = `GHE ${nextIndex}`;
     setGheGroups((prev) => [
       ...prev,
