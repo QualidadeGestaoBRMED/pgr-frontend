@@ -1436,7 +1436,7 @@ function buildNarrativeCoreAndAnnexIndex(
             const artDate = artItems.map((item) => item.data).find(Boolean) || "";
             rows.push([
               bodyCell(String.fromCharCode(nextCharCode)),
-              bodyCell(artTitle),
+              bodyCell(artTitle.toLocaleUpperCase("pt-BR")),
               bodyCell(artDate || snapshot.meta.generatedDate),
             ]);
             nextCharCode += 1;
@@ -1446,7 +1446,7 @@ function buildNarrativeCoreAndAnnexIndex(
             const displayTitle = item.titulo || item.arquivos.join("; ") || "Anexo sem título";
             rows.push([
               bodyCell(String.fromCharCode(nextCharCode)),
-              bodyCell(displayTitle),
+              bodyCell(displayTitle.toLocaleUpperCase("pt-BR")),
               bodyCell(item.data || snapshot.meta.generatedDate),
             ]);
             nextCharCode += 1;

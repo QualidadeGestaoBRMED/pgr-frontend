@@ -243,8 +243,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   };
 
   const handleEditSelectedInline = () => {
-    if (!selectedRightIds.length) return;
-    addInlineEdit(selectedRightIds);
+    const ids = [...selectedLeftIds, ...selectedRightIds];
+    if (!ids.length) return;
+    addInlineEdit(ids);
   };
 
   const handleDraftFieldChange = (
@@ -483,16 +484,15 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
 
   useEffect(() => {
     if (!editingFunctionIds.length) return;
-    const allowedIds = new Set(currentItems.map((item) => item.functionId));
-    setEditingFunctionIds((prev) => prev.filter((id) => allowedIds.has(id)));
+    setEditingFunctionIds((prev) => prev.filter((id) => functionMap.has(id)));
     setEditingDrafts((prev) => {
       const next: typeof prev = {};
       Object.entries(prev).forEach(([id, draft]) => {
-        if (allowedIds.has(id)) next[id] = draft;
+        if (functionMap.has(id)) next[id] = draft;
       });
       return next;
     });
-  }, [currentItems, editingFunctionIds.length]);
+  }, [functionMap, editingFunctionIds.length]);
 
   useEffect(() => {
     if (!isGheModalOpen) return;
@@ -927,35 +927,108 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           </button>
                         </div>
                         <div className="space-y-2 text-[13px] text-foreground/80">
-                          {group.items.map((funcao: PgrFunction) => (
-                            <label
-                              key={funcao.id}
-                              data-select-item
-                              data-left-id={funcao.id}
-                              draggable
-                              onDragStart={(event) =>
-                                handleDragStartLeft(event, funcao.id)
-                              }
-                              onDragEnd={handleDragLeave}
-                              className="flex cursor-grab items-center gap-2 rounded-[8px] px-2 py-1 transition hover:bg-muted/70"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedLeftIds.includes(funcao.id)}
-                                onChange={() =>
-                                  handleToggleLeftSelection(funcao.id)
+                          {group.items.map((funcao: PgrFunction) => {
+                            const isEditingRow = editingFunctionIds.includes(funcao.id);
+                            const draft = editingDrafts[funcao.id] ?? {
+                              setor: funcao.setor || "",
+                              funcao: funcao.funcao || "",
+                              descricao: funcao.descricao || "",
+                            };
+                            return (
+                              <div
+                                key={funcao.id}
+                                data-select-item
+                                data-left-id={funcao.id}
+                                draggable={!isEditingRow}
+                                onDragStart={(event) =>
+                                  handleDragStartLeft(event, funcao.id)
                                 }
-                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                              />
-                              <span
-                                className="min-w-0 flex-1"
-                                style={{ textWrap: "pretty" }}
-                                title={`${funcao.funcao} - ${funcao.descricao}`}
+                                onDragEnd={handleDragLeave}
+                                className={`grid gap-2 rounded-[8px] px-2 py-1 transition hover:bg-muted/70 ${
+                                  isEditingRow
+                                    ? "grid-cols-[20px_minmax(0,1fr)_auto] items-start"
+                                    : "grid-cols-[20px_minmax(0,1fr)] items-center cursor-grab"
+                                }`}
                               >
-                                {funcao.funcao} - {truncatePreview(funcao.descricao, 90)}
-                              </span>
-                            </label>
-                          ))}
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLeftIds.includes(funcao.id)}
+                                  onChange={() =>
+                                    handleToggleLeftSelection(funcao.id)
+                                  }
+                                  className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                />
+                                {isEditingRow ? (
+                                  <>
+                                    <div className="min-w-0 space-y-2">
+                                      <input
+                                        value={draft.setor}
+                                        onChange={(event) =>
+                                          handleDraftFieldChange(
+                                            funcao.id,
+                                            "setor",
+                                            event.target.value
+                                          )
+                                        }
+                                        className={inputInlineClass}
+                                        placeholder="Setor"
+                                      />
+                                      <input
+                                        value={draft.funcao}
+                                        onChange={(event) =>
+                                          handleDraftFieldChange(
+                                            funcao.id,
+                                            "funcao",
+                                            event.target.value
+                                          )
+                                        }
+                                        className={inputInlineClass}
+                                        placeholder="Função"
+                                      />
+                                      <input
+                                        value={draft.descricao}
+                                        onChange={(event) =>
+                                          handleDraftFieldChange(
+                                            funcao.id,
+                                            "descricao",
+                                            event.target.value
+                                          )
+                                        }
+                                        className={inputInlineClass}
+                                        placeholder="Descrição da função"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveInlineEdit(funcao.id)}
+                                        className="text-muted-foreground transition hover:text-primary"
+                                        title="Salvar"
+                                      >
+                                        <Check className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeInlineEdit(funcao.id)}
+                                        className="text-muted-foreground transition hover:text-danger"
+                                        title="Cancelar"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span
+                                    className="min-w-0"
+                                    style={{ textWrap: "pretty" }}
+                                    title={`${funcao.funcao} - ${funcao.descricao}`}
+                                  >
+                                    {funcao.funcao} - {truncatePreview(funcao.descricao, 90)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))
@@ -993,9 +1066,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   <button
                     type="button"
                     onClick={handleEditSelectedInline}
-                    disabled={!selectedRightIds.length}
+                    disabled={!selectedLeftIds.length && !selectedRightIds.length}
                     className={
-                      selectedRightIds.length
+                      selectedLeftIds.length || selectedRightIds.length
                         ? "btn-primary px-4"
                         : "btn-disabled px-4"
                     }

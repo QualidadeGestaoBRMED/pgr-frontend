@@ -546,7 +546,7 @@ export function useDescricaoInteractions({
   };
 
   const handleDragStartLeft = (
-    event: DragEvent<HTMLLabelElement>,
+    event: DragEvent<HTMLElement>,
     id: string
   ) => {
     const ids = selectedLeftIds.includes(id) ? selectedLeftIds : [id];

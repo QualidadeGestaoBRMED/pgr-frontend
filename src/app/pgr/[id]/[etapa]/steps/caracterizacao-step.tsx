@@ -1,4 +1,11 @@
-import { ChevronDown, PlusCircle, Search, TriangleAlert } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  PlusCircle,
+  Search,
+  TriangleAlert,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import { createPortal } from "react-dom";
@@ -305,6 +312,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     riskGheGroups,
     gheGroups,
     functionMap,
+    setGheGroups,
     setRiskGheGroups,
     persistedOptionsByRowId,
     setPersistedOptionsByRowId,
@@ -338,12 +346,14 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   const [isRiskOverviewModalOpen, setIsRiskOverviewModalOpen] = useState(false);
   const [isBatchAssignModalOpen, setIsBatchAssignModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isDeleteSelectedRisksModalOpen, setIsDeleteSelectedRisksModalOpen] =
+    useState(false);
   const [riskGheSearch, setRiskGheSearch] = useState("");
   const [riskOverviewSearch, setRiskOverviewSearch] = useState("");
   const [batchRiskSearch, setBatchRiskSearch] = useState("");
   const [batchGheSearch, setBatchGheSearch] = useState("");
   const [riskOverviewGheFilterId, setRiskOverviewGheFilterId] = useState<"all" | string>("all");
-  const [selectedBatchRiskKey, setSelectedBatchRiskKey] = useState<string | null>(null);
+  const [selectedBatchRiskKeys, setSelectedBatchRiskKeys] = useState<string[]>([]);
   const [selectedBatchGheIds, setSelectedBatchGheIds] = useState<string[]>([]);
   const [batchAssignFeedback, setBatchAssignFeedback] = useState<string>("");
   const [gheFunctionPreview, setGheFunctionPreview] = useState<null | {
@@ -371,6 +381,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     Record<string, Partial<Record<RequiredRiskField, boolean>>>
   >({});
   const [minimizedRiskIds, setMinimizedRiskIds] = useState<Record<string, boolean>>({});
+  const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([]);
   const copyMenuRef = useRef<HTMLDivElement | null>(null);
   const gheFunctionPreviewRef = useRef<HTMLDivElement | null>(null);
   const gheFunctionPreviewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -651,6 +662,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       currentRiskList.every((risk) => Boolean(minimizedRiskIds[risk.id])),
     [currentRiskList, minimizedRiskIds]
   );
+  const allCurrentRisksSelected = useMemo(
+    () =>
+      currentRiskList.length > 0 &&
+      currentRiskList.every((risk) => selectedRiskIds.includes(risk.id)),
+    [currentRiskList, selectedRiskIds]
+  );
   const totalRiskOverviewCount = useMemo(
     () => riskGheGroups.reduce((total, ghe) => total + ghe.risks.length, 0),
     [riskGheGroups]
@@ -740,10 +757,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     });
     return Array.from(grouped.values());
   }, [riskGheGroups]);
-  const selectedBatchRiskGroup = useMemo(() => {
-    if (!selectedBatchRiskKey) return null;
-    return batchRiskGroups.find((group) => group.key === selectedBatchRiskKey) ?? null;
-  }, [batchRiskGroups, selectedBatchRiskKey]);
+  const selectedBatchRiskGroups = useMemo(
+    () => batchRiskGroups.filter((group) => selectedBatchRiskKeys.includes(group.key)),
+    [batchRiskGroups, selectedBatchRiskKeys]
+  );
   const normalizedBatchRiskSearch = useMemo(
     () => normalizeText(batchRiskSearch.trim()),
     [batchRiskSearch]
@@ -773,14 +790,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     filteredBatchRiskGroups.length - visibleBatchRiskGroups.length
   );
   const filteredBatchGhes = useMemo(() => {
-    const base = selectedBatchRiskGroup
-      ? riskGheGroups.filter((ghe) => !selectedBatchRiskGroup.sourceGheIds.includes(ghe.id))
+    const base = selectedBatchRiskGroups.length
+      ? riskGheGroups.filter((ghe) =>
+          selectedBatchRiskGroups.some((group) => !group.sourceGheIds.includes(ghe.id))
+        )
       : riskGheGroups;
     if (!normalizedBatchGheSearch) return base;
     return base.filter((ghe) =>
       normalizeText(ghe.name).includes(normalizedBatchGheSearch)
     );
-  }, [normalizedBatchGheSearch, riskGheGroups, selectedBatchRiskGroup]);
+  }, [normalizedBatchGheSearch, riskGheGroups, selectedBatchRiskGroups]);
   const shouldPaginateBatchGhes = filteredBatchGhes.length > PROGRESSIVE_THRESHOLD;
   const visibleBatchGhes = useMemo(
     () =>
@@ -1076,6 +1095,54 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       delete next[riskId];
       return next;
     });
+    setSelectedRiskIds((prev) => prev.filter((id) => id !== riskId));
+  };
+
+  const handleToggleRiskSelection = (riskId: string) => {
+    setSelectedRiskIds((prev) =>
+      prev.includes(riskId)
+        ? prev.filter((id) => id !== riskId)
+        : [...prev, riskId]
+    );
+  };
+
+  const handleToggleAllRiskSelection = () => {
+    if (!currentRiskList.length) return;
+    setSelectedRiskIds(
+      allCurrentRisksSelected ? [] : currentRiskList.map((risk) => risk.id)
+    );
+  };
+
+  const handleRemoveSelectedRisks = () => {
+    if (!currentRiskGhe || !selectedRiskIds.length) return;
+    const selectedIds = new Set(selectedRiskIds);
+    pushHistory();
+    setRiskGheGroups((prev: RiskGheGroup[]) =>
+      prev.map((ghe) =>
+        ghe.id === currentRiskGhe.id
+          ? {
+              ...ghe,
+              risks: ghe.risks.filter((risk) => !selectedIds.has(risk.id)),
+            }
+          : ghe
+      )
+    );
+    setTouchedRiskFields((prev) => {
+      const next = { ...prev };
+      selectedIds.forEach((id) => {
+        delete next[id];
+      });
+      return next;
+    });
+    setMinimizedRiskIds((prev) => {
+      const next = { ...prev };
+      selectedIds.forEach((id) => {
+        delete next[id];
+      });
+      return next;
+    });
+    setSelectedRiskIds([]);
+    setIsDeleteSelectedRisksModalOpen(false);
   };
 
   const handleRiskChange = (
@@ -1571,6 +1638,19 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   }, [currentRiskGheId, currentRiskList.length]);
 
   useEffect(() => {
+    setSelectedRiskIds([]);
+    setIsDeleteSelectedRisksModalOpen(false);
+  }, [currentRiskGheId]);
+
+  useEffect(() => {
+    const currentIds = new Set(currentRiskList.map((risk) => risk.id));
+    setSelectedRiskIds((prev) => {
+      const next = prev.filter((id) => currentIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [currentRiskList]);
+
+  useEffect(() => {
     if (!isCopyMenuOpen) return;
     setVisibleCopySourceCount(PROGRESSIVE_BATCH_SIZE);
   }, [isCopyMenuOpen, copySourceGhesWithRisks.length]);
@@ -1599,13 +1679,15 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   useEffect(() => {
     if (!isBatchAssignModalOpen) return;
     setVisibleBatchGheCount(PROGRESSIVE_BATCH_SIZE);
-  }, [isBatchAssignModalOpen, filteredBatchGhes.length, batchGheSearch, selectedBatchRiskKey]);
+  }, [isBatchAssignModalOpen, filteredBatchGhes.length, batchGheSearch, selectedBatchRiskKeys]);
 
   useEffect(() => {
-    if (!selectedBatchRiskKey) return;
-    if (batchRiskGroups.some((group) => group.key === selectedBatchRiskKey)) return;
-    setSelectedBatchRiskKey(null);
-  }, [batchRiskGroups, selectedBatchRiskKey]);
+    const availableKeys = new Set(batchRiskGroups.map((group) => group.key));
+    setSelectedBatchRiskKeys((prev) => {
+      const next = prev.filter((key) => availableKeys.has(key));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [batchRiskGroups]);
 
   useEffect(() => {
     setSelectedBatchGheIds((prev) =>
@@ -1614,11 +1696,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   }, [riskGheGroups]);
 
   useEffect(() => {
-    if (!selectedBatchRiskGroup) return;
+    if (!selectedBatchRiskGroups.length) {
+      setSelectedBatchGheIds([]);
+      return;
+    }
     setSelectedBatchGheIds((prev) =>
-      prev.filter((id) => !selectedBatchRiskGroup.sourceGheIds.includes(id))
+      prev.filter((id) =>
+        selectedBatchRiskGroups.some((group) => !group.sourceGheIds.includes(id))
+      )
     );
-  }, [selectedBatchRiskGroup]);
+  }, [selectedBatchRiskGroups]);
 
   useEffect(() => {
     if (!openMultiSelect) return;
@@ -1656,6 +1743,71 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     });
   };
 
+  const handleMoveRiskGhe = (gheId: string, direction: "up" | "down") => {
+    const currentIndex = riskGheGroups.findIndex((ghe) => ghe.id === gheId);
+    if (currentIndex < 0) return;
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= riskGheGroups.length) return;
+
+    const reorderedRiskGhes = [...riskGheGroups];
+    [reorderedRiskGhes[currentIndex], reorderedRiskGhes[targetIndex]] = [
+      reorderedRiskGhes[targetIndex],
+      reorderedRiskGhes[currentIndex],
+    ];
+    const orderById = new Map(
+      reorderedRiskGhes.map((ghe, index) => [ghe.id, index])
+    );
+
+    pushHistory();
+    setRiskGheGroups(reorderedRiskGhes);
+    setGheGroups((prev: GheGroup[]) =>
+      [...prev].sort(
+        (first, second) =>
+          (orderById.get(first.id) ?? Number.MAX_SAFE_INTEGER) -
+          (orderById.get(second.id) ?? Number.MAX_SAFE_INTEGER)
+      )
+    );
+  };
+
+  const renderRiskGheOrderControls = (
+    ghe: RiskGheGroup,
+    positionClassName: string
+  ) => {
+    const gheIndex = riskGheGroups.findIndex((group) => group.id === ghe.id);
+    return (
+      <div className={`flex items-center gap-1 ${positionClassName}`}>
+        <button
+          type="button"
+          onClick={() => handleMoveRiskGhe(ghe.id, "up")}
+          disabled={gheIndex <= 0}
+          className={`flex h-7 w-7 items-center justify-center rounded-[7px] border bg-card transition ${
+            gheIndex > 0
+              ? "border-border text-foreground hover:border-primary/50 hover:text-primary"
+              : "cursor-not-allowed border-border/50 text-muted-foreground/40"
+          }`}
+          title="Mover GHE para cima"
+          aria-label={`Mover ${ghe.name} para cima`}
+        >
+          <ArrowUp className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => handleMoveRiskGhe(ghe.id, "down")}
+          disabled={gheIndex < 0 || gheIndex >= riskGheGroups.length - 1}
+          className={`flex h-7 w-7 items-center justify-center rounded-[7px] border bg-card transition ${
+            gheIndex >= 0 && gheIndex < riskGheGroups.length - 1
+              ? "border-border text-foreground hover:border-primary/50 hover:text-primary"
+              : "cursor-not-allowed border-border/50 text-muted-foreground/40"
+          }`}
+          title="Mover GHE para baixo"
+          aria-label={`Mover ${ghe.name} para baixo`}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  };
+
   const toggleBatchGheSelection = (gheId: string) => {
     setSelectedBatchGheIds((prev) =>
       prev.includes(gheId) ? prev.filter((id) => id !== gheId) : [...prev, gheId]
@@ -1663,52 +1815,65 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
     setBatchAssignFeedback("");
   };
 
+  const toggleBatchRiskSelection = (riskKey: string) => {
+    setSelectedBatchRiskKeys((prev) =>
+      prev.includes(riskKey)
+        ? prev.filter((key) => key !== riskKey)
+        : [...prev, riskKey]
+    );
+    setBatchAssignFeedback("");
+  };
+
   const handleApplyBatchRiskAssignment = () => {
-    if (!selectedBatchRiskGroup || !selectedBatchGheIds.length) return;
+    if (!selectedBatchRiskGroups.length || !selectedBatchGheIds.length) return;
 
-    pushHistory();
-    const sourceRisk = selectedBatchRiskGroup.risk;
-    const targetGheIds = selectedBatchGheIds.filter(
-      (gheId) => !selectedBatchRiskGroup.sourceGheIds.includes(gheId)
-    );
-    if (!targetGheIds.length) {
-      setBatchAssignFeedback("Selecione ao menos um GHE de destino válido.");
-      return;
-    }
+    const targetGheIds = new Set(selectedBatchGheIds);
     let addedCount = 0;
-    const sourceRiskDescriptionKey = getRiskDescriptionKey(
-      sourceRisk.tipoAgente,
-      sourceRisk.descricaoAgente
-    );
+    const affectedGheIds = new Set<string>();
+    const nextRiskGheGroups = riskGheGroups.map((ghe) => {
+      if (!targetGheIds.has(ghe.id)) return ghe;
+      const nextRisks = [...ghe.risks];
 
-    setRiskGheGroups((prev) =>
-      prev.map((ghe) => {
-        if (!targetGheIds.includes(ghe.id)) return ghe;
+      selectedBatchRiskGroups.forEach((group) => {
+        if (group.sourceGheIds.includes(ghe.id)) return;
+        const sourceRisk = group.risk;
+        const sourceRiskDescriptionKey = getRiskDescriptionKey(
+          sourceRisk.tipoAgente,
+          sourceRisk.descricaoAgente
+        );
         const hasSameRiskDescription =
           !!sourceRiskDescriptionKey &&
-          ghe.risks.some(
+          nextRisks.some(
             (risk) =>
               getRiskDescriptionKey(risk.tipoAgente, risk.descricaoAgente) ===
               sourceRiskDescriptionKey
           );
-        const hasSameRiskContent = ghe.risks.some((risk) => isSameRiskContent(risk, sourceRisk));
-        if (hasSameRiskDescription || hasSameRiskContent) return ghe;
+        const hasSameRiskContent = nextRisks.some((risk) =>
+          isSameRiskContent(risk, sourceRisk)
+        );
+        if (hasSameRiskDescription || hasSameRiskContent) return;
+        nextRisks.push(cloneRiskForAssignment(sourceRisk));
         addedCount += 1;
-        return {
-          ...ghe,
-          risks: [
-            ...ghe.risks,
-            cloneRiskForAssignment(sourceRisk),
-          ],
-        };
-      })
-    );
+        affectedGheIds.add(ghe.id);
+      });
 
+      return nextRisks.length === ghe.risks.length
+        ? ghe
+        : { ...ghe, risks: nextRisks };
+    });
+
+    if (!addedCount) {
+      setBatchAssignFeedback(
+        "Os GHEs selecionados já possuem os riscos escolhidos."
+      );
+      return;
+    }
+
+    pushHistory();
+    setRiskGheGroups(nextRiskGheGroups);
     setSelectedBatchGheIds([]);
     setBatchAssignFeedback(
-      addedCount > 0
-        ? `Risco atribuído em ${addedCount} GHE(s).`
-        : "Os GHEs selecionados já possuem esse risco."
+      `${addedCount} atribuição(ões) realizada(s) em ${affectedGheIds.size} GHE(s).`
     );
   };
 
@@ -1980,9 +2145,18 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-[13px] font-semibold text-foreground">
-                    Risco cadastrado
-                  </p>
+                  <label className="flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={selectedRiskIds.includes(risk.id)}
+                      onChange={() => handleToggleRiskSelection(risk.id)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      aria-label={`Selecionar risco ${
+                        risk.descricaoAgente || "não informado"
+                      }`}
+                    />
+                    <span>Risco cadastrado</span>
+                  </label>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -3522,10 +3696,10 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 setBatchGheSearch("");
                 setSelectedBatchGheIds([]);
                 setBatchAssignFeedback("");
-                setSelectedBatchRiskKey(
+                setSelectedBatchRiskKeys(
                   currentRiskGhe?.risks[0]
-                    ? getRiskContentKey(currentRiskGhe.risks[0])
-                    : null
+                    ? [getRiskContentKey(currentRiskGhe.risks[0])]
+                    : []
                 );
                 setIsBatchAssignModalOpen(true);
               }}
@@ -3540,6 +3714,26 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               className={currentRiskList.length ? "btn-outline px-4" : "btn-disabled px-4"}
             >
               {allCurrentRisksMinimized ? "Expandir todos os riscos" : "Minimizar todos os riscos"}
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleAllRiskSelection}
+              disabled={!currentRiskList.length}
+              className={currentRiskList.length ? "btn-outline px-4" : "btn-disabled px-4"}
+            >
+              {allCurrentRisksSelected ? "Limpar seleção" : "Selecionar todos"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDeleteSelectedRisksModalOpen(true)}
+              disabled={!selectedRiskIds.length}
+              className={
+                selectedRiskIds.length
+                  ? "btn-outline px-4 text-danger hover:bg-danger/10"
+                  : "btn-disabled px-4"
+              }
+            >
+              Excluir selecionados ({selectedRiskIds.length})
             </button>
             <button type="button" onClick={handleAddRisk} className="btn-primary px-4">
               <PlusCircle className="h-4 w-4" />
@@ -3581,42 +3775,47 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                   </div>
                 ) : null}
                 {visibleFilteredRiskGheGroups.map((ghe: RiskGheGroup) => (
-                  <button
-                    key={ghe.id}
-                    type="button"
-                    data-ghe-function-preview-trigger
-                    onClick={() => setCurrentRiskGheId(ghe.id)}
-                    onMouseEnter={(event) =>
-                      showGheFunctionPreview(ghe.id, event.currentTarget)
-                    }
-                    onMouseLeave={hideGheFunctionPreview}
-                    onFocus={(event) => showGheFunctionPreview(ghe.id, event.currentTarget)}
-                    onBlur={hideGheFunctionPreview}
-                    aria-describedby={
-                      gheFunctionPreview?.gheId === ghe.id
-                        ? "ghe-function-preview"
-                        : undefined
-                    }
-                    className={`w-full rounded-[10px] border px-3 py-2 text-left text-[12px] transition ${
-                      currentRiskGheId === ghe.id
-                        ? duplicatedRiskStructureGheIds.has(ghe.id)
-                          ? "border-amber-500 bg-primary/5"
-                          : "border-primary/50 bg-primary/5"
-                        : duplicatedRiskStructureGheIds.has(ghe.id)
-                          ? "border-amber-300 bg-background/60 hover:bg-muted/60"
-                          : "border-border/70 bg-background/60 hover:bg-muted/60"
-                    }`}
-                  >
-                    <p className="flex items-center gap-1 font-semibold text-foreground">
-                      {duplicatedRiskStructureGheIds.has(ghe.id) ? (
-                        <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
-                      ) : null}
-                      {ghe.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {ghe.risks.length} riscos cadastrados
-                    </p>
-                  </button>
+                  <div key={ghe.id} className="relative">
+                    <button
+                      type="button"
+                      data-ghe-function-preview-trigger
+                      onClick={() => setCurrentRiskGheId(ghe.id)}
+                      onMouseEnter={(event) =>
+                        showGheFunctionPreview(ghe.id, event.currentTarget)
+                      }
+                      onMouseLeave={hideGheFunctionPreview}
+                      onFocus={(event) => showGheFunctionPreview(ghe.id, event.currentTarget)}
+                      onBlur={hideGheFunctionPreview}
+                      aria-describedby={
+                        gheFunctionPreview?.gheId === ghe.id
+                          ? "ghe-function-preview"
+                          : undefined
+                      }
+                      className={`w-full rounded-[10px] border py-2 pl-3 pr-[76px] text-left text-[12px] transition ${
+                        currentRiskGheId === ghe.id
+                          ? duplicatedRiskStructureGheIds.has(ghe.id)
+                            ? "border-amber-500 bg-primary/5"
+                            : "border-primary/50 bg-primary/5"
+                          : duplicatedRiskStructureGheIds.has(ghe.id)
+                            ? "border-amber-300 bg-background/60 hover:bg-muted/60"
+                            : "border-border/70 bg-background/60 hover:bg-muted/60"
+                      }`}
+                    >
+                      <p className="flex items-center gap-1 font-semibold text-foreground">
+                        {duplicatedRiskStructureGheIds.has(ghe.id) ? (
+                          <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                        ) : null}
+                        {ghe.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {ghe.risks.length} riscos cadastrados
+                      </p>
+                    </button>
+                    {renderRiskGheOrderControls(
+                      ghe,
+                      "absolute right-2 top-1/2 -translate-y-1/2"
+                    )}
+                  </div>
                 ))}
                 {!filteredRiskGheGroups.length ? (
                   <div className="rounded-[10px] border border-dashed border-border/70 px-3 py-4 text-center text-[12px] text-muted-foreground">
@@ -3672,42 +3871,44 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
 
             <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
               {visibleFilteredRiskGheGroups.map((ghe: RiskGheGroup) => (
-                <button
-                  key={ghe.id}
-                  type="button"
-                  data-ghe-function-preview-trigger
-                  onClick={() => setCurrentRiskGheId(ghe.id)}
-                  onMouseEnter={(event) =>
-                    showGheFunctionPreview(ghe.id, event.currentTarget)
-                  }
-                  onMouseLeave={hideGheFunctionPreview}
-                  onFocus={(event) => showGheFunctionPreview(ghe.id, event.currentTarget)}
-                  onBlur={hideGheFunctionPreview}
-                  aria-describedby={
-                    gheFunctionPreview?.gheId === ghe.id
-                      ? "ghe-function-preview"
-                      : undefined
-                  }
-                  className={`min-w-[150px] rounded-[12px] border px-3 py-2 text-left transition ${
-                    currentRiskGheId === ghe.id
-                      ? duplicatedRiskStructureGheIds.has(ghe.id)
-                        ? "border-amber-500 bg-primary/5"
-                        : "border-primary/50 bg-primary/5"
-                      : duplicatedRiskStructureGheIds.has(ghe.id)
-                        ? "border-amber-300 bg-background/40 hover:bg-muted/60"
-                        : "border-border/70 bg-background/40 hover:bg-muted/60"
-                  }`}
-                >
-                  <p className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
-                    {duplicatedRiskStructureGheIds.has(ghe.id) ? (
-                      <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
-                    ) : null}
-                    {ghe.name}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {ghe.risks.length} riscos
-                  </p>
-                </button>
+                <div key={ghe.id} className="relative min-w-[170px]">
+                  <button
+                    type="button"
+                    data-ghe-function-preview-trigger
+                    onClick={() => setCurrentRiskGheId(ghe.id)}
+                    onMouseEnter={(event) =>
+                      showGheFunctionPreview(ghe.id, event.currentTarget)
+                    }
+                    onMouseLeave={hideGheFunctionPreview}
+                    onFocus={(event) => showGheFunctionPreview(ghe.id, event.currentTarget)}
+                    onBlur={hideGheFunctionPreview}
+                    aria-describedby={
+                      gheFunctionPreview?.gheId === ghe.id
+                        ? "ghe-function-preview"
+                        : undefined
+                    }
+                    className={`h-full w-full rounded-[12px] border px-3 pb-11 pt-2 text-left transition ${
+                      currentRiskGheId === ghe.id
+                        ? duplicatedRiskStructureGheIds.has(ghe.id)
+                          ? "border-amber-500 bg-primary/5"
+                          : "border-primary/50 bg-primary/5"
+                        : duplicatedRiskStructureGheIds.has(ghe.id)
+                          ? "border-amber-300 bg-background/40 hover:bg-muted/60"
+                          : "border-border/70 bg-background/40 hover:bg-muted/60"
+                    }`}
+                  >
+                    <p className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
+                      {duplicatedRiskStructureGheIds.has(ghe.id) ? (
+                        <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                      ) : null}
+                      {ghe.name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {ghe.risks.length} riscos
+                    </p>
+                  </button>
+                  {renderRiskGheOrderControls(ghe, "absolute bottom-2 right-2")}
+                </div>
               ))}
               {!filteredRiskGheGroups.length ? (
                 <div className="rounded-[12px] border border-dashed border-border/70 px-4 py-3 text-[12px] text-muted-foreground">
@@ -3757,7 +3958,8 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     Atribuir Risco a Vários GHEs
                   </h3>
                   <p className="mt-1 text-[13px] text-muted-foreground">
-                    Selecione um risco na esquerda e marque os GHEs de destino na direita.
+                    Selecione um ou mais riscos na esquerda e marque os GHEs de destino
+                    na direita.
                   </p>
                 </div>
                 <button
@@ -3780,47 +3982,79 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       placeholder="Buscar risco por GHE, tipo, agente ou classificação"
                     />
                   </div>
-                  <p className="mt-3 text-[12px] text-muted-foreground">
-                    {filteredBatchRiskGroups.length} riscos encontrados
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[12px] text-muted-foreground">
+                      {filteredBatchRiskGroups.length} riscos encontrados ·{" "}
+                      {selectedBatchRiskKeys.length} selecionado(s)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBatchRiskKeys((prev) => {
+                          const visibleKeys = visibleBatchRiskGroups.map(
+                            (group) => group.key
+                          );
+                          const allSelected =
+                            visibleKeys.length > 0 &&
+                            visibleKeys.every((key) => prev.includes(key));
+                          if (allSelected) {
+                            return prev.filter((key) => !visibleKeys.includes(key));
+                          }
+                          return Array.from(new Set([...prev, ...visibleKeys]));
+                        });
+                        setBatchAssignFeedback("");
+                      }}
+                      disabled={!visibleBatchRiskGroups.length}
+                      className={
+                        visibleBatchRiskGroups.length
+                          ? "btn-outline px-3 py-1 text-[12px]"
+                          : "btn-disabled px-3 py-1 text-[12px]"
+                      }
+                    >
+                      Marcar riscos visíveis
+                    </button>
+                  </div>
 
                   <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-auto pr-1">
                     {visibleBatchRiskGroups.length ? (
                       visibleBatchRiskGroups.map((group) => {
-                        const isSelected = selectedBatchRiskKey === group.key;
+                        const isSelected = selectedBatchRiskKeys.includes(group.key);
                         return (
-                          <button
+                          <label
                             key={group.key}
-                            type="button"
-                            onClick={() => {
-                              setSelectedBatchRiskKey(group.key);
-                              setSelectedBatchGheIds([]);
-                              setBatchAssignFeedback("");
-                            }}
-                            className={`w-full rounded-[10px] border px-3 py-3 text-left ${
+                            className={`flex w-full cursor-pointer items-start gap-3 rounded-[10px] border px-3 py-3 text-left ${
                               isSelected
                                 ? "border-primary/50 bg-primary/5"
                                 : "border-border/60 bg-card hover:bg-muted/60"
                             }`}
                           >
-                            <p className="text-[13px] font-semibold text-foreground">
-                              {group.risk.descricaoAgente || "Agente não informado"}
-                            </p>
-                            <p className="mt-1 text-[12px] text-muted-foreground">
-                              Tipo: {group.risk.tipoAgente || "Não informado"} · Classificação:{" "}
-                              {group.risk.classificacao || "Não informada"}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {group.sourceGheNames.map((gheName) => (
-                                <span
-                                  key={`${group.key}-${gheName}`}
-                                  className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
-                                >
-                                  {gheName}
-                                </span>
-                              ))}
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleBatchRiskSelection(group.key)}
+                              className="mt-0.5 h-4 w-4 accent-primary"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-semibold text-foreground">
+                                {group.risk.descricaoAgente || "Agente não informado"}
+                              </p>
+                              <p className="mt-1 text-[12px] text-muted-foreground">
+                                Tipo: {group.risk.tipoAgente || "Não informado"} ·
+                                Classificação:{" "}
+                                {group.risk.classificacao || "Não informada"}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {group.sourceGheNames.map((gheName) => (
+                                  <span
+                                    key={`${group.key}-${gheName}`}
+                                    className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                                  >
+                                    {gheName}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </button>
+                          </label>
                         );
                       })
                     ) : (
@@ -3857,17 +4091,23 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           return Array.from(new Set([...prev, ...visibleIds]));
                         })
                       }
-                      disabled={!visibleBatchGhes.length}
-                      className={!visibleBatchGhes.length ? "btn-disabled px-3 py-1 text-[12px]" : "btn-outline px-3 py-1 text-[12px]"}
+                      disabled={
+                        !selectedBatchRiskGroups.length || !visibleBatchGhes.length
+                      }
+                      className={
+                        !selectedBatchRiskGroups.length || !visibleBatchGhes.length
+                          ? "btn-disabled px-3 py-1 text-[12px]"
+                          : "btn-outline px-3 py-1 text-[12px]"
+                      }
                     >
                       Marcar visíveis
                     </button>
                   </div>
 
                   <p className="mt-2 text-[12px] text-muted-foreground">
-                    {selectedBatchRiskGroup
-                      ? `Origem em: ${selectedBatchRiskGroup.sourceGheNames.join(", ")}`
-                      : "Selecione um risco para habilitar os destinos."}
+                    {selectedBatchRiskGroups.length
+                      ? `${selectedBatchRiskGroups.length} risco(s) selecionado(s). Riscos já existentes no destino serão ignorados.`
+                      : "Selecione ao menos um risco para habilitar os destinos."}
                   </p>
 
                   <div className="relative mt-3 w-full">
@@ -3892,7 +4132,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             className="mt-0.5 h-4 w-4 accent-primary"
                             checked={selectedBatchGheIds.includes(ghe.id)}
                             onChange={() => toggleBatchGheSelection(ghe.id)}
-                            disabled={!selectedBatchRiskGroup}
+                            disabled={!selectedBatchRiskGroups.length}
                           />
                           <span className="min-w-0">
                             <span className="block text-[13px] font-semibold text-foreground">
@@ -3927,14 +4167,14 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     <button
                       type="button"
                       onClick={handleApplyBatchRiskAssignment}
-                      disabled={!selectedBatchRiskGroup || !selectedBatchGheIds.length}
+                      disabled={!selectedBatchRiskGroups.length || !selectedBatchGheIds.length}
                       className={
-                        !selectedBatchRiskGroup || !selectedBatchGheIds.length
+                        !selectedBatchRiskGroups.length || !selectedBatchGheIds.length
                           ? "btn-disabled px-4"
                           : "btn-primary px-4"
                       }
                     >
-                      Atribuir risco
+                      Atribuir {selectedBatchRiskGroups.length === 1 ? "risco" : "riscos"}
                     </button>
                   </div>
                   {batchAssignFeedback ? (
@@ -4107,6 +4347,48 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     ) : null}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isDeleteSelectedRisksModalOpen ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+              <h3 className="text-[18px] font-semibold text-foreground">
+                Confirmar exclusão
+              </h3>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                Deseja excluir{" "}
+                <span className="font-semibold text-foreground">
+                  {selectedRiskIds.length}
+                </span>{" "}
+                {selectedRiskIds.length === 1
+                  ? "risco selecionado"
+                  : "riscos selecionados"}{" "}
+                do {currentRiskGhe?.name ?? "GHE atual"}?
+              </p>
+              <p className="mt-2 text-[12px] text-muted-foreground">
+                A exclusão será aplicada de uma única vez.
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteSelectedRisksModalOpen(false)}
+                  className="btn-outline px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveSelectedRisks}
+                  className="btn-primary bg-danger px-5 hover:bg-danger/90"
+                >
+                  Excluir riscos
+                </button>
               </div>
             </div>
           </div>

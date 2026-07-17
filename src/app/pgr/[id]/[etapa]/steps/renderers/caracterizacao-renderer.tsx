@@ -6,6 +6,7 @@ export const buildCaracterizacaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => 
   riskGheGroups: ctx.riskGheGroups,
   gheGroups: ctx.gheGroups,
   functionMap: ctx.functionMap,
+  setGheGroups: ctx.setGheGroups,
   setRiskGheGroups: ctx.setRiskGheGroups,
   persistedOptionsByRowId: ctx.persistedOptionsByRowId,
   setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,

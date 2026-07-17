@@ -1457,6 +1457,7 @@ export function usePgrEtapaController({
       gheFilterId: state.gheFilterId,
       setGheFilterId: setters.setGheFilterId,
       gheGroups: state.gheGroups,
+      setGheGroups: setters.setGheGroups,
       gheSearch: state.gheSearch,
       setGheSearch: setters.setGheSearch,
       inputInlineClass: ui.inputInlineClass,
