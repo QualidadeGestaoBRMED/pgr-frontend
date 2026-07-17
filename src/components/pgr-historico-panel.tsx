@@ -1,4 +1,4 @@
-import { ChevronDown, Download, LoaderCircle, PencilLine, Search } from "lucide-react";
+import { ChevronDown, Download, LoaderCircle, PencilLine, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 // Fases de retorno interno (sem categorias de motivo próprias, ao contrário
@@ -47,6 +47,7 @@ type PgrHistoricoPanelProps = {
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
     value: string
   ) => void;
+  onDeleteRow: (changeId: string) => void;
 };
 
 export function PgrHistoricoPanel({
@@ -60,6 +61,7 @@ export function PgrHistoricoPanel({
   onEditCurrentVersion,
   onEditCurrentFinalizedVersion,
   onChangeField,
+  onDeleteRow,
 }: PgrHistoricoPanelProps) {
   const [hasStartedNewVersion, setHasStartedNewVersion] = useState(false);
   const [openReasonSelectRowId, setOpenReasonSelectRowId] = useState<string | null>(null);
@@ -327,9 +329,13 @@ export function PgrHistoricoPanel({
                       : undefined;
                     if (internalReturnReason) {
                       // Retorno interno (Manut. BR NET, controle de qualidade,
-                      // saúde ocupacional): não tem categorias de motivo — libera
-                      // direto, sem o modal de "motivo da reprovação pelo cliente".
-                      onEditCurrentVersion(internalReturnReason);
+                      // saúde ocupacional): não é rejeição formal do cliente,
+                      // então só destrava a versão atual — sem bumpar
+                      // workflow.version nem criar linha nova no quadro de
+                      // revisões (ao contrário de onEditCurrentVersion/new-version).
+                      if (hasStartedNewVersion) return;
+                      setHasStartedNewVersion(true);
+                      onEditCurrentFinalizedVersion();
                       return;
                     }
                     setSelectedRejectionReason("");
@@ -385,19 +391,20 @@ export function PgrHistoricoPanel({
         </h2>
         <div className="mt-4 overflow-x-auto overflow-y-visible">
           <div className="min-w-[980px]">
-            <div className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
+            <div className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr_44px] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
               <span className="text-center">Empresa</span>
               <span className="text-center">Análise</span>
               <span className="text-center">Alteração</span>
               <span className="text-center">Motivo</span>
               <span className="text-center">Data de Emissão</span>
               <span className="text-center">Status</span>
+              <span className="text-center">Ações</span>
             </div>
             <div className="divide-y divide-border">
               {sortedChanges.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr] gap-4 py-4 text-[13px] text-foreground"
+                  className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr_44px] gap-4 py-4 text-[13px] text-foreground"
                 >
                   <input
                     value={row.company}
@@ -546,6 +553,22 @@ export function PgrHistoricoPanel({
                     readOnly
                     className="h-[36px] w-full rounded-[8px] border border-border bg-muted px-3 text-center text-[12px] text-foreground opacity-70"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Excluir a linha "${row.company || row.id}" (Análise ${row.analysis || "--"}/Alteração ${row.change || "--"}) do quadro de revisões? Essa ação não pode ser desfeita.`
+                        )
+                      ) {
+                        onDeleteRow(row.id);
+                      }
+                    }}
+                    title="Excluir linha"
+                    className="flex h-[36px] w-[36px] items-center justify-center justify-self-center rounded-[8px] border border-border text-muted-foreground transition hover:border-danger hover:text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>

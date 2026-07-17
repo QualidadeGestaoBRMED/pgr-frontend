@@ -1038,6 +1038,16 @@ export function usePgrEtapaController({
     [setters]
   );
 
+  const handleHistoricoDeleteRow = useCallback(
+    (changeId: string) => {
+      setters.setHistoricoData((prev) => ({
+        ...prev,
+        changes: prev.changes.filter((item) => item.id !== changeId),
+      }));
+    },
+    [setters]
+  );
+
   const handleResetInicioData = useCallback(() => {
     if (state.workflow.isLocked) return;
     setters.setInicioDraft(initialInicioDraft);
@@ -1554,6 +1564,7 @@ export function usePgrEtapaController({
       handleEditCurrentVersion,
       handleEditCurrentFinalizedVersion,
       handleHistoricoChangeField,
+      handleHistoricoDeleteRow,
       handleResetInicioData,
       handleResetDadosData,
       handleResetDescricaoData,

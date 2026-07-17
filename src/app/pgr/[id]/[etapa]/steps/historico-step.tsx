@@ -37,6 +37,7 @@ type HistoricoStepProps = {
     field: "company" | "analysis" | "change" | "reason" | "date" | "status",
     value: string
   ) => void;
+  onDeleteRow: (changeId: string) => void;
 };
 
 export function HistoricoStep({
@@ -50,6 +51,7 @@ export function HistoricoStep({
   onEditCurrentVersion,
   onEditCurrentFinalizedVersion,
   onChangeField,
+  onDeleteRow,
 }: HistoricoStepProps) {
   return (
     <PgrHistoricoPanel
@@ -63,6 +65,7 @@ export function HistoricoStep({
       onEditCurrentVersion={onEditCurrentVersion}
       onEditCurrentFinalizedVersion={onEditCurrentFinalizedVersion}
       onChangeField={onChangeField}
+      onDeleteRow={onDeleteRow}
     />
   );
 }
