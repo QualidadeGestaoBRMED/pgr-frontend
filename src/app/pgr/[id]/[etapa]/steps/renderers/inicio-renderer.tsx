@@ -14,5 +14,6 @@ export const renderInicioStep: StepRenderer = (ctx) => (
     onCheckPreviousPgr={ctx.handleCheckPreviousPgr}
     isCheckingPreviousPgr={ctx.isCheckingPreviousPgr}
     previousPgrCheckNotice={ctx.previousPgrCheckNotice}
+    lastFunctionInclusion={ctx.lastFunctionInclusion}
   />
 );

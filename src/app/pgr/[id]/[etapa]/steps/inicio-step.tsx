@@ -15,7 +15,22 @@ type InicioStepProps = {
   onCheckPreviousPgr: () => void;
   isCheckingPreviousPgr: boolean;
   previousPgrCheckNotice: string | null;
+  lastFunctionInclusion: {
+    funcao: string;
+    resolvedBy: string;
+    resolvedAt: string;
+  } | null;
 };
+
+function formatBrDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
 export function InicioStep({
   inicioDraft,
@@ -29,6 +44,7 @@ export function InicioStep({
   onCheckPreviousPgr,
   isCheckingPreviousPgr,
   previousPgrCheckNotice,
+  lastFunctionInclusion,
 }: InicioStepProps) {
   type RequiredInicioField =
     | "documentTitle"
@@ -150,6 +166,22 @@ export function InicioStep({
           <p className="mt-2 text-[12px] text-muted-foreground">
             {previousPgrCheckNotice}
           </p>
+        ) : null}
+        {lastFunctionInclusion ? (
+          <div className="mt-3 rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12px] text-emerald-900">
+            <span className="font-semibold">Última inclusão de função</span>
+            {lastFunctionInclusion.funcao
+              ? ` (${lastFunctionInclusion.funcao})`
+              : ""}
+            {": concluída"}
+            {lastFunctionInclusion.resolvedBy
+              ? ` por ${lastFunctionInclusion.resolvedBy}`
+              : ""}
+            {lastFunctionInclusion.resolvedAt
+              ? ` em ${formatBrDate(lastFunctionInclusion.resolvedAt)}`
+              : ""}
+            {"."}
+          </div>
         ) : null}
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">

@@ -465,6 +465,11 @@ export function usePgrEtapaController({
   const [previousPgrCheckNotice, setPreviousPgrCheckNotice] = useState<string | null>(
     null
   );
+  const [lastFunctionInclusion, setLastFunctionInclusion] = useState<{
+    funcao: string;
+    resolvedBy: string;
+    resolvedAt: string;
+  } | null>(null);
 
   const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
@@ -1201,6 +1206,34 @@ export function usePgrEtapaController({
   }, [setters, state.progressPercent, weightedProgressPercent]);
 
   useEffect(() => {
+    let active = true;
+    apiGet<{
+      found: boolean;
+      funcao?: string;
+      resolvedBy?: string;
+      resolvedAt?: string;
+    }>(`/api/v1/frontend/pgr/${params.id}/function-inclusion/last-resolved`)
+      .then((result) => {
+        if (!active) return;
+        setLastFunctionInclusion(
+          result.found
+            ? {
+                funcao: result.funcao || "",
+                resolvedBy: result.resolvedBy || "",
+                resolvedAt: result.resolvedAt || "",
+              }
+            : null
+        );
+      })
+      .catch(() => {
+        if (active) setLastFunctionInclusion(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [params.id]);
+
+  useEffect(() => {
     const orderedSteps = pgrSteps.map((item) => item.id);
     let contiguousDone = 0;
     for (const stepId of orderedSteps) {
@@ -1629,6 +1662,7 @@ export function usePgrEtapaController({
       handleCheckPreviousPgr,
       isCheckingPreviousPgr,
       previousPgrCheckNotice,
+      lastFunctionInclusion,
       descricaoInteractions,
     },
     footerProps: {
