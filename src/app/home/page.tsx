@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 type HomeData = {
   user: { name: string; initials: string };
@@ -107,6 +107,9 @@ export default function PgrsPage() {
     Record<number, FunctionInclusionCheck>
   >({});
   const [alertsExpanded, setAlertsExpanded] = useState(false);
+  const [resolvingCompanyId, setResolvingCompanyId] = useState<number | null>(
+    null
+  );
 
   const loadHomeData = useCallback(async () => {
     try {
@@ -169,46 +172,46 @@ export default function PgrsPage() {
     };
   }, [loadHomeData]);
 
+  const loadFunctionInclusionAlerts = useCallback(async () => {
+    try {
+      const payload = await apiGet<{ notifications: FrontendNotification[] }>(
+        "/api/v1/frontend/notifications/function-inclusion"
+      );
+      const byCompany = new Map<number, FunctionInclusionAlert>();
+      for (const item of payload.notifications || []) {
+        if (item.source !== "function_inclusion_process") continue;
+        if (item.companyId == null) continue;
+        const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
+        const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
+        const existing = byCompany.get(item.companyId);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          byCompany.set(item.companyId, {
+            companyId: item.companyId,
+            companyLabel,
+            count: 1,
+          });
+        }
+      }
+      setFunctionInclusionAlerts(Array.from(byCompany.values()));
+    } catch {
+      // mantém a lista anterior em caso de falha pontual do fetch
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-
-    const loadFunctionInclusionAlerts = async () => {
-      try {
-        const payload = await apiGet<{ notifications: FrontendNotification[] }>(
-          "/api/v1/frontend/notifications/function-inclusion"
-        );
-        if (!active) return;
-        const byCompany = new Map<number, FunctionInclusionAlert>();
-        for (const item of payload.notifications || []) {
-          if (item.source !== "function_inclusion_process") continue;
-          if (item.companyId == null) continue;
-          const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
-          const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
-          const existing = byCompany.get(item.companyId);
-          if (existing) {
-            existing.count += 1;
-          } else {
-            byCompany.set(item.companyId, {
-              companyId: item.companyId,
-              companyLabel,
-              count: 1,
-            });
-          }
-        }
-        setFunctionInclusionAlerts(Array.from(byCompany.values()));
-      } catch {
-        if (!active) return;
-      }
+    const tick = () => {
+      if (active) void loadFunctionInclusionAlerts();
     };
-
-    loadFunctionInclusionAlerts();
-    const intervalId = window.setInterval(loadFunctionInclusionAlerts, 30000);
-
+    tick();
+    const intervalId = window.setInterval(tick, 30000);
     return () => {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [loadFunctionInclusionAlerts]);
 
   // A listagem padrão da Home só traz cards em sync_status ativo
   // (IN_PROGRESS/REJECTED). Quando o usuário filtra por empresa a partir do
@@ -291,6 +294,30 @@ export default function PgrsPage() {
     []
   );
 
+  const resolveFunctionInclusion = useCallback(
+    async (companyId: number) => {
+      setResolvingCompanyId(companyId);
+      try {
+        await apiPost("/api/v1/frontend/notifications/function-inclusion/resolve", {
+          companyId,
+        });
+        setFunctionInclusionChecks((prev) => {
+          const next = { ...prev };
+          delete next[companyId];
+          return next;
+        });
+        await loadFunctionInclusionAlerts();
+      } catch {
+        if (typeof window !== "undefined") {
+          window.alert("Não foi possível marcar como incluída agora. Tente novamente.");
+        }
+      } finally {
+        setResolvingCompanyId(null);
+      }
+    },
+    [loadFunctionInclusionAlerts]
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto w-full max-w-[1480px] px-0 pb-16 pt-8 sm:px-0 lg:px-1">
@@ -362,6 +389,7 @@ export default function PgrsPage() {
                           </p>
                         ) : null}
                       </div>
+                      <div className="flex flex-wrap items-center gap-2">
                       {check.status === "found" ? (
                         <button
                           type="button"
@@ -392,6 +420,18 @@ export default function PgrsPage() {
                               : "Verificar"}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        disabled={resolvingCompanyId === alert.companyId}
+                        onClick={() => resolveFunctionInclusion(alert.companyId)}
+                        title="Marcar que a função já foi incluída nesse PGR"
+                        className="inline-flex min-h-9 items-center justify-center rounded-md px-3 py-1.5 text-[12px] font-semibold text-amber-700/80 underline-offset-2 transition-colors hover:text-amber-900 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-300/80 dark:hover:text-amber-100"
+                      >
+                        {resolvingCompanyId === alert.companyId
+                          ? "Marcando..."
+                          : "Marcar como incluída"}
+                      </button>
+                      </div>
                     </div>
                   );
                 })}
