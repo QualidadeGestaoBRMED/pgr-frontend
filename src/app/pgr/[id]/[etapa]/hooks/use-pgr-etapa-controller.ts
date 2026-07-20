@@ -470,6 +470,10 @@ export function usePgrEtapaController({
     resolvedBy: string;
     resolvedAt: string;
   } | null>(null);
+  // Card já concluído/fora do board do Pipefy (ex.: reaberto pra inclusão de
+  // função) não recebe mais movimentação por lá, então "Finalizar" não deve
+  // gerar nem tentar anexar documento nenhum no Pipefy.
+  const [cardSyncStatus, setCardSyncStatus] = useState<string | null>(null);
 
   const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
@@ -774,6 +778,37 @@ export function usePgrEtapaController({
     setters.setIsFinalizingPgr(true);
     try {
       await persistStateNow();
+
+      // Card com sync_status=DONE já saiu do board do Pipefy (ex.: reaberto
+      // pra inclusão de função) e não recebe mais movimentação por lá — não
+      // faz sentido gerar PDF/XLSX nem tentar anexar nada, só fechar o
+      // workflow localmente.
+      if (cardSyncStatus === "DONE") {
+        const finalizedState = await apiPost<{
+          completedSteps: number;
+          historico: HistoricoData;
+          workflow: PersistedPgrState["workflow"];
+          meta?: { progressPercent?: number };
+          updatedAt?: string;
+        }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
+        setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
+        if (finalizedState?.workflow) {
+          setters.setWorkflow(finalizedState.workflow);
+        }
+        if (typeof finalizedState?.completedSteps === "number") {
+          setters.setCompletedSteps(finalizedState.completedSteps);
+        }
+        if (typeof finalizedState?.meta?.progressPercent === "number") {
+          setters.setProgressPercent(finalizedState.meta.progressPercent);
+        } else if (finalizedState?.workflow?.isLocked) {
+          setters.setProgressPercent(100);
+        }
+        if (finalizedState?.historico) {
+          setters.setHistoricoData(finalizedState.historico);
+        }
+        return;
+      }
+
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
         historico: state.historicoData,
@@ -851,6 +886,7 @@ export function usePgrEtapaController({
       setters.setIsFinalizingPgr(false);
     }
   }, [
+    cardSyncStatus,
     persistStateNow,
     params.id,
     setters,
@@ -1227,6 +1263,22 @@ export function usePgrEtapaController({
       })
       .catch(() => {
         if (active) setLastFunctionInclusion(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [params.id]);
+
+  useEffect(() => {
+    let active = true;
+    apiGet<{ syncStatus: string | null }>(
+      `/api/v1/frontend/pgr/${params.id}/card-sync-status`
+    )
+      .then((result) => {
+        if (active) setCardSyncStatus(result.syncStatus);
+      })
+      .catch(() => {
+        if (active) setCardSyncStatus(null);
       });
     return () => {
       active = false;
