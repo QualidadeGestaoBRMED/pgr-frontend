@@ -175,7 +175,7 @@ export default function PgrsPage() {
     const loadFunctionInclusionAlerts = async () => {
       try {
         const payload = await apiGet<{ notifications: FrontendNotification[] }>(
-          "/api/v1/frontend/notifications"
+          "/api/v1/frontend/notifications/function-inclusion"
         );
         if (!active) return;
         const byCompany = new Map<number, FunctionInclusionAlert>();
@@ -210,11 +210,39 @@ export default function PgrsPage() {
     };
   }, []);
 
+  // A listagem padrão da Home só traz cards em sync_status ativo
+  // (IN_PROGRESS/REJECTED). Quando o usuário filtra por empresa a partir do
+  // banner de inclusão de função, buscamos à parte, sem essa restrição —
+  // senão um card já finalizado ou numa fase ainda não sincronizada como
+  // "ativa" simplesmente não apareceria, mesmo estando desbloqueado.
+  const [companyFilteredCards, setCompanyFilteredCards] = useState<
+    HomeData["cards"] | null
+  >(null);
+
+  useEffect(() => {
+    if (!companyFilter) {
+      setCompanyFilteredCards(null);
+      return;
+    }
+    let active = true;
+    apiGet<HomeData>(
+      `/api/v1/frontend/home?page_size=200&companyId=${companyFilter.id}`
+    )
+      .then((data) => {
+        if (!active) return;
+        setCompanyFilteredCards(normalizeHomeData(data).cards);
+      })
+      .catch(() => {
+        if (active) setCompanyFilteredCards([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [companyFilter]);
+
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const base = companyFilter
-      ? homeData.cards.filter((card) => card.companyId === companyFilter.id)
-      : homeData.cards;
+    const base = companyFilter ? companyFilteredCards ?? [] : homeData.cards;
     if (!query) return base;
     return base.filter((card) => {
       return (
@@ -224,7 +252,7 @@ export default function PgrsPage() {
         card.owner.toLowerCase().includes(query)
       );
     });
-  }, [homeData.cards, searchQuery, companyFilter]);
+  }, [homeData.cards, searchQuery, companyFilter, companyFilteredCards]);
 
   const checkFunctionInclusion = useCallback(
     async (companyId: number, companyLabel: string) => {
