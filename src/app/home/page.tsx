@@ -45,6 +45,12 @@ type FrontendNotification = {
   companyId?: number | null;
 };
 
+type FunctionInclusionCheck =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "unlocked"; pgrId: string; reason: string }
+  | { status: "locked" };
+
 const emptyData: HomeData = {
   user: { name: "Usuário", initials: "US" },
   title: "Programa de Gerenciamento de Riscos - PGR",
@@ -97,6 +103,9 @@ export default function PgrsPage() {
     id: number;
     label: string;
   } | null>(null);
+  const [functionInclusionChecks, setFunctionInclusionChecks] = useState<
+    Record<number, FunctionInclusionCheck>
+  >({});
 
   const loadHomeData = useCallback(async () => {
     try {
@@ -216,6 +225,40 @@ export default function PgrsPage() {
     });
   }, [homeData.cards, searchQuery, companyFilter]);
 
+  const checkFunctionInclusion = useCallback(
+    async (companyId: number, companyLabel: string) => {
+      setFunctionInclusionChecks((prev) => ({
+        ...prev,
+        [companyId]: { status: "checking" },
+      }));
+      try {
+        const result = await apiGet<{
+          unlocked: boolean;
+          pgrId: string | null;
+          reason: string;
+        }>(
+          `/api/v1/frontend/notifications/function-inclusion/check?companyId=${companyId}`
+        );
+        setFunctionInclusionChecks((prev) => ({
+          ...prev,
+          [companyId]: result.unlocked && result.pgrId
+            ? { status: "unlocked", pgrId: result.pgrId, reason: result.reason }
+            : { status: "locked" },
+        }));
+        if (result.unlocked) {
+          setSearchQuery("");
+          setCompanyFilter({ id: companyId, label: companyLabel });
+        }
+      } catch {
+        setFunctionInclusionChecks((prev) => ({
+          ...prev,
+          [companyId]: { status: "locked" },
+        }));
+      }
+    },
+    []
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto w-full max-w-[1480px] px-0 pb-16 pt-8 sm:px-0 lg:px-1">
@@ -234,33 +277,69 @@ export default function PgrsPage() {
 
         {functionInclusionAlerts.length > 0 ? (
           <div className="mt-8 space-y-3">
-            {functionInclusionAlerts.map((alert) => (
-              <div
-                key={alert.companyId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-300 bg-amber-50 px-5 py-4 dark:border-amber-500/40 dark:bg-amber-500/10"
-              >
-                <div>
-                  <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
-                    {alert.count === 1
-                      ? "1 inclusão de função identificada"
-                      : `${alert.count} inclusões de função identificadas`}
-                  </p>
-                  <p className="text-[13px] text-amber-800/80 dark:text-amber-200/70">
-                    {alert.companyLabel}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setCompanyFilter({ id: alert.companyId, label: alert.companyLabel });
-                  }}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-amber-700"
+            {functionInclusionAlerts.map((alert) => {
+              const check = functionInclusionChecks[alert.companyId] || {
+                status: "idle",
+              };
+              return (
+                <div
+                  key={alert.companyId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-300 bg-amber-50 px-5 py-4 dark:border-amber-500/40 dark:bg-amber-500/10"
                 >
-                  Ver PGRs desta empresa
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
+                      {alert.count === 1
+                        ? "1 inclusão de função identificada"
+                        : `${alert.count} inclusões de função identificadas`}
+                    </p>
+                    <p className="text-[13px] text-amber-800/80 dark:text-amber-200/70">
+                      {alert.companyLabel}
+                    </p>
+                    {check.status === "unlocked" ? (
+                      <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
+                        Card liberado: {check.reason}
+                      </p>
+                    ) : null}
+                    {check.status === "locked" ? (
+                      <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
+                        Nenhum card dessa empresa está na fase de retorno ainda.
+                        Tente novamente mais tarde.
+                      </p>
+                    ) : null}
+                  </div>
+                  {check.status === "unlocked" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setCompanyFilter({
+                          id: alert.companyId,
+                          label: alert.companyLabel,
+                        });
+                      }}
+                      className="inline-flex min-h-10 items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-amber-700"
+                    >
+                      Ver PGR desta empresa
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={check.status === "checking"}
+                      onClick={() =>
+                        checkFunctionInclusion(alert.companyId, alert.companyLabel)
+                      }
+                      className="inline-flex min-h-10 items-center justify-center rounded-md border border-amber-400 bg-white px-4 py-2 text-[13px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-500/10"
+                    >
+                      {check.status === "checking"
+                        ? "Verificando..."
+                        : check.status === "locked"
+                          ? "Verificar novamente"
+                          : "Verificar se o card já está na fase certa"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
