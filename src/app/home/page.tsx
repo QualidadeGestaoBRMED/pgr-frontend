@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -106,6 +106,7 @@ export default function PgrsPage() {
   const [functionInclusionChecks, setFunctionInclusionChecks] = useState<
     Record<number, FunctionInclusionCheck>
   >({});
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
 
   const loadHomeData = useCallback(async () => {
     try {
@@ -276,70 +277,90 @@ export default function PgrsPage() {
         <div className="mt-8 h-px w-full bg-border" />
 
         {functionInclusionAlerts.length > 0 ? (
-          <div className="mt-8 space-y-3">
-            {functionInclusionAlerts.map((alert) => {
-              const check = functionInclusionChecks[alert.companyId] || {
-                status: "idle",
-              };
-              return (
-                <div
-                  key={alert.companyId}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-300 bg-amber-50 px-5 py-4 dark:border-amber-500/40 dark:bg-amber-500/10"
-                >
-                  <div>
-                    <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
-                      {alert.count === 1
-                        ? "1 inclusão de função identificada"
-                        : `${alert.count} inclusões de função identificadas`}
-                    </p>
-                    <p className="text-[13px] text-amber-800/80 dark:text-amber-200/70">
-                      {alert.companyLabel}
-                    </p>
-                    {check.status === "unlocked" ? (
-                      <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
-                        Card liberado: {check.reason}
-                      </p>
-                    ) : null}
-                    {check.status === "locked" ? (
-                      <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
-                        Nenhum card dessa empresa está na fase de retorno ainda.
-                        Tente novamente mais tarde.
-                      </p>
-                    ) : null}
-                  </div>
-                  {check.status === "unlocked" ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setCompanyFilter({
-                          id: alert.companyId,
-                          label: alert.companyLabel,
-                        });
-                      }}
-                      className="inline-flex min-h-10 items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-amber-700"
+          <div className="mt-8 rounded-[12px] border border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10">
+            <button
+              type="button"
+              onClick={() => setAlertsExpanded((prev) => !prev)}
+              className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left"
+              aria-expanded={alertsExpanded}
+            >
+              <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
+                {functionInclusionAlerts.length === 1
+                  ? "Inclusão de função pendente em 1 empresa"
+                  : `Inclusões de função pendentes em ${functionInclusionAlerts.length} empresas`}
+              </p>
+              <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-amber-800 dark:text-amber-200">
+                {alertsExpanded ? "Ver menos" : "Ver todas"}
+                {alertsExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </span>
+            </button>
+            {alertsExpanded ? (
+              <div className="space-y-2 border-t border-amber-200 px-5 py-4 dark:border-amber-500/30">
+                {functionInclusionAlerts.map((alert) => {
+                  const check = functionInclusionChecks[alert.companyId] || {
+                    status: "idle",
+                  };
+                  return (
+                    <div
+                      key={alert.companyId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] bg-white/60 px-4 py-3 dark:bg-black/10"
                     >
-                      Ver PGR desta empresa
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={check.status === "checking"}
-                      onClick={() =>
-                        checkFunctionInclusion(alert.companyId, alert.companyLabel)
-                      }
-                      className="inline-flex min-h-10 items-center justify-center rounded-md border border-amber-400 bg-white px-4 py-2 text-[13px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-500/10"
-                    >
-                      {check.status === "checking"
-                        ? "Verificando..."
-                        : check.status === "locked"
-                          ? "Verificar novamente"
-                          : "Verificar se o card já está na fase certa"}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                      <div>
+                        <p className="text-[13px] font-medium text-amber-900 dark:text-amber-200">
+                          {alert.companyLabel}
+                          {alert.count > 1 ? ` · ${alert.count} funções` : ""}
+                        </p>
+                        {check.status === "unlocked" ? (
+                          <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
+                            Card liberado: {check.reason}
+                          </p>
+                        ) : null}
+                        {check.status === "locked" ? (
+                          <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
+                            Nenhum card dessa empresa está na fase de retorno
+                            ainda. Tente novamente mais tarde.
+                          </p>
+                        ) : null}
+                      </div>
+                      {check.status === "unlocked" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setCompanyFilter({
+                              id: alert.companyId,
+                              label: alert.companyLabel,
+                            });
+                          }}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-amber-700"
+                        >
+                          Ver PGR desta empresa
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={check.status === "checking"}
+                          onClick={() =>
+                            checkFunctionInclusion(alert.companyId, alert.companyLabel)
+                          }
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-400 bg-white px-3 py-1.5 text-[12px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-500/10"
+                        >
+                          {check.status === "checking"
+                            ? "Verificando..."
+                            : check.status === "locked"
+                              ? "Verificar novamente"
+                              : "Verificar"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
