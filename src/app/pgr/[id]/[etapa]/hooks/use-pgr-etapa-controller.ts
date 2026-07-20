@@ -1073,14 +1073,33 @@ export function usePgrEtapaController({
     [setters]
   );
 
+  // Endpoint dedicado (não o autosave genérico): o quadro de Histórico
+  // continua acessível com o documento travado (isLocked), estado em que o
+  // autosave é desligado e o PUT genérico de state seria rejeitado com 409
+  // — sem essa rota, a exclusão só existia em memória e voltava ao trocar
+  // de etapa.
   const handleHistoricoDeleteRow = useCallback(
-    (changeId: string) => {
-      setters.setHistoricoData((prev) => ({
-        ...prev,
-        changes: prev.changes.filter((item) => item.id !== changeId),
-      }));
+    async (changeId: string) => {
+      try {
+        const updatedState = await apiPost<{
+          historico: HistoricoData;
+          updatedAt?: string;
+        }>(`/api/v1/frontend/pgr/${params.id}/historico/delete-row`, {
+          changeId,
+        });
+        setKnownUpdatedAt(params.id, updatedState.updatedAt);
+        setters.setHistoricoData(updatedState.historico);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Não foi possível excluir essa linha do histórico agora.";
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+      }
     },
-    [setters]
+    [params.id, setters]
   );
 
   const handleResetInicioData = useCallback(() => {
