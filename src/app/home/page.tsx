@@ -27,7 +27,22 @@ type HomeData = {
     progress: number;
     pipefyCardId?: string | null;
     dueDate?: string | null;
+    companyId?: number | null;
   }>;
+};
+
+type FunctionInclusionAlert = {
+  companyId: number;
+  companyLabel: string;
+  count: number;
+};
+
+type FrontendNotification = {
+  id?: string;
+  title: string;
+  description: string;
+  source?: string;
+  companyId?: number | null;
 };
 
 const emptyData: HomeData = {
@@ -75,6 +90,13 @@ export default function PgrsPage() {
   const [homeData, setHomeData] = useState<HomeData>(emptyData);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [functionInclusionAlerts, setFunctionInclusionAlerts] = useState<
+    FunctionInclusionAlert[]
+  >([]);
+  const [companyFilter, setCompanyFilter] = useState<{
+    id: number;
+    label: string;
+  } | null>(null);
 
   const loadHomeData = useCallback(async () => {
     try {
@@ -137,10 +159,54 @@ export default function PgrsPage() {
     };
   }, [loadHomeData]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadFunctionInclusionAlerts = async () => {
+      try {
+        const payload = await apiGet<{ notifications: FrontendNotification[] }>(
+          "/api/v1/frontend/notifications"
+        );
+        if (!active) return;
+        const byCompany = new Map<number, FunctionInclusionAlert>();
+        for (const item of payload.notifications || []) {
+          if (item.source !== "function_inclusion_process") continue;
+          if (item.companyId == null) continue;
+          const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
+          const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
+          const existing = byCompany.get(item.companyId);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            byCompany.set(item.companyId, {
+              companyId: item.companyId,
+              companyLabel,
+              count: 1,
+            });
+          }
+        }
+        setFunctionInclusionAlerts(Array.from(byCompany.values()));
+      } catch {
+        if (!active) return;
+      }
+    };
+
+    loadFunctionInclusionAlerts();
+    const intervalId = window.setInterval(loadFunctionInclusionAlerts, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return homeData.cards;
-    return homeData.cards.filter((card) => {
+    const base = companyFilter
+      ? homeData.cards.filter((card) => card.companyId === companyFilter.id)
+      : homeData.cards;
+    if (!query) return base;
+    return base.filter((card) => {
       return (
         card.title.toLowerCase().includes(query) ||
         card.code.toLowerCase().includes(query) ||
@@ -148,7 +214,7 @@ export default function PgrsPage() {
         card.owner.toLowerCase().includes(query)
       );
     });
-  }, [homeData.cards, searchQuery]);
+  }, [homeData.cards, searchQuery, companyFilter]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,6 +232,38 @@ export default function PgrsPage() {
 
         <div className="mt-8 h-px w-full bg-border" />
 
+        {functionInclusionAlerts.length > 0 ? (
+          <div className="mt-8 space-y-3">
+            {functionInclusionAlerts.map((alert) => (
+              <div
+                key={alert.companyId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-300 bg-amber-50 px-5 py-4 dark:border-amber-500/40 dark:bg-amber-500/10"
+              >
+                <div>
+                  <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
+                    {alert.count === 1
+                      ? "1 inclusão de função identificada"
+                      : `${alert.count} inclusões de função identificadas`}
+                  </p>
+                  <p className="text-[13px] text-amber-800/80 dark:text-amber-200/70">
+                    {alert.companyLabel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setCompanyFilter({ id: alert.companyId, label: alert.companyLabel });
+                  }}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-amber-700"
+                >
+                  Ver PGRs desta empresa
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-10 rounded-[12px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="flex w-full max-w-[520px] items-center gap-3 rounded-[10px] bg-muted px-4 py-3">
@@ -178,6 +276,19 @@ export default function PgrsPage() {
                 className="w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
             </div>
+            {companyFilter ? (
+              <div className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-[13px] font-medium text-primary">
+                <span>Filtrando por: {companyFilter.label}</span>
+                <button
+                  type="button"
+                  onClick={() => setCompanyFilter(null)}
+                  className="text-primary/70 transition hover:text-primary"
+                  aria-label="Limpar filtro de empresa"
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
