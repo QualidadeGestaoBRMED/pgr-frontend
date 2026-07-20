@@ -461,6 +461,10 @@ export function usePgrEtapaController({
   const [previousImportError, setPreviousImportError] = useState<string | null>(
     null
   );
+  const [isCheckingPreviousPgr, setIsCheckingPreviousPgr] = useState(false);
+  const [previousPgrCheckNotice, setPreviousPgrCheckNotice] = useState<string | null>(
+    null
+  );
 
   const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
@@ -982,6 +986,37 @@ export function usePgrEtapaController({
       );
     }
   }, [cancelPendingPersist, isImportingPrevious, params.id, previousImport]);
+
+  const handleCheckPreviousPgr = useCallback(async () => {
+    if (isCheckingPreviousPgr) return;
+    setIsCheckingPreviousPgr(true);
+    setPreviousPgrCheckNotice(null);
+    try {
+      const previous = await apiGet<PreviousPgrResponse>(
+        `/api/v1/frontend/pgr/${params.id}/previous-pgr`
+      );
+      if (previous?.available && previous.sourcePgrId) {
+        setPreviousImport({
+          sourcePgrId: previous.sourcePgrId,
+          companyName: String(previous.companyName || "").trim(),
+          finalizedAt: formatIsoDateToBr(previous.finalizedAt),
+          attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
+        });
+      } else {
+        setPreviousPgrCheckNotice(
+          "Nenhum PGR anterior finalizado encontrado para esta empresa."
+        );
+      }
+    } catch (error) {
+      setPreviousPgrCheckNotice(
+        error instanceof ApiError && error.message
+          ? error.message
+          : "Não foi possível verificar agora. Tente novamente."
+      );
+    } finally {
+      setIsCheckingPreviousPgr(false);
+    }
+  }, [isCheckingPreviousPgr, params.id]);
 
   const handleStartNewVersion = useCallback(
     () => createNewVersion(),
@@ -1572,6 +1607,9 @@ export function usePgrEtapaController({
       handleResetPlanoData,
       generalActions,
       handleSyncPipefy,
+      handleCheckPreviousPgr,
+      isCheckingPreviousPgr,
+      previousPgrCheckNotice,
       descricaoInteractions,
     },
     footerProps: {

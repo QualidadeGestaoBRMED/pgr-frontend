@@ -11,5 +11,8 @@ export const renderInicioStep: StepRenderer = (ctx) => (
     pendingReviewFocus={ctx.pendingReviewFocus}
     onDraftChange={ctx.generalActions.handleInicioDraftChange}
     onSyncPipefy={ctx.handleSyncPipefy}
+    onCheckPreviousPgr={ctx.handleCheckPreviousPgr}
+    isCheckingPreviousPgr={ctx.isCheckingPreviousPgr}
+    previousPgrCheckNotice={ctx.previousPgrCheckNotice}
   />
 );

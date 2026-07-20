@@ -12,6 +12,9 @@ type InicioStepProps = {
   pendingReviewFocus?: PendingReviewFocus | null;
   onDraftChange: (field: InicioDraftEditableField, value: string) => void;
   onSyncPipefy: () => void;
+  onCheckPreviousPgr: () => void;
+  isCheckingPreviousPgr: boolean;
+  previousPgrCheckNotice: string | null;
 };
 
 export function InicioStep({
@@ -23,6 +26,9 @@ export function InicioStep({
   pendingReviewFocus,
   onDraftChange,
   onSyncPipefy,
+  onCheckPreviousPgr,
+  isCheckingPreviousPgr,
+  previousPgrCheckNotice,
 }: InicioStepProps) {
   type RequiredInicioField =
     | "documentTitle"
@@ -128,8 +134,23 @@ export function InicioStep({
                 Sincronizando dados do Pipefy...
               </p>
             ) : null}
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={onCheckPreviousPgr}
+              disabled={isCheckingPreviousPgr}
+            >
+              {isCheckingPreviousPgr
+                ? "Verificando..."
+                : "Importar dados de PGR anterior"}
+            </button>
           </div>
         </div>
+        {previousPgrCheckNotice ? (
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            {previousPgrCheckNotice}
+          </p>
+        ) : null}
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div>
