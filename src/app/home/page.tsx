@@ -48,8 +48,8 @@ type FrontendNotification = {
 type FunctionInclusionCheck =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "unlocked"; pgrId: string; reason: string }
-  | { status: "locked" };
+  | { status: "found"; unlocked: boolean; reason: string }
+  | { status: "notFound" };
 
 const emptyData: HomeData = {
   user: { name: "Usuário", initials: "US" },
@@ -262,6 +262,7 @@ export default function PgrsPage() {
       }));
       try {
         const result = await apiGet<{
+          found: boolean;
           unlocked: boolean;
           pgrId: string | null;
           reason: string;
@@ -270,18 +271,20 @@ export default function PgrsPage() {
         );
         setFunctionInclusionChecks((prev) => ({
           ...prev,
-          [companyId]: result.unlocked && result.pgrId
-            ? { status: "unlocked", pgrId: result.pgrId, reason: result.reason }
-            : { status: "locked" },
+          [companyId]: result.found
+            ? { status: "found", unlocked: result.unlocked, reason: result.reason }
+            : { status: "notFound" },
         }));
-        if (result.unlocked) {
+        // Achar o card não depende da fase de retorno estar confirmada —
+        // isso é só um indicador visual à parte. Filtra sempre que existir.
+        if (result.found) {
           setSearchQuery("");
           setCompanyFilter({ id: companyId, label: companyLabel });
         }
       } catch {
         setFunctionInclusionChecks((prev) => ({
           ...prev,
-          [companyId]: { status: "locked" },
+          [companyId]: { status: "notFound" },
         }));
       }
     },
@@ -342,19 +345,24 @@ export default function PgrsPage() {
                           {alert.companyLabel}
                           {alert.count > 1 ? ` · ${alert.count} funções` : ""}
                         </p>
-                        {check.status === "unlocked" ? (
+                        {check.status === "found" && check.unlocked ? (
                           <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
                             Card liberado: {check.reason}
                           </p>
                         ) : null}
-                        {check.status === "locked" ? (
+                        {check.status === "found" && !check.unlocked ? (
                           <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
-                            Nenhum card dessa empresa está na fase de retorno
-                            ainda. Tente novamente mais tarde.
+                            Card encontrado, mas ainda não confirmado na fase
+                            de retorno.
+                          </p>
+                        ) : null}
+                        {check.status === "notFound" ? (
+                          <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
+                            Nenhum card dessa empresa foi encontrado.
                           </p>
                         ) : null}
                       </div>
-                      {check.status === "unlocked" ? (
+                      {check.status === "found" ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -379,7 +387,7 @@ export default function PgrsPage() {
                         >
                           {check.status === "checking"
                             ? "Verificando..."
-                            : check.status === "locked"
+                            : check.status === "notFound"
                               ? "Verificar novamente"
                               : "Verificar"}
                         </button>
