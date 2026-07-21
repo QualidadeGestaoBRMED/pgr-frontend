@@ -36,6 +36,7 @@ import {
   putPgrState,
   setKnownUpdatedAt,
   setConflictHandler,
+  setSaveErrorHandler,
   resumeSaving,
   clearKnownUpdatedAt,
 } from "../state/state-version";
@@ -424,13 +425,21 @@ export function usePgrEtapaController({
   // Conflito de edição concorrente (lock otimista): o save bateu 409 porque
   // outra pessoa alterou este PGR.
   const [saveConflict, setSaveConflict] = useState(false);
+  // Qualquer erro de save que não seja 409 (rede, payload grande, 500) —
+  // antes era engolido em silêncio pelo autosave; isso já causou perda real
+  // de horas de edição em produção (usuário achando que estava salvando).
+  const [saveError, setSaveError] = useState(false);
   useEffect(() => {
     // Ao abrir a etapa, sempre retoma as gravações: NUNCA deixar o save preso
     // em pausa silenciosa de uma navegação/sessão anterior (causava perda de
     // dados — o autosave parava de enviar request sem o usuário perceber).
     resumeSaving();
     setConflictHandler(() => setSaveConflict(true));
-    return () => setConflictHandler(null);
+    setSaveErrorHandler(setSaveError);
+    return () => {
+      setConflictHandler(null);
+      setSaveErrorHandler(null);
+    };
   }, []);
   const reloadAfterConflict = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -1541,6 +1550,7 @@ export function usePgrEtapaController({
       onReload: reloadAfterConflict,
       onDismiss: dismissSaveConflict,
     },
+    saveError,
     previousImportDialog: {
       open: previousImport !== null,
       companyName: previousImport?.companyName ?? "",

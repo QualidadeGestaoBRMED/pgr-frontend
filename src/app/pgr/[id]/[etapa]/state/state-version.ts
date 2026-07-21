@@ -18,6 +18,19 @@ const knownUpdatedAtByPgr = new Map<string, string>();
 let savingPaused = false;
 let onConflictHandler: (() => void) | null = null;
 
+// Qualquer erro de save que NÃO seja 409 (rede, 400, 500, payload grande
+// demais etc.) sempre foi engolido em silêncio pelos callers — o usuário
+// seguia editando por horas achando que estava salvando, sem nenhum aviso.
+// Isso já causou perda de dados real em produção. `onSaveErrorHandler`
+// avisa a UI a cada falha e a cada recuperação (save seguinte com sucesso).
+let onSaveErrorHandler: ((hasError: boolean) => void) | null = null;
+
+export function setSaveErrorHandler(
+  fn: ((hasError: boolean) => void) | null
+): void {
+  onSaveErrorHandler = fn;
+}
+
 export function getKnownUpdatedAt(pgrId: string): string | null {
   return knownUpdatedAtByPgr.get(pgrId) ?? null;
 }
@@ -79,11 +92,14 @@ async function runPutPgrState<T extends StateResponse>(
   try {
     const res = await apiPut<T>(`/api/v1/frontend/pgr/${pgrId}/state`, body);
     setKnownUpdatedAt(pgrId, res?.updatedAt);
+    onSaveErrorHandler?.(false);
     return res;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       savingPaused = true;
       onConflictHandler?.();
+    } else {
+      onSaveErrorHandler?.(true);
     }
     throw error;
   }
