@@ -3,8 +3,8 @@
 import { Chrome, Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { apiPost } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { apiGet, apiPost } from "@/lib/api";
 
 const imgRectangle2 = "/login.png";
 const imgImage2 = "/logo.png";
@@ -13,8 +13,24 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    apiGet("/api/v1/frontend/auth/me")
+      .then(() => {
+        if (active) router.replace("/home");
+      })
+      .catch(() => {
+        if (active) setIsCheckingSession(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -23,6 +39,7 @@ export default function LoginPage() {
       await apiPost("/api/v1/frontend/auth/login", {
         username: username.trim(),
         password,
+        remember,
       });
       setError("");
       router.push("/home");
@@ -32,6 +49,10 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (isCheckingSession) {
+    return <div className="min-h-screen w-full bg-background" />;
+  }
 
   return (
     <div className="min-h-screen w-full bg-background">
@@ -129,6 +150,8 @@ export default function LoginPage() {
               <label className="flex items-center gap-2 text-[12px] font-medium text-foreground">
                 <input
                   type="checkbox"
+                  checked={remember}
+                  onChange={(event) => setRemember(event.target.checked)}
                   className="h-4 w-4 rounded border-border bg-muted text-primary focus:ring-primary"
                 />
                 Lembrar-me
