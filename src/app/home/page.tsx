@@ -35,6 +35,7 @@ type FunctionInclusionAlert = {
   companyId: number;
   companyLabel: string;
   count: number;
+  requestNumbers: string[];
 };
 
 type FrontendNotification = {
@@ -43,6 +44,7 @@ type FrontendNotification = {
   description: string;
   source?: string;
   companyId?: number | null;
+  requestNumber?: string | number | null;
 };
 
 type FunctionInclusionCheck =
@@ -183,14 +185,22 @@ export default function PgrsPage() {
         if (item.companyId == null) continue;
         const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
         const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
+        const requestNumber = String(item.requestNumber ?? "").trim();
         const existing = byCompany.get(item.companyId);
         if (existing) {
           existing.count += 1;
+          if (
+            requestNumber &&
+            !existing.requestNumbers.includes(requestNumber)
+          ) {
+            existing.requestNumbers.push(requestNumber);
+          }
         } else {
           byCompany.set(item.companyId, {
             companyId: item.companyId,
             companyLabel,
             count: 1,
+            requestNumbers: requestNumber ? [requestNumber] : [],
           });
         }
       }
@@ -372,6 +382,13 @@ export default function PgrsPage() {
                           {alert.companyLabel}
                           {alert.count > 1 ? ` · ${alert.count} funções` : ""}
                         </p>
+                        {alert.requestNumbers.length > 0 ? (
+                          <p className="mt-1 text-[12px] font-medium text-amber-800 dark:text-amber-300">
+                            {alert.requestNumbers.length === 1
+                              ? `Solicitação nº ${alert.requestNumbers[0]}`
+                              : `Solicitações nº ${alert.requestNumbers.join(", ")}`}
+                          </p>
+                        ) : null}
                         {check.status === "found" && check.unlocked ? (
                           <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
                             Card liberado: {check.reason}
