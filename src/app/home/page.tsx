@@ -396,8 +396,7 @@ export default function PgrsPage() {
                         ) : null}
                         {check.status === "found" && !check.unlocked ? (
                           <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
-                            Card encontrado, mas ainda não confirmado na fase
-                            de retorno.
+                            Card encontrado.
                           </p>
                         ) : null}
                         {check.status === "notFound" ? (
