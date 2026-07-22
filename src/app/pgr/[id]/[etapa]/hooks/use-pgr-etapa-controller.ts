@@ -57,8 +57,8 @@ const PIPEFY_CHECKBOX_FIELD_LABEL = "PGR Web";
 
 const PIPEFY_ATTACH_POLL_MIN_INTERVAL_MS = 5000;
 const PIPEFY_ATTACH_POLL_MAX_INTERVAL_MS = 10000;
-// Upload dos arquivos gerados + presign + PUT no S3 + 3 mutations GraphQL
-// (xlsx, pdf, checkbox), cada uma com leitura de confirmacao. Bem mais leve
+// Upload dos arquivos gerados + presign + PUT no S3 + mutations GraphQL
+// (xlsx, pdf e, quando aplicável, checkbox), cada uma com leitura de confirmacao. Bem mais leve
 // que a geracao do PDF/DOCX (sem renderizacao), mas ainda assim ajustar este
 // valor se o backend mudar o job_timeout do worker do Celery.
 const PIPEFY_ATTACH_POLL_TIMEOUT_MS = 180000;
@@ -479,11 +479,6 @@ export function usePgrEtapaController({
     resolvedBy: string;
     resolvedAt: string;
   } | null>(null);
-  // Card já concluído/fora do board do Pipefy (ex.: reaberto pra inclusão de
-  // função) não recebe mais movimentação por lá, então "Finalizar" não deve
-  // gerar nem tentar anexar documento nenhum no Pipefy.
-  const [cardSyncStatus, setCardSyncStatus] = useState<string | null>(null);
-
   const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
     shouldHydrateFromApi,
@@ -676,6 +671,11 @@ export function usePgrEtapaController({
     [searchParams]
   );
 
+  const isFunctionInclusionEntry = useMemo(
+    () => searchParams?.get("functionInclusion") === "1",
+    [searchParams]
+  );
+
   const pendingReviewFocus = useMemo(
     () => parsePendingReviewFocus(searchParams),
     [searchParams]
@@ -788,36 +788,6 @@ export function usePgrEtapaController({
     try {
       await persistStateNow();
 
-      // Card com sync_status=DONE já saiu do board do Pipefy (ex.: reaberto
-      // pra inclusão de função) e não recebe mais movimentação por lá — não
-      // faz sentido gerar PDF/XLSX nem tentar anexar nada, só fechar o
-      // workflow localmente.
-      if (cardSyncStatus === "DONE") {
-        const finalizedState = await apiPost<{
-          completedSteps: number;
-          historico: HistoricoData;
-          workflow: PersistedPgrState["workflow"];
-          meta?: { progressPercent?: number };
-          updatedAt?: string;
-        }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
-        setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
-        if (finalizedState?.workflow) {
-          setters.setWorkflow(finalizedState.workflow);
-        }
-        if (typeof finalizedState?.completedSteps === "number") {
-          setters.setCompletedSteps(finalizedState.completedSteps);
-        }
-        if (typeof finalizedState?.meta?.progressPercent === "number") {
-          setters.setProgressPercent(finalizedState.meta.progressPercent);
-        } else if (finalizedState?.workflow?.isLocked) {
-          setters.setProgressPercent(100);
-        }
-        if (finalizedState?.historico) {
-          setters.setHistoricoData(finalizedState.historico);
-        }
-        return;
-      }
-
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
         historico: state.historicoData,
@@ -847,18 +817,23 @@ export function usePgrEtapaController({
         downloadExternalExport(params.id, "xlsx", xlsxJobId),
       ]);
 
-      const pipefyAttachJobId = await startPipefyAttachJob({
-        pgrId: params.id,
-        pdfBlob,
-        xlsxBlob,
-        pdfFilename: `${fileBase}.pdf`,
-        xlsxFilename: `${fileBase}.xlsx`,
-      });
-      setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
-      try {
-        await waitForPipefyAttachJobCompletion(params.id, pipefyAttachJobId);
-      } finally {
-        setters.setHeavyGenerationWaitMessage(null);
+      if (state.workflow.editContext === "function_inclusion") {
+        triggerBlobDownload(pdfBlob, fileBase + ".pdf");
+        triggerBlobDownload(xlsxBlob, fileBase + ".xlsx");
+      } else {
+        const pipefyAttachJobId = await startPipefyAttachJob({
+          pgrId: params.id,
+          pdfBlob,
+          xlsxBlob,
+          pdfFilename: fileBase + ".pdf",
+          xlsxFilename: fileBase + ".xlsx",
+        });
+        setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
+        try {
+          await waitForPipefyAttachJobCompletion(params.id, pipefyAttachJobId);
+        } finally {
+          setters.setHeavyGenerationWaitMessage(null);
+        }
       }
 
       const finalizedState = await apiPost<{
@@ -895,12 +870,12 @@ export function usePgrEtapaController({
       setters.setIsFinalizingPgr(false);
     }
   }, [
-    cardSyncStatus,
     persistStateNow,
     params.id,
     setters,
     state.historicoData,
     state.inicioDraft,
+    state.workflow.editContext,
   ]);
 
   const handleGenerateFakePdf = useCallback(async () => {
@@ -1000,11 +975,19 @@ export function usePgrEtapaController({
         updatedAt?: string;
       }>(`/api/v1/frontend/pgr/${params.id}/new-version`, {
         rejectionReason: String(rejectionReason || "").trim() || undefined,
+        editContext: isFunctionInclusionEntry
+          ? "function_inclusion"
+          : undefined,
       });
 
       setKnownUpdatedAt(params.id, updatedState.updatedAt);
       cancelPendingPersist();
-      window.location.assign(`/pgr/${params.id}/inicio`);
+      window.location.assign(
+        "/pgr/" +
+          params.id +
+          "/inicio" +
+          (isFunctionInclusionEntry ? "?functionInclusion=1" : "")
+      );
     } catch (error) {
       const message =
         error instanceof Error
@@ -1014,7 +997,7 @@ export function usePgrEtapaController({
         window.alert(message);
       }
     }
-  }, [cancelPendingPersist, params.id]);
+  }, [cancelPendingPersist, isFunctionInclusionEntry, params.id]);
 
   const handleImportPrevious = useCallback(async () => {
     if (!previousImport || isImportingPrevious) return;
@@ -1089,7 +1072,10 @@ export function usePgrEtapaController({
   const handleEditCurrentFinalizedVersion = useCallback(async () => {
     try {
       const updatedState = await apiPost<{ updatedAt?: string }>(
-        `/api/v1/frontend/pgr/${params.id}/edit-current-version`
+        "/api/v1/frontend/pgr/" +
+          params.id +
+          "/edit-current-version" +
+          (isFunctionInclusionEntry ? "?editContext=function_inclusion" : "")
       );
       setKnownUpdatedAt(params.id, updatedState.updatedAt);
       cancelPendingPersist();
@@ -1103,7 +1089,7 @@ export function usePgrEtapaController({
         window.alert(message);
       }
     }
-  }, [cancelPendingPersist, params.id]);
+  }, [cancelPendingPersist, isFunctionInclusionEntry, params.id]);
 
   const handleHistoricoChangeField = useCallback(
     (
@@ -1272,22 +1258,6 @@ export function usePgrEtapaController({
       })
       .catch(() => {
         if (active) setLastFunctionInclusion(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [params.id]);
-
-  useEffect(() => {
-    let active = true;
-    apiGet<{ syncStatus: string | null }>(
-      `/api/v1/frontend/pgr/${params.id}/card-sync-status`
-    )
-      .then((result) => {
-        if (active) setCardSyncStatus(result.syncStatus);
-      })
-      .catch(() => {
-        if (active) setCardSyncStatus(null);
       });
     return () => {
       active = false;

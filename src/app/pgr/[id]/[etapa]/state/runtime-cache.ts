@@ -59,6 +59,7 @@ export type PersistedPgrState = {
     // no backend). Usado para decidir se a correção pede o motivo por modal
     // (rejeição pelo cliente) ou libera direto (retornos internos).
     rejectionSourcePhaseId?: string | null;
+    editContext?: "function_inclusion" | null;
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;

@@ -719,6 +719,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             typeof state.workflow?.rejection?.sourcePhaseId === "string"
               ? state.workflow.rejection.sourcePhaseId
               : null,
+          editContext:
+            state.workflow?.editContext === "function_inclusion"
+              ? "function_inclusion"
+              : null,
           finalizedAt:
             typeof state.workflow?.finalizedAt === "string"
               ? state.workflow.finalizedAt

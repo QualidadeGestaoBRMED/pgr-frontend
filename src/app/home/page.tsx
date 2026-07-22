@@ -505,11 +505,17 @@ export default function PgrsPage() {
               key={card.id}
               role="button"
               tabIndex={0}
-              onClick={() => router.push(`/pgr/${card.id}/inicio`)}
+              onClick={() =>
+                router.push(
+                  `/pgr/${card.id}/inicio${companyFilter ? "?functionInclusion=1" : ""}`
+                )
+              }
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  router.push(`/pgr/${card.id}/inicio`);
+                  router.push(
+                    `/pgr/${card.id}/inicio${companyFilter ? "?functionInclusion=1" : ""}`
+                  );
                 }
               }}
               className="rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"

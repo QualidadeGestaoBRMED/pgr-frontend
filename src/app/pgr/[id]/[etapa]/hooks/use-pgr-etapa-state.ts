@@ -148,6 +148,7 @@ export function usePgrEtapaState({
       rejectionReason: null as string | null,
       wasRejected: false,
       rejectionSourcePhaseId: null as string | null,
+      editContext: null as "function_inclusion" | null,
       finalizedAt: null as string | null,
       finalizedBy: null as string | null,
       finalizedById: null as number | null,
