@@ -723,6 +723,21 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             state.workflow?.editContext === "function_inclusion"
               ? "function_inclusion"
               : null,
+          finalization: {
+            active: Boolean(state.workflow?.finalization?.active),
+            startedAt:
+              typeof state.workflow?.finalization?.startedAt === "string"
+                ? state.workflow.finalization.startedAt
+                : null,
+            startedBy:
+              typeof state.workflow?.finalization?.startedBy === "string"
+                ? state.workflow.finalization.startedBy
+                : null,
+            startedById:
+              typeof state.workflow?.finalization?.startedById === "number"
+                ? state.workflow.finalization.startedById
+                : null,
+          },
           finalizedAt:
             typeof state.workflow?.finalizedAt === "string"
               ? state.workflow.finalizedAt
@@ -895,6 +910,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   useEffect(() => {
     if (isStateLoading) return;
     if (workflow.isLocked) return;
+    if (workflow.finalization?.active) {
+      pendingPersistPayloadRef.current = null;
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      return;
+    }
     if (skipInitialPersistRef.current) {
       skipInitialPersistRef.current = false;
       prevImmediatePersistRefs.current = {

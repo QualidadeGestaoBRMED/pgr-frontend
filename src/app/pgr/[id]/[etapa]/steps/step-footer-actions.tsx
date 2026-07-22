@@ -5,6 +5,7 @@ type StepFooterActionsProps = {
   prevStepId: string | null;
   nextStepId: string | null;
   workflowIsLocked?: boolean;
+  readOnly?: boolean;
   onNavigateStep: (stepId: string) => void;
   onAdvance: () => void;
   onCreateNextGhe: () => void;
@@ -66,6 +67,7 @@ export function StepFooterActions({
   prevStepId,
   nextStepId,
   workflowIsLocked = false,
+  readOnly = false,
   onNavigateStep,
   onAdvance,
   onCreateNextGhe,
@@ -75,6 +77,29 @@ export function StepFooterActions({
   hasNextExistingGhe,
   allGhesDescribed,
 }: StepFooterActionsProps) {
+  if (readOnly) {
+    return (
+      <div className="flex items-center justify-between">
+        <BackButton prevStepId={prevStepId} onNavigateStep={onNavigateStep} />
+        {nextStepId ? (
+          <button
+            type="button"
+            onClick={() => onNavigateStep(nextStepId)}
+            className="btn-primary px-6"
+          >
+            Avançar
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        ) : (
+          <button type="button" disabled className="btn-disabled border-0 px-6">
+            Avançar
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   if (stepId === "descricao") {
     const disableDescricaoAdvance =
       remainingCount > 0 ||

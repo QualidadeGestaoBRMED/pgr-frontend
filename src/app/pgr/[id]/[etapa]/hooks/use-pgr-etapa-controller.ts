@@ -65,6 +65,13 @@ const PIPEFY_ATTACH_POLL_TIMEOUT_MS = 180000;
 const PIPEFY_ATTACH_WAIT_MESSAGE =
   "Enviando arquivos para o Pipefy e confirmando os anexos...";
 
+class FinalizationCancelledError extends Error {
+  constructor() {
+    super("Finalização cancelada.");
+    this.name = "FinalizationCancelledError";
+  }
+}
+
 type ExternalJobStartResponse = {
   job_id?: string;
   jobId?: string;
@@ -174,10 +181,12 @@ const HEAVY_GENERATION_WAIT_MESSAGE =
 async function startExternalExportJobWithResponse(
   pgrId: string,
   kind: ExternalExportKind,
-  onHeavyWaitChange?: (message: string | null) => void
+  onHeavyWaitChange?: (message: string | null) => void,
+  isCancelled?: () => boolean
 ) {
   const startedAt = Date.now();
   for (;;) {
+    if (isCancelled?.()) throw new FinalizationCancelledError();
     try {
       const response = await apiPost<ExternalJobStartResponse>(
         `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/start`,
@@ -194,6 +203,7 @@ async function startExternalExportJobWithResponse(
       }
       onHeavyWaitChange?.(HEAVY_GENERATION_WAIT_MESSAGE);
       await sleep(HEAVY_GENERATION_RETRY_INTERVAL_MS);
+      if (isCancelled?.()) throw new FinalizationCancelledError();
     }
   }
 }
@@ -201,9 +211,15 @@ async function startExternalExportJobWithResponse(
 async function startExternalExportJob(
   pgrId: string,
   kind: ExternalExportKind,
-  onHeavyWaitChange?: (message: string | null) => void
+  onHeavyWaitChange?: (message: string | null) => void,
+  isCancelled?: () => boolean
 ): Promise<string> {
-  const data = await startExternalExportJobWithResponse(pgrId, kind, onHeavyWaitChange);
+  const data = await startExternalExportJobWithResponse(
+    pgrId,
+    kind,
+    onHeavyWaitChange,
+    isCancelled
+  );
   const jobId = extractJobId(data);
   if (!jobId) {
     throw new Error(`API não retornou job_id para ${kind.toUpperCase()}.`);
@@ -214,11 +230,13 @@ async function startExternalExportJob(
 async function waitForExternalExportCompletion(
   pgrId: string,
   kind: ExternalExportKind,
-  jobId: string
+  jobId: string,
+  isCancelled?: () => boolean
 ): Promise<ExternalJobStatusResponse> {
   const startedAt = Date.now();
   let pollIntervalMs = PGR_EXPORT_POLL_MIN_INTERVAL_MS;
   while (Date.now() - startedAt <= PGR_EXPORT_POLL_TIMEOUT_MS) {
+    if (isCancelled?.()) throw new FinalizationCancelledError();
     const data = await apiGet<ExternalJobStatusResponse>(
       `/api/v1/frontend/pgr/${pgrId}/external-export/${kind}/${jobId}`
     );
@@ -231,6 +249,7 @@ async function waitForExternalExportCompletion(
     }
 
     await sleep(pollIntervalMs);
+    if (isCancelled?.()) throw new FinalizationCancelledError();
     pollIntervalMs = Math.min(
       PGR_EXPORT_POLL_MAX_INTERVAL_MS,
       pollIntervalMs + PGR_EXPORT_POLL_MIN_INTERVAL_MS
@@ -333,21 +352,25 @@ async function startPipefyAttachJob(args: {
 
 async function waitForPipefyAttachJobCompletion(
   pgrId: string,
-  jobId: string
+  jobId: string,
+  isCancelled?: () => boolean
 ): Promise<void> {
   const startedAt = Date.now();
   let pollIntervalMs = PIPEFY_ATTACH_POLL_MIN_INTERVAL_MS;
   while (Date.now() - startedAt <= PIPEFY_ATTACH_POLL_TIMEOUT_MS) {
+    if (isCancelled?.()) throw new FinalizationCancelledError();
     const data = await apiGet<PipefyAttachJobStatusResponse>(
       `/api/v1/frontend/pgr/${pgrId}/pipefy/attach-files-and-mark/${jobId}`
     );
     const status = extractJobStatus(data);
     if (status === "succeeded") return;
+    if (status === "cancelled") throw new FinalizationCancelledError();
     if (status === "failed") {
       throw new Error(extractJobError(data) || "Falha ao anexar arquivos no Pipefy.");
     }
 
     await sleep(pollIntervalMs);
+    if (isCancelled?.()) throw new FinalizationCancelledError();
     pollIntervalMs = Math.min(
       PIPEFY_ATTACH_POLL_MAX_INTERVAL_MS,
       pollIntervalMs + PIPEFY_ATTACH_POLL_MIN_INTERVAL_MS
@@ -429,6 +452,8 @@ export function usePgrEtapaController({
   // antes era engolido em silêncio pelo autosave; isso já causou perda real
   // de horas de edição em produção (usuário achando que estava salvando).
   const [saveError, setSaveError] = useState(false);
+  const [isCancellingFinalization, setIsCancellingFinalization] = useState(false);
+  const finalizationAttemptRef = useRef(0);
   useEffect(() => {
     // Ao abrir a etapa, sempre retoma as gravações: NUNCA deixar o save preso
     // em pausa silenciosa de uma navegação/sessão anterior (causava perda de
@@ -784,9 +809,26 @@ export function usePgrEtapaController({
   const attachmentsTotalMb = Math.round(attachmentsTotalBytes / (1024 * 1024));
 
   const handleFinalizePgr = useCallback(async () => {
+    const attempt = finalizationAttemptRef.current + 1;
+    finalizationAttemptRef.current = attempt;
+    const assertAttemptActive = () => {
+      if (finalizationAttemptRef.current !== attempt) {
+        throw new FinalizationCancelledError();
+      }
+    };
     setters.setIsFinalizingPgr(true);
     try {
       await persistStateNow();
+      assertAttemptActive();
+
+      const startedState = await apiPost<{
+        workflow: PersistedPgrState["workflow"];
+        updatedAt?: string;
+      }>(`/api/v1/frontend/pgr/${params.id}/finalization/start`);
+      setKnownUpdatedAt(params.id, startedState.updatedAt);
+      cancelPendingPersist();
+      setters.setWorkflow(startedState.workflow);
+      assertAttemptActive();
 
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
@@ -798,24 +840,43 @@ export function usePgrEtapaController({
         startExternalExportJobWithResponse(
           params.id,
           "pdf",
-          setters.setHeavyGenerationWaitMessage
+          setters.setHeavyGenerationWaitMessage,
+          () => finalizationAttemptRef.current !== attempt
         ),
-        startExternalExportJob(params.id, "xlsx"),
+        startExternalExportJob(
+          params.id,
+          "xlsx",
+          undefined,
+          () => finalizationAttemptRef.current !== attempt
+        ),
       ]);
       const pdfJobId = extractJobId(pdfStartResponse);
       if (!pdfJobId) {
         throw new Error("API não retornou job_id para PDF.");
       }
+      assertAttemptActive();
 
       await Promise.all([
-        waitForExternalExportCompletion(params.id, "pdf", pdfJobId),
-        waitForExternalExportCompletion(params.id, "xlsx", xlsxJobId),
+        waitForExternalExportCompletion(
+          params.id,
+          "pdf",
+          pdfJobId,
+          () => finalizationAttemptRef.current !== attempt
+        ),
+        waitForExternalExportCompletion(
+          params.id,
+          "xlsx",
+          xlsxJobId,
+          () => finalizationAttemptRef.current !== attempt
+        ),
       ]);
+      assertAttemptActive();
 
       const [pdfBlob, xlsxBlob] = await Promise.all([
         downloadExternalExport(params.id, "pdf", pdfJobId),
         downloadExternalExport(params.id, "xlsx", xlsxJobId),
       ]);
+      assertAttemptActive();
 
       if (state.workflow.editContext === "function_inclusion") {
         triggerBlobDownload(pdfBlob, fileBase + ".pdf");
@@ -830,11 +891,16 @@ export function usePgrEtapaController({
         });
         setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
         try {
-          await waitForPipefyAttachJobCompletion(params.id, pipefyAttachJobId);
+          await waitForPipefyAttachJobCompletion(
+            params.id,
+            pipefyAttachJobId,
+            () => finalizationAttemptRef.current !== attempt
+          );
         } finally {
           setters.setHeavyGenerationWaitMessage(null);
         }
       }
+      assertAttemptActive();
 
       const finalizedState = await apiPost<{
         completedSteps: number;
@@ -859,6 +925,7 @@ export function usePgrEtapaController({
         setters.setHistoricoData(finalizedState.historico);
       }
     } catch (error) {
+      if (error instanceof FinalizationCancelledError) return;
       const message =
         error instanceof Error
           ? error.message
@@ -867,16 +934,42 @@ export function usePgrEtapaController({
         window.alert(message);
       }
     } finally {
-      setters.setIsFinalizingPgr(false);
+      if (finalizationAttemptRef.current === attempt) {
+        setters.setIsFinalizingPgr(false);
+      }
     }
   }, [
     persistStateNow,
+    cancelPendingPersist,
     params.id,
     setters,
     state.historicoData,
     state.inicioDraft,
     state.workflow.editContext,
   ]);
+
+  const handleCancelFinalization = useCallback(async () => {
+    finalizationAttemptRef.current += 1;
+    setIsCancellingFinalization(true);
+    setters.setHeavyGenerationWaitMessage(null);
+    try {
+      const restoredState = await apiPost<{
+        workflow: PersistedPgrState["workflow"];
+        updatedAt?: string;
+      }>(`/api/v1/frontend/pgr/${params.id}/finalization/cancel`);
+      setKnownUpdatedAt(params.id, restoredState.updatedAt);
+      setters.setWorkflow(restoredState.workflow);
+      setters.setIsFinalizingPgr(false);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível cancelar a finalização agora.";
+      if (typeof window !== "undefined") window.alert(message);
+    } finally {
+      setIsCancellingFinalization(false);
+    }
+  }, [params.id, setters]);
 
   const handleGenerateFakePdf = useCallback(async () => {
     setters.setIsGeneratingFakePdf(true);
@@ -1531,6 +1624,13 @@ export function usePgrEtapaController({
       onImport: () => {
         void handleImportPrevious();
       },
+    },
+    finalizationLock: {
+      active: Boolean(state.workflow.finalization?.active),
+      startedAt: state.workflow.finalization?.startedAt ?? null,
+      startedBy: state.workflow.finalization?.startedBy ?? null,
+      isCancelling: isCancellingFinalization,
+      onCancel: handleCancelFinalization,
     },
     shellProps: {
       pgrId: params.id,

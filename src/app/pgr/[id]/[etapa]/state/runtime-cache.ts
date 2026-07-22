@@ -60,6 +60,12 @@ export type PersistedPgrState = {
     // (rejeição pelo cliente) ou libera direto (retornos internos).
     rejectionSourcePhaseId?: string | null;
     editContext?: "function_inclusion" | null;
+    finalization: {
+      active: boolean;
+      startedAt: string | null;
+      startedBy: string | null;
+      startedById: number | null;
+    };
     finalizedAt: string | null;
     finalizedBy: string | null;
     finalizedById: number | null;
