@@ -723,12 +723,14 @@ export function usePgrEtapaDerived({
   // Histórico é uma etapa sempre considerada completa por regra de negócio.
   const isHistoricoComplete = true;
 
-  // Diferente de historico, anexos não é automaticamente completo: só conta
-  // (pra progresso e pra liberar a etapa de revisão) quando existe pelo
-  // menos um arquivo de fato anexado. Sem isso, o passo fica com warning
-  // (ver shouldAlertStepWhenAdvanced) em vez de check verde vazio.
-  const isAnexosComplete = useMemo(
-    () => anexos.some((anexo) => anexo.files.length > 0),
+  // Anexos é opcional — nunca bloqueia progresso/revisão por estar vazio,
+  // ao contrário de descrição/plano/etc. Sempre completo pra fins de
+  // contagem; isAnexosEmpty (abaixo) é só o gatilho do warning visual
+  // (shouldAlertStepWhenAdvanced em use-pgr-etapa-controller.ts), sem
+  // afetar completedSteps nem o progresso percentual.
+  const isAnexosComplete = true;
+  const isAnexosEmpty = useMemo(
+    () => !anexos.some((anexo) => anexo.files.length > 0),
     [anexos]
   );
 
@@ -1218,13 +1220,16 @@ export function usePgrEtapaDerived({
           isCaracterizacaoStepComplete
         ),
         plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete),
-        anexos: shouldAlertStepWhenAdvanced("anexos", isAnexosComplete),
+        // Anexos é opcional (isAnexosComplete é sempre true, não bloqueia
+        // progresso) — o warning aqui usa isAnexosEmpty diretamente, só como
+        // aviso visual de "nenhum arquivo anexado ainda".
+        anexos: shouldAlertStepWhenAdvanced("anexos", !isAnexosEmpty),
       };
     },
     [
       currentStepId,
       completedSteps,
-      isAnexosComplete,
+      isAnexosEmpty,
       isCaracterizacaoStepComplete,
       isDadosComplete,
       isDescricaoComplete,
