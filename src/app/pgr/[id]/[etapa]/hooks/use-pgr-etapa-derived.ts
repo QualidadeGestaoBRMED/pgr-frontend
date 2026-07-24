@@ -1166,6 +1166,11 @@ export function usePgrEtapaDerived({
     [missingTargetsByStep]
   );
 
+  // anexos aqui é sempre isAnexosComplete (true) de propósito: é o que
+  // computeWeightedProgressPercent (progress.ts) e a liberação da revisão
+  // usam pra NÃO bloquear em cima de um anexo opcional. Qualquer exibição
+  // de "concluído" pro usuário (checklist da revisão, sidebar, payload do
+  // docx) deve usar displayStepStatusById abaixo, não este.
   const stepStatusById = useMemo<Partial<Record<PgrStepId, boolean>>>(
     () => ({
       inicio: isInicioComplete,
@@ -1193,6 +1198,15 @@ export function usePgrEtapaDerived({
       isHistoricoComplete,
       isPlanoComplete,
     ]
+  );
+
+  // Versão "pra mostrar pro usuário": anexos reflete se tem arquivo de
+  // verdade, não o always-true usado pro cálculo de progresso. Sem isso, a
+  // etapa aparecia "Concluída" no checklist da Revisão de Campos (e em
+  // qualquer outro lugar que leia stepStatusById.anexos direto) mesmo vazia.
+  const displayStepStatusById = useMemo<Partial<Record<PgrStepId, boolean>>>(
+    () => ({ ...stepStatusById, anexos: !isAnexosEmpty }),
+    [stepStatusById, isAnexosEmpty]
   );
 
   const alertSteps = useMemo<Partial<Record<PgrStepId, boolean>>>(
@@ -1311,6 +1325,7 @@ export function usePgrEtapaDerived({
     assignGheOptions,
     planTableRows,
     stepStatusById,
+    displayStepStatusById,
     missingFieldsByStep,
     missingTargetsByStep,
     alertSteps,
