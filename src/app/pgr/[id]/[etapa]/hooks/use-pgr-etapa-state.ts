@@ -41,7 +41,7 @@ export function usePgrEtapaState({
 
   const [completedSteps, setCompletedSteps] = useState(currentIndex);
   const [progressPercent, setProgressPercent] = useState(
-    Math.round((Math.max(0, currentIndex) / 8) * 100)
+    Math.round((Math.max(0, currentIndex) / 7) * 100)
   );
   const [inicioDraft, setInicioDraft] = useState<InicioDraft>(initialInicioDraft);
   const [dadosCadastrais, setDadosCadastrais] = useState<DadosCadastraisDraft>(

@@ -1358,7 +1358,12 @@ export function usePgrEtapaController({
   }, [params.id]);
 
   useEffect(() => {
-    const orderedSteps = pgrSteps.map((item) => item.id);
+    // "revisao" não conta como unidade de completedSteps (ver progress.ts):
+    // é um gate pós-100%, não um passo do progresso — por isso fica de fora
+    // da contagem contígua aqui.
+    const orderedSteps = pgrSteps
+      .map((item) => item.id)
+      .filter((stepId) => stepId !== "revisao");
     let contiguousDone = 0;
     for (const stepId of orderedSteps) {
       if (!derived.stepStatusById[stepId]) break;

@@ -518,9 +518,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           ? Math.max(0, Math.min(rawCompleted, pgrSteps.length))
           : 0;
         const rawProgress = Number(state.meta?.progressPercent);
+        // "revisao" (última etapa) não conta como unidade de progresso (ver
+        // utils/progress.ts) — por isso o fallback usa pgrSteps.length - 1.
         const normalizedProgress = Number.isFinite(rawProgress)
           ? Math.max(0, Math.min(100, Math.round(rawProgress)))
-          : Math.round((normalizedCompleted / Math.max(1, pgrSteps.length)) * 100);
+          : Math.round(
+              (normalizedCompleted / Math.max(1, pgrSteps.length - 1)) * 100
+            );
         const loadedInicioDraft = { ...initialInicioDraft, ...(state.inicioDraft || {}) };
         const rawExtraFields = Array.isArray(state.extraEstabelecimentoFields)
           ? state.extraEstabelecimentoFields

@@ -723,7 +723,14 @@ export function usePgrEtapaDerived({
   // Histórico é uma etapa sempre considerada completa por regra de negócio.
   const isHistoricoComplete = true;
 
-  const isAnexosComplete = true;
+  // Diferente de historico, anexos não é automaticamente completo: só conta
+  // (pra progresso e pra liberar a etapa de revisão) quando existe pelo
+  // menos um arquivo de fato anexado. Sem isso, o passo fica com warning
+  // (ver shouldAlertStepWhenAdvanced) em vez de check verde vazio.
+  const isAnexosComplete = useMemo(
+    () => anexos.some((anexo) => anexo.files.length > 0),
+    [anexos]
+  );
 
   const missingTargetsByStep = useMemo<
     Partial<Record<PgrStepId, PendingReviewTarget[]>>

@@ -1,7 +1,10 @@
 import type { PgrStepId } from "@/app/pgr/steps";
 import type { GheGroup } from "../types";
 
-const TOTAL_STEP_UNITS = 8;
+// Revisão de Campos não soma unidade própria: é um gate pós-100%, não uma
+// fração do progresso (ver "Aguardando Finalização" no backend). Por isso o
+// total é 7 (6 etapas estáticas + descrição fracionária), não 8.
+const TOTAL_STEP_UNITS = 7;
 
 const DESCRIPTION_REQUIRED_INFO_FIELDS: Array<keyof GheGroup["info"]> = [
   "processo",
@@ -41,7 +44,6 @@ export function computeWeightedProgressPercent({
     "caracterizacao",
     "plano",
     "anexos",
-    "revisao",
   ];
   const staticUnits = staticStepIds.reduce((acc, stepId) => {
     return acc + (stepStatusById[stepId] ? 1 : 0);

@@ -69,7 +69,39 @@ describe("progress utils", () => {
       },
     });
 
-    // (7 + 0.5) / 8 = 93.75 => round(94)
-    expect(percent).toBe(94);
+    // revisao não conta (gate pós-100%, não unidade de progresso):
+    // (6 + 0.5) / 7 = 92.85... => round(93)
+    expect(percent).toBe(93);
+  });
+
+  it("computeWeightedProgressPercent ignores revisao completion for the percentage", () => {
+    const withRevisaoDone = computeWeightedProgressPercent({
+      isLocked: false,
+      gheGroups: [],
+      stepStatusById: {
+        inicio: true,
+        historico: true,
+        dados: true,
+        caracterizacao: true,
+        plano: true,
+        anexos: true,
+        revisao: true,
+      },
+    });
+    const withoutRevisao = computeWeightedProgressPercent({
+      isLocked: false,
+      gheGroups: [],
+      stepStatusById: {
+        inicio: true,
+        historico: true,
+        dados: true,
+        caracterizacao: true,
+        plano: true,
+        anexos: true,
+        revisao: false,
+      },
+    });
+
+    expect(withRevisaoDone).toBe(withoutRevisao);
   });
 });
