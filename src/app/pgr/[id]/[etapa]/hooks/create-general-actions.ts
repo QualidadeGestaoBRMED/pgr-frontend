@@ -979,7 +979,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       setInicioDraft({
         ...initialInicioDraft,
         ...normalizedInicioDraft,
-        syncedAt: normalizedInicioDraft.syncedAt || new Date().toISOString(),
+        syncedAt: normalizedInicioDraft.syncedAt ?? null,
       });
       const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
       const fallbackCompany =
