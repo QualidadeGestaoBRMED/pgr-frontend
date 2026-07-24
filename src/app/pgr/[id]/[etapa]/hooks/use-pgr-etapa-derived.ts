@@ -1221,9 +1221,12 @@ export function usePgrEtapaDerived({
         ),
         plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete),
         // Anexos é opcional (isAnexosComplete é sempre true, não bloqueia
-        // progresso) — o warning aqui usa isAnexosEmpty diretamente, só como
-        // aviso visual de "nenhum arquivo anexado ainda".
-        anexos: shouldAlertStepWhenAdvanced("anexos", !isAnexosEmpty),
+        // progresso) — por isso não passa por shouldAlertStepWhenAdvanced
+        // (que só avisa depois que o usuário navega além do passo): sem
+        // isso, o passo aparecia com check verde de "concluído" logo após
+        // o sync, mesmo vazio, até o usuário visitar outra etapa depois
+        // dele. O aviso amarelo aqui reflete só "está vazio", sempre.
+        anexos: isAnexosEmpty,
       };
     },
     [
