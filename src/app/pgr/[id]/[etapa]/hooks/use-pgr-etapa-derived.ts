@@ -1234,13 +1234,13 @@ export function usePgrEtapaDerived({
           isCaracterizacaoStepComplete
         ),
         plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete),
-        // Anexos é opcional (isAnexosComplete é sempre true, não bloqueia
-        // progresso) — por isso não passa por shouldAlertStepWhenAdvanced
-        // (que só avisa depois que o usuário navega além do passo): sem
-        // isso, o passo aparecia com check verde de "concluído" logo após
-        // o sync, mesmo vazio, até o usuário visitar outra etapa depois
-        // dele. O aviso amarelo aqui reflete só "está vazio", sempre.
-        anexos: isAnexosEmpty,
+        // Mesma regra dos demais passos: só avisa depois que o usuário
+        // chega/passa pela etapa ainda vazia — logo após o sync (antes de
+        // visitar Inclusão de Anexos) ela fica neutra, igual início/dados/
+        // etc., não com warning imediato. O "concluído" falso (check verde)
+        // já é evitado à parte por displayStepStatusById, então não precisa
+        // mais que este aviso seja incondicional.
+        anexos: shouldAlertStepWhenAdvanced("anexos", !isAnexosEmpty),
       };
     },
     [
