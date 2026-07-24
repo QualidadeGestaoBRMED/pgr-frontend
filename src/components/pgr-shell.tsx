@@ -94,14 +94,15 @@ export function PgrShell({
           {pgrSteps.map((step, index) => {
             const isCurrent = step.id === currentStep;
             const isAlert = Boolean(alertSteps?.[step.id]);
-            // Anexos é opcional — não bloqueia progresso/finalização (ver
-            // isAnexosComplete em use-pgr-etapa-derived.ts) — então o alerta
-            // ali é só um aviso (âmbar), diferente dos demais passos, que são
-            // obrigatórios de verdade e continuam em vermelho.
-            const isOptionalAlert = isAlert && step.id === "anexos";
+            // Anexos (opcional, nunca bloqueia) e Dados Cadastrais (o sync do
+            // Pipefy só preenche parte dos campos) usam âmbar — aviso, não
+            // erro bloqueante. Os demais passos incompletos continuam em
+            // vermelho.
+            const isWarningAlert =
+              isAlert && (step.id === "anexos" || step.id === "dados");
             const isDoneByRule = Boolean(stepStatusById?.[step.id]);
             const isDone = !isAlert && (isDoneByRule || index < clampedCompleted);
-            const circleClasses = isOptionalAlert
+            const circleClasses = isWarningAlert
               ? "bg-[#fdf0d5] text-[#a86b00] dark:bg-[#4a3a1a] dark:text-[#ffcf70]"
               : isAlert
                 ? "bg-[#ffe1e1] text-[#d14c4c] dark:bg-[#5a2a2a] dark:text-[#ffb6b6]"
