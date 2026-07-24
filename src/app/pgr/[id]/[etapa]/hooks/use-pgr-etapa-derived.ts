@@ -1227,19 +1227,22 @@ export function usePgrEtapaDerived({
       return {
         inicio: shouldAlertStepWhenAdvanced("inicio", isInicioComplete),
         historico: false,
-        dados: shouldAlertStepWhenAdvanced("dados", isDadosComplete),
+        // Diferente dos demais, Dados Cadastrais é avisado incondicionalmente
+        // (não só depois que o usuário chega/passa pela etapa): a sincronização
+        // com o Pipefy já preenche parte desse passo automaticamente, então
+        // faltar campo aqui precisa ficar visível assim que a tela abre, sem
+        // esperar o usuário navegar até lá pra descobrir que falta algo.
+        dados: !isDadosComplete,
         descricao: shouldAlertStepWhenAdvanced("descricao", isDescricaoComplete),
         caracterizacao: shouldAlertStepWhenAdvanced(
           "caracterizacao",
           isCaracterizacaoStepComplete
         ),
         plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete),
-        // Mesma regra dos demais passos: só avisa depois que o usuário
-        // chega/passa pela etapa ainda vazia — logo após o sync (antes de
-        // visitar Inclusão de Anexos) ela fica neutra, igual início/dados/
-        // etc., não com warning imediato. O "concluído" falso (check verde)
-        // já é evitado à parte por displayStepStatusById, então não precisa
-        // mais que este aviso seja incondicional.
+        // Mesma regra dos demais passos (dados é a exceção, ver acima): só
+        // avisa depois que o usuário chega/passa pela etapa ainda vazia —
+        // logo após o sync ela fica neutra. O "concluído" falso (check
+        // verde) é evitado à parte por displayStepStatusById.
         anexos: shouldAlertStepWhenAdvanced("anexos", !isAnexosEmpty),
       };
     },
