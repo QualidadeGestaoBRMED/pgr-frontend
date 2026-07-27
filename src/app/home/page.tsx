@@ -1,34 +1,41 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Search } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 
+type HomeCard = {
+  id: string;
+  title: string;
+  code: string;
+  syncStatus?: string | null;
+  isFinalized?: boolean;
+  finalizedAt?: string | null;
+  status: { label: string; bg: string; text: string; dot: string };
+  createdAt: string;
+  owner: string;
+  responsible?: string | null;
+  responsavel?: string | null;
+  ownerName?: string | null;
+  responsibleName?: string | null;
+  responsible_name?: string | null;
+  "Responsável pela elaboração do documento (ST)"?: string | null;
+  progress: number;
+  pipefyCardId?: string | null;
+  dueDate?: string | null;
+  companyId?: number | null;
+  companyName?: string | null;
+  groupName?: string | null;
+  cnpj?: string | null;
+};
+
 type HomeData = {
   user: { name: string; initials: string };
   title: string;
   subtitle: string;
-  cards: Array<{
-    id: string;
-    title: string;
-    code: string;
-    syncStatus?: string | null;
-    status: { label: string; bg: string; text: string; dot: string };
-    createdAt: string;
-    owner: string;
-    responsible?: string | null;
-    responsavel?: string | null;
-    ownerName?: string | null;
-    responsibleName?: string | null;
-    responsible_name?: string | null;
-    "Responsável pela elaboração do documento (ST)"?: string | null;
-    progress: number;
-    pipefyCardId?: string | null;
-    dueDate?: string | null;
-    companyId?: number | null;
-  }>;
+  cards: HomeCard[];
 };
 
 type FunctionInclusionAlert = {
@@ -92,12 +99,168 @@ function normalizeHomeData(data: HomeData): HomeData {
   };
 }
 
+function normalizeSearchText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isFinalizedCard(card: HomeCard) {
+  return Boolean(card.isFinalized);
+}
+
+function formatFinalizedAt(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function PipefyCardLink({ card }: { card: HomeCard }) {
+  const pipefyCardId = String(card.pipefyCardId || card.id || "").trim();
+  if (!isFinalizedCard(card) || !pipefyCardId) return null;
+
+  return (
+    <a
+      href={`https://app.pipefy.com/open-cards/${encodeURIComponent(pipefyCardId)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      aria-label={`Abrir card ${pipefyCardId} no Pipefy`}
+      title="Abrir este card no Pipefy"
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground/70 transition-colors hover:text-primary hover:underline hover:underline-offset-2"
+    >
+      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+      Abrir no Pipefy
+    </a>
+  );
+}
+
+function HomePgrCard({
+  card,
+  onOpen,
+}: {
+  card: HomeCard;
+  onOpen: () => void;
+}) {
+  const finalized = isFinalizedCard(card);
+  const finalizedAt = formatFinalizedAt(card.finalizedAt);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-[20px] font-semibold text-foreground sm:text-[22px]">
+            {card.title}
+          </h3>
+          <p className="mt-1 text-[14px] text-muted-foreground">
+            ID: {card.code}
+          </p>
+          {card.companyName && card.companyName !== card.title ? (
+            <p className="mt-1 line-clamp-2 text-[13px] text-muted-foreground">
+              {card.companyName}
+            </p>
+          ) : null}
+        </div>
+        {finalized ? (
+          <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-600/20 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+            Finalizado
+          </span>
+        ) : card.syncStatus === "REJECTED" ? (
+          <span className="inline-flex shrink-0 items-center rounded-full border border-[#d7263d]/20 bg-[#fff1f2] px-3 py-1 text-[12px] font-semibold text-[#b42318]">
+            Rejeitado
+          </span>
+        ) : null}
+      </div>
+      <div className="my-4 h-px w-full bg-border" />
+
+      <div className="space-y-3 text-[14px] text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <span>Status:</span>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] ${card.status.bg} ${card.status.text}`}
+          >
+            <span className={`h-2 w-2 rounded-full ${card.status.dot}`} />
+            {card.status.label}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Criado em:</span>
+          <span className="text-right font-medium text-foreground">
+            {card.createdAt}
+          </span>
+        </div>
+        {finalizedAt ? (
+          <div className="flex items-center justify-between gap-3">
+            <span>Finalizado em:</span>
+            <span className="text-right font-medium text-foreground">
+              {finalizedAt}
+            </span>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between gap-3">
+          <span>Responsável:</span>
+          <span className="text-right font-medium text-foreground">
+            {card.owner}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Prazo:</span>
+          <span className="text-right font-medium text-foreground">
+            {card.dueDate || "Não informado"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between gap-4">
+        <span className="text-[14px] font-semibold text-foreground">
+          Progresso: {card.progress}%
+        </span>
+        <div className="h-3 w-[140px] rounded-full bg-muted">
+          <div
+            className="h-3 rounded-full bg-[#2d8b1f] dark:bg-[#6fd35a]"
+            style={{ width: `${Math.max(0, Math.min(100, card.progress))}%` }}
+          />
+        </div>
+      </div>
+      {finalized ? (
+        <div className="mt-4 flex justify-end">
+          <PipefyCardLink card={card} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function PgrsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [homeData, setHomeData] = useState<HomeData>(emptyData);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [searchCards, setSearchCards] = useState<HomeCard[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [functionInclusionAlerts, setFunctionInclusionAlerts] = useState<
     FunctionInclusionAlert[]
   >([]);
@@ -253,19 +416,87 @@ export default function PgrsPage() {
     };
   }, [companyFilter]);
 
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query || companyFilter) {
+      setSearchCards(null);
+      setSearchLoading(false);
+      setSearchError(null);
+      return;
+    }
+
+    let active = true;
+    setSearchCards(null);
+    setSearchError(null);
+    const timeoutId = window.setTimeout(() => {
+      setSearchLoading(true);
+      apiGet<HomeData>(
+        `/api/v1/frontend/home?page_size=200&search=${encodeURIComponent(query)}`
+      )
+        .then((data) => {
+          if (!active) return;
+          setSearchCards(normalizeHomeData(data).cards);
+        })
+        .catch((error) => {
+          if (!active) return;
+          setSearchCards([]);
+          setSearchError(
+            error instanceof Error
+              ? `Falha ao pesquisar PGRs: ${error.message}`
+              : "Falha ao pesquisar PGRs."
+          );
+        })
+        .finally(() => {
+          if (active) setSearchLoading(false);
+        });
+    }, 350);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [companyFilter, searchQuery]);
+
   const filteredCards = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const base = companyFilter ? companyFilteredCards ?? [] : homeData.cards;
+    const query = normalizeSearchText(searchQuery);
+    const base = companyFilter
+      ? companyFilteredCards ?? []
+      : query
+        ? searchCards ?? []
+        : homeData.cards;
     if (!query) return base;
+    if (!companyFilter) return base;
     return base.filter((card) => {
-      return (
-        card.title.toLowerCase().includes(query) ||
-        card.code.toLowerCase().includes(query) ||
-        card.status.label.toLowerCase().includes(query) ||
-        card.owner.toLowerCase().includes(query)
-      );
+      const searchableText = [
+        card.title,
+        card.code,
+        card.status.label,
+        card.owner,
+        card.companyName,
+        card.groupName,
+        card.cnpj,
+      ]
+        .map(normalizeSearchText)
+        .join(" ");
+      return searchableText.includes(query);
     });
-  }, [homeData.cards, searchQuery, companyFilter, companyFilteredCards]);
+  }, [
+    homeData.cards,
+    searchQuery,
+    companyFilter,
+    companyFilteredCards,
+    searchCards,
+  ]);
+
+  const showSeparatedResults = Boolean(searchQuery.trim());
+  const currentCards = useMemo(
+    () => filteredCards.filter((card) => !isFinalizedCard(card)),
+    [filteredCards]
+  );
+  const finalizedCards = useMemo(
+    () => filteredCards.filter(isFinalizedCard),
+    [filteredCards]
+  );
 
   const checkFunctionInclusion = useCallback(
     async (companyId: number, companyLabel: string) => {
@@ -462,7 +693,7 @@ export default function PgrsPage() {
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Buscar por código, título, status ou responsável..."
+                placeholder="Buscar por empresa, CNPJ, ID, status ou responsável..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -484,22 +715,52 @@ export default function PgrsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <p className="mt-8 text-sm text-muted-foreground">Carregando dados...</p>
+        {loading || searchLoading ? (
+          <p className="mt-8 text-sm text-muted-foreground">
+            {searchLoading ? "Pesquisando PGRs..." : "Carregando dados..."}
+          </p>
         ) : null}
         {!loading && loadError ? (
           <p className="mt-8 rounded-[10px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger">
             {loadError}
           </p>
         ) : null}
-        {!loading && !loadError && filteredCards.length === 0 ? (
+        {!searchLoading && searchError ? (
+          <p className="mt-8 rounded-[10px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger">
+            {searchError}
+          </p>
+        ) : null}
+        {!loading && !searchLoading && !loadError && !searchError && filteredCards.length === 0 ? (
           <p className="mt-8 rounded-[10px] border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
-            Nenhum PGR ativo encontrado no momento.
+            {showSeparatedResults
+              ? "Nenhum PGR encontrado para esta pesquisa."
+              : "Nenhum PGR ativo encontrado no momento."}
+          </p>
+        ) : null}
+
+        {showSeparatedResults && !searchLoading && !searchError && filteredCards.length > 0 ? (
+          <div className="mt-10 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-[24px] font-semibold text-foreground">
+                PGRs em andamento
+              </h2>
+              <p className="mt-1 text-[14px] text-muted-foreground">
+                PGRs atuais nas fases de elaboração e revisão
+              </p>
+            </div>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
+              {currentCards.length} {currentCards.length === 1 ? "resultado" : "resultados"}
+            </span>
+          </div>
+        ) : null}
+        {showSeparatedResults && filteredCards.length > 0 && currentCards.length === 0 ? (
+          <p className="mt-4 rounded-[10px] border border-dashed border-border bg-card/50 px-4 py-3 text-sm text-muted-foreground">
+            Nenhum PGR em andamento encontrado.
           </p>
         ) : null}
 
         <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {filteredCards.map((card) => (
+          {(showSeparatedResults ? currentCards : filteredCards).map((card) => (
             <div
               key={card.id}
               role="button"
@@ -524,7 +785,14 @@ export default function PgrsPage() {
                   <h3 className="text-[20px] font-semibold text-foreground sm:text-[22px]">
                     {card.title}
                   </h3>
-                  <p className="mt-1 text-[14px] text-muted-foreground">ID: {card.code}</p>
+                  <p className="mt-1 text-[14px] text-muted-foreground">
+                    ID: {card.code}
+                  </p>
+                  {card.companyName && card.companyName !== card.title ? (
+                    <p className="mt-1 line-clamp-2 text-[13px] text-muted-foreground">
+                      {card.companyName}
+                    </p>
+                  ) : null}
                 </div>
                 {card.syncStatus === "REJECTED" ? (
                   <span className="inline-flex shrink-0 items-center rounded-full border border-[#d7263d]/20 bg-[#fff1f2] px-3 py-1 text-[12px] font-semibold text-[#b42318]">
@@ -571,9 +839,53 @@ export default function PgrsPage() {
                   />
                 </div>
               </div>
+              {isFinalizedCard(card) ? (
+                <div className="mt-4 flex justify-end">
+                  <PipefyCardLink card={card} />
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
+
+        {showSeparatedResults && !searchLoading && !searchError && filteredCards.length > 0 ? (
+          <section className="mt-12 border-t border-border pt-10">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-[24px] font-semibold text-foreground">
+                  PGRs finalizados
+                </h2>
+                <p className="mt-1 text-[14px] text-muted-foreground">
+                  Documentos concluídos e disponíveis para consulta
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-600/10 px-3 py-1 text-[12px] font-semibold text-emerald-700 dark:text-emerald-300">
+                {finalizedCards.length}{" "}
+                {finalizedCards.length === 1 ? "resultado" : "resultados"}
+              </span>
+            </div>
+
+            {finalizedCards.length > 0 ? (
+              <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {finalizedCards.map((card) => (
+                  <HomePgrCard
+                    key={card.id}
+                    card={card}
+                    onOpen={() =>
+                      router.push(
+                        `/pgr/${card.id}/inicio${companyFilter ? "?functionInclusion=1" : ""}`
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-[10px] border border-dashed border-border bg-card/50 px-4 py-3 text-sm text-muted-foreground">
+                Nenhum PGR finalizado encontrado.
+              </p>
+            )}
+          </section>
+        ) : null}
       </div>
     </div>
   );
