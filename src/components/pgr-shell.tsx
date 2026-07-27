@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { resolveStepCircleClasses } from "./pgr-shell-visuals";
 
 type PgrShellProps = {
   pgrId: string;
@@ -94,21 +95,13 @@ export function PgrShell({
           {pgrSteps.map((step, index) => {
             const isCurrent = step.id === currentStep;
             const isAlert = Boolean(alertSteps?.[step.id]);
-            // Anexos (opcional, nunca bloqueia) e Dados Cadastrais (o sync do
-            // Pipefy só preenche parte dos campos) usam âmbar — aviso, não
-            // erro bloqueante. Os demais passos incompletos continuam em
-            // vermelho.
-            const isWarningAlert =
-              isAlert && (step.id === "anexos" || step.id === "dados");
             const isDoneByRule = Boolean(stepStatusById?.[step.id]);
             const isDone = !isAlert && (isDoneByRule || index < clampedCompleted);
-            const circleClasses = isWarningAlert
-              ? "bg-[#fdf0d5] text-[#a86b00] dark:bg-[#4a3a1a] dark:text-[#ffcf70]"
-              : isAlert
-                ? "bg-[#ffe1e1] text-[#d14c4c] dark:bg-[#5a2a2a] dark:text-[#ffb6b6]"
-                : isDone
-                  ? "bg-[#dff5e8] text-[#1a7f4f] dark:bg-[#2a5a3f] dark:text-[#c6f5de]"
-                  : "bg-muted text-muted-foreground";
+            const circleClasses = resolveStepCircleClasses({
+              stepId: step.id,
+              isAlert,
+              isDone,
+            });
             const rowClasses = isCurrent
               ? "rounded-[10px] bg-primary/8 px-2 py-2 -mx-2 dark:bg-white/8"
               : "px-2 py-2 -mx-2";

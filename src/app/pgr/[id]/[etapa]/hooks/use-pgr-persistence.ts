@@ -114,6 +114,7 @@ type BackendStateResponse = Partial<{
   // só para a leitura do payload cru.
   workflow: Partial<Workflow> & { rejection?: { sourcePhaseId?: string | null } };
   updatedAt: string;
+  functionInclusionPending: boolean;
 }>;
 
 type UsePgrPersistenceContext = {
@@ -151,6 +152,7 @@ type UsePgrPersistenceContext = {
     setCurrentRiskGheId: Dispatch<SetStateAction<string>>;
     setPdfLayout: Dispatch<SetStateAction<PdfLayoutState>>;
     setWorkflow: Dispatch<SetStateAction<Workflow>>;
+    setFunctionInclusionPending: Dispatch<SetStateAction<boolean>>;
     setIsStateLoading: Dispatch<SetStateAction<boolean>>;
   };
   state: {
@@ -229,6 +231,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setCurrentRiskGheId,
     setPdfLayout,
     setWorkflow,
+    setFunctionInclusionPending,
     setIsStateLoading,
   } = setters;
 
@@ -803,6 +806,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setCurrentRiskGheId(loadedCurrentRiskGheId);
         setPdfLayout(loadedPdfLayout);
         setWorkflow(loadedWorkflow);
+        setFunctionInclusionPending(Boolean(state.functionInclusionPending));
         skipPostHydrationPersistsRef.current = 2;
 
         lastPersistedSignatureRef.current = stableSerialize({

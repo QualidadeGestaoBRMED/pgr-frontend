@@ -161,6 +161,7 @@ export function usePgrEtapaState({
       currentVersionEditHistory: [],
     }
   );
+  const [functionInclusionPending, setFunctionInclusionPending] = useState(false);
   const [pdfLayout, setPdfLayout] = useState(() =>
     normalizePdfLayoutState(DEFAULT_PDF_LAYOUT_STATE)
   );
@@ -268,10 +269,12 @@ export function usePgrEtapaState({
       riskGheGroups,
       currentRiskGheId,
       workflow,
+      functionInclusionPending,
       pdfLayout,
       lastGheNotice,
     },
     setters: {
+      setFunctionInclusionPending,
       setCompletedSteps,
       setProgressPercent,
       setInicioDraft,

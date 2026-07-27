@@ -15,6 +15,8 @@ import { PgrStepBody } from "./steps/pgr-step-body";
 import { StepFooterActions } from "./steps/step-footer-actions";
 import { SaveConflictDialog } from "./steps/save-conflict-dialog";
 import { SaveErrorBanner } from "./steps/save-error-banner";
+import { FunctionInclusionBanner } from "./steps/function-inclusion-banner";
+import { shouldShowFunctionInclusionBanner } from "./steps/function-inclusion-banner-visibility";
 import { PreviousVersionDialog } from "./steps/previous-version-dialog";
 import { FinalizationLockDialog } from "./steps/finalization-lock-dialog";
 import { usePgrEtapaController } from "./hooks/use-pgr-etapa-controller";
@@ -144,6 +146,12 @@ export default function PgrEtapaPage({
         onCutCapture={blockClipboardEdit}
         onDropCapture={blockDropEdit}
       >
+        <FunctionInclusionBanner
+          active={shouldShowFunctionInclusionBanner({
+            functionInclusionPending: Boolean(bodyCtx.functionInclusionPending),
+            isLocked: bodyCtx.workflow.isLocked,
+          })}
+        />
         <PgrStepBody ctx={bodyCtx} />
       </div>
       <StepFooterActions {...footerProps} readOnly={finalizationLock.active} />
