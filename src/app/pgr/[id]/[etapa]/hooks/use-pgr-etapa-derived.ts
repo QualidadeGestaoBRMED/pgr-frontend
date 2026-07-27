@@ -182,6 +182,47 @@ export const materializeEffectivePlanRow = (
   };
 };
 
+// Anexos é opcional: só "tem conteúdo" quando existe pelo menos um arquivo
+// de fato anexado (não conta slot vazio). Extraída como função pura pra dar
+// pra testar sem montar o hook inteiro — ver use-pgr-etapa-derived.test.ts.
+export const computeIsAnexosEmpty = (anexos: AnexoItem[]): boolean =>
+  !anexos.some((anexo) => anexo.files.length > 0);
+
+// stepStatusById.anexos é sempre true (não bloqueia progresso/revisão, ver
+// isAnexosComplete). Pra exibição (checklist da Revisão, sidebar, payload do
+// docx) precisa refletir conteúdo real, não o always-true do progresso.
+export const computeDisplayStepStatusById = (
+  stepStatusById: Partial<Record<PgrStepId, boolean>>,
+  isAnexosEmpty: boolean
+): Partial<Record<PgrStepId, boolean>> => ({
+  ...stepStatusById,
+  anexos: !isAnexosEmpty,
+});
+
+// Só avisa (badge vermelho/âmbar no step) depois que o usuário chega/passa
+// pela etapa ainda incompleta — não assim que a tela carrega. Usada por
+// todo mundo em alertSteps exceto "dados" (aviso incondicional, ver
+// use-pgr-etapa-derived.ts) e "historico" (nunca avisa).
+export const shouldAlertStepWhenAdvanced = (
+  stepId: PgrStepId,
+  isComplete: boolean,
+  context: { currentStepId: PgrStepId; completedSteps: number }
+): boolean => {
+  if (stepId === "historico") return false;
+  const index = pgrSteps.findIndex((step) => step.id === stepId);
+  if (index < 0) return false;
+  const currentStepIndex = pgrSteps.findIndex(
+    (step) => step.id === context.currentStepId
+  );
+  const isCurrentAndIncomplete = context.currentStepId === stepId && !isComplete;
+  const isBeforeCurrentAndIncomplete = currentStepIndex > index && !isComplete;
+  return (
+    (context.completedSteps > index && !isComplete) ||
+    isBeforeCurrentAndIncomplete ||
+    isCurrentAndIncomplete
+  );
+};
+
 const getPlanPriorityText = (row: Pick<PlanTableRow, "prioridade" | "classificacao">) =>
   String(row.prioridade || row.classificacao || "").trim();
 
@@ -729,10 +770,7 @@ export function usePgrEtapaDerived({
   // (shouldAlertStepWhenAdvanced em use-pgr-etapa-controller.ts), sem
   // afetar completedSteps nem o progresso percentual.
   const isAnexosComplete = true;
-  const isAnexosEmpty = useMemo(
-    () => !anexos.some((anexo) => anexo.files.length > 0),
-    [anexos]
-  );
+  const isAnexosEmpty = useMemo(() => computeIsAnexosEmpty(anexos), [anexos]);
 
   const missingTargetsByStep = useMemo<
     Partial<Record<PgrStepId, PendingReviewTarget[]>>
@@ -1205,27 +1243,15 @@ export function usePgrEtapaDerived({
   // etapa aparecia "Concluída" no checklist da Revisão de Campos (e em
   // qualquer outro lugar que leia stepStatusById.anexos direto) mesmo vazia.
   const displayStepStatusById = useMemo<Partial<Record<PgrStepId, boolean>>>(
-    () => ({ ...stepStatusById, anexos: !isAnexosEmpty }),
+    () => computeDisplayStepStatusById(stepStatusById, isAnexosEmpty),
     [stepStatusById, isAnexosEmpty]
   );
 
   const alertSteps = useMemo<Partial<Record<PgrStepId, boolean>>>(
     () => {
-      const currentStepIndex = pgrSteps.findIndex((step) => step.id === currentStepId);
-      const shouldAlertStepWhenAdvanced = (stepId: PgrStepId, isComplete: boolean) => {
-        if (stepId === "historico") return false;
-        const index = pgrSteps.findIndex((step) => step.id === stepId);
-        if (index < 0) return false;
-        const isCurrentAndIncomplete = currentStepId === stepId && !isComplete;
-        const isBeforeCurrentAndIncomplete = currentStepIndex > index && !isComplete;
-        return (
-          (completedSteps > index && !isComplete) ||
-          isBeforeCurrentAndIncomplete ||
-          isCurrentAndIncomplete
-        );
-      };
+      const alertContext = { currentStepId, completedSteps };
       return {
-        inicio: shouldAlertStepWhenAdvanced("inicio", isInicioComplete),
+        inicio: shouldAlertStepWhenAdvanced("inicio", isInicioComplete, alertContext),
         historico: false,
         // Diferente dos demais, Dados Cadastrais é avisado incondicionalmente
         // (não só depois que o usuário chega/passa pela etapa): a sincronização
@@ -1233,17 +1259,18 @@ export function usePgrEtapaDerived({
         // faltar campo aqui precisa ficar visível assim que a tela abre, sem
         // esperar o usuário navegar até lá pra descobrir que falta algo.
         dados: !isDadosComplete,
-        descricao: shouldAlertStepWhenAdvanced("descricao", isDescricaoComplete),
+        descricao: shouldAlertStepWhenAdvanced("descricao", isDescricaoComplete, alertContext),
         caracterizacao: shouldAlertStepWhenAdvanced(
           "caracterizacao",
-          isCaracterizacaoStepComplete
+          isCaracterizacaoStepComplete,
+          alertContext
         ),
-        plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete),
+        plano: shouldAlertStepWhenAdvanced("plano", isPlanoComplete, alertContext),
         // Mesma regra dos demais passos (dados é a exceção, ver acima): só
         // avisa depois que o usuário chega/passa pela etapa ainda vazia —
         // logo após o sync ela fica neutra. O "concluído" falso (check
         // verde) é evitado à parte por displayStepStatusById.
-        anexos: shouldAlertStepWhenAdvanced("anexos", !isAnexosEmpty),
+        anexos: shouldAlertStepWhenAdvanced("anexos", !isAnexosEmpty, alertContext),
       };
     },
     [
