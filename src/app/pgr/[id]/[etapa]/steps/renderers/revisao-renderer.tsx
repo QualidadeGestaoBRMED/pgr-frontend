@@ -8,6 +8,7 @@ export const renderRevisaoStep: StepRenderer = (ctx) => (
       pgrId={ctx.params.id}
       completedSteps={ctx.completedSteps}
       stepStatusById={ctx.stepStatusById}
+      isAnexosEmpty={ctx.isAnexosEmpty}
       missingFieldsByStep={ctx.missingFieldsByStep}
       missingTargetsByStep={ctx.missingTargetsByStep}
       workflow={ctx.workflow}

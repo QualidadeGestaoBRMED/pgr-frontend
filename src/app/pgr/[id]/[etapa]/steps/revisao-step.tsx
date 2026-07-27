@@ -12,11 +12,13 @@ import {
 import { useMemo, useState } from "react";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { PendingReviewTarget } from "../types";
+import { resolveReviewItemStatus } from "./revisao-review-items";
 
 type RevisaoStepProps = {
   pgrId: string;
   completedSteps: number;
   stepStatusById?: Partial<Record<string, boolean>>;
+  isAnexosEmpty?: boolean;
   missingFieldsByStep?: Partial<Record<string, string[]>>;
   missingTargetsByStep?: Partial<Record<string, PendingReviewTarget[]>>;
   workflow: {
@@ -45,6 +47,7 @@ export function RevisaoStep({
   pgrId,
   completedSteps,
   stepStatusById,
+  isAnexosEmpty,
   missingFieldsByStep,
   missingTargetsByStep,
   workflow,
@@ -67,7 +70,7 @@ export function RevisaoStep({
         .filter((item) => item.id !== "revisao")
         .map((item, index) => {
           const fallbackByProgress = index < completedSteps;
-          const isDone =
+          const isDoneFromStatus =
             typeof stepStatusById?.[item.id] === "boolean"
               ? Boolean(stepStatusById[item.id])
               : fallbackByProgress;
@@ -77,16 +80,22 @@ export function RevisaoStep({
           const missingTargets = (missingTargetsByStep?.[item.id] ?? []).filter(
             (target) => !isOptionalEpiEpcIssue(target.message)
           );
+          const { isDone, hasWarnings } = resolveReviewItemStatus({
+            stepId: item.id,
+            isDoneFromStatus,
+            isAnexosEmpty: Boolean(isAnexosEmpty),
+            missingItemsCount: missingItems.length,
+          });
           return {
             id: item.id,
             title: item.title,
             isDone,
-            hasWarnings: isDone && missingItems.length > 0,
+            hasWarnings,
             missingItems,
             missingTargets,
           };
         }),
-    [completedSteps, stepStatusById, missingFieldsByStep, missingTargetsByStep]
+    [completedSteps, stepStatusById, isAnexosEmpty, missingFieldsByStep, missingTargetsByStep]
   );
   const pendingReviewItems = useMemo(
     () =>
