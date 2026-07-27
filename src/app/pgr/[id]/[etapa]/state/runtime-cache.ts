@@ -17,6 +17,10 @@ export type PersistedPgrState = {
   syncedAt?: number;
   completedSteps: number;
   progressPercent?: number;
+  // Empresa deste PGR tem inclusão de função pendente (não resolvida) —
+  // aviso interno mostrado durante a elaboração. Ver
+  // functionInclusionPending no backend (frontend_state_view.py).
+  functionInclusionPending?: boolean;
   inicioDraft: InicioDraft;
   dadosCadastrais: DadosCadastraisDraft;
   cardMeta: {
