@@ -29,6 +29,7 @@ type HomeCard = {
   companyName?: string | null;
   groupName?: string | null;
   cnpj?: string | null;
+  showServicePortalBadge?: boolean;
 };
 
 type HomeData = {
@@ -36,6 +37,7 @@ type HomeData = {
   title: string;
   subtitle: string;
   cards: HomeCard[];
+  canUseAdvancedSearch: boolean;
 };
 
 type FunctionInclusionAlert = {
@@ -65,6 +67,7 @@ const emptyData: HomeData = {
   title: "Programa de Gerenciamento de Riscos - PGR",
   subtitle: "Gerencie todos os PGRs em um só lugar",
   cards: [],
+  canUseAdvancedSearch: false,
 };
 
 function pickFirstText(values: Array<unknown>) {
@@ -145,6 +148,16 @@ function PipefyCardLink({ card }: { card: HomeCard }) {
   );
 }
 
+function ServicePortalBadge({ card }: { card: HomeCard }) {
+  if (!card.showServicePortalBadge) return null;
+
+  return (
+    <span className="mt-2 inline-flex items-center rounded-full border border-amber-500/30 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+      Portal de Serviço
+    </span>
+  );
+}
+
 function HomePgrCard({
   card,
   onOpen,
@@ -181,6 +194,7 @@ function HomePgrCard({
               {card.companyName}
             </p>
           ) : null}
+          <ServicePortalBadge card={card} />
         </div>
         {finalized ? (
           <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-600/20 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -418,7 +432,7 @@ export default function PgrsPage() {
 
   useEffect(() => {
     const query = searchQuery.trim();
-    if (!query || companyFilter) {
+    if (!homeData.canUseAdvancedSearch || !query || companyFilter) {
       setSearchCards(null);
       setSearchLoading(false);
       setSearchError(null);
@@ -455,26 +469,26 @@ export default function PgrsPage() {
       active = false;
       window.clearTimeout(timeoutId);
     };
-  }, [companyFilter, searchQuery]);
+  }, [companyFilter, homeData.canUseAdvancedSearch, searchQuery]);
 
   const filteredCards = useMemo(() => {
     const query = normalizeSearchText(searchQuery);
     const base = companyFilter
       ? companyFilteredCards ?? []
-      : query
+      : query && homeData.canUseAdvancedSearch
         ? searchCards ?? []
         : homeData.cards;
     if (!query) return base;
-    if (!companyFilter) return base;
+    if (homeData.canUseAdvancedSearch && !companyFilter) return base;
     return base.filter((card) => {
       const searchableText = [
         card.title,
         card.code,
         card.status.label,
         card.owner,
-        card.companyName,
-        card.groupName,
-        card.cnpj,
+        ...(homeData.canUseAdvancedSearch
+          ? [card.companyName, card.groupName, card.cnpj]
+          : []),
       ]
         .map(normalizeSearchText)
         .join(" ");
@@ -482,13 +496,16 @@ export default function PgrsPage() {
     });
   }, [
     homeData.cards,
+    homeData.canUseAdvancedSearch,
     searchQuery,
     companyFilter,
     companyFilteredCards,
     searchCards,
   ]);
 
-  const showSeparatedResults = Boolean(searchQuery.trim());
+  const showSeparatedResults = Boolean(
+    homeData.canUseAdvancedSearch && searchQuery.trim() && !companyFilter
+  );
   const currentCards = useMemo(
     () => filteredCards.filter((card) => !isFinalizedCard(card)),
     [filteredCards]
@@ -693,7 +710,11 @@ export default function PgrsPage() {
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Buscar por empresa, CNPJ, ID, status ou responsável..."
+                placeholder={
+                  homeData.canUseAdvancedSearch
+                    ? "Buscar por empresa, CNPJ, ID, status ou responsável..."
+                    : "Buscar por código, título, status ou responsável..."
+                }
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -793,6 +814,7 @@ export default function PgrsPage() {
                       {card.companyName}
                     </p>
                   ) : null}
+                  <ServicePortalBadge card={card} />
                 </div>
                 {card.syncStatus === "REJECTED" ? (
                   <span className="inline-flex shrink-0 items-center rounded-full border border-[#d7263d]/20 bg-[#fff1f2] px-3 py-1 text-[12px] font-semibold text-[#b42318]">
