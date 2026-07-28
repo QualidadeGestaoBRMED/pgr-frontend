@@ -1,28 +1,68 @@
+"use client";
+
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { pgrSteps, type PgrStepId } from "@/app/pgr/steps";
-import { type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { formatDurationHms } from "@/app/pgr/[id]/[etapa]/utils/cycle-time";
 import { resolveStepCircleClasses } from "./pgr-shell-visuals";
 
 type PgrShellProps = {
   pgrId: string;
   currentStep: PgrStepId;
   completedSteps: number;
+  progressPercent?: number;
   stepStatusById?: Partial<Record<PgrStepId, boolean>>;
   alertSteps?: Partial<Record<PgrStepId, boolean>>;
   accessibleStepIds?: PgrStepId[];
   onNavigateStep?: (stepId: PgrStepId) => void;
+  cycleTimeMs?: number;
+  cycleSessionStartedAtMs?: number | null;
   children: ReactNode;
 };
+
+function CycleTimeClock({
+  cycleTimeMs,
+  cycleSessionStartedAtMs,
+}: {
+  cycleTimeMs: number;
+  cycleSessionStartedAtMs: number | null;
+}) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    setNowMs(Date.now());
+  }, [cycleSessionStartedAtMs, cycleTimeMs]);
+
+  useEffect(() => {
+    if (cycleSessionStartedAtMs === null) return;
+    const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(intervalId);
+  }, [cycleSessionStartedAtMs]);
+
+  const totalMs = useMemo(() => {
+    if (cycleSessionStartedAtMs === null) return cycleTimeMs;
+    return cycleTimeMs + Math.max(0, nowMs - cycleSessionStartedAtMs);
+  }, [cycleSessionStartedAtMs, cycleTimeMs, nowMs]);
+
+  return (
+    <span className="font-semibold text-foreground tabular-nums">
+      {formatDurationHms(totalMs)}
+    </span>
+  );
+}
 
 export function PgrShell({
   pgrId,
   currentStep,
   completedSteps,
+  progressPercent,
   stepStatusById,
   alertSteps,
   accessibleStepIds,
   onNavigateStep,
+  cycleTimeMs = 0,
+  cycleSessionStartedAtMs = null,
   children,
 }: PgrShellProps) {
   const totalSteps = pgrSteps.length;
@@ -30,6 +70,13 @@ export function PgrShell({
     0,
     Math.min(completedSteps, totalSteps)
   );
+  const progressByCompletedSteps = Math.round(
+    (clampedCompleted / totalSteps) * 100
+  );
+  const progressValue =
+    typeof progressPercent === "number"
+      ? Math.max(0, Math.min(100, Math.round(progressPercent)))
+      : progressByCompletedSteps;
 
   return (
     <div className="mt-6 grid min-w-0 gap-5 px-4 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start lg:gap-6 lg:px-0 xl:grid-cols-[300px_minmax(0,1fr)]">
@@ -90,6 +137,26 @@ export function PgrShell({
       </aside>
 
       <main className="min-w-0 space-y-5 sm:space-y-6">
+        <div className="rounded-[12px] border border-transparent bg-card px-5 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] sm:px-6 dark:border-border/60 dark:shadow-none">
+          <div className="flex items-center justify-between text-[13px] text-muted-foreground">
+            <span>Progresso</span>
+            <span className="font-semibold text-foreground">{progressValue}%</span>
+          </div>
+          <div className="mt-3 h-3 w-full rounded-full bg-muted">
+            <div
+              className="h-3 rounded-full bg-[#6bbf46] transition-[width] dark:bg-[#6fd35a]"
+              style={{ width: `${progressValue}%` }}
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-4 text-[12px] text-muted-foreground">
+            <span>Cycle Time (documento ativo)</span>
+            <CycleTimeClock
+              cycleTimeMs={cycleTimeMs}
+              cycleSessionStartedAtMs={cycleSessionStartedAtMs}
+            />
+          </div>
+        </div>
+
         {children}
       </main>
     </div>

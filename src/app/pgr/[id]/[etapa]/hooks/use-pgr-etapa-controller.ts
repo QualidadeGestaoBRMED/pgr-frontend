@@ -30,6 +30,7 @@ import { usePgrPersistence } from "./use-pgr-persistence";
 import { areStringArraysEqual } from "./use-risk-catalog-helpers";
 import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
+import { useCycleTimeTracker } from "./use-cycle-time-tracker";
 import { setRuntimeCachedState } from "../state/runtime-cache";
 import {
   putPgrState,
@@ -631,6 +632,15 @@ export function usePgrEtapaController({
       // Conflito (409) já é tratado pelo funil putPgrState.
     });
   }, [params.id, weightedProgressPercent]);
+
+  const cycleTime = useCycleTimeTracker({
+    pgrId: params.id,
+    stepId: step.id,
+    historicoData: state.historicoData,
+    isStateLoading: state.isStateLoading,
+    isLocked:
+      state.workflow.isLocked || Boolean(state.workflow.finalization?.active),
+  });
 
   const buildStatePayload = useCallback(
     (layoutOverride?: PdfLayoutState) => ({
@@ -1620,11 +1630,14 @@ export function usePgrEtapaController({
       pgrId: params.id,
       currentStep: step.id as PgrStepId,
       completedSteps: state.completedSteps,
+      progressPercent: state.progressPercent,
       alertSteps: derived.alertSteps,
       stepStatusById: derived.displayStepStatusById,
       accessibleStepIds,
       onNavigateStep: (stepId: PgrStepId) =>
         router.push(`/pgr/${params.id}/${stepId}`),
+      cycleTimeMs: cycleTime.cycleTotalMs,
+      cycleSessionStartedAtMs: cycleTime.activeSessionStartedAtMs,
     },
     bodyCtx: {
       step,

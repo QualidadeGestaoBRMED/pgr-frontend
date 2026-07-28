@@ -116,10 +116,13 @@ export default function PgrEtapaPage({
       pgrId={shellProps.pgrId}
       currentStep={shellProps.currentStep}
       completedSteps={shellProps.completedSteps}
+      progressPercent={shellProps.progressPercent}
       stepStatusById={shellProps.stepStatusById}
       alertSteps={shellProps.alertSteps}
       accessibleStepIds={shellProps.accessibleStepIds}
       onNavigateStep={shellProps.onNavigateStep}
+      cycleTimeMs={shellProps.cycleTimeMs}
+      cycleSessionStartedAtMs={shellProps.cycleSessionStartedAtMs}
     >
       <FinalizationLockDialog
         open={finalizationLock.active}
