@@ -80,12 +80,28 @@ export function AppHeader({ user, notifications }: AppHeaderProps) {
       }
     };
 
-    loadNotifications();
-    const intervalId = window.setInterval(loadNotifications, 30000);
+    const tick = () => {
+      if (document.visibilityState === "visible") {
+        void loadNotifications();
+      }
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, 30000);
+
+    // Sem isso, uma aba minimizada/em background continuava batendo no
+    // backend a cada 30s pra sempre (AppHeader monta em toda pagina do
+    // app) -- o gate acima resolve o polling continuo, mas ainda buscamos
+    // uma vez na volta, pra nao esperar ate 30s pra atualizar o sino
+    // depois que o usuario volta pra aba.
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
 
     return () => {
       active = false;
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
     };
   }, []);
 

@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronUp, ExternalLink, Search } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -32,13 +32,31 @@ type HomeCard = {
   showServicePortalBadge?: boolean;
 };
 
+type HomePagination = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
 type HomeData = {
   user: { name: string; initials: string };
   title: string;
   subtitle: string;
   cards: HomeCard[];
   canUseAdvancedSearch: boolean;
+  pagination?: HomePagination;
 };
+
+// O backend ja pagina de verdade (page/pageSize/totalPages na resposta) --
+// antes o frontend sempre pedia page_size=200 (o teto permitido) numa unica
+// tacada, forcando o pior caso de carga (Exists() por card, join com
+// FrontendPgrState, resolucao de responsavel) pra ate 200 registros de uma
+// vez so. Isso e o principal suspeito por tras dos 500/timeout esporadicos
+// na Home. Reduzir pra um tamanho de pagina razoavel e buscar o resto sob
+// demanda (scroll infinito) mantem a carga inicial leve sem esconder cards
+// de quem tem mais que isso.
+const HOME_PAGE_SIZE = 30;
 
 type FunctionInclusionAlert = {
   companyId: number;
@@ -290,16 +308,25 @@ export default function PgrsPage() {
   const [resolvingCompanyId, setResolvingCompanyId] = useState<number | null>(
     null
   );
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreCards, setHasMoreCards] = useState(false);
+  const pageRef = useRef(1);
 
   const loadHomeData = useCallback(async () => {
     try {
       const data = await apiGet<HomeData>(
-        "/api/v1/frontend/home?page_size=200"
+        `/api/v1/frontend/home?page_size=${HOME_PAGE_SIZE}&page=1`
       );
-      setHomeData(normalizeHomeData(data));
+      const normalized = normalizeHomeData(data);
+      setHomeData(normalized);
+      pageRef.current = 1;
+      setHasMoreCards(
+        (normalized.pagination?.totalPages ?? 1) > 1
+      );
       setLoadError(null);
     } catch (error) {
       setHomeData(emptyData);
+      setHasMoreCards(false);
       setLoadError(
         error instanceof Error
           ? `Falha ao carregar dados da API: ${error.message}`
@@ -309,6 +336,53 @@ export default function PgrsPage() {
       setLoading(false);
     }
   }, []);
+
+  // Scroll infinito: so busca a proxima pagina sob demanda (ver sentinel
+  // mais abaixo), em vez do antigo page_size=200 que sempre trazia tudo de
+  // uma vez. So se aplica a listagem padrao (sem busca/filtro de empresa
+  // ativos), que tem sua propria paginacao server-side.
+  const loadMoreCards = useCallback(async () => {
+    if (loadingMore || !hasMoreCards) return;
+    setLoadingMore(true);
+    const nextPage = pageRef.current + 1;
+    try {
+      const data = await apiGet<HomeData>(
+        `/api/v1/frontend/home?page_size=${HOME_PAGE_SIZE}&page=${nextPage}`
+      );
+      const normalized = normalizeHomeData(data);
+      pageRef.current = nextPage;
+      setHomeData((prev) => ({
+        ...normalized,
+        cards: [...prev.cards, ...normalized.cards],
+      }));
+      setHasMoreCards(nextPage < (normalized.pagination?.totalPages ?? nextPage));
+    } catch {
+      // Falha pontual ao buscar mais uma pagina: mantem o que ja carregou e
+      // deixa o usuario tentar de novo rolando a lista.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMoreCards, loadingMore]);
+
+  const isDefaultListing = !companyFilter && !(homeData.canUseAdvancedSearch && searchQuery.trim());
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isDefaultListing || !hasMoreCards) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMoreCards();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isDefaultListing, hasMoreCards, loadMoreCards]);
 
   useEffect(() => {
     let active = true;
@@ -391,13 +465,23 @@ export default function PgrsPage() {
   useEffect(() => {
     let active = true;
     const tick = () => {
-      if (active) void loadFunctionInclusionAlerts();
+      if (active && document.visibilityState === "visible") {
+        void loadFunctionInclusionAlerts();
+      }
     };
     tick();
     const intervalId = window.setInterval(tick, 30000);
+    // Sem o gate de visibilidade, uma aba minimizada/em background
+    // continuava batendo no backend a cada 30s pra sempre -- o listener
+    // de foco/visibilidade garante que a lista atualiza assim que o
+    // usuario volta pra aba, em vez de esperar o proximo tick do timer.
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
     return () => {
       active = false;
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
     };
   }, [loadFunctionInclusionAlerts]);
 
@@ -869,6 +953,16 @@ export default function PgrsPage() {
             </div>
           ))}
         </div>
+
+        {isDefaultListing && hasMoreCards ? (
+          <div ref={sentinelRef} className="mt-6 flex justify-center py-4">
+            {loadingMore ? (
+              <p className="text-[13px] text-muted-foreground">
+                Carregando mais PGRs...
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {showSeparatedResults && !searchLoading && !searchError && filteredCards.length > 0 ? (
           <section className="mt-12 border-t border-border pt-10">
