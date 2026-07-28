@@ -30,7 +30,6 @@ import { usePgrPersistence } from "./use-pgr-persistence";
 import { areStringArraysEqual } from "./use-risk-catalog-helpers";
 import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
-import { useCycleTimeTracker } from "./use-cycle-time-tracker";
 import { setRuntimeCachedState } from "../state/runtime-cache";
 import {
   putPgrState,
@@ -620,13 +619,6 @@ export function usePgrEtapaController({
     state.workflow.version,
   ]);
 
-  const cycleTime = useCycleTimeTracker({
-    stepId: step.id,
-    historicoData: state.historicoData,
-    isStateLoading: state.isStateLoading,
-    isLocked: state.workflow.isLocked,
-  });
-
   const handleAdvanceApiSync = useCallback((nextCompleted: number) => {
     void putPgrState(params.id, {
       completedSteps: nextCompleted,
@@ -708,7 +700,10 @@ export function usePgrEtapaController({
   );
 
   const accessibleStepIds = useMemo(
-    () => pgrSteps.slice(0, Math.min(pgrSteps.length, state.completedSteps + 1)).map((step) => step.id),
+    () =>
+      pgrSteps
+        .slice(0, Math.min(pgrSteps.length, state.completedSteps + 1))
+        .map((step) => step.id),
     [state.completedSteps]
   );
 
@@ -1625,13 +1620,11 @@ export function usePgrEtapaController({
       pgrId: params.id,
       currentStep: step.id as PgrStepId,
       completedSteps: state.completedSteps,
-      progressPercent: state.progressPercent,
       alertSteps: derived.alertSteps,
       stepStatusById: derived.displayStepStatusById,
       accessibleStepIds,
-      cycleTimeMs: cycleTime.cycleTotalMs,
-      cycleSessionStartedAtMs: cycleTime.activeSessionStartedAtMs,
-      onNavigateStep: (stepId: PgrStepId) => router.push(`/pgr/${params.id}/${stepId}`),
+      onNavigateStep: (stepId: PgrStepId) =>
+        router.push(`/pgr/${params.id}/${stepId}`),
     },
     bodyCtx: {
       step,

@@ -116,12 +116,9 @@ export default function PgrEtapaPage({
       pgrId={shellProps.pgrId}
       currentStep={shellProps.currentStep}
       completedSteps={shellProps.completedSteps}
-      progressPercent={shellProps.progressPercent}
       stepStatusById={shellProps.stepStatusById}
       alertSteps={shellProps.alertSteps}
       accessibleStepIds={shellProps.accessibleStepIds}
-      cycleTimeMs={shellProps.cycleTimeMs}
-      cycleSessionStartedAtMs={shellProps.cycleSessionStartedAtMs}
       onNavigateStep={shellProps.onNavigateStep}
     >
       <FinalizationLockDialog
@@ -135,11 +132,11 @@ export default function PgrEtapaPage({
       <div
         ref={readOnlyContentRef}
         aria-readonly={finalizationLock.active}
-        className={
+        className={`space-y-5 sm:space-y-6 ${
           finalizationLock.active
             ? "[&_button]:cursor-not-allowed [&_input]:cursor-not-allowed [&_select]:cursor-not-allowed [&_textarea]:cursor-not-allowed"
-            : undefined
-        }
+            : ""
+        }`}
         onPointerDownCapture={blockPointerEdit}
         onKeyDownCapture={blockKeyboardEdit}
         onPasteCapture={blockClipboardEdit}
