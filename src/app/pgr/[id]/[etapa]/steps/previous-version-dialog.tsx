@@ -38,7 +38,7 @@ export function PreviousVersionDialog({
       <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
         <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
               <History className="h-5 w-5" />
             </span>
             <div>
@@ -65,7 +65,7 @@ export function PreviousVersionDialog({
                 da versão anterior, abrindo a próxima revisão para edição.
               </p>
               {error ? (
-                <p className="mt-2 text-[13px] font-medium text-rose-600">
+                <p className="mt-2 text-[13px] font-medium text-danger-foreground">
                   {error}
                 </p>
               ) : null}

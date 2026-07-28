@@ -34,6 +34,17 @@
     --input: 0 0% 84%;
     --ring: 190 100% 28%;
 
+    /* Cores de status (aviso/erro/sucesso) extraidas do que ja era usado nos
+       circulos de etapa do PGR (pgr-shell-visuals.ts) e nos acentos do
+       header (app-header.tsx) -- nao inventadas, so trazidas pra CSS var e
+       reaplicadas nos banners pra tudo usar a mesma origem. */
+    --warning: 40 91% 91%;
+    --warning-foreground: 38 100% 33%;
+    --danger: 0 100% 94%;
+    --danger-foreground: 0 59% 56%;
+    --success: 145 52% 92%;
+    --success-foreground: 151 66% 30%;
+
     --radius: 0.5rem;
   }
 
@@ -66,6 +77,13 @@
     --border: 202 24% 30%;
     --input: 202 24% 30%;
     --ring: 190 80% 36%;
+
+    --warning: 40 48% 20%;
+    --warning-foreground: 40 100% 72%;
+    --danger: 0 36% 26%;
+    --danger-foreground: 0 100% 86%;
+    --success: 146 36% 26%;
+    --success-foreground: 151 70% 87%;
   }
 }
 

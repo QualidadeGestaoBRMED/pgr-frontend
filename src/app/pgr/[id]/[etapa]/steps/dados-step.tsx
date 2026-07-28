@@ -546,9 +546,9 @@ export function DadosStep({
   const getFieldClassName = (field: RequiredDadosField) =>
     [
       inputBaseClass,
-      errors[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      errors[field] ? "border-danger-foreground/50 focus:ring-danger-foreground" : "",
       pendingReviewFocus?.stepId === "dados" && pendingReviewFocus.fieldKey === field
-        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        ? "border-warning-foreground/50 bg-warning ring-2 ring-warning-foreground/30"
         : "",
     ]
       .filter(Boolean)
@@ -610,7 +610,7 @@ export function DadosStep({
     field: RequiredContratanteField
   ) =>
     contractorErrorsById[contractorKey]?.[field]
-      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
+      ? `${inputBaseClass} border-danger-foreground/50 focus:ring-danger-foreground`
       : inputBaseClass;
 
   const getEstablishmentFieldClassName = (
@@ -618,7 +618,7 @@ export function DadosStep({
     field: RequiredEstabelecimentoField
   ) =>
     establishmentErrorsById[establishmentKey]?.[field]
-      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
+      ? `${inputBaseClass} border-danger-foreground/50 focus:ring-danger-foreground`
       : inputBaseClass;
 
   const getTechnicalCoordinatorFieldClassName = (
@@ -626,7 +626,7 @@ export function DadosStep({
     field: RequiredResponsavelTecnicoField
   ) =>
     technicalCoordinatorErrorsById[coordinatorKey]?.[field]
-      ? `${inputBaseClass} border-rose-400 focus:ring-rose-500`
+      ? `${inputBaseClass} border-danger-foreground/50 focus:ring-danger-foreground`
       : inputBaseClass;
 
   const empresaExtraFields = extraFields.filter((field) => field.scope === "empresa");
@@ -773,7 +773,7 @@ export function DadosStep({
           <button
             type="button"
             onClick={() => setIsResetModalOpen(true)}
-            className="btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+            className="btn-outline border-danger-foreground/40 px-4 text-danger-foreground hover:bg-danger"
           >
             Limpar dados da etapa
           </button>
@@ -785,7 +785,7 @@ export function DadosStep({
         data-pending-section="technical-coordinators"
       >
         {pendingReviewFocus?.stepId === "dados" ? (
-          <div className="mb-5 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <div className="mb-5 rounded-[12px] border border-warning-foreground/30 bg-warning px-4 py-3 text-[13px] text-warning-foreground">
             Pendência destacada: {pendingReviewFocus.message}
           </div>
         ) : null}
@@ -1740,7 +1740,7 @@ export function DadosStep({
                 options={technicalCoordinatorNameOptions}
                 buttonClassName={
                   technicalCoordinatorErrorsById[technicalCoordinatorKey]?.nome
-                    ? `${selectBaseClass} border-rose-400 focus:ring-rose-500`
+                    ? `${selectBaseClass} border-danger-foreground/50 focus:ring-danger-foreground`
                     : selectBaseClass
                 }
                 placeholder="Selecione"

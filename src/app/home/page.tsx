@@ -197,7 +197,7 @@ function HomePgrCard({
           <ServicePortalBadge card={card} />
         </div>
         {finalized ? (
-          <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-600/20 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+          <span className="inline-flex shrink-0 items-center rounded-full border border-success-foreground/20 bg-success px-3 py-1 text-[12px] font-semibold text-success-foreground">
             Finalizado
           </span>
         ) : card.syncStatus === "REJECTED" ? (
@@ -597,19 +597,19 @@ export default function PgrsPage() {
         <div className="mt-8 h-px w-full bg-border" />
 
         {functionInclusionAlerts.length > 0 ? (
-          <div className="mt-8 rounded-[12px] border border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10">
+          <div className="mt-8 rounded-[12px] border border-border bg-card shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:border-white/10 dark:bg-[#193b4f] dark:shadow-none">
             <button
               type="button"
               onClick={() => setAlertsExpanded((prev) => !prev)}
               className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left"
               aria-expanded={alertsExpanded}
             >
-              <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
+              <p className="text-[14px] font-semibold text-foreground dark:text-white">
                 {functionInclusionAlerts.length === 1
                   ? "Alteração documental pendente em 1 empresa"
                   : `Alteração documental pendentes em ${functionInclusionAlerts.length} empresas`}
               </p>
-              <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-amber-800 dark:text-amber-200">
+              <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-foreground dark:text-white">
                 {alertsExpanded ? "Ver menos" : "Ver todas"}
                 {alertsExpanded ? (
                   <ChevronUp className="h-4 w-4" />
@@ -619,7 +619,7 @@ export default function PgrsPage() {
               </span>
             </button>
             {alertsExpanded ? (
-              <div className="space-y-2 border-t border-amber-200 px-5 py-4 dark:border-amber-500/30">
+              <div className="space-y-2 border-t border-border px-5 py-4 dark:border-white/10">
                 {functionInclusionAlerts.map((alert) => {
                   const check = functionInclusionChecks[alert.companyId] || {
                     status: "idle",
@@ -627,27 +627,27 @@ export default function PgrsPage() {
                   return (
                     <div
                       key={alert.companyId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] bg-white/60 px-4 py-3 dark:bg-black/10"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/60 bg-background/40 px-4 py-3 dark:border-white/10 dark:bg-[#173446]"
                     >
                       <div>
-                        <p className="text-[13px] font-medium text-amber-900 dark:text-amber-200">
+                        <p className="text-[13px] font-medium text-foreground dark:text-white">
                           {alert.companyLabel}
                           {alert.count > 1 ? ` · ${alert.count} funções` : ""}
                         </p>
                         {alert.requestNumbers.length > 0 ? (
-                          <p className="mt-1 text-[12px] font-medium text-amber-800 dark:text-amber-300">
+                          <p className="mt-1 text-[12px] font-medium text-muted-foreground dark:text-white/70">
                             {alert.requestNumbers.length === 1
                               ? `Solicitação nº ${alert.requestNumbers[0]}`
                               : `Solicitações nº ${alert.requestNumbers.join(", ")}`}
                           </p>
                         ) : null}
                         {check.status === "found" ? (
-                          <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
+                          <p className="mt-1 text-[12px] text-success-foreground">
                             PGR encontrado.
                           </p>
                         ) : null}
                         {check.status === "notFound" ? (
-                          <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
+                          <p className="mt-1 text-[12px] text-muted-foreground dark:text-white/70">
                             Nenhum card dessa empresa foi encontrado.
                           </p>
                         ) : null}
@@ -664,7 +664,7 @@ export default function PgrsPage() {
                               pgrId: check.pgrId,
                             });
                           }}
-                          className="inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-amber-700"
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-primary bg-transparent px-3 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                         >
                           Ver PGR desta empresa
                         </button>
@@ -675,7 +675,7 @@ export default function PgrsPage() {
                           onClick={() =>
                             checkFunctionInclusion(alert.companyId, alert.companyLabel)
                           }
-                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-400 bg-white px-3 py-1.5 text-[12px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-500/10"
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-primary bg-transparent px-3 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                         >
                           {check.status === "checking"
                             ? "Verificando..."
@@ -689,7 +689,7 @@ export default function PgrsPage() {
                         disabled={resolvingCompanyId === alert.companyId}
                         onClick={() => resolveFunctionInclusion(alert.companyId)}
                         title="Marcar que a função já foi incluída nesse PGR"
-                        className="inline-flex min-h-9 items-center justify-center rounded-md px-3 py-1.5 text-[12px] font-semibold text-amber-700/80 underline-offset-2 transition-colors hover:text-amber-900 hover:underline disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-300/80 dark:hover:text-amber-100"
+                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-primary bg-transparent px-3 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                       >
                         {resolvingCompanyId === alert.companyId
                           ? "Marcando..."
@@ -881,7 +881,7 @@ export default function PgrsPage() {
                   Documentos concluídos e disponíveis para consulta
                 </p>
               </div>
-              <span className="rounded-full bg-emerald-600/10 px-3 py-1 text-[12px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <span className="rounded-full bg-success/60 px-3 py-1 text-[12px] font-semibold text-success-foreground">
                 {finalizedCards.length}{" "}
                 {finalizedCards.length === 1 ? "resultado" : "resultados"}
               </span>

@@ -23,17 +23,17 @@ export function SaveErrorBanner({ active }: SaveErrorBannerProps) {
   return (
     <div
       role="alert"
-      className="fixed bottom-4 right-4 z-50 w-full max-w-sm rounded-[12px] border border-rose-300 bg-rose-50 px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.18)] dark:border-rose-900/60 dark:bg-rose-950/90"
+      className="fixed bottom-4 right-4 z-50 w-full max-w-sm rounded-[12px] border border-danger-foreground/30 bg-danger px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger-foreground/15 text-danger-foreground">
           <AlertTriangle className="h-4 w-4" />
         </span>
         <div>
-          <p className="text-[13px] font-semibold text-rose-900 dark:text-rose-200">
+          <p className="text-[13px] font-semibold text-danger-foreground">
             Não foi possível salvar as últimas alterações
           </p>
-          <p className="mt-1 text-[12px] text-rose-800/90 dark:text-rose-300/90">
+          <p className="mt-1 text-[12px] text-danger-foreground/90">
             Verifique sua conexão. Suas edições continuam aqui na tela, mas
             ainda não foram salvas — evite fechar ou recarregar a página até
             este aviso sumir.

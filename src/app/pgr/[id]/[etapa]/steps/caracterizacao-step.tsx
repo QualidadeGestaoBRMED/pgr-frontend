@@ -944,11 +944,11 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
   ) =>
     [
       baseClassName,
-      riskErrorsById[riskId]?.[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      riskErrorsById[riskId]?.[field] ? "border-danger-foreground/50 focus:ring-danger-foreground" : "",
       pendingReviewFocus?.stepId === "caracterizacao" &&
       pendingReviewFocus.riskId === riskId &&
       pendingReviewFocus.fieldKey === field
-        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        ? "border-warning-foreground/50 bg-warning ring-2 ring-warning-foreground/30"
         : "",
     ]
       .filter(Boolean)
@@ -2140,7 +2140,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                 className={`rounded-[14px] border bg-card px-4 py-4 ${
                   pendingReviewFocus?.stepId === "caracterizacao" &&
                   pendingReviewFocus.riskId === risk.id
-                    ? "border-amber-400 ring-2 ring-amber-200"
+                    ? "border-warning-foreground/50 ring-2 ring-warning-foreground/30"
                     : "border-border/60"
                 }`}
               >
@@ -3544,7 +3544,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
             <button
               type="button"
               onClick={() => setIsResetModalOpen(true)}
-              className="btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+              className="btn-outline border-danger-foreground/40 px-4 text-danger-foreground hover:bg-danger"
             >
               Limpar dados da etapa
             </button>
@@ -3553,7 +3553,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
       </section>
 
       {pendingReviewFocus?.stepId === "caracterizacao" ? (
-        <section className="rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <section className="rounded-[12px] border border-warning-foreground/30 bg-warning px-4 py-3 text-[13px] text-warning-foreground">
           Pendência destacada: {pendingReviewFocus.message}
         </section>
       ) : null}
@@ -3762,12 +3762,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               </div>
               <div className="mt-3 max-h-[280px] space-y-2 overflow-auto pr-1">
                 {duplicatedRiskStructureGroups.length > 0 ? (
-                  <div className="rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2">
-                    <p className="flex items-center gap-2 text-[12px] font-semibold text-amber-900">
-                      <TriangleAlert className="h-4 w-4 text-amber-500" />
+                  <div className="rounded-[10px] border border-warning-foreground/30 bg-warning px-3 py-2">
+                    <p className="flex items-center gap-2 text-[12px] font-semibold text-warning-foreground">
+                      <TriangleAlert className="h-4 w-4 text-warning-foreground" />
                       Existem GHEs com a mesma caracterização de risco.
                     </p>
-                    <p className="mt-1 text-[11px] text-amber-900/90">
+                    <p className="mt-1 text-[11px] text-warning-foreground/90">
                       {duplicatedRiskStructureGroups
                         .map((group) => group.gheNames.join(", "))
                         .join(" | ")}
@@ -3794,16 +3794,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                       className={`w-full rounded-[10px] border py-2 pl-3 pr-[76px] text-left text-[12px] transition ${
                         currentRiskGheId === ghe.id
                           ? duplicatedRiskStructureGheIds.has(ghe.id)
-                            ? "border-amber-500 bg-primary/5"
+                            ? "border-warning-foreground/60 bg-primary/5"
                             : "border-primary/50 bg-primary/5"
                           : duplicatedRiskStructureGheIds.has(ghe.id)
-                            ? "border-amber-300 bg-background/60 hover:bg-muted/60"
+                            ? "border-warning-foreground/30 bg-background/60 hover:bg-muted/60"
                             : "border-border/70 bg-background/60 hover:bg-muted/60"
                       }`}
                     >
                       <p className="flex items-center gap-1 font-semibold text-foreground">
                         {duplicatedRiskStructureGheIds.has(ghe.id) ? (
-                          <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                          <TriangleAlert className="h-3.5 w-3.5 text-warning-foreground" />
                         ) : null}
                         {ghe.name}
                       </p>
@@ -3856,12 +3856,12 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               </div>
             </div>
             {duplicatedRiskStructureGroups.length > 0 ? (
-              <div className="mt-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2">
-                <p className="flex items-center gap-2 text-[12px] font-semibold text-amber-900">
-                  <TriangleAlert className="h-4 w-4 text-amber-500" />
+              <div className="mt-3 rounded-[10px] border border-warning-foreground/30 bg-warning px-3 py-2">
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-warning-foreground">
+                  <TriangleAlert className="h-4 w-4 text-warning-foreground" />
                   Existem GHEs com a mesma caracterização de risco.
                 </p>
-                <p className="mt-1 text-[11px] text-amber-900/90">
+                <p className="mt-1 text-[11px] text-warning-foreground/90">
                   {duplicatedRiskStructureGroups
                     .map((group) => group.gheNames.join(", "))
                     .join(" | ")}
@@ -3890,16 +3890,16 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     className={`h-full w-full rounded-[12px] border px-3 pb-11 pt-2 text-left transition ${
                       currentRiskGheId === ghe.id
                         ? duplicatedRiskStructureGheIds.has(ghe.id)
-                          ? "border-amber-500 bg-primary/5"
+                          ? "border-warning-foreground/60 bg-primary/5"
                           : "border-primary/50 bg-primary/5"
                         : duplicatedRiskStructureGheIds.has(ghe.id)
-                          ? "border-amber-300 bg-background/40 hover:bg-muted/60"
+                          ? "border-warning-foreground/30 bg-background/40 hover:bg-muted/60"
                           : "border-border/70 bg-background/40 hover:bg-muted/60"
                     }`}
                   >
                     <p className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
                       {duplicatedRiskStructureGheIds.has(ghe.id) ? (
-                        <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                        <TriangleAlert className="h-3.5 w-3.5 text-warning-foreground" />
                       ) : null}
                       {ghe.name}
                     </p>

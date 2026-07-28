@@ -565,9 +565,9 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const getInfoFieldClassName = (field: RequiredGheInfoField) =>
     [
       textareaBaseClass,
-      infoErrors[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      infoErrors[field] ? "border-danger-foreground/50 focus:ring-danger-foreground" : "",
       pendingReviewFocus?.stepId === "descricao" && pendingReviewFocus.fieldKey === field
-        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        ? "border-warning-foreground/50 bg-warning ring-2 ring-warning-foreground/30"
         : "",
     ]
       .filter(Boolean)
@@ -705,7 +705,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
           <button
             type="button"
             onClick={() => setIsResetModalOpen(true)}
-            className="btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+            className="btn-outline border-danger-foreground/40 px-4 text-danger-foreground hover:bg-danger"
           >
             Limpar dados da etapa
           </button>
@@ -713,7 +713,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
       </section>
 
       {pendingReviewFocus?.stepId === "descricao" ? (
-        <section className="rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <section className="rounded-[12px] border border-warning-foreground/30 bg-warning px-4 py-3 text-[13px] text-warning-foreground">
           Pendência destacada: {pendingReviewFocus.message}
         </section>
       ) : null}

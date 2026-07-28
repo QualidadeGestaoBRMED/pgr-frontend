@@ -155,10 +155,10 @@ export function RevisaoStep({
                     <div
                       className={`flex h-7 w-7 items-center justify-center rounded-full border ${
                         !isDone
-                          ? "border-rose-300 bg-rose-50 text-rose-600"
+                          ? "border-danger-foreground/30 bg-danger text-danger-foreground"
                           : hasWarnings
-                            ? "border-amber-300 bg-amber-50 text-amber-700"
-                            : "border-emerald-300 bg-emerald-100 text-emerald-700"
+                            ? "border-warning-foreground/30 bg-warning text-warning-foreground"
+                            : "border-success-foreground/30 bg-success text-success-foreground"
                       }`}
                     >
                       {!isDone ? (
@@ -179,10 +179,10 @@ export function RevisaoStep({
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
                         !isDone
-                          ? "bg-rose-500 text-white"
+                          ? "bg-danger-foreground text-white"
                           : hasWarnings
-                            ? "bg-amber-500 text-white"
-                            : "bg-emerald-500 text-white"
+                            ? "bg-warning-foreground text-white"
+                            : "bg-success-foreground text-white"
                       }`}
                     >
                       {statusLabel}
@@ -283,7 +283,7 @@ export function RevisaoStep({
               <div
                 role="status"
                 aria-live="polite"
-                className="mt-3 flex items-start gap-2 rounded-[12px] border border-sky-300 bg-sky-50 px-4 py-3 text-[13px] text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200"
+                className="mt-3 flex items-start gap-2 rounded-[12px] border border-primary/30 bg-primary/10 px-4 py-3 text-[13px] text-primary"
               >
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 animate-pulse" />
                 <span>{heavyGenerationWaitMessage}</span>
@@ -292,7 +292,7 @@ export function RevisaoStep({
             {attachmentsAreLarge && (isGeneratingFakePdf || isFinalizingPgr) ? (
               <div
                 role="status"
-                className="mt-3 flex items-start gap-2 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                className="mt-3 flex items-start gap-2 rounded-[12px] border border-warning-foreground/30 bg-warning px-4 py-3 text-[13px] text-warning-foreground"
               >
                 <Hourglass className="mt-0.5 h-4 w-4 shrink-0 animate-pulse" />
                 <span>
@@ -341,7 +341,7 @@ export function RevisaoStep({
                         <button
                           type="button"
                           onClick={() => onOpenPendingTarget(target)}
-                          className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
+                          className="mt-2 inline-flex rounded-full border border-warning-foreground/30 bg-warning px-3 py-1 text-[11px] font-semibold text-warning-foreground transition hover:brightness-95"
                         >
                           Ir para pendência
                         </button>
@@ -403,7 +403,7 @@ export function RevisaoStep({
                                 setIsGenerateBlockedModalOpen(false);
                                 onOpenPendingTarget(target);
                               }}
-                              className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100"
+                              className="mt-2 inline-flex rounded-full border border-warning-foreground/30 bg-warning px-3 py-1 text-[11px] font-semibold text-warning-foreground transition hover:brightness-95"
                             >
                               Corrigir agora
                             </button>

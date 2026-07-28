@@ -46,6 +46,24 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Cores de status (aviso/erro/sucesso): mesmas cores ja usadas nos
+        // circulos de etapa do PGR (pgr-shell-visuals.ts) e nos acentos do
+        // header, so trazidas pra CSS var seguindo o mesmo padrao
+        // DEFAULT/foreground + dark mode automatico de todo o resto da
+        // paleta acima -- nao sao cores novas. "Info" nao existe como
+        // conceito separado na marca: usa accent/primary (teal) mesmo.
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

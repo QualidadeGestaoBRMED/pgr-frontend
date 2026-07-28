@@ -217,7 +217,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const tableInputClass = tableControlClass;
     const tableEditableClass =
         "h-[36px] w-full rounded-[8px] border border-border bg-background px-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm transition-colors";
-    const requiredEmptyClass = "border-rose-400 bg-rose-50/60 focus:ring-rose-500";
+    const requiredEmptyClass = "border-danger-foreground/50 bg-danger/60 focus:ring-danger-foreground";
     const defaultAcompanhamento = "Programado";
     const defaultAfericaoResultado = "Aguardando realização da Ação";
 
@@ -507,7 +507,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     const getPlanActionDescriptionClassName = () =>
         planActionDescriptionError
-            ? `${textareaBaseClass} min-h-[120px] border-rose-400 focus:ring-rose-500`
+            ? `${textareaBaseClass} min-h-[120px] border-danger-foreground/50 focus:ring-danger-foreground`
             : `${textareaBaseClass} min-h-[120px]`;
 
     const filterOptionsByQuery = (options: string[], query: string) => {
@@ -540,7 +540,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                         <button
                             type="button"
                             onClick={() => setIsResetModalOpen(true)}
-                            className="btn-outline border-rose-300 px-4 text-rose-600 hover:bg-rose-50"
+                            className="btn-outline border-danger-foreground/40 px-4 text-danger-foreground hover:bg-danger"
                         >
                             Limpar dados da etapa
                         </button>

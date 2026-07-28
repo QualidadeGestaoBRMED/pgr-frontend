@@ -36,26 +36,26 @@ export function FinalizationLockDialog({
       role="status"
       aria-live="polite"
       aria-labelledby="finalization-lock-title"
-      className="rounded-[14px] border border-sky-200 bg-sky-50 px-5 py-4 shadow-sm dark:border-sky-500/30 dark:bg-sky-500/10"
+      className="rounded-[14px] border border-primary/30 bg-primary/10 px-5 py-4 shadow-sm"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
             <h2
               id="finalization-lock-title"
-              className="text-[15px] font-semibold text-sky-950 dark:text-sky-100"
+              className="text-[15px] font-semibold text-foreground"
             >
               PGR em processo de finalização
             </h2>
-            <p className="mt-1 text-[13px] leading-5 text-sky-900/80 dark:text-sky-200/80">
+            <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
               Você pode navegar pelas etapas, mas nenhuma alteração será permitida
               ou persistida até o processo terminar.
             </p>
             {startedBy || formattedStartedAt ? (
-              <p className="mt-1.5 text-[12px] text-sky-800/70 dark:text-sky-300/70">
+              <p className="mt-1.5 text-[12px] text-muted-foreground/80">
                 Iniciado{startedBy ? ` por ${startedBy}` : ""}
                 {formattedStartedAt ? ` em ${formattedStartedAt}` : ""}.
               </p>
@@ -84,7 +84,7 @@ export function FinalizationLockDialog({
       {editAttempted ? (
         <div
           role="alert"
-          className="mt-3 flex items-center gap-2 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2.5 text-[13px] font-medium text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+          className="mt-3 flex items-center gap-2 rounded-[10px] border border-warning-foreground/30 bg-warning px-3 py-2.5 text-[13px] font-medium text-warning-foreground"
         >
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Este PGR está sendo finalizado. Alterações estão bloqueadas e não serão salvas.

@@ -81,9 +81,9 @@ export function InicioStep({
   const getRequiredFieldClassName = (field: RequiredInicioField) =>
     [
       inputBaseClass,
-      errors[field] ? "border-rose-400 focus:ring-rose-500" : "",
+      errors[field] ? "border-danger-foreground/50 focus:ring-danger-foreground" : "",
       pendingReviewFocus?.stepId === "inicio" && pendingReviewFocus.fieldKey === field
-        ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+        ? "border-warning-foreground/50 bg-warning ring-2 ring-warning-foreground/30"
         : "",
     ]
       .filter(Boolean)
@@ -117,7 +117,7 @@ export function InicioStep({
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
         {pendingReviewFocus?.stepId === "inicio" ? (
-          <div className="mb-5 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <div className="mb-5 rounded-[12px] border border-warning-foreground/30 bg-warning px-4 py-3 text-[13px] text-warning-foreground">
             Pendência destacada: {pendingReviewFocus.message}
           </div>
         ) : null}
@@ -168,11 +168,8 @@ export function InicioStep({
           </p>
         ) : null}
         {lastFunctionInclusion ? (
-          <div className="mt-3 rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12px] text-emerald-900">
-            <span className="font-semibold">Última inclusão de função</span>
-            {lastFunctionInclusion.funcao
-              ? ` (${lastFunctionInclusion.funcao})`
-              : ""}
+          <div className="mt-3 rounded-[10px] border border-success-foreground/30 bg-success px-4 py-2.5 text-[12px] text-success-foreground">
+            <span className="font-semibold">Última alteração documental</span>
             {": concluída"}
             {lastFunctionInclusion.resolvedBy
               ? ` por ${lastFunctionInclusion.resolvedBy}`
