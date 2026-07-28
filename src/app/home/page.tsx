@@ -642,7 +642,7 @@ export default function PgrsPage() {
                           </p>
                         ) : null}
                         {check.status === "found" ? (
-                          <p className="mt-1 text-[12px] text-success-foreground">
+                          <p className="mt-1 text-[12px] text-success-foreground dark:text-white" >
                             PGR encontrado.
                           </p>
                         ) : null}

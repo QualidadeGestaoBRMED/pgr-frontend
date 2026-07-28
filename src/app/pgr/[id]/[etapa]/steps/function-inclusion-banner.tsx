@@ -31,7 +31,7 @@ export function FunctionInclusionBanner({ active }: FunctionInclusionBannerProps
       <p className="mt-1 text-[12px] text-warning-foreground/90">
         Identificamos uma solicitação de inclusão de função ainda não
         incluída neste PGR. Confira o cadastro de funções e, ao concluir,
-        marque a pendência como resolvida na Home.
+        marque a pendência como resolvida na página principal.
       </p>
     </div>
   );
