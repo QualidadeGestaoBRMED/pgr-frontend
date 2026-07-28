@@ -244,7 +244,7 @@ export function AnexosStep({ctx}: AnexosStepProps) {
                                         className={
                                             anexo.id === "anexo-art"
                                                 ? "btn-disabled px-3 py-1 text-[12px]"
-                                                : "btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                                                : "btn-outline px-3 py-1 text-[12px] text-danger-foreground hover:bg-danger/10"
                                         }
                                     >
                                         Remover anexo
@@ -286,7 +286,7 @@ export function AnexosStep({ctx}: AnexosStepProps) {
                                                         onClick={() => {
                                                             handleAnexoFileRemove(anexo.id, file.id);
                                                         }}
-                                                        className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                                                        className="btn-outline px-3 py-1 text-[12px] text-danger-foreground hover:bg-danger/10"
                                                     >
                                                         Excluir
                                                     </button>

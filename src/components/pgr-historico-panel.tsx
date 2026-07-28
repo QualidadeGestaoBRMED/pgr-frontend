@@ -565,7 +565,7 @@ export function PgrHistoricoPanel({
                       }
                     }}
                     title="Excluir linha"
-                    className="flex h-[36px] w-[36px] items-center justify-center justify-self-center rounded-[8px] border border-border text-muted-foreground transition hover:border-danger hover:text-danger"
+                    className="flex h-[36px] w-[36px] items-center justify-center justify-self-center rounded-[8px] border border-border text-muted-foreground transition hover:border-danger hover:text-danger-foreground"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

@@ -205,7 +205,7 @@ export function InicioStep({
               onBlur={() => markTouched("documentTitle")}
             />
             {errors.documentTitle ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.documentTitle}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.documentTitle}</p>
             ) : null}
           </div>
           <div>
@@ -220,7 +220,7 @@ export function InicioStep({
               onBlur={() => markTouched("companyName")}
             />
             {errors.companyName ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.companyName}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.companyName}</p>
             ) : null}
           </div>
           <div>
@@ -243,7 +243,7 @@ export function InicioStep({
               onBlur={() => markTouched("cnpj")}
             />
             {errors.cnpj ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.cnpj}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.cnpj}</p>
             ) : null}
           </div>
           <div>
@@ -258,7 +258,7 @@ export function InicioStep({
               onBlur={() => markTouched("responsible")}
             />
             {errors.responsible ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.responsible}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.responsible}</p>
             ) : null}
           </div>
         </div>

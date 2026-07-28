@@ -2178,7 +2178,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                     <button
                       type="button"
                       onClick={() => handleRemoveRisk(risk.id)}
-                      className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                      className="btn-outline px-3 py-1 text-[12px] text-danger-foreground hover:bg-danger/10"
                     >
                       Excluir risco
                     </button>
@@ -2220,7 +2220,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           />
                         </div>
                         {getRiskFieldError(risk.id, "tipoAgente") ? (
-                          <p className="mt-1 text-[12px] text-danger">
+                          <p className="mt-1 text-[12px] text-danger-foreground">
                             {getRiskFieldError(risk.id, "tipoAgente")}
                           </p>
                         ) : null}
@@ -2246,7 +2246,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           />
                         </div>
                         {getRiskFieldError(risk.id, "descricaoAgente") ? (
-                          <p className="mt-1 text-[12px] text-danger">
+                          <p className="mt-1 text-[12px] text-danger-foreground">
                             {getRiskFieldError(risk.id, "descricaoAgente")}
                           </p>
                         ) : null}
@@ -2378,7 +2378,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           </div>
                         </div>
                         {getRiskFieldError(risk.id, "meioPropagacao") ? (
-                          <p className="mt-1 text-[12px] text-danger">
+                          <p className="mt-1 text-[12px] text-danger-foreground">
                             {getRiskFieldError(risk.id, "meioPropagacao")}
                           </p>
                         ) : null}
@@ -2569,7 +2569,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                           ) : null}
                         </div>
                         {getRiskFieldError(risk.id, "fontes") ? (
-                          <p className="mt-1 text-[12px] text-danger">
+                          <p className="mt-1 text-[12px] text-danger-foreground">
                             {getRiskFieldError(risk.id, "fontes")}
                           </p>
                         ) : null}
@@ -2614,7 +2614,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               />
                             </div>
                             {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
-                              <p className="mt-1 text-[12px] text-danger">
+                              <p className="mt-1 text-[12px] text-danger-foreground">
                                 {getRiskFieldError(risk.id, "tipoAvaliacao")}
                               </p>
                             ) : null}
@@ -2667,7 +2667,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               }}
                             />
                             {getRiskFieldError(risk.id, "intensidade") ? (
-                              <p className="mt-1 text-[12px] text-danger">
+                              <p className="mt-1 text-[12px] text-danger-foreground">
                                 {getRiskFieldError(risk.id, "intensidade")}
                               </p>
                             ) : null}
@@ -2912,7 +2912,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             )}
                             {isQuantitativeEvaluation &&
                             getRiskFieldError(risk.id, "valorMedido") ? (
-                              <p className="mt-1 text-[12px] text-danger">
+                              <p className="mt-1 text-[12px] text-danger-foreground">
                                 {getRiskFieldError(risk.id, "valorMedido")}
                               </p>
                             ) : null}
@@ -2931,7 +2931,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                               disabled
                             />
                             {getRiskFieldError(risk.id, "severidade") ? (
-                              <p className="mt-1 text-[12px] text-danger">
+                              <p className="mt-1 text-[12px] text-danger-foreground">
                                 {getRiskFieldError(risk.id, "severidade")}
                               </p>
                             ) : null}
@@ -2975,7 +2975,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                                 Esse campo é calculado automaticamente
                               </p>
                             ) : getRiskFieldError(risk.id, "probabilidade") ? (
-                              <p className="mt-1 text-[12px] text-danger">
+                              <p className="mt-1 text-[12px] text-danger-foreground">
                                 {getRiskFieldError(risk.id, "probabilidade")}
                               </p>
                             ) : null}
@@ -3014,7 +3014,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             disabled
                           />
                           {getRiskFieldError(risk.id, "tipoAvaliacao") ? (
-                            <p className="mt-1 text-[12px] text-danger">
+                            <p className="mt-1 text-[12px] text-danger-foreground">
                               {getRiskFieldError(risk.id, "tipoAvaliacao")}
                             </p>
                           ) : null}
@@ -3033,7 +3033,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             disabled
                           />
                           {getRiskFieldError(risk.id, "severidade") ? (
-                            <p className="mt-1 text-[12px] text-danger">
+                            <p className="mt-1 text-[12px] text-danger-foreground">
                               {getRiskFieldError(risk.id, "severidade")}
                             </p>
                           ) : null}
@@ -3064,7 +3064,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             />
                           </div>
                           {getRiskFieldError(risk.id, "probabilidade") ? (
-                            <p className="mt-1 text-[12px] text-danger">
+                            <p className="mt-1 text-[12px] text-danger-foreground">
                               {getRiskFieldError(risk.id, "probabilidade")}
                             </p>
                           ) : null}
@@ -3215,7 +3215,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             ) : null}
                           </div>
                           {getRiskFieldError(risk.id, "medidasControle") ? (
-                            <p className="mt-1 text-[12px] text-danger">
+                            <p className="mt-1 text-[12px] text-danger-foreground">
                               {getRiskFieldError(risk.id, "medidasControle")}
                             </p>
                           ) : null}
@@ -3337,7 +3337,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             ) : null}
                           </div>
                           {getRiskFieldError(risk.id, "epc") ? (
-                            <p className="mt-1 text-[12px] text-danger">
+                            <p className="mt-1 text-[12px] text-danger-foreground">
                               {getRiskFieldError(risk.id, "epc")}
                             </p>
                           ) : null}
@@ -3459,7 +3459,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
                             ) : null}
                           </div>
                           {getRiskFieldError(risk.id, "epi") ? (
-                            <p className="mt-1 text-[12px] text-danger">
+                            <p className="mt-1 text-[12px] text-danger-foreground">
                               {getRiskFieldError(risk.id, "epi")}
                             </p>
                           ) : null}
@@ -3729,7 +3729,7 @@ export function CaracterizacaoStep({ ctx }: CaracterizacaoStepProps) {
               disabled={!selectedRiskIds.length}
               className={
                 selectedRiskIds.length
-                  ? "btn-outline px-4 text-danger hover:bg-danger/10"
+                  ? "btn-outline px-4 text-danger-foreground hover:bg-danger/10"
                   : "btn-disabled px-4"
               }
             >

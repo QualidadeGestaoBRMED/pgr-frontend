@@ -654,7 +654,7 @@ export function DadosStep({
               <button
                 type="button"
                 onClick={() => options?.onRemove?.(field.id)}
-                className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                className="btn-outline px-3 py-1 text-[12px] text-danger-foreground hover:bg-danger/10"
               >
                 Excluir
               </button>
@@ -807,7 +807,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaRazaoSocial")}
             />
             {errors.empresaRazaoSocial ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaRazaoSocial}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaRazaoSocial}</p>
             ) : null}
           </div>
           <div>
@@ -836,7 +836,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaCnpj")}
             />
             {errors.empresaCnpj ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaCnpj}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaCnpj}</p>
             ) : null}
           </div>
         </div>
@@ -868,7 +868,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaCnae")}
             />
             {errors.empresaCnae ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaCnae}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaCnae}</p>
             ) : null}
           </div>
         </div>
@@ -888,7 +888,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaEndereco")}
             />
             {errors.empresaEndereco ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaEndereco}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaEndereco}</p>
             ) : null}
           </div>
           <div>
@@ -926,7 +926,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaCidade")}
             />
             {errors.empresaCidade ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaCidade}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaCidade}</p>
             ) : null}
           </div>
           <div>
@@ -943,7 +943,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaEstado")}
             />
             {errors.empresaEstado ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaEstado}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaEstado}</p>
             ) : null}
           </div>
         </div>
@@ -963,7 +963,7 @@ export function DadosStep({
               onBlur={() => markTouched("empresaGrauRisco")}
             />
             {errors.empresaGrauRisco ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.empresaGrauRisco}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.empresaGrauRisco}</p>
             ) : null}
           </div>
           <div>
@@ -1067,7 +1067,7 @@ export function DadosStep({
                           index: establishmentIndex,
                         })
                       }
-                      className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                      className="btn-outline px-3 py-1 text-[12px] text-danger-foreground hover:bg-danger/10"
                       disabled={establishments.length <= 1}
                     >
                       Excluir
@@ -1089,7 +1089,7 @@ export function DadosStep({
                       onBlur={() => markEstablishmentTouched(establishmentKey, "nome")}
                     />
                     {establishmentErrorsById[establishmentKey]?.nome ? (
-                      <p className="mt-1 text-[12px] text-danger">
+                      <p className="mt-1 text-[12px] text-danger-foreground">
                         {establishmentErrorsById[establishmentKey].nome}
                       </p>
                     ) : null}
@@ -1108,7 +1108,7 @@ export function DadosStep({
                       }}
                     />
                     {establishmentErrorsById[establishmentKey]?.cnpj ? (
-                      <p className="mt-1 text-[12px] text-danger">
+                      <p className="mt-1 text-[12px] text-danger-foreground">
                         {establishmentErrorsById[establishmentKey].cnpj}
                       </p>
                     ) : null}
@@ -1278,7 +1278,7 @@ export function DadosStep({
                       }
                     />
                     {establishmentErrorsById[establishmentKey]?.grauRisco ? (
-                      <p className="mt-1 text-[12px] text-danger">
+                      <p className="mt-1 text-[12px] text-danger-foreground">
                         {establishmentErrorsById[establishmentKey].grauRisco}
                       </p>
                     ) : null}
@@ -1380,7 +1380,7 @@ export function DadosStep({
                         index: contractorIndex,
                       })
                     }
-                    className="btn-outline px-3 py-1 text-[12px] text-danger hover:bg-danger/10"
+                    className="btn-outline px-3 py-1 text-[12px] text-danger-foreground hover:bg-danger/10"
                     disabled={contractors.length <= 0}
                   >
                     Excluir
@@ -1406,7 +1406,7 @@ export function DadosStep({
                     onBlur={() => markContractorTouched(contractorKey, "razaoSocial")}
                   />
                   {contractorErrorsById[contractorKey]?.razaoSocial ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].razaoSocial}
                     </p>
                   ) : null}
@@ -1427,7 +1427,7 @@ export function DadosStep({
                     }}
                   />
                   {contractorErrorsById[contractorKey]?.cnpj ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].cnpj}
                     </p>
                   ) : null}
@@ -1445,7 +1445,7 @@ export function DadosStep({
                     onBlur={() => markContractorTouched(contractorKey, "cnae")}
                   />
                   {contractorErrorsById[contractorKey]?.cnae ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].cnae}
                     </p>
                   ) : null}
@@ -1470,7 +1470,7 @@ export function DadosStep({
                     onBlur={() => markContractorTouched(contractorKey, "endereco")}
                   />
                   {contractorErrorsById[contractorKey]?.endereco ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].endereco}
                     </p>
                   ) : null}
@@ -1502,7 +1502,7 @@ export function DadosStep({
                     }
                   />
                   {contractorErrorsById[contractorKey]?.cep ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].cep}
                     </p>
                   ) : null}
@@ -1524,7 +1524,7 @@ export function DadosStep({
                     onBlur={() => markContractorTouched(contractorKey, "cidade")}
                   />
                   {contractorErrorsById[contractorKey]?.cidade ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].cidade}
                     </p>
                   ) : null}
@@ -1546,7 +1546,7 @@ export function DadosStep({
                     onBlur={() => markContractorTouched(contractorKey, "estado")}
                   />
                   {contractorErrorsById[contractorKey]?.estado ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].estado}
                     </p>
                   ) : null}
@@ -1571,7 +1571,7 @@ export function DadosStep({
                     onBlur={() => markContractorTouched(contractorKey, "grauRisco")}
                   />
                   {contractorErrorsById[contractorKey]?.grauRisco ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].grauRisco}
                     </p>
                   ) : null}
@@ -1598,7 +1598,7 @@ export function DadosStep({
                     }
                   />
                   {contractorErrorsById[contractorKey]?.atividadePrincipal ? (
-                    <p className="mt-1 text-[12px] text-danger">
+                    <p className="mt-1 text-[12px] text-danger-foreground">
                       {contractorErrorsById[contractorKey].atividadePrincipal}
                     </p>
                   ) : null}
@@ -1651,7 +1651,7 @@ export function DadosStep({
               onBlur={() => markTouched("responsavelPgrNome")}
             />
             {errors.responsavelPgrNome ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.responsavelPgrNome}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.responsavelPgrNome}</p>
             ) : null}
           </div>
           <div>
@@ -1682,7 +1682,7 @@ export function DadosStep({
               onBlur={() => markTouched("responsavelPgrTelefone")}
             />
             {errors.responsavelPgrTelefone ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.responsavelPgrTelefone}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.responsavelPgrTelefone}</p>
             ) : null}
           </div>
           <div>
@@ -1699,7 +1699,7 @@ export function DadosStep({
               onBlur={() => markTouched("responsavelPgrEmail")}
             />
             {errors.responsavelPgrEmail ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.responsavelPgrEmail}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.responsavelPgrEmail}</p>
             ) : null}
           </div>
           <div>
@@ -1714,7 +1714,7 @@ export function DadosStep({
               onBlur={() => markTouched("responsavelPgrCpf")}
             />
             {errors.responsavelPgrCpf ? (
-              <p className="mt-1 text-[12px] text-danger">{errors.responsavelPgrCpf}</p>
+              <p className="mt-1 text-[12px] text-danger-foreground">{errors.responsavelPgrCpf}</p>
             ) : null}
           </div>
         </div>
@@ -1748,7 +1748,7 @@ export function DadosStep({
               />
             </div>
             {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.nome ? (
-              <p className="mt-1 text-[12px] text-danger">
+              <p className="mt-1 text-[12px] text-danger-foreground">
                 {technicalCoordinatorErrorsById[technicalCoordinatorKey].nome}
               </p>
             ) : null}
@@ -1772,7 +1772,7 @@ export function DadosStep({
               readOnly
             />
             {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.funcao ? (
-              <p className="mt-1 text-[12px] text-danger">
+              <p className="mt-1 text-[12px] text-danger-foreground">
                 {technicalCoordinatorErrorsById[technicalCoordinatorKey].funcao}
               </p>
             ) : null}
@@ -1805,7 +1805,7 @@ export function DadosStep({
               readOnly
             />
             {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.telefone ? (
-              <p className="mt-1 text-[12px] text-danger">
+              <p className="mt-1 text-[12px] text-danger-foreground">
                 {technicalCoordinatorErrorsById[technicalCoordinatorKey].telefone}
               </p>
             ) : null}
@@ -1824,7 +1824,7 @@ export function DadosStep({
               readOnly
             />
             {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.email ? (
-              <p className="mt-1 text-[12px] text-danger">
+              <p className="mt-1 text-[12px] text-danger-foreground">
                 {technicalCoordinatorErrorsById[technicalCoordinatorKey].email}
               </p>
             ) : null}
@@ -1843,7 +1843,7 @@ export function DadosStep({
               readOnly
             />
             {technicalCoordinatorErrorsById[technicalCoordinatorKey]?.cpf ? (
-              <p className="mt-1 text-[12px] text-danger">
+              <p className="mt-1 text-[12px] text-danger-foreground">
                 {technicalCoordinatorErrorsById[technicalCoordinatorKey].cpf}
               </p>
             ) : null}

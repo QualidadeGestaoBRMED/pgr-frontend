@@ -1200,7 +1200,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                         )}
                                                     </div>
                                                     {planActionGheSelectionError ? (
-                                                        <p className="mt-1 text-[12px] text-danger">
+                                                        <p className="mt-1 text-[12px] text-danger-foreground">
                                                             {planActionGheSelectionError}
                                                         </p>
                                                     ) : null}
@@ -1252,7 +1252,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                         placeholder="Descreva a ação preventiva..."
                                     />
                                     {planActionDescriptionError ? (
-                                        <p className="mt-1 text-[12px] text-danger">
+                                        <p className="mt-1 text-[12px] text-danger-foreground">
                                             {planActionDescriptionError}
                                         </p>
                                     ) : null}

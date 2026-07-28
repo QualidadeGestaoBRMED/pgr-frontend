@@ -203,7 +203,7 @@ export function RevisaoPreviewModal({
                   Renderizando prévia do PDF...
                 </div>
               ) : previewError ? (
-                <div className="flex h-[65vh] items-center justify-center px-6 text-center text-[13px] text-danger">
+                <div className="flex h-[65vh] items-center justify-center px-6 text-center text-[13px] text-danger-foreground">
                   {previewError}
                 </div>
               ) : previewUrl ? (

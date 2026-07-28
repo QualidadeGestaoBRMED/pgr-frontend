@@ -793,7 +793,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         onClick={() => setIsDeleteGheModalOpen(true)}
                         className={`transition ${
                           gheGroups.length > 1
-                            ? "text-muted-foreground hover:text-danger"
+                            ? "text-muted-foreground hover:text-danger-foreground"
                             : "text-muted-foreground/40"
                         }`}
                         title={
@@ -816,7 +816,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   {` · ${describedGheCount}/${gheGroups.length} GHEs descritos`}
                 </p>
                 {gheNameFeedback ? (
-                  <p className="mt-1 text-[12px] text-danger">{gheNameFeedback}</p>
+                  <p className="mt-1 text-[12px] text-danger-foreground">{gheNameFeedback}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-3">
@@ -853,7 +853,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
               <p
                 className={`mt-3 text-[12px] ${
                   excelImportFeedback.type === "error"
-                    ? "text-danger"
+                    ? "text-danger-foreground"
                     : "text-muted-foreground"
                 }`}
               >
@@ -1010,7 +1010,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                                       <button
                                         type="button"
                                         onClick={() => removeInlineEdit(funcao.id)}
-                                        className="text-muted-foreground transition hover:text-danger"
+                                        className="text-muted-foreground transition hover:text-danger-foreground"
                                         title="Cancelar"
                                       >
                                         <X className="h-4 w-4" />
@@ -1413,7 +1413,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     </button>
                   ) : null}
                   {editingFeedback ? (
-                    <p className="text-[12px] text-danger">{editingFeedback}</p>
+                    <p className="text-[12px] text-danger-foreground">{editingFeedback}</p>
                   ) : null}
                 </div>
               </div>
@@ -1986,7 +1986,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     <p
                       className={`mt-2 text-[12px] ${
                         manualFeedback.type === "error"
-                          ? "text-danger"
+                          ? "text-danger-foreground"
                           : "text-muted-foreground"
                       }`}
                     >
@@ -2045,7 +2045,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         onBlur={() => markInfoTouched("processo")}
                       />
                       {infoErrors.processo ? (
-                        <p className="mt-1 text-[12px] text-danger">{infoErrors.processo}</p>
+                        <p className="mt-1 text-[12px] text-danger-foreground">{infoErrors.processo}</p>
                       ) : null}
                     </div>
                     <div>
@@ -2064,7 +2064,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         onBlur={() => markInfoTouched("observacoes")}
                       />
                       {infoErrors.observacoes ? (
-                        <p className="mt-1 text-[12px] text-danger">{infoErrors.observacoes}</p>
+                        <p className="mt-1 text-[12px] text-danger-foreground">{infoErrors.observacoes}</p>
                       ) : null}
                     </div>
                     <div>
@@ -2084,14 +2084,14 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         onBlur={() => markInfoTouched("ambiente")}
                       />
                       {infoErrors.ambiente ? (
-                        <p className="mt-1 text-[12px] text-danger">{infoErrors.ambiente}</p>
+                        <p className="mt-1 text-[12px] text-danger-foreground">{infoErrors.ambiente}</p>
                       ) : null}
                     </div>
                   </div>
 
                   <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
                     {infoModalError ? (
-                      <p className="mr-auto text-[12px] text-danger">{infoModalError}</p>
+                      <p className="mr-auto text-[12px] text-danger-foreground">{infoModalError}</p>
                     ) : null}
                     <button
                       type="button"
