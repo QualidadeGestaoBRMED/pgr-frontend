@@ -1760,6 +1760,7 @@ export function usePgrEtapaController({
       attachmentsAreLarge,
       attachmentsTotalMb,
       stepStatusById: derived.displayStepStatusById,
+      isAnexosEmpty: derived.isAnexosEmpty,
       missingFieldsByStep: derived.missingFieldsByStep,
       missingTargetsByStep: derived.missingTargetsByStep,
       pendingReviewFocus,

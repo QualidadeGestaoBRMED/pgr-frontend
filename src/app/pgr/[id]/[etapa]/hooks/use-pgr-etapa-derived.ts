@@ -1356,6 +1356,7 @@ export function usePgrEtapaDerived({
     planTableRows,
     stepStatusById,
     displayStepStatusById,
+    isAnexosEmpty,
     missingFieldsByStep,
     missingTargetsByStep,
     alertSteps,
