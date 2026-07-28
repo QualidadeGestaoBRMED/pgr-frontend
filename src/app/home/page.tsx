@@ -128,8 +128,8 @@ function formatFinalizedAt(value?: string | null) {
 }
 
 function PipefyCardLink({ card }: { card: HomeCard }) {
-  const pipefyCardId = String(card.pipefyCardId || card.id || "").trim();
-  if (!isFinalizedCard(card) || !pipefyCardId) return null;
+  const pipefyCardId = String(card.pipefyCardId || "").trim();
+  if (!pipefyCardId) return null;
 
   return (
     <a
@@ -152,7 +152,7 @@ function ServicePortalBadge({ card }: { card: HomeCard }) {
   if (!card.showServicePortalBadge) return null;
 
   return (
-    <span className="mt-2 inline-flex items-center rounded-full border border-amber-500/30 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+    <span className="mt-2 inline-flex items-center rounded-full border border-[#193b4f]/30 bg-[#193b4f]/10 px-2.5 py-1 text-[11px] font-semibold text-[#193b4f] dark:border-[#45a9c1]/40 dark:bg-[#193b4f]/45 dark:text-[#7ebfcc]">
       Portal de Serviço
     </span>
   );
@@ -257,7 +257,7 @@ function HomePgrCard({
           />
         </div>
       </div>
-      {finalized ? (
+      {card.pipefyCardId ? (
         <div className="mt-4 flex justify-end">
           <PipefyCardLink card={card} />
         </div>
@@ -861,7 +861,7 @@ export default function PgrsPage() {
                   />
                 </div>
               </div>
-              {isFinalizedCard(card) ? (
+              {card.pipefyCardId ? (
                 <div className="mt-4 flex justify-end">
                   <PipefyCardLink card={card} />
                 </div>
