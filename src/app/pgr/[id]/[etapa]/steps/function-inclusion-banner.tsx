@@ -23,12 +23,12 @@ export function FunctionInclusionBanner({ active }: FunctionInclusionBannerProps
   return (
     <div
       role="status"
-      className="mb-4 rounded-[12px] border border-warning-foreground/30 bg-warning px-4 py-3"
+      className="rounded-[12px] border border-primary/30 bg-primary/10 px-4 py-3 shadow-sm"
     >
-      <p className="text-[13px] font-semibold text-warning-foreground">
+      <p className="text-[13px] font-semibold text-foreground">
         Alteração documental pendente para esta empresa
       </p>
-      <p className="mt-1 text-[12px] text-warning-foreground/90">
+      <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
         Identificamos uma solicitação de inclusão de função ainda não
         incluída neste PGR. Confira o cadastro de funções e, ao concluir,
         marque a pendência como resolvida na página principal.
