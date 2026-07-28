@@ -59,7 +59,7 @@ type FrontendNotification = {
 type FunctionInclusionCheck =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "found"; unlocked: boolean; reason: string }
+  | { status: "found"; unlocked: boolean; reason: string; pgrId: string }
   | { status: "notFound" };
 
 const emptyData: HomeData = {
@@ -281,6 +281,7 @@ export default function PgrsPage() {
   const [companyFilter, setCompanyFilter] = useState<{
     id: number;
     label: string;
+    pgrId: string;
   } | null>(null);
   const [functionInclusionChecks, setFunctionInclusionChecks] = useState<
     Record<number, FunctionInclusionCheck>
@@ -416,7 +417,7 @@ export default function PgrsPage() {
     }
     let active = true;
     apiGet<HomeData>(
-      `/api/v1/frontend/home?page_size=200&companyId=${companyFilter.id}`
+      `/api/v1/frontend/home?page_size=200&companyId=${companyFilter.id}&pgrId=${encodeURIComponent(companyFilter.pgrId)}`
     )
       .then((data) => {
         if (!active) return;
@@ -532,15 +533,20 @@ export default function PgrsPage() {
         );
         setFunctionInclusionChecks((prev) => ({
           ...prev,
-          [companyId]: result.found
-            ? { status: "found", unlocked: result.unlocked, reason: result.reason }
+          [companyId]: result.found && result.pgrId
+            ? {
+                status: "found",
+                unlocked: result.unlocked,
+                reason: result.reason,
+                pgrId: result.pgrId,
+              }
             : { status: "notFound" },
         }));
         // Achar o card não depende da fase de retorno estar confirmada —
         // isso é só um indicador visual à parte. Filtra sempre que existir.
-        if (result.found) {
+        if (result.found && result.pgrId) {
           setSearchQuery("");
-          setCompanyFilter({ id: companyId, label: companyLabel });
+          setCompanyFilter({ id: companyId, label: companyLabel, pgrId: result.pgrId });
         }
       } catch {
         setFunctionInclusionChecks((prev) => ({
@@ -662,6 +668,7 @@ export default function PgrsPage() {
                             setCompanyFilter({
                               id: alert.companyId,
                               label: alert.companyLabel,
+                              pgrId: check.pgrId,
                             });
                           }}
                           className="inline-flex min-h-9 items-center justify-center rounded-md bg-amber-600 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-amber-700"
