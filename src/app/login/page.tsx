@@ -4,7 +4,7 @@ import { Chrome, Eye, EyeOff, Lock as LockIcon, Mail } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, ApiError } from "@/lib/api";
 
 const imgRectangle2 = "/login.png";
 const imgImage2 = "/logo.png";
@@ -43,8 +43,12 @@ export default function LoginPage() {
       });
       setError("");
       router.push("/home");
-    } catch {
-      setError("Usuário ou senha inválidos");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError(err.message);
+      } else {
+        setError("Usuário ou senha inválidos");
+      }
     } finally {
       setIsSubmitting(false);
     }

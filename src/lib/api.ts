@@ -80,8 +80,7 @@ function extractErrorMessage(
           .filter(Boolean)
           .join(" | ")}`
       : "";
-    const suffix = parsed.request_id ? ` (request_id: ${parsed.request_id})` : "";
-    return { message: `${message}${detailSuffix}${suffix}`, code: parsed.code };
+    return { message: `${message}${detailSuffix}`, code: parsed.code };
   } catch {
     return { message: rawText };
   }
