@@ -59,7 +59,7 @@ type FrontendNotification = {
 type FunctionInclusionCheck =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "found"; unlocked: boolean; reason: string; pgrId: string }
+  | { status: "found"; pgrId: string }
   | { status: "notFound" };
 
 const emptyData: HomeData = {
@@ -536,8 +536,6 @@ export default function PgrsPage() {
           [companyId]: result.found && result.pgrId
             ? {
                 status: "found",
-                unlocked: result.unlocked,
-                reason: result.reason,
                 pgrId: result.pgrId,
               }
             : { status: "notFound" },
@@ -608,8 +606,8 @@ export default function PgrsPage() {
             >
               <p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
                 {functionInclusionAlerts.length === 1
-                  ? "Inclusão de função pendente em 1 empresa"
-                  : `Inclusões de função pendentes em ${functionInclusionAlerts.length} empresas`}
+                  ? "Alteração documental pendente em 1 empresa"
+                  : `Alteração documental pendentes em ${functionInclusionAlerts.length} empresas`}
               </p>
               <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-amber-800 dark:text-amber-200">
                 {alertsExpanded ? "Ver menos" : "Ver todas"}
@@ -643,14 +641,9 @@ export default function PgrsPage() {
                               : `Solicitações nº ${alert.requestNumbers.join(", ")}`}
                           </p>
                         ) : null}
-                        {check.status === "found" && check.unlocked ? (
+                        {check.status === "found" ? (
                           <p className="mt-1 text-[12px] text-amber-700 dark:text-amber-300">
-                            Card liberado: {check.reason}
-                          </p>
-                        ) : null}
-                        {check.status === "found" && !check.unlocked ? (
-                          <p className="mt-1 text-[12px] text-amber-700/80 dark:text-amber-300/80">
-                            Card encontrado.
+                            PGR encontrado.
                           </p>
                         ) : null}
                         {check.status === "notFound" ? (
