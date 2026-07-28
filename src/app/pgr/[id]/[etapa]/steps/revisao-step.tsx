@@ -179,10 +179,10 @@ export function RevisaoStep({
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
                         !isDone
-                          ? "bg-danger-foreground text-white"
+                          ? "bg-danger text-danger-foreground"
                           : hasWarnings
-                            ? "bg-warning-foreground text-white"
-                            : "bg-success-foreground text-white"
+                            ? "bg-warning text-warning-foreground"
+                            : "bg-success text-success-foreground"
                       }`}
                     >
                       {statusLabel}

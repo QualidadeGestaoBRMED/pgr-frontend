@@ -742,12 +742,12 @@ export default function PgrsPage() {
           </p>
         ) : null}
         {!loading && loadError ? (
-          <p className="mt-8 rounded-[10px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger-foreground">
+          <p className="mt-8 rounded-[10px] border border-danger-foreground/30 bg-danger px-4 py-3 text-sm text-danger-foreground">
             {loadError}
           </p>
         ) : null}
         {!searchLoading && searchError ? (
-          <p className="mt-8 rounded-[10px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger-foreground">
+          <p className="mt-8 rounded-[10px] border border-danger-foreground/30 bg-danger px-4 py-3 text-sm text-danger-foreground">
             {searchError}
           </p>
         ) : null}
