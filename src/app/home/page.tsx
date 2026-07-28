@@ -179,7 +179,7 @@ function HomePgrCard({
           onOpen();
         }
       }}
-      className="rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"
+      className="flex h-full flex-col rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -258,7 +258,7 @@ function HomePgrCard({
         </div>
       </div>
       {card.pipefyCardId ? (
-        <div className="mt-4 flex justify-end">
+        <div className="mt-auto flex justify-end pt-4">
           <PipefyCardLink card={card} />
         </div>
       ) : null}
@@ -799,7 +799,7 @@ export default function PgrsPage() {
                   );
                 }
               }}
-              className="rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"
+              className="flex h-full flex-col rounded-[12px] bg-card px-6 py-5 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0px_8px_18px_rgba(25,59,79,0.12)] dark:border dark:border-border/60 dark:hover:border-primary/35"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -862,7 +862,7 @@ export default function PgrsPage() {
                 </div>
               </div>
               {card.pipefyCardId ? (
-                <div className="mt-4 flex justify-end">
+                <div className="mt-auto flex justify-end pt-4">
                   <PipefyCardLink card={card} />
                 </div>
               ) : null}
