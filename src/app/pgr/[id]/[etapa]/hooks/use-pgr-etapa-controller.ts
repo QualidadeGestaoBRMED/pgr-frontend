@@ -104,6 +104,8 @@ const PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES: Record<string, string> = {
   no_company:
     "Não foi possível identificar a empresa deste card ainda. Clique em \"Sincronizar\" e tente novamente.",
   no_previous: "Nenhum PGR anterior finalizado encontrado para esta empresa.",
+  function_inclusion:
+    "A importação do PGR anterior não está disponível durante a inclusão de função.",
 };
 
 function describePreviousPgrUnavailableReason(response: PreviousPgrResponse | null | undefined): string {
@@ -730,6 +732,15 @@ export function usePgrEtapaController({
     () => searchParams?.get("functionInclusion") === "1",
     [searchParams]
   );
+  const isFunctionInclusionContext =
+    isFunctionInclusionEntry || state.workflow.editContext === "function_inclusion";
+
+  useEffect(() => {
+    if (!isFunctionInclusionContext) return;
+    setPreviousImport(null);
+    setPreviousImportError(null);
+    setPreviousPgrCheckNotice(null);
+  }, [isFunctionInclusionContext]);
 
   const pendingReviewFocus = useMemo(
     () => parsePendingReviewFocus(searchParams),
@@ -1130,7 +1141,7 @@ export function usePgrEtapaController({
   }, [cancelPendingPersist, isFunctionInclusionEntry, params.id]);
 
   const handleImportPrevious = useCallback(async () => {
-    if (!previousImport || isImportingPrevious) return;
+    if (isFunctionInclusionContext || !previousImport || isImportingPrevious) return;
     setIsImportingPrevious(true);
     setPreviousImportError(null);
     try {
@@ -1148,10 +1159,16 @@ export function usePgrEtapaController({
           : "Não foi possível importar os dados agora. Tente novamente."
       );
     }
-  }, [cancelPendingPersist, isImportingPrevious, params.id, previousImport]);
+  }, [
+    cancelPendingPersist,
+    isFunctionInclusionContext,
+    isImportingPrevious,
+    params.id,
+    previousImport,
+  ]);
 
   const handleCheckPreviousPgr = useCallback(async () => {
-    if (isCheckingPreviousPgr) return;
+    if (isFunctionInclusionContext || isCheckingPreviousPgr) return;
     setIsCheckingPreviousPgr(true);
     setPreviousPgrCheckNotice(null);
     try {
@@ -1177,7 +1194,7 @@ export function usePgrEtapaController({
     } finally {
       setIsCheckingPreviousPgr(false);
     }
-  }, [isCheckingPreviousPgr, params.id]);
+  }, [isCheckingPreviousPgr, isFunctionInclusionContext, params.id]);
 
   const handleStartNewVersion = useCallback(
     () => createNewVersion(),
@@ -1552,6 +1569,7 @@ export function usePgrEtapaController({
     Boolean(String(state.inicioDraft.responsible || "").trim());
 
   useEffect(() => {
+    if (isFunctionInclusionContext) return;
     if (state.isStateLoading) return;
     if (state.isPipefySyncing) return;
     if (state.inicioDraft.syncedAt && hasRequiredInitialSyncFields) return;
@@ -1583,6 +1601,7 @@ export function usePgrEtapaController({
   }, [
     generalActions,
     hasRequiredInitialSyncFields,
+    isFunctionInclusionContext,
     params.id,
     state.inicioDraft.syncedAt,
     state.isPipefySyncing,
@@ -1640,7 +1659,7 @@ export function usePgrEtapaController({
     },
     saveError,
     previousImportDialog: {
-      open: previousImport !== null,
+      open: previousImport !== null && !isFunctionInclusionContext,
       companyName: previousImport?.companyName ?? "",
       finalizedAt: previousImport?.finalizedAt ?? "",
       attachmentsCount: previousImport?.attachmentsCount ?? 0,
@@ -1821,6 +1840,7 @@ export function usePgrEtapaController({
       generalActions,
       handleSyncPipefy,
       handleCheckPreviousPgr,
+      canImportPreviousPgr: !isFunctionInclusionContext,
       isCheckingPreviousPgr,
       previousPgrCheckNotice,
       lastFunctionInclusion,
