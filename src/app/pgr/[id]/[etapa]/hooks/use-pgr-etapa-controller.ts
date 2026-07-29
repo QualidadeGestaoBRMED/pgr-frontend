@@ -855,12 +855,43 @@ export function usePgrEtapaController({
 
       const startedState = await apiPost<{
         workflow: PersistedPgrState["workflow"];
+        finalizationMode: "LOCK_ONLY" | "PIPEFY_PUBLISH";
         updatedAt?: string;
       }>(`/api/v1/frontend/pgr/${params.id}/finalization/start`);
       setKnownUpdatedAt(params.id, startedState.updatedAt);
       cancelPendingPersist();
       setters.setWorkflow(startedState.workflow);
       assertAttemptActive();
+
+      const finalizeDocument = async () => {
+        const finalizedState = await apiPost<{
+          completedSteps: number;
+          historico: HistoricoData;
+          workflow: PersistedPgrState["workflow"];
+          meta?: { progressPercent?: number };
+          updatedAt?: string;
+        }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
+        setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
+        if (finalizedState?.workflow) {
+          setters.setWorkflow(finalizedState.workflow);
+        }
+        if (typeof finalizedState?.completedSteps === "number") {
+          setters.setCompletedSteps(finalizedState.completedSteps);
+        }
+        if (typeof finalizedState?.meta?.progressPercent === "number") {
+          setters.setProgressPercent(finalizedState.meta.progressPercent);
+        } else if (finalizedState?.workflow?.isLocked) {
+          setters.setProgressPercent(100);
+        }
+        if (finalizedState?.historico) {
+          setters.setHistoricoData(finalizedState.historico);
+        }
+      };
+
+      if (startedState.finalizationMode === "LOCK_ONLY") {
+        await finalizeDocument();
+        return;
+      }
 
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
@@ -910,52 +941,26 @@ export function usePgrEtapaController({
       ]);
       assertAttemptActive();
 
-      if (state.workflow.editContext === "function_inclusion") {
-        triggerBlobDownload(pdfBlob, fileBase + ".pdf");
-        triggerBlobDownload(xlsxBlob, fileBase + ".xlsx");
-      } else {
-        const pipefyAttachJobId = await startPipefyAttachJob({
-          pgrId: params.id,
-          pdfBlob,
-          xlsxBlob,
-          pdfFilename: fileBase + ".pdf",
-          xlsxFilename: fileBase + ".xlsx",
-        });
-        setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
-        try {
-          await waitForPipefyAttachJobCompletion(
-            params.id,
-            pipefyAttachJobId,
-            () => finalizationAttemptRef.current !== attempt
-          );
-        } finally {
-          setters.setHeavyGenerationWaitMessage(null);
-        }
+      const pipefyAttachJobId = await startPipefyAttachJob({
+        pgrId: params.id,
+        pdfBlob,
+        xlsxBlob,
+        pdfFilename: fileBase + ".pdf",
+        xlsxFilename: fileBase + ".xlsx",
+      });
+      setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
+      try {
+        await waitForPipefyAttachJobCompletion(
+          params.id,
+          pipefyAttachJobId,
+          () => finalizationAttemptRef.current !== attempt
+        );
+      } finally {
+        setters.setHeavyGenerationWaitMessage(null);
       }
       assertAttemptActive();
 
-      const finalizedState = await apiPost<{
-        completedSteps: number;
-        historico: HistoricoData;
-        workflow: PersistedPgrState["workflow"];
-        meta?: { progressPercent?: number };
-        updatedAt?: string;
-      }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
-      setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
-      if (finalizedState?.workflow) {
-        setters.setWorkflow(finalizedState.workflow);
-      }
-      if (typeof finalizedState?.completedSteps === "number") {
-        setters.setCompletedSteps(finalizedState.completedSteps);
-      }
-      if (typeof finalizedState?.meta?.progressPercent === "number") {
-        setters.setProgressPercent(finalizedState.meta.progressPercent);
-      } else if (finalizedState?.workflow?.isLocked) {
-        setters.setProgressPercent(100);
-      }
-      if (finalizedState?.historico) {
-        setters.setHistoricoData(finalizedState.historico);
-      }
+      await finalizeDocument();
     } catch (error) {
       if (error instanceof FinalizationCancelledError) return;
       const message =
@@ -977,7 +982,6 @@ export function usePgrEtapaController({
     setters,
     state.historicoData,
     state.inicioDraft,
-    state.workflow.editContext,
   ]);
 
   const handleCancelFinalization = useCallback(async () => {
