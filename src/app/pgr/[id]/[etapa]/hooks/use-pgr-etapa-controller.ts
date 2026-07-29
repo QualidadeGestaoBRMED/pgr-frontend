@@ -96,6 +96,32 @@ type PreviousPgrResponse = {
   reason?: string | null;
 };
 
+const PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES: Record<string, string> = {
+  destination_locked:
+    "Este PGR já está finalizado e bloqueado para edição — inicie uma nova versão antes de importar.",
+  destination_has_content:
+    "Este PGR já tem conteúdo preenchido (além de Início/Dados Cadastrais) — a importação não sobrescreve dados existentes.",
+  no_company:
+    "Não foi possível identificar a empresa deste card ainda. Clique em \"Sincronizar\" e tente novamente.",
+  no_previous: "Nenhum PGR anterior finalizado encontrado para esta empresa.",
+};
+
+function describePreviousPgrUnavailableReason(response: PreviousPgrResponse | null | undefined): string {
+  const key = String(response?.reason || "").trim();
+  if (key === "previous_not_finalized") {
+    const companyName = String(response?.companyName || "").trim();
+    const companySuffix = companyName ? ` (${companyName})` : "";
+    return (
+      `Foi encontrado um PGR anterior${companySuffix} desta empresa, mas ele ainda não foi ` +
+      "finalizado. Peça para um administrador finalizar o card antigo antes de importar."
+    );
+  }
+  return (
+    PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES[key] ||
+    PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES.no_previous
+  );
+}
+
 function formatIsoDateToBr(value?: string | null): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -1135,9 +1161,7 @@ export function usePgrEtapaController({
           attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
         });
       } else {
-        setPreviousPgrCheckNotice(
-          "Nenhum PGR anterior finalizado encontrado para esta empresa."
-        );
+        setPreviousPgrCheckNotice(describePreviousPgrUnavailableReason(previous));
       }
     } catch (error) {
       setPreviousPgrCheckNotice(
@@ -1544,6 +1568,8 @@ export function usePgrEtapaController({
             finalizedAt: formatIsoDateToBr(previous.finalizedAt),
             attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
           });
+        } else if (previous?.reason === "previous_not_finalized") {
+          setPreviousPgrCheckNotice(describePreviousPgrUnavailableReason(previous));
         }
       })
       .catch(() => {
