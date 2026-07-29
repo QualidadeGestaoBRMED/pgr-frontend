@@ -159,6 +159,7 @@ export function usePgrEtapaState({
       finalizedBy: null as string | null,
       finalizedById: null as number | null,
       currentVersionEditHistory: [],
+      functionInclusionHistory: [],
     }
   );
   const [functionInclusionPending, setFunctionInclusionPending] = useState(false);

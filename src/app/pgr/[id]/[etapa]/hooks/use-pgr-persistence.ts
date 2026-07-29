@@ -779,6 +779,33 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                     typeof item.openedById === "number" ? item.openedById : null,
                 }))
             : [],
+          functionInclusionHistory: Array.isArray(
+            state.workflow?.functionInclusionHistory
+          )
+            ? state.workflow.functionInclusionHistory
+                .filter(
+                  (item): item is {
+                    finalizedAt: string;
+                    finalizedBy: string;
+                    finalizedByUsername: string | null;
+                    finalizedById: number | null;
+                  } =>
+                    Boolean(item) &&
+                    typeof item.finalizedAt === "string" &&
+                    typeof item.finalizedBy === "string"
+                )
+                .map((item) => ({
+                  ...item,
+                  finalizedByUsername:
+                    typeof item.finalizedByUsername === "string"
+                      ? item.finalizedByUsername
+                      : null,
+                  finalizedById:
+                    typeof item.finalizedById === "number"
+                      ? item.finalizedById
+                      : null,
+                }))
+            : [],
         };
 
         setCompletedSteps(normalizedCompleted);

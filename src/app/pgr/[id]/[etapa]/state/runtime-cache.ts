@@ -79,6 +79,12 @@ export type PersistedPgrState = {
       openedBy: string;
       openedById: number | null;
     }>;
+    functionInclusionHistory: Array<{
+      finalizedAt: string;
+      finalizedBy: string;
+      finalizedByUsername: string | null;
+      finalizedById: number | null;
+    }>;
   };
 };
 
