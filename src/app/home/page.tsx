@@ -69,6 +69,10 @@ type FunctionInclusionAlert = {
   companyLabel: string;
   count: number;
   requestNumbers: string[];
+  requests: Array<{
+    notificationId: string;
+    requestNumber: string;
+  }>;
 };
 
 type FrontendNotification = {
@@ -317,7 +321,11 @@ export default function PgrsPage() {
   const [functionInclusionToResolve, setFunctionInclusionToResolve] = useState<{
     companyId: number;
     companyLabel: string;
+    requests: FunctionInclusionAlert["requests"];
   } | null>(null);
+  const [selectedFunctionInclusionIds, setSelectedFunctionInclusionIds] = useState<
+    string[]
+  >([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreCards, setHasMoreCards] = useState(false);
   const pageRef = useRef(1);
@@ -445,12 +453,19 @@ export default function PgrsPage() {
       for (const item of payload.notifications || []) {
         if (item.source !== "function_inclusion_process") continue;
         if (item.companyId == null) continue;
+        const notificationId = String(item.id || "").trim();
+        if (!notificationId) continue;
         const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
         const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
         const requestNumber = String(item.requestNumber ?? "").trim();
+        const request = {
+          notificationId,
+          requestNumber,
+        };
         const existing = byCompany.get(item.companyId);
         if (existing) {
           existing.count += 1;
+          existing.requests.push(request);
           if (
             requestNumber &&
             !existing.requestNumbers.includes(requestNumber)
@@ -463,6 +478,7 @@ export default function PgrsPage() {
             companyLabel,
             count: 1,
             requestNumbers: requestNumber ? [requestNumber] : [],
+            requests: [request],
           });
         }
       }
@@ -651,20 +667,37 @@ export default function PgrsPage() {
   );
 
   const resolveFunctionInclusion = useCallback(
-    async (companyId: number) => {
+    async (
+      companyId: number,
+      options: { resolveAll: boolean; notificationIds?: string[] }
+    ) => {
       if (resolvingCompanyId !== null) return;
+      if (!options.resolveAll && !options.notificationIds?.length) return;
       setResolvingCompanyId(companyId);
       try {
-        await apiPost("/api/v1/frontend/notifications/function-inclusion/resolve", {
+        const result = await apiPost<{
+          resolvedCount: number;
+          remainingCount: number;
+        }>("/api/v1/frontend/notifications/function-inclusion/resolve", {
           companyId,
+          resolveAll: options.resolveAll,
+          notificationIds: options.resolveAll
+            ? undefined
+            : options.notificationIds,
         });
-        setFunctionInclusionChecks((prev) => {
-          const next = { ...prev };
-          delete next[companyId];
-          return next;
-        });
+        if (result.remainingCount === 0) {
+          setFunctionInclusionChecks((prev) => {
+            const next = { ...prev };
+            delete next[companyId];
+            return next;
+          });
+          setCompanyFilter((current) =>
+            current?.id === companyId ? null : current
+          );
+        }
         await loadFunctionInclusionAlerts();
         setFunctionInclusionToResolve(null);
+        setSelectedFunctionInclusionIds([]);
       } catch {
         if (typeof window !== "undefined") {
           window.alert("Não foi possível marcar como incluída agora. Tente novamente.");
@@ -794,12 +827,14 @@ export default function PgrsPage() {
                       <button
                         type="button"
                         disabled={resolvingCompanyId === alert.companyId}
-                        onClick={() =>
+                        onClick={() => {
+                          setSelectedFunctionInclusionIds([]);
                           setFunctionInclusionToResolve({
                             companyId: alert.companyId,
                             companyLabel: alert.companyLabel,
-                          })
-                        }
+                            requests: alert.requests,
+                          });
+                        }}
                         title="Marcar que a função já foi incluída nesse PGR"
                         className="inline-flex min-h-9 items-center justify-center rounded-md border border-primary bg-transparent px-3 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                       >
@@ -1048,7 +1083,7 @@ export default function PgrsPage() {
             onClick={() => setFunctionInclusionToResolve(null)}
           />
           <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
-            <div className="w-full max-w-[520px] rounded-[16px] border border-border bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">
+            <div className="w-full max-w-[620px] rounded-[16px] border border-border bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning text-warning-foreground">
                   <AlertTriangle className="h-5 w-5" />
@@ -1058,14 +1093,14 @@ export default function PgrsPage() {
                     id="function-inclusion-confirmation-title"
                     className="text-[19px] font-semibold text-foreground"
                   >
-                    Confirmar inclusão da função
+                    Resolver inclusões de função
                   </h2>
                   <p
                     id="function-inclusion-confirmation-description"
                     className="mt-2 text-[13px] leading-5 text-muted-foreground"
                   >
-                    Confirme somente depois de incluir a função e salvar as
-                    alterações no PGR de{" "}
+                    Selecione somente as solicitações que já foram incluídas e
+                    salvas no PGR de{" "}
                     <strong className="text-foreground">
                       {functionInclusionToResolve.companyLabel}
                     </strong>
@@ -1074,16 +1109,54 @@ export default function PgrsPage() {
                 </div>
               </div>
 
+              <div className="mt-5 rounded-[12px] border border-border bg-background px-4 py-4">
+                <p className="text-[13px] font-semibold text-foreground">
+                  Solicitações Nº:
+                </p>
+                <div className="mt-3 flex max-h-[240px] flex-wrap gap-2 overflow-y-auto">
+                  {functionInclusionToResolve.requests.map((request) => {
+                    const checked = selectedFunctionInclusionIds.includes(
+                      request.notificationId
+                    );
+                    return (
+                      <label
+                        key={request.notificationId}
+                        className="flex cursor-pointer items-center gap-2 rounded-[9px] border border-border bg-card px-3 py-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={resolvingCompanyId !== null}
+                          onChange={() =>
+                            setSelectedFunctionInclusionIds((current) =>
+                              checked
+                                ? current.filter(
+                                    (item) => item !== request.notificationId
+                                  )
+                                : [...current, request.notificationId]
+                            )
+                          }
+                          className="h-4 w-4 accent-primary"
+                        />
+                        <span className="text-[13px] font-semibold text-foreground">
+                          {request.requestNumber || request.notificationId}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="mt-5 rounded-[12px] border border-warning/40 bg-warning/15 px-4 py-3">
                 <p className="text-[13px] leading-5 text-foreground">
-                  Ao confirmar, todas as pendências de inclusão de função desta
-                  empresa serão encerradas, o banner desaparecerá e usuários
-                  que não são proprietários perderão o acesso temporário ao
-                  documento.
+                  Finalizar selecionadas mantém as demais solicitações abertas.
+                  Finalizar todas encerra todas as pendências desta empresa e
+                  remove o acesso temporário de usuários que não são
+                  proprietários.
                 </p>
               </div>
 
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
                 <button
                   type="button"
                   autoFocus
@@ -1099,21 +1172,48 @@ export default function PgrsPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={resolvingCompanyId !== null}
+                  disabled={
+                    resolvingCompanyId !== null ||
+                    selectedFunctionInclusionIds.length === 0
+                  }
                   onClick={() =>
                     void resolveFunctionInclusion(
-                      functionInclusionToResolve.companyId
+                      functionInclusionToResolve.companyId,
+                      {
+                        resolveAll: false,
+                        notificationIds: selectedFunctionInclusionIds,
+                      }
                     )
                   }
                   className={
-                    resolvingCompanyId !== null
+                    resolvingCompanyId !== null ||
+                    selectedFunctionInclusionIds.length === 0
                       ? "btn-disabled px-4 py-2 text-[14px]"
                       : "btn-primary px-4 py-2 text-[14px]"
                   }
                 >
                   {resolvingCompanyId !== null
-                    ? "Marcando..."
-                    : "Sim, marcar como incluída"}
+                    ? "Finalizando..."
+                    : "Finalizar selecionadas"}
+                </button>
+                <button
+                  type="button"
+                  disabled={resolvingCompanyId !== null}
+                  onClick={() =>
+                    void resolveFunctionInclusion(
+                      functionInclusionToResolve.companyId,
+                      { resolveAll: true }
+                    )
+                  }
+                  className={
+                    resolvingCompanyId !== null
+                      ? "btn-disabled px-4 py-2 text-[14px]"
+                      : "btn-secondary px-4 py-2 text-[14px]"
+                  }
+                >
+                  {resolvingCompanyId !== null
+                    ? "Finalizando..."
+                    : "Finalizar todas"}
                 </button>
               </div>
             </div>
