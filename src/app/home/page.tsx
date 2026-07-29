@@ -77,6 +77,7 @@ type FunctionInclusionAlert = {
   requests: Array<{
     notificationId: string;
     requestNumber: string;
+    functionName: string;
   }>;
 };
 
@@ -467,10 +468,13 @@ export default function PgrsPage() {
         if (!notificationId) continue;
         const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
         const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
+        const functionMatch = /Função:\s*([^·]+)/.exec(item.description || "");
+        const functionName = functionMatch ? functionMatch[1].trim() : "";
         const requestNumber = String(item.requestNumber ?? "").trim();
         const request = {
           notificationId,
           requestNumber,
+          functionName,
         };
         const elaboration = {
           active: Boolean(item.functionInclusionElaboration?.active),
@@ -1196,8 +1200,15 @@ export default function PgrsPage() {
                           }
                           className="h-4 w-4 accent-primary"
                         />
-                        <span className="text-[13px] font-semibold text-foreground">
-                          {request.requestNumber || request.notificationId}
+                        <span className="flex flex-col text-[13px] text-foreground">
+                          <span className="font-semibold">
+                            {request.requestNumber || request.notificationId}
+                          </span>
+                          {request.functionName ? (
+                            <span className="text-[11px] text-muted-foreground">
+                              {request.functionName}
+                            </span>
+                          ) : null}
                         </span>
                       </label>
                     );
