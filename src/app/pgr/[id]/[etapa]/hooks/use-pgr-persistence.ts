@@ -15,7 +15,10 @@ import type {
   RiskCatalogPayload,
   RiskGheGroup,
 } from "../types";
-import type { PersistedPgrState } from "../state/runtime-cache";
+import type {
+  FunctionInclusionElaboration,
+  PersistedPgrState,
+} from "../state/runtime-cache";
 import {
   normalizeAdditionalFields,
   syncLegacyContractorFields,
@@ -115,6 +118,7 @@ type BackendStateResponse = Partial<{
   workflow: Partial<Workflow> & { rejection?: { sourcePhaseId?: string | null } };
   updatedAt: string;
   functionInclusionPending: boolean;
+  functionInclusionElaboration: Partial<FunctionInclusionElaboration>;
 }>;
 
 type UsePgrPersistenceContext = {
@@ -153,6 +157,9 @@ type UsePgrPersistenceContext = {
     setPdfLayout: Dispatch<SetStateAction<PdfLayoutState>>;
     setWorkflow: Dispatch<SetStateAction<Workflow>>;
     setFunctionInclusionPending: Dispatch<SetStateAction<boolean>>;
+    setFunctionInclusionElaboration: Dispatch<
+      SetStateAction<FunctionInclusionElaboration>
+    >;
     setIsStateLoading: Dispatch<SetStateAction<boolean>>;
   };
   state: {
@@ -232,6 +239,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setPdfLayout,
     setWorkflow,
     setFunctionInclusionPending,
+    setFunctionInclusionElaboration,
     setIsStateLoading,
   } = setters;
 
@@ -834,6 +842,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         setPdfLayout(loadedPdfLayout);
         setWorkflow(loadedWorkflow);
         setFunctionInclusionPending(Boolean(state.functionInclusionPending));
+        setFunctionInclusionElaboration({
+          active: Boolean(state.functionInclusionElaboration?.active),
+          responsibleName:
+            typeof state.functionInclusionElaboration?.responsibleName === "string"
+              ? state.functionInclusionElaboration.responsibleName
+              : null,
+        });
         skipPostHydrationPersistsRef.current = 2;
 
         lastPersistedSignatureRef.current = stableSerialize({

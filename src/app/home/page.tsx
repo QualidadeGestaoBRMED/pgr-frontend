@@ -8,7 +8,7 @@ import {
   Search,
 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -69,6 +69,11 @@ type FunctionInclusionAlert = {
   companyLabel: string;
   count: number;
   requestNumbers: string[];
+  elaboration: {
+    active: boolean;
+    responsibleName: string | null;
+  };
+  relatedToCurrentUser: boolean;
   requests: Array<{
     notificationId: string;
     requestNumber: string;
@@ -82,6 +87,11 @@ type FrontendNotification = {
   source?: string;
   companyId?: number | null;
   requestNumber?: string | number | null;
+  functionInclusionElaboration?: {
+    active?: boolean;
+    responsibleName?: string | null;
+  };
+  relatedToCurrentUser?: boolean;
 };
 
 type FunctionInclusionCheck =
@@ -462,10 +472,23 @@ export default function PgrsPage() {
           notificationId,
           requestNumber,
         };
+        const elaboration = {
+          active: Boolean(item.functionInclusionElaboration?.active),
+          responsibleName:
+            typeof item.functionInclusionElaboration?.responsibleName === "string"
+              ? item.functionInclusionElaboration.responsibleName
+              : null,
+        };
         const existing = byCompany.get(item.companyId);
         if (existing) {
           existing.count += 1;
           existing.requests.push(request);
+          if (elaboration.active) {
+            existing.elaboration = elaboration;
+          }
+          if (item.relatedToCurrentUser) {
+            existing.relatedToCurrentUser = true;
+          }
           if (
             requestNumber &&
             !existing.requestNumbers.includes(requestNumber)
@@ -478,6 +501,8 @@ export default function PgrsPage() {
             companyLabel,
             count: 1,
             requestNumbers: requestNumber ? [requestNumber] : [],
+            elaboration,
+            relatedToCurrentUser: Boolean(item.relatedToCurrentUser),
             requests: [request],
           });
         }
@@ -720,6 +745,26 @@ export default function PgrsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [functionInclusionToResolve, resolvingCompanyId]);
 
+  const relatedFunctionInclusions = functionInclusionAlerts.filter(
+    (alert) => alert.relatedToCurrentUser
+  );
+  const otherFunctionInclusions = functionInclusionAlerts.filter(
+    (alert) => !alert.relatedToCurrentUser
+  );
+  const orderedFunctionInclusionAlerts = [
+    ...relatedFunctionInclusions.map((alert, index) => ({
+      alert,
+      sectionTitle: index === 0 ? "Inclusões relacionadas a você" : null,
+    })),
+    ...otherFunctionInclusions.map((alert, index) => ({
+      alert,
+      sectionTitle:
+        relatedFunctionInclusions.length > 0 && index === 0
+          ? "Outras inclusões"
+          : null,
+    })),
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto w-full max-w-[1480px] px-0 pb-16 pt-8 sm:px-0 lg:px-1">
@@ -760,15 +805,20 @@ export default function PgrsPage() {
             </button>
             {alertsExpanded ? (
               <div className="space-y-2 border-t border-border px-5 py-4 dark:border-white/10">
-                {functionInclusionAlerts.map((alert) => {
+                {orderedFunctionInclusionAlerts.map(({ alert, sectionTitle }) => {
                   const check = functionInclusionChecks[alert.companyId] || {
                     status: "idle",
                   };
                   return (
-                    <div
-                      key={alert.companyId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/60 bg-background/40 px-4 py-3 dark:border-white/10 dark:bg-[#173446]"
-                    >
+                    <Fragment key={alert.companyId}>
+                      {sectionTitle ? (
+                        <p className="pt-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-white/70">
+                          {sectionTitle}
+                        </p>
+                      ) : null}
+                      <div
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/60 bg-background/40 px-4 py-3 dark:border-white/10 dark:bg-[#173446]"
+                      >
                       <div>
                         <p className="text-[13px] font-medium text-foreground dark:text-white">
                           {alert.companyLabel}
@@ -779,6 +829,13 @@ export default function PgrsPage() {
                             {alert.requestNumbers.length === 1
                               ? `Solicitação nº ${alert.requestNumbers[0]}`
                               : `Solicitações nº ${alert.requestNumbers.join(", ")}`}
+                          </p>
+                        ) : null}
+                        {alert.elaboration.active ? (
+                          <p className="mt-1 text-[12px] font-medium text-warning-foreground dark:text-amber-200">
+                            {alert.elaboration.responsibleName?.trim() ||
+                              "O usuário responsável"}{" "}
+                            está elaborando este documento.
                           </p>
                         ) : null}
                         {check.status === "found" ? (
@@ -843,7 +900,8 @@ export default function PgrsPage() {
                           : "Marcar como incluída"}
                       </button>
                       </div>
-                    </div>
+                      </div>
+                    </Fragment>
                   );
                 })}
               </div>

@@ -149,8 +149,12 @@ export default function PgrEtapaPage({
         <FunctionInclusionBanner
           active={shouldShowFunctionInclusionBanner({
             functionInclusionPending: Boolean(bodyCtx.functionInclusionPending),
+            isInElaborationPhase: Boolean(
+              bodyCtx.functionInclusionElaboration?.active
+            ),
             isLocked: bodyCtx.workflow.isLocked,
           })}
+          responsibleName={bodyCtx.functionInclusionElaboration?.responsibleName}
         />
         <PgrStepBody ctx={bodyCtx} />
       </div>

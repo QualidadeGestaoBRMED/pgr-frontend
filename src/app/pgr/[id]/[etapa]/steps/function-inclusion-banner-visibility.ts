@@ -9,8 +9,10 @@
 // transformar sem config extra).
 export const shouldShowFunctionInclusionBanner = ({
   functionInclusionPending,
+  isInElaborationPhase,
   isLocked,
 }: {
   functionInclusionPending: boolean;
+  isInElaborationPhase: boolean;
   isLocked: boolean;
-}): boolean => functionInclusionPending && !isLocked;
+}): boolean => functionInclusionPending && isInElaborationPhase && !isLocked;

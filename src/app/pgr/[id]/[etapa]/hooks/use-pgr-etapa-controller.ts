@@ -566,6 +566,7 @@ export function usePgrEtapaController({
       setPdfLayout: setters.setPdfLayout,
       setWorkflow: setters.setWorkflow,
       setFunctionInclusionPending: setters.setFunctionInclusionPending,
+      setFunctionInclusionElaboration: setters.setFunctionInclusionElaboration,
       setIsStateLoading: setters.setIsStateLoading,
     },
     state: {
@@ -1730,6 +1731,7 @@ export function usePgrEtapaController({
       infoModalMode: state.infoModalMode,
       workflow: state.workflow,
       functionInclusionPending: state.functionInclusionPending,
+      functionInclusionElaboration: state.functionInclusionElaboration,
       riskCatalogs: state.riskCatalogs,
       riskGheGroups: state.riskGheGroups,
       setRiskGheGroups: setters.setRiskGheGroups,
