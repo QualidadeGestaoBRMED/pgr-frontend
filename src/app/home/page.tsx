@@ -1,6 +1,12 @@
 "use client";
 
-import { ChevronDown, ChevronUp, ExternalLink, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Search,
+} from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -308,6 +314,10 @@ export default function PgrsPage() {
   const [resolvingCompanyId, setResolvingCompanyId] = useState<number | null>(
     null
   );
+  const [functionInclusionToResolve, setFunctionInclusionToResolve] = useState<{
+    companyId: number;
+    companyLabel: string;
+  } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreCards, setHasMoreCards] = useState(false);
   const pageRef = useRef(1);
@@ -642,6 +652,7 @@ export default function PgrsPage() {
 
   const resolveFunctionInclusion = useCallback(
     async (companyId: number) => {
+      if (resolvingCompanyId !== null) return;
       setResolvingCompanyId(companyId);
       try {
         await apiPost("/api/v1/frontend/notifications/function-inclusion/resolve", {
@@ -653,6 +664,7 @@ export default function PgrsPage() {
           return next;
         });
         await loadFunctionInclusionAlerts();
+        setFunctionInclusionToResolve(null);
       } catch {
         if (typeof window !== "undefined") {
           window.alert("Não foi possível marcar como incluída agora. Tente novamente.");
@@ -661,8 +673,19 @@ export default function PgrsPage() {
         setResolvingCompanyId(null);
       }
     },
-    [loadFunctionInclusionAlerts]
+    [loadFunctionInclusionAlerts, resolvingCompanyId]
   );
+
+  useEffect(() => {
+    if (!functionInclusionToResolve || resolvingCompanyId !== null) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFunctionInclusionToResolve(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [functionInclusionToResolve, resolvingCompanyId]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -771,7 +794,12 @@ export default function PgrsPage() {
                       <button
                         type="button"
                         disabled={resolvingCompanyId === alert.companyId}
-                        onClick={() => resolveFunctionInclusion(alert.companyId)}
+                        onClick={() =>
+                          setFunctionInclusionToResolve({
+                            companyId: alert.companyId,
+                            companyLabel: alert.companyLabel,
+                          })
+                        }
                         title="Marcar que a função já foi incluída nesse PGR"
                         className="inline-flex min-h-9 items-center justify-center rounded-md border border-primary bg-transparent px-3 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                       >
@@ -1003,6 +1031,95 @@ export default function PgrsPage() {
           </section>
         ) : null}
       </div>
+
+      {functionInclusionToResolve ? (
+        <div
+          className="fixed inset-0 z-50"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="function-inclusion-confirmation-title"
+          aria-describedby="function-inclusion-confirmation-description"
+        >
+          <button
+            type="button"
+            aria-label="Fechar confirmação"
+            className="absolute inset-0 cursor-default bg-black/55"
+            disabled={resolvingCompanyId !== null}
+            onClick={() => setFunctionInclusionToResolve(null)}
+          />
+          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
+            <div className="w-full max-w-[520px] rounded-[16px] border border-border bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning text-warning-foreground">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2
+                    id="function-inclusion-confirmation-title"
+                    className="text-[19px] font-semibold text-foreground"
+                  >
+                    Confirmar inclusão da função
+                  </h2>
+                  <p
+                    id="function-inclusion-confirmation-description"
+                    className="mt-2 text-[13px] leading-5 text-muted-foreground"
+                  >
+                    Confirme somente depois de incluir a função e salvar as
+                    alterações no PGR de{" "}
+                    <strong className="text-foreground">
+                      {functionInclusionToResolve.companyLabel}
+                    </strong>
+                    .
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[12px] border border-warning/40 bg-warning/15 px-4 py-3">
+                <p className="text-[13px] leading-5 text-foreground">
+                  Ao confirmar, todas as pendências de inclusão de função desta
+                  empresa serão encerradas, o banner desaparecerá e usuários
+                  que não são proprietários perderão o acesso temporário ao
+                  documento.
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  autoFocus
+                  disabled={resolvingCompanyId !== null}
+                  onClick={() => setFunctionInclusionToResolve(null)}
+                  className={
+                    resolvingCompanyId !== null
+                      ? "btn-disabled px-4 py-2 text-[14px]"
+                      : "btn-secondary px-4 py-2 text-[14px]"
+                  }
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={resolvingCompanyId !== null}
+                  onClick={() =>
+                    void resolveFunctionInclusion(
+                      functionInclusionToResolve.companyId
+                    )
+                  }
+                  className={
+                    resolvingCompanyId !== null
+                      ? "btn-disabled px-4 py-2 text-[14px]"
+                      : "btn-primary px-4 py-2 text-[14px]"
+                  }
+                >
+                  {resolvingCompanyId !== null
+                    ? "Marcando..."
+                    : "Sim, marcar como incluída"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
