@@ -170,6 +170,7 @@ export function usePgrEtapaState({
     useState<FunctionInclusionElaboration>({
       active: false,
       responsibleName: null,
+      readOnly: false,
     });
   const [pdfLayout, setPdfLayout] = useState(() =>
     normalizePdfLayoutState(DEFAULT_PDF_LAYOUT_STATE)

@@ -8,6 +8,7 @@ import {
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
 } from "react";
 import { PgrShell } from "@/components/pgr-shell";
@@ -16,7 +17,10 @@ import { StepFooterActions } from "./steps/step-footer-actions";
 import { SaveConflictDialog } from "./steps/save-conflict-dialog";
 import { SaveErrorBanner } from "./steps/save-error-banner";
 import { FunctionInclusionBanner } from "./steps/function-inclusion-banner";
-import { shouldShowFunctionInclusionBanner } from "./steps/function-inclusion-banner-visibility";
+import {
+  shouldShowFunctionInclusionBanner,
+  shouldUseReadOnlyPgrView,
+} from "./steps/function-inclusion-banner-visibility";
 import { PreviousVersionDialog } from "./steps/previous-version-dialog";
 import { FinalizationLockDialog } from "./steps/finalization-lock-dialog";
 import { usePgrEtapaController } from "./hooks/use-pgr-etapa-controller";
@@ -55,13 +59,20 @@ export default function PgrEtapaPage({
   });
   const readOnlyContentRef = useRef<HTMLDivElement>(null);
   const [editAttempted, setEditAttempted] = useState(false);
+  const functionInclusionReadOnly = Boolean(
+    bodyCtx.functionInclusionElaboration?.readOnly
+  );
+  const contentReadOnly = shouldUseReadOnlyPgrView({
+    finalizationActive: finalizationLock.active,
+    functionInclusionReadOnly,
+  });
 
   const notifyBlockedEdit = useCallback(() => {
     setEditAttempted(true);
   }, []);
 
   useEffect(() => {
-    if (!finalizationLock.active) {
+    if (!contentReadOnly) {
       setEditAttempted(false);
       return;
     }
@@ -72,7 +83,7 @@ export default function PgrEtapaPage({
     ) {
       focusedElement.blur();
     }
-  }, [finalizationLock.active]);
+  }, [contentReadOnly]);
 
   useEffect(() => {
     if (!editAttempted) return;
@@ -81,14 +92,21 @@ export default function PgrEtapaPage({
   }, [editAttempted]);
 
   const blockPointerEdit = (event: PointerEvent<HTMLDivElement>) => {
-    if (!finalizationLock.active || !isEditableTarget(event.target)) return;
+    if (!contentReadOnly || !isEditableTarget(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    notifyBlockedEdit();
+  };
+
+  const blockClickEdit = (event: MouseEvent<HTMLDivElement>) => {
+    if (!contentReadOnly || !isEditableTarget(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
     notifyBlockedEdit();
   };
 
   const blockKeyboardEdit = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!finalizationLock.active || !isEditableTarget(event.target)) return;
+    if (!contentReadOnly || !isEditableTarget(event.target)) return;
     const allowedCopyShortcut =
       (event.ctrlKey || event.metaKey) && ["a", "c"].includes(event.key.toLowerCase());
     if (event.key === "Tab" || event.key === "Escape" || allowedCopyShortcut) return;
@@ -98,14 +116,14 @@ export default function PgrEtapaPage({
   };
 
   const blockClipboardEdit = (event: ClipboardEvent<HTMLDivElement>) => {
-    if (!finalizationLock.active || !isEditableTarget(event.target)) return;
+    if (!contentReadOnly || !isEditableTarget(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
     notifyBlockedEdit();
   };
 
   const blockDropEdit = (event: DragEvent<HTMLDivElement>) => {
-    if (!finalizationLock.active || !isEditableTarget(event.target)) return;
+    if (!contentReadOnly || !isEditableTarget(event.target)) return;
     event.preventDefault();
     event.stopPropagation();
     notifyBlockedEdit();
@@ -134,13 +152,14 @@ export default function PgrEtapaPage({
       />
       <div
         ref={readOnlyContentRef}
-        aria-readonly={finalizationLock.active}
+        aria-readonly={contentReadOnly}
         className={`space-y-5 sm:space-y-6 ${
-          finalizationLock.active
+          contentReadOnly
             ? "[&_button]:cursor-not-allowed [&_input]:cursor-not-allowed [&_select]:cursor-not-allowed [&_textarea]:cursor-not-allowed"
             : ""
         }`}
         onPointerDownCapture={blockPointerEdit}
+        onClickCapture={blockClickEdit}
         onKeyDownCapture={blockKeyboardEdit}
         onPasteCapture={blockClipboardEdit}
         onCutCapture={blockClipboardEdit}
@@ -155,10 +174,11 @@ export default function PgrEtapaPage({
             isLocked: bodyCtx.workflow.isLocked,
           })}
           responsibleName={bodyCtx.functionInclusionElaboration?.responsibleName}
+          readOnly={functionInclusionReadOnly}
         />
         <PgrStepBody ctx={bodyCtx} />
       </div>
-      <StepFooterActions {...footerProps} readOnly={finalizationLock.active} />
+      <StepFooterActions {...footerProps} readOnly={contentReadOnly} />
       <SaveConflictDialog
         open={conflict.open}
         onReload={conflict.onReload}

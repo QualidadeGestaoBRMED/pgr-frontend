@@ -16,3 +16,11 @@ export const shouldShowFunctionInclusionBanner = ({
   isInElaborationPhase: boolean;
   isLocked: boolean;
 }): boolean => functionInclusionPending && isInElaborationPhase && !isLocked;
+
+export const shouldUseReadOnlyPgrView = ({
+  finalizationActive,
+  functionInclusionReadOnly,
+}: {
+  finalizationActive: boolean;
+  functionInclusionReadOnly: boolean;
+}): boolean => finalizationActive || functionInclusionReadOnly;

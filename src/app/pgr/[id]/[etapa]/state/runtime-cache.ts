@@ -15,6 +15,7 @@ import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 export type FunctionInclusionElaboration = {
   active: boolean;
   responsibleName: string | null;
+  readOnly: boolean;
 };
 
 export type PersistedPgrState = {

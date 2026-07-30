@@ -187,6 +187,7 @@ type UsePgrPersistenceContext = {
     currentRiskGheId: string;
     pdfLayout: PdfLayoutState;
     workflow: Workflow;
+    functionInclusionElaboration: FunctionInclusionElaboration;
     isStateLoading: boolean;
   };
   refs: {
@@ -268,6 +269,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     currentRiskGheId,
     pdfLayout,
     workflow,
+    functionInclusionElaboration,
     isStateLoading,
   } = state;
 
@@ -275,6 +277,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const skipInitialPersistRef = useRef(true);
   const skipPostHydrationPersistsRef = useRef(0);
   const pendingPersistPayloadRef = useRef<PersistPayload | null>(null);
+  const functionInclusionReadOnlyRef = useRef(false);
+  functionInclusionReadOnlyRef.current = Boolean(
+    functionInclusionElaboration.readOnly
+  );
   const lastPersistedSignatureRef = useRef<string | null>(null);
   const latestRiskGheGroupsRef = useRef<RiskGheGroup[]>(riskGheGroups);
   const prevImmediatePersistRefs = useRef<{
@@ -370,6 +376,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
   const persistPayload = useCallback(
     (payload: PersistPayload) => {
+      if (functionInclusionReadOnlyRef.current) {
+        pendingPersistPayloadRef.current = null;
+        return Promise.resolve();
+      }
       const payloadSignature = stableSerialize(payload);
       if (lastPersistedSignatureRef.current === payloadSignature) {
         pendingPersistPayloadRef.current = null;
@@ -848,6 +858,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
             typeof state.functionInclusionElaboration?.responsibleName === "string"
               ? state.functionInclusionElaboration.responsibleName
               : null,
+          readOnly: Boolean(state.functionInclusionElaboration?.readOnly),
         });
         skipPostHydrationPersistsRef.current = 2;
 
@@ -959,6 +970,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
   useEffect(() => {
     if (isStateLoading) return;
+    if (functionInclusionElaboration.readOnly) {
+      pendingPersistPayloadRef.current = null;
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      return;
+    }
     if (workflow.isLocked) return;
     if (workflow.finalization?.active) {
       pendingPersistPayloadRef.current = null;
@@ -1077,6 +1096,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     estabelecimentoSelecionado,
     extraEstabelecimentoFields,
     functionsData,
+    functionInclusionElaboration.readOnly,
     gheGroups,
     historicoData,
     inicioDraft,

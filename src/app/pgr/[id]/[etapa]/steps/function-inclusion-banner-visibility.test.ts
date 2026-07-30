@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldShowFunctionInclusionBanner } from "./function-inclusion-banner-visibility";
+import {
+  shouldShowFunctionInclusionBanner,
+  shouldUseReadOnlyPgrView,
+} from "./function-inclusion-banner-visibility";
 
 describe("shouldShowFunctionInclusionBanner", () => {
   it("shows while elaborating (not locked) with a pending function inclusion", () => {
@@ -42,5 +45,34 @@ describe("shouldShowFunctionInclusionBanner", () => {
         isLocked: false,
       })
     ).toBe(false);
+  });
+});
+
+describe("shouldUseReadOnlyPgrView", () => {
+  it("enables read-only mode for a visitor during function inclusion elaboration", () => {
+    expect(
+      shouldUseReadOnlyPgrView({
+        finalizationActive: false,
+        functionInclusionReadOnly: true,
+      })
+    ).toBe(true);
+  });
+
+  it("keeps the responsible user's elaboration editable", () => {
+    expect(
+      shouldUseReadOnlyPgrView({
+        finalizationActive: false,
+        functionInclusionReadOnly: false,
+      })
+    ).toBe(false);
+  });
+
+  it("preserves the existing finalization read-only mode", () => {
+    expect(
+      shouldUseReadOnlyPgrView({
+        finalizationActive: true,
+        functionInclusionReadOnly: false,
+      })
+    ).toBe(true);
   });
 });

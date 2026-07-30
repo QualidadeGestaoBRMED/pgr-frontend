@@ -596,6 +596,7 @@ export function usePgrEtapaController({
       currentRiskGheId: state.currentRiskGheId,
       pdfLayout: state.pdfLayout,
       workflow: state.workflow,
+      functionInclusionElaboration: state.functionInclusionElaboration,
       isStateLoading: state.isStateLoading,
     },
     refs: {

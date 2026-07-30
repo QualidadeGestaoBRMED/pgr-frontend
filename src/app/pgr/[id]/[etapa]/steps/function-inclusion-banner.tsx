@@ -3,6 +3,7 @@
 type FunctionInclusionBannerProps = {
   active: boolean;
   responsibleName?: string | null;
+  readOnly?: boolean;
 };
 
 /**
@@ -13,14 +14,14 @@ type FunctionInclusionBannerProps = {
  * do resto do app).
  *
  * Só o dono/responsável consegue editar o PGR nesse estágio (ver
- * _can_bypass_ownership_for_function_inclusion no backend — o acesso aberto
- * pra qualquer usuário só vale depois que o documento é finalizado), então
- * este aviso é o lembrete de que é ele quem precisa tratar a inclusão,
- * dentro do próprio fluxo de elaboração — não bloqueia nada, só sinaliza.
+ * _can_bypass_ownership_for_function_inclusion no backend). Outros usuários
+ * podem consultar o conteúdo em modo somente leitura; este aviso deixa claro
+ * quem está elaborando e quem deve tratar a inclusão no fluxo atual.
  */
 export function FunctionInclusionBanner({
   active,
   responsibleName,
+  readOnly = false,
 }: FunctionInclusionBannerProps) {
   if (!active) return null;
 
@@ -35,8 +36,10 @@ export function FunctionInclusionBanner({
         Alteração documental pendente para esta empresa
       </p>
       <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
-        {subject} está elaborando este documento. A solicitação de inclusão
-        de função deve ser tratada durante esta elaboração.
+        {subject} está elaborando este documento.{" "}
+        {readOnly
+          ? "Você está visualizando em modo somente leitura."
+          : "A solicitação de inclusão de função deve ser tratada durante esta elaboração."}
       </p>
     </div>
   );
