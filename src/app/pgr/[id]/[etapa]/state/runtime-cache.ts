@@ -12,6 +12,11 @@ import type { PlanTableRow } from "../hooks/use-pgr-etapa-derived";
 import type { PersistedPlanActionItem } from "../utils/plan-action-items";
 import type { PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
+export type FunctionInclusionElaboration = {
+  active: boolean;
+  responsibleName: string | null;
+};
+
 export type PersistedPgrState = {
   serverSynced?: boolean;
   syncedAt?: number;
@@ -21,6 +26,8 @@ export type PersistedPgrState = {
   // aviso interno mostrado durante a elaboração. Ver
   // functionInclusionPending no backend (frontend_state_view.py).
   functionInclusionPending?: boolean;
+  // Contexto calculado pelo backend; não integra o conteúdo persistido do PGR.
+  functionInclusionElaboration?: FunctionInclusionElaboration;
   inicioDraft: InicioDraft;
   dadosCadastrais: DadosCadastraisDraft;
   cardMeta: {
@@ -78,6 +85,12 @@ export type PersistedPgrState = {
       openedAt: string;
       openedBy: string;
       openedById: number | null;
+    }>;
+    functionInclusionHistory: Array<{
+      finalizedAt: string;
+      finalizedBy: string;
+      finalizedByUsername: string | null;
+      finalizedById: number | null;
     }>;
   };
 };

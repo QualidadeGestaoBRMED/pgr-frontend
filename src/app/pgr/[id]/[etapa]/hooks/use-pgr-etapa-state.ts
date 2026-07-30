@@ -21,7 +21,10 @@ import type {
   RiskCatalogPayload,
   RiskGheGroup,
 } from "../types";
-import type { PersistedPgrState } from "../state/runtime-cache";
+import type {
+  FunctionInclusionElaboration,
+  PersistedPgrState,
+} from "../state/runtime-cache";
 import { syncLegacyContractorFields } from "../utils/contractors";
 import { syncLegacyEstablishmentFields } from "../utils/establishments";
 import {
@@ -159,9 +162,15 @@ export function usePgrEtapaState({
       finalizedBy: null as string | null,
       finalizedById: null as number | null,
       currentVersionEditHistory: [],
+      functionInclusionHistory: [],
     }
   );
   const [functionInclusionPending, setFunctionInclusionPending] = useState(false);
+  const [functionInclusionElaboration, setFunctionInclusionElaboration] =
+    useState<FunctionInclusionElaboration>({
+      active: false,
+      responsibleName: null,
+    });
   const [pdfLayout, setPdfLayout] = useState(() =>
     normalizePdfLayoutState(DEFAULT_PDF_LAYOUT_STATE)
   );
@@ -270,11 +279,13 @@ export function usePgrEtapaState({
       currentRiskGheId,
       workflow,
       functionInclusionPending,
+      functionInclusionElaboration,
       pdfLayout,
       lastGheNotice,
     },
     setters: {
       setFunctionInclusionPending,
+      setFunctionInclusionElaboration,
       setCompletedSteps,
       setProgressPercent,
       setInicioDraft,

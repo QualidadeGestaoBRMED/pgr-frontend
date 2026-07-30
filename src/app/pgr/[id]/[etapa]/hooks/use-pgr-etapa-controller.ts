@@ -96,6 +96,34 @@ type PreviousPgrResponse = {
   reason?: string | null;
 };
 
+const PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES: Record<string, string> = {
+  destination_locked:
+    "Este PGR já está finalizado e bloqueado para edição — inicie uma nova versão antes de importar.",
+  destination_has_content:
+    "Este PGR já tem conteúdo preenchido (além de Início/Dados Cadastrais) — a importação não sobrescreve dados existentes.",
+  no_company:
+    "Não foi possível identificar a empresa deste card ainda. Clique em \"Sincronizar\" e tente novamente.",
+  no_previous: "Nenhum PGR anterior finalizado encontrado para esta empresa.",
+  function_inclusion:
+    "A importação do PGR anterior não está disponível durante a inclusão de função.",
+};
+
+function describePreviousPgrUnavailableReason(response: PreviousPgrResponse | null | undefined): string {
+  const key = String(response?.reason || "").trim();
+  if (key === "previous_not_finalized") {
+    const companyName = String(response?.companyName || "").trim();
+    const companySuffix = companyName ? ` (${companyName})` : "";
+    return (
+      `Foi encontrado um PGR anterior${companySuffix} desta empresa, mas ele ainda não foi ` +
+      "finalizado. Peça para um administrador finalizar o card antigo antes de importar."
+    );
+  }
+  return (
+    PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES[key] ||
+    PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES.no_previous
+  );
+}
+
 function formatIsoDateToBr(value?: string | null): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -540,6 +568,7 @@ export function usePgrEtapaController({
       setPdfLayout: setters.setPdfLayout,
       setWorkflow: setters.setWorkflow,
       setFunctionInclusionPending: setters.setFunctionInclusionPending,
+      setFunctionInclusionElaboration: setters.setFunctionInclusionElaboration,
       setIsStateLoading: setters.setIsStateLoading,
     },
     state: {
@@ -703,6 +732,15 @@ export function usePgrEtapaController({
     () => searchParams?.get("functionInclusion") === "1",
     [searchParams]
   );
+  const isFunctionInclusionContext =
+    isFunctionInclusionEntry || state.workflow.editContext === "function_inclusion";
+
+  useEffect(() => {
+    if (!isFunctionInclusionContext) return;
+    setPreviousImport(null);
+    setPreviousImportError(null);
+    setPreviousPgrCheckNotice(null);
+  }, [isFunctionInclusionContext]);
 
   const pendingReviewFocus = useMemo(
     () => parsePendingReviewFocus(searchParams),
@@ -829,12 +867,43 @@ export function usePgrEtapaController({
 
       const startedState = await apiPost<{
         workflow: PersistedPgrState["workflow"];
+        finalizationMode: "LOCK_ONLY" | "PIPEFY_PUBLISH";
         updatedAt?: string;
       }>(`/api/v1/frontend/pgr/${params.id}/finalization/start`);
       setKnownUpdatedAt(params.id, startedState.updatedAt);
       cancelPendingPersist();
       setters.setWorkflow(startedState.workflow);
       assertAttemptActive();
+
+      const finalizeDocument = async () => {
+        const finalizedState = await apiPost<{
+          completedSteps: number;
+          historico: HistoricoData;
+          workflow: PersistedPgrState["workflow"];
+          meta?: { progressPercent?: number };
+          updatedAt?: string;
+        }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
+        setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
+        if (finalizedState?.workflow) {
+          setters.setWorkflow(finalizedState.workflow);
+        }
+        if (typeof finalizedState?.completedSteps === "number") {
+          setters.setCompletedSteps(finalizedState.completedSteps);
+        }
+        if (typeof finalizedState?.meta?.progressPercent === "number") {
+          setters.setProgressPercent(finalizedState.meta.progressPercent);
+        } else if (finalizedState?.workflow?.isLocked) {
+          setters.setProgressPercent(100);
+        }
+        if (finalizedState?.historico) {
+          setters.setHistoricoData(finalizedState.historico);
+        }
+      };
+
+      if (startedState.finalizationMode === "LOCK_ONLY") {
+        await finalizeDocument();
+        return;
+      }
 
       const fileBase = buildPgrExportFileBase({
         companyName: state.inicioDraft.companyName,
@@ -884,52 +953,26 @@ export function usePgrEtapaController({
       ]);
       assertAttemptActive();
 
-      if (state.workflow.editContext === "function_inclusion") {
-        triggerBlobDownload(pdfBlob, fileBase + ".pdf");
-        triggerBlobDownload(xlsxBlob, fileBase + ".xlsx");
-      } else {
-        const pipefyAttachJobId = await startPipefyAttachJob({
-          pgrId: params.id,
-          pdfBlob,
-          xlsxBlob,
-          pdfFilename: fileBase + ".pdf",
-          xlsxFilename: fileBase + ".xlsx",
-        });
-        setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
-        try {
-          await waitForPipefyAttachJobCompletion(
-            params.id,
-            pipefyAttachJobId,
-            () => finalizationAttemptRef.current !== attempt
-          );
-        } finally {
-          setters.setHeavyGenerationWaitMessage(null);
-        }
+      const pipefyAttachJobId = await startPipefyAttachJob({
+        pgrId: params.id,
+        pdfBlob,
+        xlsxBlob,
+        pdfFilename: fileBase + ".pdf",
+        xlsxFilename: fileBase + ".xlsx",
+      });
+      setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
+      try {
+        await waitForPipefyAttachJobCompletion(
+          params.id,
+          pipefyAttachJobId,
+          () => finalizationAttemptRef.current !== attempt
+        );
+      } finally {
+        setters.setHeavyGenerationWaitMessage(null);
       }
       assertAttemptActive();
 
-      const finalizedState = await apiPost<{
-        completedSteps: number;
-        historico: HistoricoData;
-        workflow: PersistedPgrState["workflow"];
-        meta?: { progressPercent?: number };
-        updatedAt?: string;
-      }>(`/api/v1/frontend/pgr/${params.id}/finalize`);
-      setKnownUpdatedAt(params.id, finalizedState?.updatedAt);
-      if (finalizedState?.workflow) {
-        setters.setWorkflow(finalizedState.workflow);
-      }
-      if (typeof finalizedState?.completedSteps === "number") {
-        setters.setCompletedSteps(finalizedState.completedSteps);
-      }
-      if (typeof finalizedState?.meta?.progressPercent === "number") {
-        setters.setProgressPercent(finalizedState.meta.progressPercent);
-      } else if (finalizedState?.workflow?.isLocked) {
-        setters.setProgressPercent(100);
-      }
-      if (finalizedState?.historico) {
-        setters.setHistoricoData(finalizedState.historico);
-      }
+      await finalizeDocument();
     } catch (error) {
       if (error instanceof FinalizationCancelledError) return;
       const message =
@@ -951,7 +994,6 @@ export function usePgrEtapaController({
     setters,
     state.historicoData,
     state.inicioDraft,
-    state.workflow.editContext,
   ]);
 
   const handleCancelFinalization = useCallback(async () => {
@@ -1099,7 +1141,7 @@ export function usePgrEtapaController({
   }, [cancelPendingPersist, isFunctionInclusionEntry, params.id]);
 
   const handleImportPrevious = useCallback(async () => {
-    if (!previousImport || isImportingPrevious) return;
+    if (isFunctionInclusionContext || !previousImport || isImportingPrevious) return;
     setIsImportingPrevious(true);
     setPreviousImportError(null);
     try {
@@ -1117,10 +1159,16 @@ export function usePgrEtapaController({
           : "Não foi possível importar os dados agora. Tente novamente."
       );
     }
-  }, [cancelPendingPersist, isImportingPrevious, params.id, previousImport]);
+  }, [
+    cancelPendingPersist,
+    isFunctionInclusionContext,
+    isImportingPrevious,
+    params.id,
+    previousImport,
+  ]);
 
   const handleCheckPreviousPgr = useCallback(async () => {
-    if (isCheckingPreviousPgr) return;
+    if (isFunctionInclusionContext || isCheckingPreviousPgr) return;
     setIsCheckingPreviousPgr(true);
     setPreviousPgrCheckNotice(null);
     try {
@@ -1135,9 +1183,7 @@ export function usePgrEtapaController({
           attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
         });
       } else {
-        setPreviousPgrCheckNotice(
-          "Nenhum PGR anterior finalizado encontrado para esta empresa."
-        );
+        setPreviousPgrCheckNotice(describePreviousPgrUnavailableReason(previous));
       }
     } catch (error) {
       setPreviousPgrCheckNotice(
@@ -1148,7 +1194,7 @@ export function usePgrEtapaController({
     } finally {
       setIsCheckingPreviousPgr(false);
     }
-  }, [isCheckingPreviousPgr, params.id]);
+  }, [isCheckingPreviousPgr, isFunctionInclusionContext, params.id]);
 
   const handleStartNewVersion = useCallback(
     () => createNewVersion(),
@@ -1523,6 +1569,7 @@ export function usePgrEtapaController({
     Boolean(String(state.inicioDraft.responsible || "").trim());
 
   useEffect(() => {
+    if (isFunctionInclusionContext) return;
     if (state.isStateLoading) return;
     if (state.isPipefySyncing) return;
     if (state.inicioDraft.syncedAt && hasRequiredInitialSyncFields) return;
@@ -1544,6 +1591,8 @@ export function usePgrEtapaController({
             finalizedAt: formatIsoDateToBr(previous.finalizedAt),
             attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
           });
+        } else if (previous?.reason === "previous_not_finalized") {
+          setPreviousPgrCheckNotice(describePreviousPgrUnavailableReason(previous));
         }
       })
       .catch(() => {
@@ -1552,6 +1601,7 @@ export function usePgrEtapaController({
   }, [
     generalActions,
     hasRequiredInitialSyncFields,
+    isFunctionInclusionContext,
     params.id,
     state.inicioDraft.syncedAt,
     state.isPipefySyncing,
@@ -1609,7 +1659,7 @@ export function usePgrEtapaController({
     },
     saveError,
     previousImportDialog: {
-      open: previousImport !== null,
+      open: previousImport !== null && !isFunctionInclusionContext,
       companyName: previousImport?.companyName ?? "",
       finalizedAt: previousImport?.finalizedAt ?? "",
       attachmentsCount: previousImport?.attachmentsCount ?? 0,
@@ -1700,6 +1750,7 @@ export function usePgrEtapaController({
       infoModalMode: state.infoModalMode,
       workflow: state.workflow,
       functionInclusionPending: state.functionInclusionPending,
+      functionInclusionElaboration: state.functionInclusionElaboration,
       riskCatalogs: state.riskCatalogs,
       riskGheGroups: state.riskGheGroups,
       setRiskGheGroups: setters.setRiskGheGroups,
@@ -1789,6 +1840,7 @@ export function usePgrEtapaController({
       generalActions,
       handleSyncPipefy,
       handleCheckPreviousPgr,
+      canImportPreviousPgr: !isFunctionInclusionContext,
       isCheckingPreviousPgr,
       previousPgrCheckNotice,
       lastFunctionInclusion,

@@ -12,6 +12,7 @@ export const renderInicioStep: StepRenderer = (ctx) => (
     onDraftChange={ctx.generalActions.handleInicioDraftChange}
     onSyncPipefy={ctx.handleSyncPipefy}
     onCheckPreviousPgr={ctx.handleCheckPreviousPgr}
+    canImportPreviousPgr={ctx.canImportPreviousPgr}
     isCheckingPreviousPgr={ctx.isCheckingPreviousPgr}
     previousPgrCheckNotice={ctx.previousPgrCheckNotice}
     lastFunctionInclusion={ctx.lastFunctionInclusion}

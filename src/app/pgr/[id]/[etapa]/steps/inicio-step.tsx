@@ -13,6 +13,7 @@ type InicioStepProps = {
   onDraftChange: (field: InicioDraftEditableField, value: string) => void;
   onSyncPipefy: () => void;
   onCheckPreviousPgr: () => void;
+  canImportPreviousPgr: boolean;
   isCheckingPreviousPgr: boolean;
   previousPgrCheckNotice: string | null;
   lastFunctionInclusion: {
@@ -42,6 +43,7 @@ export function InicioStep({
   onDraftChange,
   onSyncPipefy,
   onCheckPreviousPgr,
+  canImportPreviousPgr,
   isCheckingPreviousPgr,
   previousPgrCheckNotice,
   lastFunctionInclusion,
@@ -150,19 +152,21 @@ export function InicioStep({
                 Sincronizando dados do Pipefy...
               </p>
             ) : null}
-            <button
-              type="button"
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={onCheckPreviousPgr}
-              disabled={isCheckingPreviousPgr}
-            >
-              {isCheckingPreviousPgr
-                ? "Verificando..."
-                : "Importar dados de PGR anterior"}
-            </button>
+            {canImportPreviousPgr ? (
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={onCheckPreviousPgr}
+                disabled={isCheckingPreviousPgr}
+              >
+                {isCheckingPreviousPgr
+                  ? "Verificando..."
+                  : "Importar dados de PGR anterior"}
+              </button>
+            ) : null}
           </div>
         </div>
-        {previousPgrCheckNotice ? (
+        {canImportPreviousPgr && previousPgrCheckNotice ? (
           <p className="mt-2 text-[12px] text-muted-foreground">
             {previousPgrCheckNotice}
           </p>

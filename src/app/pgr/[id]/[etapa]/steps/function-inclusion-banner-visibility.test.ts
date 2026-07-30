@@ -6,6 +6,7 @@ describe("shouldShowFunctionInclusionBanner", () => {
     expect(
       shouldShowFunctionInclusionBanner({
         functionInclusionPending: true,
+        isInElaborationPhase: true,
         isLocked: false,
       })
     ).toBe(true);
@@ -17,6 +18,7 @@ describe("shouldShowFunctionInclusionBanner", () => {
     expect(
       shouldShowFunctionInclusionBanner({
         functionInclusionPending: true,
+        isInElaborationPhase: true,
         isLocked: true,
       })
     ).toBe(false);
@@ -26,6 +28,17 @@ describe("shouldShowFunctionInclusionBanner", () => {
     expect(
       shouldShowFunctionInclusionBanner({
         functionInclusionPending: false,
+        isInElaborationPhase: true,
+        isLocked: false,
+      })
+    ).toBe(false);
+  });
+
+  it("hides for a DONE card that was never locked", () => {
+    expect(
+      shouldShowFunctionInclusionBanner({
+        functionInclusionPending: true,
+        isInElaborationPhase: false,
         isLocked: false,
       })
     ).toBe(false);
