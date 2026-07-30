@@ -292,9 +292,9 @@ export function AnexosStep({ctx}: AnexosStepProps) {
                                                     </button>
                                                 </div>
                                             </div>
-                                            <text className="text-[12px] text-muted-foreground">
+                                            <span className="text-[12px] text-muted-foreground">
                                                 Orientação do anexo:
-                                            </text>
+                                            </span>
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
 
                                                 <div className="w-[150px]">

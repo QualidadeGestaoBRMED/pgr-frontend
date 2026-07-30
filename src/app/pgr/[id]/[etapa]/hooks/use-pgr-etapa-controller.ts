@@ -651,6 +651,7 @@ export function usePgrEtapaController({
   ]);
 
   const handleAdvanceApiSync = useCallback((nextCompleted: number) => {
+    if (state.functionInclusionElaboration.readOnly) return;
     void putPgrState(params.id, {
       completedSteps: nextCompleted,
       meta: {
@@ -661,13 +662,18 @@ export function usePgrEtapaController({
       // Sem bloqueio de navegação em caso de falha de rede.
       // Conflito (409) já é tratado pelo funil putPgrState.
     });
-  }, [params.id, weightedProgressPercent]);
+  }, [
+    params.id,
+    state.functionInclusionElaboration.readOnly,
+    weightedProgressPercent,
+  ]);
 
   const cycleTime = useCycleTimeTracker({
     pgrId: params.id,
     stepId: step.id,
     historicoData: state.historicoData,
-    isStateLoading: state.isStateLoading,
+    isStateLoading:
+      state.isStateLoading || state.functionInclusionElaboration.readOnly,
     isLocked:
       state.workflow.isLocked || Boolean(state.workflow.finalization?.active),
   });
@@ -757,6 +763,8 @@ export function usePgrEtapaController({
   );
 
   useEffect(() => {
+    if (state.isStateLoading) return;
+    if (state.functionInclusionElaboration.readOnly) return;
     if (!rejectionReasonFromQuery) return;
     if (rejectionReasonAppliedRef.current) return;
     if (state.workflow.rejectionReason === rejectionReasonFromQuery) {
@@ -780,6 +788,8 @@ export function usePgrEtapaController({
     params.id,
     rejectionReasonFromQuery,
     setters,
+    state.functionInclusionElaboration.readOnly,
+    state.isStateLoading,
     state.workflow,
   ]);
 
@@ -1411,6 +1421,8 @@ export function usePgrEtapaController({
   }, [params.id]);
 
   useEffect(() => {
+    if (state.isStateLoading) return;
+    if (state.functionInclusionElaboration.readOnly) return;
     // "revisao" não conta como unidade de completedSteps (ver progress.ts):
     // é um gate pós-100%, não um passo do progresso — por isso fica de fora
     // da contagem contígua aqui.
@@ -1426,7 +1438,14 @@ export function usePgrEtapaController({
       setters.setCompletedSteps(contiguousDone);
       handleAdvanceApiSync(contiguousDone);
     }
-  }, [derived.stepStatusById, handleAdvanceApiSync, setters, state.completedSteps]);
+  }, [
+    derived.stepStatusById,
+    handleAdvanceApiSync,
+    setters,
+    state.completedSteps,
+    state.functionInclusionElaboration.readOnly,
+    state.isStateLoading,
+  ]);
 
   useEffect(() => {
     if (state.planTablePage > derived.planTableTotalPages) {
@@ -1571,6 +1590,7 @@ export function usePgrEtapaController({
 
   useEffect(() => {
     if (isFunctionInclusionContext) return;
+    if (state.functionInclusionElaboration.readOnly) return;
     if (state.isStateLoading) return;
     if (state.isPipefySyncing) return;
     if (state.inicioDraft.syncedAt && hasRequiredInitialSyncFields) return;
@@ -1604,6 +1624,7 @@ export function usePgrEtapaController({
     hasRequiredInitialSyncFields,
     isFunctionInclusionContext,
     params.id,
+    state.functionInclusionElaboration.readOnly,
     state.inicioDraft.syncedAt,
     state.isPipefySyncing,
     state.isStateLoading,

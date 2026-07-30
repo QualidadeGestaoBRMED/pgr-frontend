@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { apiGet } from "@/lib/api";
-import { putPgrState, setKnownUpdatedAt } from "../state/state-version";
+import { putPgrState, replaceKnownUpdatedAt } from "../state/state-version";
 import { pgrSteps } from "@/app/pgr/steps";
 import type { DadosCadastraisDraft, InicioDraft } from "../steps/types";
 import type { PlanTableRow } from "./use-pgr-etapa-derived";
@@ -532,7 +532,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         if (!active) return;
 
         // Prime o token de lock otimista com a versão recém-carregada.
-        setKnownUpdatedAt(params.id, state.updatedAt);
+        replaceKnownUpdatedAt(params.id, state.updatedAt);
 
         const rawCompleted = Number(state.completedSteps);
         const normalizedCompleted = Number.isFinite(rawCompleted)
@@ -667,6 +667,8 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                 version: Number(item?.version || 0) || undefined,
                 isActive:
                   typeof item?.isActive === "boolean" ? item.isActive : undefined,
+                isDefault:
+                  typeof item?.isDefault === "boolean" ? item.isDefault : undefined,
               }))
               .filter((item) => item.id > 0 && item.name && item.nrCode)
           : [];

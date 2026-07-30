@@ -1,5 +1,5 @@
 import { apiBlobGet, apiDelete, apiPost, apiPostForm } from "@/lib/api";
-import { runInSaveChain, setKnownUpdatedAt } from "../state/state-version";
+import { runInSaveChain } from "../state/state-version";
 import {
   DescricaoImportMissingRequiredFieldsError,
   parseDescricaoExcel,
@@ -955,20 +955,20 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
   const handleLoadPipefyMock = async () => {
     setIsPipefySyncing(true);
     try {
-      const response = await apiPost<{
-        inicioDraft: Partial<InicioDraft>;
-        dadosCadastrais: Partial<DadosCadastraisDraft>;
-        cardMeta: {
-          pipefyCardId: string;
-          cardName: string;
-          dueDate: string;
-          companyId: number | null;
-          responsibleId: number | null;
-        };
-        updatedAt?: string;
-      }>(`/api/v1/frontend/pgr/${params.id}/sync-pipefy`);
-      // O sync gravou o estado no servidor — sincroniza o token do lock otimista.
-      setKnownUpdatedAt(params.id, response?.updatedAt);
+      const response = await runInSaveChain(params.id, () =>
+        apiPost<{
+          inicioDraft: Partial<InicioDraft>;
+          dadosCadastrais: Partial<DadosCadastraisDraft>;
+          cardMeta: {
+            pipefyCardId: string;
+            cardName: string;
+            dueDate: string;
+            companyId: number | null;
+            responsibleId: number | null;
+          };
+          updatedAt?: string;
+        }>(`/api/v1/frontend/pgr/${params.id}/sync-pipefy`)
+      );
       const rawInicioDraft = (response?.inicioDraft || {}) as Record<string, unknown>;
       const rawCardMeta = (response?.cardMeta || {}) as Record<string, unknown>;
       const normalizedInicioDraft = normalizeInicioDraftFromPipefy(

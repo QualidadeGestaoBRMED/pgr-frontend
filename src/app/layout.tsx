@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     title: "PGR",
     statusBarStyle: "default",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {

@@ -172,6 +172,7 @@ export type PgrDocxTemplateOption = {
   baseTemplateId?: number | null;
   version?: number;
   isActive?: boolean;
+  isDefault?: boolean;
 };
 
 export type PgrDiretrizOption = {

@@ -51,6 +51,18 @@ export function setKnownUpdatedAt(
   knownUpdatedAtByPgr.set(pgrId, value);
 }
 
+// Uma resposta de GET /state representa a versão que o banco realmente tem.
+// Ela precisa substituir até um token maior: uma mutação concorrente antiga
+// pode ter devolvido um updatedAt que depois foi sobrescrito no banco antes de
+// as gravações do mesmo cliente passarem a usar a fila única.
+export function replaceKnownUpdatedAt(
+  pgrId: string,
+  value: string | null | undefined
+): void {
+  if (typeof value !== "string" || !value.trim()) return;
+  knownUpdatedAtByPgr.set(pgrId, value);
+}
+
 export function clearKnownUpdatedAt(pgrId: string): void {
   knownUpdatedAtByPgr.delete(pgrId);
 }

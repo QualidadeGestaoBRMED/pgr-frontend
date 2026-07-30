@@ -42,6 +42,7 @@ import {
 } from "../utils/plan-priority";
 import { calculateAutomaticActionDueDate } from "../utils/action-date";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
+import { buildPgrDiretrizOptions } from "../utils/pgr-docx-template-options";
 
 export type PlanTableRow = {
   id: string;
@@ -76,12 +77,6 @@ const normalizeText = (value: string) =>
 
 const uniqueValues = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
-
-const resolveTemplateNrCode = (nr: string) => {
-  const normalized = String(nr || "").trim().toUpperCase();
-  if (normalized === "NR-30") return "NR-30";
-  return "NR-01";
-};
 
 const riskIssueFieldMap: Record<string, string> = {
   "Tipo de agente e obrigatorio": "tipoAgente",
@@ -326,38 +321,9 @@ export function usePgrEtapaDerived({
   } =
     useRiskCatalogHelpers(riskCatalogs);
 
-  const templateNrCode = useMemo(
-    () => resolveTemplateNrCode(planAction.nr),
-    [planAction.nr]
-  );
   const diretrizOptions = useMemo<PgrDiretrizOption[]>(() => {
-    const defaultOption: PgrDiretrizOption = {
-      value: `default:${templateNrCode}`,
-      label: `Padrão BRMED ${String(planAction.nr || "").trim() || "NR-01"}`,
-      templateId: null,
-      nrCode: templateNrCode,
-      isDefault: true,
-    };
-    const filteredTemplates = pgrDocxTemplates
-      .filter((item) => item.nrCode === templateNrCode)
-      .sort((left, right) => {
-        const leftCompany = left.companyId ? 1 : 0;
-        const rightCompany = right.companyId ? 1 : 0;
-        if (leftCompany !== rightCompany) return rightCompany - leftCompany;
-        const leftVersion = Number(left.version || 0);
-        const rightVersion = Number(right.version || 0);
-        if (leftVersion !== rightVersion) return rightVersion - leftVersion;
-        return left.name.localeCompare(right.name, "pt-BR");
-      })
-      .map<PgrDiretrizOption>((item) => ({
-        value: `template:${item.id}`,
-        label: item.name,
-        templateId: item.id,
-        nrCode: item.nrCode,
-        isDefault: false,
-      }));
-    return [defaultOption, ...filteredTemplates];
-  }, [pgrDocxTemplates, planAction.nr, templateNrCode]);
+    return buildPgrDiretrizOptions(pgrDocxTemplates, planAction.nr);
+  }, [pgrDocxTemplates, planAction.nr]);
   const estabelecimentoOptions = ["Próprio", "Terceirizado"];
 
   const functionMap = useMemo(
