@@ -39,6 +39,8 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       planActionRiskOptions: ctx.planActionRiskOptions,
       planActionDescription: ctx.planActionDescription,
       setPlanActionDescription: ctx.setPlanActionDescription,
+      planActionPriority: ctx.planActionPriority,
+      setPlanActionPriority: ctx.setPlanActionPriority,
       persistedOptionsByRowId: ctx.persistedOptionsByRowId,
       setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,
       handleSavePlanActionModal: ctx.generalActions.handleSavePlanActionModal,

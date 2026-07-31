@@ -114,6 +114,7 @@ export function usePgrEtapaState({
   const [planActionGheId, setPlanActionGheId] = useState("");
   const [planActionRiskId, setPlanActionRiskId] = useState("");
   const [planActionDescription, setPlanActionDescription] = useState("");
+  const [planActionPriority, setPlanActionPriority] = useState("Média");
   const [persistedOptionsByRowId, setPersistedOptionsByRowId] = useState<Record<string, string[]>>(
     {}
   );
@@ -253,6 +254,7 @@ export function usePgrEtapaState({
       planActionGheId,
       planActionRiskId,
       planActionDescription,
+      planActionPriority,
       persistedOptionsByRowId,
       editingMedidasId,
       editingMedidasValue,
@@ -315,6 +317,7 @@ export function usePgrEtapaState({
       setPlanActionGheId,
       setPlanActionRiskId,
       setPlanActionDescription,
+      setPlanActionPriority,
       setPersistedOptionsByRowId,
       setEditingMedidasId,
       setEditingMedidasValue,

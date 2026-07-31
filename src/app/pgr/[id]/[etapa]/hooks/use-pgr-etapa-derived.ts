@@ -592,7 +592,7 @@ export function usePgrEtapaDerived({
             gheName: item.gheName || "Todos os GHEs",
             tipoAgente: "Medidas Gerais",
             descricaoAgente: "Medidas Gerais",
-            prioridade: "Média",
+            prioridade: normalizePriorityText(item.prioridade) || "Média",
             classificacao: "Risco Moderado",
             exposureValue: undefined,
             medidasPrevencao: item.descricao || "",

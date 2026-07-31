@@ -95,6 +95,7 @@ export type PlanGeneralMeasureRow = {
   descricao: string;
   gheName?: string;
   targetGheIds?: string[];
+  prioridade?: string;
   tipoMedida?: string;
   prazoAcao?: string;
   disableAutoPrazoAcao?: boolean;

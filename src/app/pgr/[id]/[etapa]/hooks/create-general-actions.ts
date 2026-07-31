@@ -143,6 +143,7 @@ type GeneralActionsContext = {
     setPlanActionGheId: React.Dispatch<React.SetStateAction<string>>;
     setPlanActionRiskId: React.Dispatch<React.SetStateAction<string>>;
     setPlanActionDescription: React.Dispatch<React.SetStateAction<string>>;
+    setPlanActionPriority: React.Dispatch<React.SetStateAction<string>>;
     setIsPlanActionModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
     setRemovedPlanRiskKeys: React.Dispatch<React.SetStateAction<string[]>>;
@@ -184,6 +185,7 @@ type GeneralActionsContext = {
     planActionGheId: string;
     planActionRiskId: string;
     planActionDescription: string;
+    planActionPriority: string;
     completedSteps: number;
     currentIndex: number;
     nextStep: { id: string } | null;
@@ -221,6 +223,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionGheId,
     setPlanActionRiskId,
     setPlanActionDescription,
+    setPlanActionPriority,
     setIsPlanActionModalOpen,
     setRiskGheGroups,
     setRemovedPlanRiskKeys,
@@ -248,6 +251,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     planActionGheId,
     planActionRiskId,
     planActionDescription,
+    planActionPriority,
     completedSteps,
     currentIndex,
     nextStep,
@@ -1039,6 +1043,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionGheId(firstGhe?.id ?? "");
     setPlanActionRiskId(firstRisk?.id ?? "");
     setPlanActionDescription("");
+    setPlanActionPriority("Média");
     setIsPlanActionModalOpen(true);
   };
 
@@ -1281,6 +1286,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         gheIds: Array.from(selectedGheIds),
         availableGheGroups: availablePlanActionGheGroups,
         idSeed: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+        prioridade: planActionPriority,
       });
       if (!row) return;
 
@@ -1288,6 +1294,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         return [...prev, row];
       });
       setPlanActionDescription("");
+      setPlanActionPriority("Média");
       setIsPlanActionModalOpen(false);
       return;
     }

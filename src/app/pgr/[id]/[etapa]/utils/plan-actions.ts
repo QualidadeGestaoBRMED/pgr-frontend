@@ -147,6 +147,7 @@ type BuildPlanActionGeneralMeasureRowArgs = {
     gheIds: string[];
     availableGheGroups: RiskGheGroup[];
     idSeed: string;
+    prioridade?: string;
 };
 
 export function buildPlanActionGeneralMeasureRow({
@@ -155,6 +156,7 @@ export function buildPlanActionGeneralMeasureRow({
                                                      gheIds,
                                                      availableGheGroups,
                                                      idSeed,
+                                                     prioridade,
                                                  }: BuildPlanActionGeneralMeasureRowArgs): PlanGeneralMeasureRow | null {
     const safeDescription = String(description || "").trim();
     const safeNr = String(nr || "").trim();
@@ -186,6 +188,7 @@ export function buildPlanActionGeneralMeasureRow({
         descricao: safeDescription,
         gheName: appliesToAllGhes ? "Todos os GHEs" : formattedGheName || "Todos os GHEs",
         targetGheIds: selectedGheIds,
+        prioridade: String(prioridade || "").trim() || "Média",
         tipoMedida: "",
         prazoAcao: "",
         responsavelAcao: "",

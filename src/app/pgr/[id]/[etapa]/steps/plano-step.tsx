@@ -111,6 +111,8 @@ type PlanoStepProps = {
         planActionRiskOptions: SearchableSelectProps["options"];
         planActionDescription: string;
         setPlanActionDescription: Dispatch<SetStateAction<string>>;
+        planActionPriority: string;
+        setPlanActionPriority: Dispatch<SetStateAction<string>>;
         persistedOptionsByRowId: Record<string, string[]>;
         setPersistedOptionsByRowId: Dispatch<SetStateAction<Record<string, string[]>>>;
         handleSavePlanActionModal: (options?: { riskIds?: string[]; gheIds?: string[] }) => void;
@@ -208,6 +210,8 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         planActionRiskOptions,
         planActionDescription,
         setPlanActionDescription,
+        planActionPriority,
+        setPlanActionPriority,
         handleSavePlanActionModal,
         handleCreateNrPlanRows,
     } = ctx;
@@ -1222,6 +1226,26 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                     Nenhum GHE disponível.
                                                 </p>
                                             )}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {planActionScope === "all" || planActionScope === "ghe" ? (
+                                    <div>
+                                        <label className="text-[12px] font-semibold text-muted-foreground">
+                                            Prioridade da ação
+                                        </label>
+                                        <div className="mt-2">
+                                            <select
+                                                className={selectBaseClass}
+                                                value={planActionPriority}
+                                                onChange={(event) => setPlanActionPriority(event.target.value)}
+                                            >
+                                                <option value="Baixa">Baixa</option>
+                                                <option value="Média">Média</option>
+                                                <option value="Alta">Alta</option>
+                                                <option value="Imediata">Imediata</option>
+                                            </select>
                                         </div>
                                     </div>
                                 ) : null}

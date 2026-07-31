@@ -157,6 +157,31 @@ describe("plan action helpers", () => {
         expect(row?.targetGheIds).toEqual(["g-2"]);
     });
 
+    it("uses the given priority instead of always defaulting to Média", () => {
+        const row = buildPlanActionGeneralMeasureRow({
+            description: "Isolar area de risco",
+            nr: "NR-01",
+            gheIds: ["g-1"],
+            idSeed: "test-priority",
+            availableGheGroups: [{id: "g-1", name: "GHE 1", risks: []}],
+            prioridade: "Alta",
+        });
+
+        expect(row?.prioridade).toBe("Alta");
+    });
+
+    it("falls back to Média when no priority is given", () => {
+        const row = buildPlanActionGeneralMeasureRow({
+            description: "Isolar area de risco",
+            nr: "NR-01",
+            gheIds: ["g-1"],
+            idSeed: "test-priority-default",
+            availableGheGroups: [{id: "g-1", name: "GHE 1", risks: []}],
+        });
+
+        expect(row?.prioridade).toBe("Média");
+    });
+
     it("does not create a row without description or target GHE", () => {
         expect(
             buildPlanActionGeneralMeasureRow({
