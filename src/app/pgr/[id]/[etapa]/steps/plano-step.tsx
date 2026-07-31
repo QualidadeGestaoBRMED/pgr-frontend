@@ -434,10 +434,6 @@ export function PlanoStep({ctx}: PlanoStepProps) {
 
     useEffect(() => {
         if (!isPlanActionModalOpen) return;
-        if (planActionScope !== "risk" && planActionScope !== "all") {
-            setSelectedPlanActionGheIds([]);
-            return;
-        }
 
         const availableGheIds = planActionGheOptions.map((option) =>
             String(option.value)
@@ -497,7 +493,8 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     const planActionDescriptionError = planActionDescription.trim()
         ? ""
         : "Descrição da ação é obrigatória.";
-    const shouldValidateGheBatchSelection = planActionScope === "risk";
+    const shouldValidateGheBatchSelection =
+        planActionScope === "risk" || planActionScope === "ghe";
     const planActionGheSelectionError =
         shouldValidateGheBatchSelection &&
         planActionGheOptions.length > 0 &&
@@ -1086,128 +1083,117 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                     </div>
                                 </div>
 
-                                {planActionScope !== "all" ? (
-                                    <>
-                                        {planActionScope === "ghe" ? (
+                                {planActionScope === "ghe" || planActionScope === "risk" ? (
+                                    <div
+                                        className={
+                                            planActionScope === "risk"
+                                                ? "grid gap-4 md:grid-cols-2"
+                                                : undefined
+                                        }
+                                    >
+                                        {planActionScope === "risk" ? (
                                             <div>
                                                 <label className="text-[12px] font-semibold text-muted-foreground">
-                                                    GHE
+                                                    Risco
                                                 </label>
                                                 <div className="mt-2">
                                                     <SearchableSelect
-                                                        value={planActionGheId}
-                                                        onChange={handlePlanActionGheChange}
-                                                        options={planActionGheOptions}
+                                                        value={planActionRiskId}
+                                                        onChange={setPlanActionRiskId}
+                                                        options={effectivePlanActionRiskOptions}
                                                         buttonClassName={selectBaseClass}
-                                                        searchPlaceholder="Filtrar GHE"
-                                                        disabled={!planActionGheOptions.length}
+                                                        searchPlaceholder="Filtrar risco"
+                                                        disabled={!effectivePlanActionRiskOptions.length}
                                                     />
                                                 </div>
                                             </div>
                                         ) : null}
-                                        {planActionScope === "risk" ? (
-                                            <div className="grid gap-4 md:grid-cols-2">
-                                                <div>
-                                                    <label className="text-[12px] font-semibold text-muted-foreground">
-                                                        Risco
-                                                    </label>
-                                                    <div className="mt-2">
-                                                        <SearchableSelect
-                                                            value={planActionRiskId}
-                                                            onChange={setPlanActionRiskId}
-                                                            options={effectivePlanActionRiskOptions}
-                                                            buttonClassName={selectBaseClass}
-                                                            searchPlaceholder="Filtrar risco"
-                                                            disabled={!effectivePlanActionRiskOptions.length}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[12px] font-semibold text-muted-foreground">
-                                                        GHEs para aplicar em lote
-                                                    </label>
-                                                    <div
-                                                        className="mt-2 rounded-[10px] border border-border/60 bg-background/40 p-3">
-                                                        {planActionGheOptions.length ? (
-                                                            <>
-                                                                <div
-                                                                    className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                                        <div>
+                                            <label className="text-[12px] font-semibold text-muted-foreground">
+                                                {planActionScope === "risk"
+                                                    ? "GHEs para aplicar em lote"
+                                                    : "GHEs"}
+                                            </label>
+                                            <div
+                                                className="mt-2 rounded-[10px] border border-border/60 bg-background/40 p-3">
+                                                {planActionGheOptions.length ? (
+                                                    <>
+                                                        <div
+                                                            className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
                                   <span>
                                     {selectedPlanActionGheIds.length} de{" "}
                                       {planActionGheOptions.length} selecionados
                                   </span>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                setSelectedPlanActionGheIds(
-                                                                                    planActionGheOptions.map((option) =>
-                                                                                        String(option.value)
-                                                                                    )
-                                                                                )
-                                                                            }
-                                                                            className="underline underline-offset-2 hover:text-foreground"
-                                                                        >
-                                                                            Marcar todos
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => setSelectedPlanActionGheIds([])}
-                                                                            className="underline underline-offset-2 hover:text-foreground"
-                                                                        >
-                                                                            Limpar
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                                <div
-                                                                    className="max-h-[220px] space-y-2 overflow-auto pr-1">
-                                                                    {planActionGheOptions.map((option) => {
-                                                                        const gheId = String(option.value);
-                                                                        const checked =
-                                                                            selectedPlanActionGheIds.includes(gheId);
-                                                                        return (
-                                                                            <label
-                                                                                key={gheId}
-                                                                                className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-border/60 bg-background/60 px-2 py-2 text-[12px] text-foreground hover:bg-muted/60"
-                                                                            >
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    className="mt-0.5 h-4 w-4 accent-primary"
-                                                                                    checked={checked}
-                                                                                    onChange={(event) => {
-                                                                                        setSelectedPlanActionGheIds((prev) => {
-                                                                                            if (event.target.checked) {
-                                                                                                return prev.includes(gheId)
-                                                                                                    ? prev
-                                                                                                    : [...prev, gheId];
-                                                                                            }
-                                                                                            return prev.filter((id) => id !== gheId);
-                                                                                        });
-                                                                                    }}
-                                                                                />
-                                                                                <span className="leading-relaxed">
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedPlanActionGheIds(
+                                                                            planActionGheOptions.map((option) =>
+                                                                                String(option.value)
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                    className="underline underline-offset-2 hover:text-foreground"
+                                                                >
+                                                                    Marcar todos
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSelectedPlanActionGheIds([])}
+                                                                    className="underline underline-offset-2 hover:text-foreground"
+                                                                >
+                                                                    Limpar
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div
+                                                            className="max-h-[220px] space-y-2 overflow-auto pr-1">
+                                                            {planActionGheOptions.map((option) => {
+                                                                const gheId = String(option.value);
+                                                                const checked =
+                                                                    selectedPlanActionGheIds.includes(gheId);
+                                                                return (
+                                                                    <label
+                                                                        key={gheId}
+                                                                        className="flex cursor-pointer items-start gap-2 rounded-[8px] border border-border/60 bg-background/60 px-2 py-2 text-[12px] text-foreground hover:bg-muted/60"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="mt-0.5 h-4 w-4 accent-primary"
+                                                                            checked={checked}
+                                                                            onChange={(event) => {
+                                                                                setSelectedPlanActionGheIds((prev) => {
+                                                                                    if (event.target.checked) {
+                                                                                        return prev.includes(gheId)
+                                                                                            ? prev
+                                                                                            : [...prev, gheId];
+                                                                                    }
+                                                                                    return prev.filter((id) => id !== gheId);
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                        <span className="leading-relaxed">
                                           {option.label}
                                         </span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </>
-                                                        ) : (
-                                                            <p className="text-[12px] text-muted-foreground">
-                                                                Nenhum GHE disponível.
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    {planActionGheSelectionError ? (
-                                                        <p className="mt-1 text-[12px] text-danger-foreground">
-                                                            {planActionGheSelectionError}
-                                                        </p>
-                                                    ) : null}
-                                                </div>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-[12px] text-muted-foreground">
+                                                        Nenhum GHE disponível.
+                                                    </p>
+                                                )}
                                             </div>
-                                        ) : null}
-                                    </>
+                                            {planActionGheSelectionError ? (
+                                                <p className="mt-1 text-[12px] text-danger-foreground">
+                                                    {planActionGheSelectionError}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </div>
                                 ) : null}
                                 {planActionScope === "all" ? (
                                     <div>
@@ -1287,7 +1273,9 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                     riskIds: planActionRiskId ? [planActionRiskId] : [],
                                                     gheIds: selectedPlanActionGheIds,
                                                 }
-                                                : undefined
+                                                : planActionScope === "ghe"
+                                                    ? { gheIds: selectedPlanActionGheIds }
+                                                    : undefined
                                         );
                                     }}
                                     className="btn-primary px-5"

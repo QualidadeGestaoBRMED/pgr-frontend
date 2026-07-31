@@ -1270,7 +1270,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       (Array.isArray(gheIds) && gheIds.length ? gheIds : fallbackGheIds).filter(Boolean)
     );
     if (planActionScope === "risk" && selectedRiskIds.size === 0) return;
-    if (planActionScope === "risk" && selectedGheIds.size === 0) return;
+    if ((planActionScope === "risk" || planActionScope === "ghe") && selectedGheIds.size === 0) {
+      return;
+    }
 
     if (planActionScope === "all" || planActionScope === "ghe") {
       const row = buildPlanActionGeneralMeasureRow({
@@ -1320,9 +1322,13 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           if (!applyForRisk) return risk;
           touchedKeys.add(`${ghe.id}::${risk.id}`);
 
-          const existingMeasure = (
-            risk.medidasPrevencaoPlano || risk.medidasControle || ""
-          ).trim();
+          // "medidasControle" é um campo distinto (controles já em prática,
+          // vem da caracterização do risco) -- não conta como o risco já
+          // "ter uma ação" no plano. Usar ele aqui fazia até a primeira ação
+          // de um risco (que devia só preencher a linha nativa) cair sempre
+          // no ramo de ação extra, porque medidasControle é obrigatório e
+          // quase nunca vem vazio.
+          const existingMeasure = (risk.medidasPrevencaoPlano || "").trim();
           // Risco sem nenhuma ação ainda: essa é a primeira, preenche a
           // linha nativa dele (comportamento já existente, sem duplicar).
           if (!existingMeasure) {
