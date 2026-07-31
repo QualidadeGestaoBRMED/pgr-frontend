@@ -121,6 +121,26 @@ export const calculateAffectedWorkersRange = (
     return 5;
 };
 
+// Identifica, dentro do riskId opaco usado pela tabela do plano de ação, uma
+// linha derivada de GheRisk.extraPlanActions (ação extra criada com escopo
+// "Risco específico" para um risco que já tinha medida preenchida) em vez do
+// próprio risco. Ver PlanRiskExtraAction em types.ts.
+const EXTRA_PLAN_ACTION_DELIMITER = "__extra-action__";
+
+export const buildExtraPlanActionRiskId = (riskId: string, actionId: string) =>
+    `${riskId}${EXTRA_PLAN_ACTION_DELIMITER}${actionId}`;
+
+export const parseExtraPlanActionRiskId = (
+    riskId: string
+): { riskId: string; actionId: string } | null => {
+    const index = riskId.indexOf(EXTRA_PLAN_ACTION_DELIMITER);
+    if (index === -1) return null;
+    return {
+        riskId: riskId.slice(0, index),
+        actionId: riskId.slice(index + EXTRA_PLAN_ACTION_DELIMITER.length),
+    };
+};
+
 type BuildPlanActionGeneralMeasureRowArgs = {
     description: string;
     nr: string;

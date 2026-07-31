@@ -2,11 +2,35 @@ import {describe, expect, it} from "vitest";
 
 import {
     buildCommonRiskOptionsForGhes,
+    buildExtraPlanActionRiskId,
     buildPlanActionGeneralMeasureRow,
     calculateAffectedWorkersRange,
     calculatePlanActionPriority,
+    parseExtraPlanActionRiskId,
     resolveRiskGradationValue,
 } from "./plan-actions";
+
+describe("extra plan action riskId encoding", () => {
+    it("round-trips risk id and action id", () => {
+        const encoded = buildExtraPlanActionRiskId("risk-1", "plan-risk-action-abc");
+        expect(parseExtraPlanActionRiskId(encoded)).toEqual({
+            riskId: "risk-1",
+            actionId: "plan-risk-action-abc",
+        });
+    });
+
+    it("returns null for a plain risk id", () => {
+        expect(parseExtraPlanActionRiskId("risk-1")).toBeNull();
+    });
+
+    it("only splits at the first delimiter, keeping the action id intact", () => {
+        const encoded = buildExtraPlanActionRiskId("risk-1", "action-with-__extra-action__-inside");
+        expect(parseExtraPlanActionRiskId(encoded)).toEqual({
+            riskId: "risk-1",
+            actionId: "action-with-__extra-action__-inside",
+        });
+    });
+});
 
 describe("plan action helpers", () => {
     it.each([
