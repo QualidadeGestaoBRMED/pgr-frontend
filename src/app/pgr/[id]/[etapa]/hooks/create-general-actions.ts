@@ -984,11 +984,17 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         rawCardMeta
       );
 
-      setInicioDraft({
+      // Mesmo motivo do merge de dadosCadastrais logo abaixo: o Pipefy nao
+      // conhece campos como responsibleRole, entao partir de
+      // `prevInicioDraft` (em vez de `initialInicioDraft`) evita que cada
+      // sincronizacao apague de volta para vazio o que o usuario preencheu
+      // manualmente e o Pipefy nao envia.
+      setInicioDraft((prevInicioDraft) => ({
         ...initialInicioDraft,
+        ...prevInicioDraft,
         ...normalizedInicioDraft,
         syncedAt: normalizedInicioDraft.syncedAt ?? null,
-      });
+      }));
       const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
       const fallbackCompany =
         String(responseDados.empresaNome || "").trim() ||

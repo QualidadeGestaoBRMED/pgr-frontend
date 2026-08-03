@@ -55,6 +55,7 @@ export const initialInicioDraft: InicioDraft = {
   unitName: "",
   cnpj: "",
   responsible: "",
+  responsibleRole: "",
   email: "",
   notes: "",
 };

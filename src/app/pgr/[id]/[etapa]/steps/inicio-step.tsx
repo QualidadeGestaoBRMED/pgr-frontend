@@ -265,6 +265,16 @@ export function InicioStep({
               <p className="mt-1 text-[12px] text-danger-foreground">{errors.responsible}</p>
             ) : null}
           </div>
+          <div>
+            <label className="text-[12px] font-medium text-foreground">
+              Cargo do Responsável pela Revisão do PGR
+            </label>
+            <input
+              className={inputBaseClass}
+              value={inicioDraft.responsibleRole}
+              onChange={(event) => onDraftChange("responsibleRole", event.target.value)}
+            />
+          </div>
         </div>
       </section>
     </>
