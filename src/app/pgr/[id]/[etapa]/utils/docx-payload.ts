@@ -37,6 +37,14 @@ const normalizeExtraScope = (scope: unknown): ExtraFieldScope => {
 
 const _asText = (value: unknown) => String(value ?? "").trim();
 
+const joinNameAndFunction = (name: unknown, funcao: unknown) => {
+  const normalizedName = _asText(name);
+  const normalizedFunction = _asText(funcao);
+  if (!normalizedFunction) return normalizedName;
+  if (normalizedName.endsWith(` - ${normalizedFunction}`)) return normalizedName;
+  return [normalizedName, normalizedFunction].filter(Boolean).join(" - ");
+};
+
 const activityCollator = new Intl.Collator("pt-BR", {
   numeric: true,
   sensitivity: "base",
@@ -240,7 +248,20 @@ type AddressJsonFields = {
   enderecoCompleto: string;
 };
 
-type DadosCadastraisJson = DadosCadastraisDraft & {
+type ResponsavelPgrJson = {
+  nome: string;
+  funcao: string;
+  telefone: string;
+  email: string;
+  cpf: string;
+};
+
+type ResponsavelCoordenacaoTecnicaJson = Omit<
+  DadosCadastraisDraft["responsaveisCoordenacaoTecnica"][number],
+  "id"
+>;
+
+type DadosCadastraisJson = Omit<DadosCadastraisDraft, "responsaveisCoordenacaoTecnica"> & {
   empresaNumero: string;
   empresaEnderecoCompleto: string;
   estabelecimentoNumero: string;
@@ -249,6 +270,8 @@ type DadosCadastraisJson = DadosCadastraisDraft & {
   contratanteEnderecoCompleto: string;
   estabelecimentos: Array<(DadosCadastraisDraft["estabelecimentos"][number] & AddressJsonFields)>;
   contratantes: Array<(DadosCadastraisDraft["contratantes"][number] & AddressJsonFields)>;
+  responsavelPgr: ResponsavelPgrJson;
+  responsavelCoordenacaoTecnica: ResponsavelCoordenacaoTecnicaJson;
 };
 
 type DuplicateRiskStructureInfo = {
@@ -682,8 +705,34 @@ export function buildPgrDocxPayload(input: {
       }),
       }))
     : [];
+  const {
+    responsaveisCoordenacaoTecnica,
+    ...dadosCadastraisBase
+  } = input.dadosCadastrais;
+  const responsavelCoordenacaoDraft = responsaveisCoordenacaoTecnica?.[0];
+  const responsavelCoordenacaoTecnica: ResponsavelCoordenacaoTecnicaJson = {
+    cpf: responsavelCoordenacaoDraft?.cpf || "",
+    nome: joinNameAndFunction(
+      responsavelCoordenacaoDraft?.nome,
+      responsavelCoordenacaoDraft?.funcao
+    ),
+    email: responsavelCoordenacaoDraft?.email || "",
+    funcao: responsavelCoordenacaoDraft?.funcao || "",
+    telefone: responsavelCoordenacaoDraft?.telefone || "",
+    registroProfissional: responsavelCoordenacaoDraft?.registroProfissional || "",
+  };
+  const responsavelPgr: ResponsavelPgrJson = {
+    nome: joinNameAndFunction(
+      input.dadosCadastrais.responsavelPgrNome,
+      input.dadosCadastrais.responsavelPgrFuncao
+    ),
+    funcao: input.dadosCadastrais.responsavelPgrFuncao || "",
+    telefone: input.dadosCadastrais.responsavelPgrTelefone || "",
+    email: input.dadosCadastrais.responsavelPgrEmail || "",
+    cpf: input.dadosCadastrais.responsavelPgrCpf || "",
+  };
   const dadosCadastrais: DadosCadastraisJson = {
-    ...input.dadosCadastrais,
+    ...dadosCadastraisBase,
     empresaNumero: empresaAddressJson.numero,
     empresaEnderecoCompleto: empresaAddressJson.enderecoCompleto,
     estabelecimentoNumero: estabelecimentoAddressJson.numero,
@@ -692,6 +741,8 @@ export function buildPgrDocxPayload(input: {
     contratanteEnderecoCompleto: contratanteAddressJson.enderecoCompleto,
     estabelecimentos: estabelecimentosJson,
     contratantes: contratantesJson,
+    responsavelPgr,
+    responsavelCoordenacaoTecnica,
   };
 
   const totalArquivos = input.anexos.reduce((total, anexo) => total + anexo.files.length, 0);

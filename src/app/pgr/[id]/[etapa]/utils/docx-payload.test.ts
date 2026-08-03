@@ -570,6 +570,109 @@ describe("docx payload mapping", () => {
     expect(payload.planoAcao.itens[0]?.risco).toBe("Calor");
   });
 
+  it("maps the technical coordinator to a single payload object", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        dadosCadastrais: {
+          responsaveisCoordenacaoTecnica: [
+            {
+              id: "responsavel-1",
+              cpf: "123.456.789-00",
+              nome: "Maria Silva",
+              email: "maria@example.com",
+              funcao: "Engenheira de Segurança",
+              telefone: "(21) 99999-9999",
+              registroProfissional: "CREA 123",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.dadosCadastrais.responsavelCoordenacaoTecnica).toEqual({
+      cpf: "123.456.789-00",
+      nome: "Maria Silva - Engenheira de Segurança",
+      email: "maria@example.com",
+      funcao: "Engenheira de Segurança",
+      telefone: "(21) 99999-9999",
+      registroProfissional: "CREA 123",
+    });
+    expect(payload.dadosCadastrais).not.toHaveProperty(
+      "responsaveisCoordenacaoTecnica"
+    );
+  });
+
+  it("concatenates the PGR organization responsible name in the payload", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        dadosCadastrais: {
+          responsavelPgrNome: "Maria Silva",
+          responsavelPgrFuncao: "Gerente da Organização",
+          responsavelPgrTelefone: "(21) 99999-9999",
+          responsavelPgrEmail: "maria@example.com",
+          responsavelPgrCpf: "123.456.789-00",
+        },
+      },
+    });
+
+    expect(payload.dadosCadastrais.responsavelPgr).toEqual({
+      nome: "Maria Silva - Gerente da Organização",
+      funcao: "Gerente da Organização",
+      telefone: "(21) 99999-9999",
+      email: "maria@example.com",
+      cpf: "123.456.789-00",
+    });
+  });
+
+  it("does not append a separator when the coordinator function is blank", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        dadosCadastrais: {
+          responsaveisCoordenacaoTecnica: [
+            {
+              id: "responsavel-1",
+              cpf: "",
+              nome: "Maria Silva",
+              email: "",
+              funcao: "",
+              telefone: "",
+              registroProfissional: "",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.dadosCadastrais.responsavelCoordenacaoTecnica.nome).toBe(
+      "Maria Silva"
+    );
+  });
+
+  it("does not append a separator when the PGR responsible function is blank", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        dadosCadastrais: {
+          responsavelPgrNome: "Maria Silva",
+          responsavelPgrFuncao: "",
+        },
+      },
+    });
+
+    expect(payload.dadosCadastrais.responsavelPgr.nome).toBe("Maria Silva");
+  });
+
   it("falls back to defaults when backend state is invalid", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1",
