@@ -267,7 +267,7 @@ export function InicioStep({
           </div>
           <div>
             <label className="text-[12px] font-medium text-foreground">
-              Cargo do Responsável pela Revisão do PGR
+              Cargo do Responsável pela execução do Serviço (ST)
             </label>
             <input
               className={inputBaseClass}
