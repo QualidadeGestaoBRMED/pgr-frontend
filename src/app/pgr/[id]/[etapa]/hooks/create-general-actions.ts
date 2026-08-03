@@ -995,15 +995,23 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         String(responseDados.empresaRazaoSocial || "").trim() ||
         String(normalizedInicioDraft.companyName || "").trim() ||
         String(rawInicioDraft.companyName || "").trim();
-      const mergedDados = syncLegacyDados({
-        ...initialDadosCadastrais,
-        ...responseDados,
-        empresaRazaoSocial:
-          String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
-        empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
-      });
-
-      setDadosCadastrais(mergedDados);
+      // A sincronizacao do Pipefy so conhece os campos basicos do card (empresa,
+      // CNPJ etc.) -- ela nunca envia responsaveisCoordenacaoTecnica e outros
+      // dados preenchidos manualmente na etapa de Dados Cadastrais. Partir de
+      // `prevDadosCadastrais` (em vez de `initialDadosCadastrais`) preserva o
+      // que o usuario ja cadastrou; sem isso, toda re-sincronizacao (inclusive
+      // a automatica ao reabrir o PGR) apagava o Responsavel pela Coordenacao
+      // Tecnica de volta para o valor em branco.
+      setDadosCadastrais((prevDadosCadastrais) =>
+        syncLegacyDados({
+          ...initialDadosCadastrais,
+          ...prevDadosCadastrais,
+          ...responseDados,
+          empresaRazaoSocial:
+            String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
+          empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
+        })
+      );
       if (fallbackCompany) {
         setHistoricoData((prev) => ({
           ...prev,
