@@ -626,6 +626,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
                 targetGheIds: Array.isArray(item?.targetGheIds)
                   ? item.targetGheIds.map((id) => String(id || "").trim()).filter(Boolean)
                   : [],
+                prioridade: String(item?.prioridade || "").trim() || "Média",
                 tipoMedida: String(item?.tipoMedida || "").trim(),
                 prazoAcao: String(item?.prazoAcao || "").trim(),
                 disableAutoPrazoAcao: Boolean(item?.disableAutoPrazoAcao),

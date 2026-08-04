@@ -15,6 +15,7 @@ import type {
   HistoryEntry,
   ParsedDescricaoImport,
   PlanGeneralMeasureRow,
+  PlanRiskExtraAction,
   PgrFunction,
   RiskGheGroup,
 } from "../types";
@@ -43,7 +44,10 @@ import {
   syncLegacyEstablishmentFields,
 } from "../utils/establishments";
 import { completeVigenciaInterval, maskVigenciaInterval } from "../utils/vigencia";
-import { buildPlanActionGeneralMeasureRow } from "../utils/plan-actions";
+import {
+  buildPlanActionGeneralMeasureRow,
+  parseExtraPlanActionRiskId,
+} from "../utils/plan-actions";
 import { mapCnpjLookupToRegistration } from "../utils/cnpj-lookup";
 
 type CardMeta = PersistedPgrState["cardMeta"];
@@ -139,6 +143,7 @@ type GeneralActionsContext = {
     setPlanActionGheId: React.Dispatch<React.SetStateAction<string>>;
     setPlanActionRiskId: React.Dispatch<React.SetStateAction<string>>;
     setPlanActionDescription: React.Dispatch<React.SetStateAction<string>>;
+    setPlanActionPriority: React.Dispatch<React.SetStateAction<string>>;
     setIsPlanActionModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setRiskGheGroups: React.Dispatch<React.SetStateAction<RiskGheGroup[]>>;
     setRemovedPlanRiskKeys: React.Dispatch<React.SetStateAction<string[]>>;
@@ -180,6 +185,7 @@ type GeneralActionsContext = {
     planActionGheId: string;
     planActionRiskId: string;
     planActionDescription: string;
+    planActionPriority: string;
     completedSteps: number;
     currentIndex: number;
     nextStep: { id: string } | null;
@@ -217,6 +223,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionGheId,
     setPlanActionRiskId,
     setPlanActionDescription,
+    setPlanActionPriority,
     setIsPlanActionModalOpen,
     setRiskGheGroups,
     setRemovedPlanRiskKeys,
@@ -244,6 +251,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     planActionGheId,
     planActionRiskId,
     planActionDescription,
+    planActionPriority,
     completedSteps,
     currentIndex,
     nextStep,
@@ -976,26 +984,40 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         rawCardMeta
       );
 
-      setInicioDraft({
+      // Mesmo motivo do merge de dadosCadastrais logo abaixo: o Pipefy nao
+      // conhece campos como responsibleRole, entao partir de
+      // `prevInicioDraft` (em vez de `initialInicioDraft`) evita que cada
+      // sincronizacao apague de volta para vazio o que o usuario preencheu
+      // manualmente e o Pipefy nao envia.
+      setInicioDraft((prevInicioDraft) => ({
         ...initialInicioDraft,
+        ...prevInicioDraft,
         ...normalizedInicioDraft,
         syncedAt: normalizedInicioDraft.syncedAt ?? null,
-      });
+      }));
       const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
       const fallbackCompany =
         String(responseDados.empresaNome || "").trim() ||
         String(responseDados.empresaRazaoSocial || "").trim() ||
         String(normalizedInicioDraft.companyName || "").trim() ||
         String(rawInicioDraft.companyName || "").trim();
-      const mergedDados = syncLegacyDados({
-        ...initialDadosCadastrais,
-        ...responseDados,
-        empresaRazaoSocial:
-          String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
-        empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
-      });
-
-      setDadosCadastrais(mergedDados);
+      // A sincronizacao do Pipefy so conhece os campos basicos do card (empresa,
+      // CNPJ etc.) -- ela nunca envia responsaveisCoordenacaoTecnica e outros
+      // dados preenchidos manualmente na etapa de Dados Cadastrais. Partir de
+      // `prevDadosCadastrais` (em vez de `initialDadosCadastrais`) preserva o
+      // que o usuario ja cadastrou; sem isso, toda re-sincronizacao (inclusive
+      // a automatica ao reabrir o PGR) apagava o Responsavel pela Coordenacao
+      // Tecnica de volta para o valor em branco.
+      setDadosCadastrais((prevDadosCadastrais) =>
+        syncLegacyDados({
+          ...initialDadosCadastrais,
+          ...prevDadosCadastrais,
+          ...responseDados,
+          empresaRazaoSocial:
+            String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
+          empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
+        })
+      );
       if (fallbackCompany) {
         setHistoricoData((prev) => ({
           ...prev,
@@ -1035,6 +1057,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     setPlanActionGheId(firstGhe?.id ?? "");
     setPlanActionRiskId(firstRisk?.id ?? "");
     setPlanActionDescription("");
+    setPlanActionPriority("Média");
     setIsPlanActionModalOpen(true);
   };
 
@@ -1056,6 +1079,40 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     if (planActionScope !== "risk") return;
     const ghe = availablePlanActionGheGroups.find((item) => item.id === value);
     setPlanActionRiskId(ghe?.risks[0]?.id ?? "");
+  };
+
+  // Aplica um valor de campo do plano de ação a um risco, sabendo distinguir
+  // a linha "nativa" do risco (riskId puro) de uma linha de ação extra
+  // (riskId composto, ver buildExtraPlanActionRiskId/parseExtraPlanActionRiskId)
+  // -- nesse segundo caso o valor vai pro item correspondente dentro de
+  // risk.extraPlanActions, não pro campo direto do risco.
+  const applyPlanFieldToRisk = (
+    risk: GheRisk,
+    targetRiskId: string,
+    field:
+      | "medidasPrevencaoPlano"
+      | "tipoMedida"
+      | "prazoAcao"
+      | "disableAutoPrazoAcao"
+      | "responsavelAcao"
+      | "acompanhamento"
+      | "afericaoResultado",
+    value: string | boolean
+  ): GheRisk => {
+    const extraRef = parseExtraPlanActionRiskId(targetRiskId);
+    if (extraRef) {
+      if (risk.id !== extraRef.riskId) return risk;
+      const targetField = field === "medidasPrevencaoPlano" ? "descricao" : field;
+      return {
+        ...risk,
+        extraPlanActions: (risk.extraPlanActions || []).map((action) =>
+          action.id === extraRef.actionId
+            ? { ...action, [targetField]: value }
+            : action
+        ),
+      };
+    }
+    return risk.id === targetRiskId ? { ...risk, [field]: value } : risk;
   };
 
   const handlePlanRiskFieldChange = (
@@ -1084,19 +1141,24 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     }
 
     if (Array.isArray(groupTargets) && groupTargets.length) {
-      const targetKeys = new Set(
-        groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
+      setRiskGheGroups((prev) =>
+        prev.map((ghe) => {
+          const relevantTargets = groupTargets.filter(
+            (target) => target.gheId === ghe.id
+          );
+          if (!relevantTargets.length) return ghe;
+          return {
+            ...ghe,
+            risks: ghe.risks.map((risk) =>
+              relevantTargets.reduce(
+                (acc, target) =>
+                  applyPlanFieldToRisk(acc, target.riskId, field, value),
+                risk
+              )
+            ),
+          };
+        })
       );
-      setRiskGheGroups((prev) => {
-        return prev.map((ghe) => ({
-          ...ghe,
-          risks: ghe.risks.map((risk) =>
-            targetKeys.has(`${ghe.id}::${risk.id}`)
-              ? { ...risk, [field]: value }
-              : risk
-          ),
-        }));
-      });
       return;
     }
 
@@ -1106,7 +1168,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         return {
           ...ghe,
           risks: ghe.risks.map((risk) =>
-            risk.id === riskId ? { ...risk, [field]: value } : risk
+            applyPlanFieldToRisk(risk, riskId, field, value)
           ),
         };
       });
@@ -1161,10 +1223,52 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       return;
     }
 
-    const keysToExclude = Array.isArray(groupTargets) && groupTargets.length
-      ? groupTargets.map((target) => `${target.gheId}::${target.riskId}`)
-      : [`${gheId}::${riskId}`];
-    setRemovedPlanRiskKeys((prev) => Array.from(new Set([...prev, ...keysToExclude])));
+    const targets = Array.isArray(groupTargets) && groupTargets.length
+      ? groupTargets
+      : [{ gheId, riskId }];
+    const extraTargets = targets.filter((target) =>
+      parseExtraPlanActionRiskId(target.riskId)
+    );
+    const nativeTargets = targets.filter(
+      (target) => !parseExtraPlanActionRiskId(target.riskId)
+    );
+
+    if (extraTargets.length) {
+      setRiskGheGroups((prev) =>
+        prev.map((ghe) => {
+          const relevantTargets = extraTargets.filter(
+            (target) => target.gheId === ghe.id
+          );
+          if (!relevantTargets.length) return ghe;
+          return {
+            ...ghe,
+            risks: ghe.risks.map((risk) => {
+              const excludedActionIds = new Set(
+                relevantTargets
+                  .map((target) => parseExtraPlanActionRiskId(target.riskId))
+                  .filter((ref) => ref?.riskId === risk.id)
+                  .map((ref) => ref!.actionId)
+              );
+              if (!excludedActionIds.size) return risk;
+              return {
+                ...risk,
+                extraPlanActions: (risk.extraPlanActions || []).filter(
+                  (action) => !excludedActionIds.has(action.id)
+                ),
+              };
+            }),
+          };
+        })
+      );
+    }
+
+    if (nativeTargets.length) {
+      const keysToExclude = nativeTargets.map(
+        (target) => `${target.gheId}::${target.riskId}`
+      );
+      setRemovedPlanRiskKeys((prev) => Array.from(new Set([...prev, ...keysToExclude])));
+    }
+
     setEditingMedidasId(null);
     setEditingMedidasValue("");
   };
@@ -1185,7 +1289,9 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       (Array.isArray(gheIds) && gheIds.length ? gheIds : fallbackGheIds).filter(Boolean)
     );
     if (planActionScope === "risk" && selectedRiskIds.size === 0) return;
-    if (planActionScope === "risk" && selectedGheIds.size === 0) return;
+    if ((planActionScope === "risk" || planActionScope === "ghe") && selectedGheIds.size === 0) {
+      return;
+    }
 
     if (planActionScope === "all" || planActionScope === "ghe") {
       const row = buildPlanActionGeneralMeasureRow({
@@ -1194,6 +1300,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         gheIds: Array.from(selectedGheIds),
         availableGheGroups: availablePlanActionGheGroups,
         idSeed: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+        prioridade: planActionPriority,
       });
       if (!row) return;
 
@@ -1201,6 +1308,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         return [...prev, row];
       });
       setPlanActionDescription("");
+      setPlanActionPriority("Média");
       setIsPlanActionModalOpen(false);
       return;
     }
@@ -1219,17 +1327,6 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
       });
     }
 
-    const mergeMedidas = (previous: string, nextValue: string) => {
-      const currentValue = previous.trim();
-      if (!currentValue) return nextValue;
-      const existsAlready = currentValue
-        .split("\n")
-        .map((line) => line.trim())
-        .includes(nextValue);
-      if (existsAlready) return currentValue;
-      return `${currentValue}\n${nextValue}`;
-    };
-
     const touchedKeys = new Set<string>();
     setRiskGheGroups((prev) =>
       prev.map((ghe) => {
@@ -1246,12 +1343,38 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           if (!applyForRisk) return risk;
           touchedKeys.add(`${ghe.id}::${risk.id}`);
 
+          // "medidasControle" é um campo distinto (controles já em prática,
+          // vem da caracterização do risco) -- não conta como o risco já
+          // "ter uma ação" no plano. Usar ele aqui fazia até a primeira ação
+          // de um risco (que devia só preencher a linha nativa) cair sempre
+          // no ramo de ação extra, porque medidasControle é obrigatório e
+          // quase nunca vem vazio.
+          const existingMeasure = (risk.medidasPrevencaoPlano || "").trim();
+          // Risco sem nenhuma ação ainda: essa é a primeira, preenche a
+          // linha nativa dele (comportamento já existente, sem duplicar).
+          if (!existingMeasure) {
+            return { ...risk, medidasPrevencaoPlano: actionDescription };
+          }
+
+          // Já existe ação nesse risco: a nova precisa ser uma linha
+          // independente no plano, não emendada na medida existente.
+          const alreadyExists =
+            existingMeasure
+              .split("\n")
+              .map((line) => line.trim())
+              .includes(actionDescription) ||
+            (risk.extraPlanActions || []).some(
+              (action) => action.descricao.trim() === actionDescription
+            );
+          if (alreadyExists) return risk;
+
+          const newAction: PlanRiskExtraAction = {
+            id: `plan-risk-action-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+            descricao: actionDescription,
+          };
           return {
             ...risk,
-            medidasPrevencaoPlano: mergeMedidas(
-              risk.medidasPrevencaoPlano || risk.medidasControle || "",
-              actionDescription
-            ),
+            extraPlanActions: [...(risk.extraPlanActions || []), newAction],
           };
         });
 

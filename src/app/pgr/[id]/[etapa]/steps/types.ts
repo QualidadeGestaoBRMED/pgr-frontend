@@ -6,6 +6,7 @@ export type InicioDraft = {
   unitName: string;
   cnpj: string;
   responsible: string;
+  responsibleRole: string;
   email: string;
   notes: string;
 };

@@ -77,6 +77,7 @@ export const inicioDraftSchema = z.object({
   companyName: requiredText("Nome da empresa"),
   cnpj: cnpjField("CNPJ"),
   responsible: requiredText("Responsável pela execução do serviço (ST)"),
+  responsibleRole: z.string().optional(),
 });
 
 const optionalRiskGradeField = (label: string) =>

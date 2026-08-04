@@ -43,6 +43,21 @@ export type GheGroup = {
   items: Array<{ functionId: string; funcionarios: string }>;
 };
 
+// Uma ação extra criada com escopo "Risco específico" para um risco que já
+// tinha uma ação/medida preenchida -- vira uma linha independente no plano de
+// ação em vez de ser concatenada em GheRisk.medidasPrevencaoPlano (ver
+// buildExtraPlanActionRiskId em utils/plan-actions.ts).
+export type PlanRiskExtraAction = {
+  id: string;
+  descricao: string;
+  tipoMedida?: string;
+  prazoAcao?: string;
+  disableAutoPrazoAcao?: boolean;
+  responsavelAcao?: string;
+  acompanhamento?: string;
+  afericaoResultado?: string;
+};
+
 export type GheRisk = {
   id: string;
   tipoAgente: string;
@@ -60,6 +75,7 @@ export type GheRisk = {
   classificacao: string;
   medidasControle: string;
   medidasPrevencaoPlano?: string;
+  extraPlanActions?: PlanRiskExtraAction[];
   normas?: string;
   epc: string;
   epi: string;
@@ -79,6 +95,7 @@ export type PlanGeneralMeasureRow = {
   descricao: string;
   gheName?: string;
   targetGheIds?: string[];
+  prioridade?: string;
   tipoMedida?: string;
   prazoAcao?: string;
   disableAutoPrazoAcao?: boolean;

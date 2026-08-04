@@ -2,11 +2,35 @@ import {describe, expect, it} from "vitest";
 
 import {
     buildCommonRiskOptionsForGhes,
+    buildExtraPlanActionRiskId,
     buildPlanActionGeneralMeasureRow,
     calculateAffectedWorkersRange,
     calculatePlanActionPriority,
+    parseExtraPlanActionRiskId,
     resolveRiskGradationValue,
 } from "./plan-actions";
+
+describe("extra plan action riskId encoding", () => {
+    it("round-trips risk id and action id", () => {
+        const encoded = buildExtraPlanActionRiskId("risk-1", "plan-risk-action-abc");
+        expect(parseExtraPlanActionRiskId(encoded)).toEqual({
+            riskId: "risk-1",
+            actionId: "plan-risk-action-abc",
+        });
+    });
+
+    it("returns null for a plain risk id", () => {
+        expect(parseExtraPlanActionRiskId("risk-1")).toBeNull();
+    });
+
+    it("only splits at the first delimiter, keeping the action id intact", () => {
+        const encoded = buildExtraPlanActionRiskId("risk-1", "action-with-__extra-action__-inside");
+        expect(parseExtraPlanActionRiskId(encoded)).toEqual({
+            riskId: "risk-1",
+            actionId: "action-with-__extra-action__-inside",
+        });
+    });
+});
 
 describe("plan action helpers", () => {
     it.each([
@@ -131,6 +155,31 @@ describe("plan action helpers", () => {
 
         expect(row?.gheName).toBe("GHE 2");
         expect(row?.targetGheIds).toEqual(["g-2"]);
+    });
+
+    it("uses the given priority instead of always defaulting to Média", () => {
+        const row = buildPlanActionGeneralMeasureRow({
+            description: "Isolar area de risco",
+            nr: "NR-01",
+            gheIds: ["g-1"],
+            idSeed: "test-priority",
+            availableGheGroups: [{id: "g-1", name: "GHE 1", risks: []}],
+            prioridade: "Alta",
+        });
+
+        expect(row?.prioridade).toBe("Alta");
+    });
+
+    it("falls back to Média when no priority is given", () => {
+        const row = buildPlanActionGeneralMeasureRow({
+            description: "Isolar area de risco",
+            nr: "NR-01",
+            gheIds: ["g-1"],
+            idSeed: "test-priority-default",
+            availableGheGroups: [{id: "g-1", name: "GHE 1", risks: []}],
+        });
+
+        expect(row?.prioridade).toBe("Média");
     });
 
     it("does not create a row without description or target GHE", () => {

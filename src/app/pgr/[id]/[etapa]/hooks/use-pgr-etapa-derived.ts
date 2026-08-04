@@ -33,6 +33,7 @@ import type { AnexoItem, HistoricoData } from "../types";
 import { buildPendingReviewTarget } from "../utils/pending-review";
 import {
   buildCommonRiskOptionsForGhes,
+  buildExtraPlanActionRiskId,
   calculateAffectedWorkersRange,
   calculatePlanActionPriority,
 } from "../utils/plan-actions";
@@ -464,8 +465,8 @@ export function usePgrEtapaDerived({
     [planAction.vigencia, historicoData.changes]
   );
   const defaultResponsibleActionName = useMemo(
-    () => String(inicioDraft.companyName || "").trim(),
-    [inicioDraft.companyName]
+    () => String(dadosCadastrais.empresaGrupo || inicioDraft.companyName || "").trim(),
+    [dadosCadastrais.empresaGrupo, inicioDraft.companyName]
   );
 
   const rawPlanTableRows = useMemo<PlanTableRow[]>(
@@ -474,7 +475,7 @@ export function usePgrEtapaDerived({
       const riskRows = riskGheGroups.flatMap((ghe) =>
         ghe.risks
           .filter((risk) => !excludedKeys.has(`${ghe.id}::${risk.id}`))
-          .map((risk) => {
+          .flatMap((risk) => {
             const riskCalculated = calculateRiskClassification({
               severidade: risk.severidade,
               probabilidade: risk.probabilidade,
@@ -507,11 +508,12 @@ export function usePgrEtapaDerived({
               affectedWorkersRange || exposureValue
             );
 
-            return materializeEffectivePlanRow(
-              {
-              id: `${ghe.id}-${risk.id}`,
+            // Campos compartilhados entre a linha nativa do risco e as ações
+            // extras dele (ver PlanRiskExtraAction) -- todas herdam a mesma
+            // identificação/classificação real do risco, só a medida e os
+            // campos de execução (prazo, responsável etc.) variam por ação.
+            const sharedRowFields = {
               gheId: ghe.id,
-              riskId: risk.id,
               gheName: ghe.name,
               tipoAgente: risk.tipoAgente || "",
               descricaoAgente: risk.descricaoAgente || "Não informado",
@@ -524,26 +526,61 @@ export function usePgrEtapaDerived({
                 ),
               classificacao: toDisplayText(risk.classificacao),
               exposureValue,
-              medidasPrevencao:
-                (Object.prototype.hasOwnProperty.call(risk, "medidasPrevencaoPlano")
-                  ? risk.medidasPrevencaoPlano
-                  : risk.medidasControle) || "",
-              tipoMedida: risk.tipoMedida || "",
-              prazoAcao: risk.prazoAcao || "",
-              disableAutoPrazoAcao: Boolean(risk.disableAutoPrazoAcao),
-              responsavelAcao: risk.responsavelAcao || "",
-              acompanhamento: risk.acompanhamento || "",
-              afericaoResultado: risk.afericaoResultado || "",
-              hasPlanSnapshot: Object.prototype.hasOwnProperty.call(
-                risk,
-                "medidasPrevencaoPlano"
-              ),
+            };
+
+            const nativeRow = materializeEffectivePlanRow(
+              {
+                ...sharedRowFields,
+                id: `${ghe.id}-${risk.id}`,
+                riskId: risk.id,
+                medidasPrevencao:
+                  (Object.prototype.hasOwnProperty.call(risk, "medidasPrevencaoPlano")
+                    ? risk.medidasPrevencaoPlano
+                    : risk.medidasControle) || "",
+                tipoMedida: risk.tipoMedida || "",
+                prazoAcao: risk.prazoAcao || "",
+                disableAutoPrazoAcao: Boolean(risk.disableAutoPrazoAcao),
+                responsavelAcao: risk.responsavelAcao || "",
+                acompanhamento: risk.acompanhamento || "",
+                afericaoResultado: risk.afericaoResultado || "",
+                hasPlanSnapshot: Object.prototype.hasOwnProperty.call(
+                  risk,
+                  "medidasPrevencaoPlano"
+                ),
               },
               {
                 calculatedPlanActionVigencia,
                 defaultResponsibleActionName,
               }
             );
+
+            // Ações extras: criadas via "Criar Ação" (escopo Risco
+            // específico) para um risco que já tinha medida preenchida --
+            // viram linhas independentes no plano, sem sobrescrever/mesclar
+            // a medida nativa do risco (ver handleSavePlanActionModal).
+            const extraRows = (risk.extraPlanActions || []).map((action) =>
+              materializeEffectivePlanRow(
+                {
+                  ...sharedRowFields,
+                  id: `${ghe.id}-${risk.id}-extra-${action.id}`,
+                  riskId: buildExtraPlanActionRiskId(risk.id, action.id),
+                  medidasPrevencao: action.descricao || "",
+                  tipoMedida: action.tipoMedida || "",
+                  prazoAcao: action.prazoAcao || "",
+                  disableAutoPrazoAcao: Boolean(action.disableAutoPrazoAcao),
+                  responsavelAcao: action.responsavelAcao || "",
+                  acompanhamento: action.acompanhamento || "",
+                  afericaoResultado: action.afericaoResultado || "",
+                  hasPlanSnapshot: true,
+                },
+                {
+                  calculatedPlanActionVigencia,
+                  defaultResponsibleActionName,
+                }
+              )
+            );
+
+            return [nativeRow, ...extraRows];
           })
       );
       const generalRows = planGeneralMeasures.map((item) =>
@@ -555,7 +592,7 @@ export function usePgrEtapaDerived({
             gheName: item.gheName || "Todos os GHEs",
             tipoAgente: "Medidas Gerais",
             descricaoAgente: "Medidas Gerais",
-            prioridade: "Média",
+            prioridade: normalizePriorityText(item.prioridade) || "Média",
             classificacao: "Risco Moderado",
             exposureValue: undefined,
             medidasPrevencao: item.descricao || "",

@@ -7,7 +7,8 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       inputBaseClass: ctx.inputBaseClass,
       textareaBaseClass: ctx.textareaBaseClass,
       selectBaseClass: ctx.selectBaseClass,
-      defaultResponsibleActionName: ctx.inicioDraft.companyName || "",
+      defaultResponsibleActionName:
+        ctx.dadosCadastrais.empresaGrupo || ctx.inicioDraft.companyName || "",
       handleResetPlanoData: ctx.handleResetPlanoData,
       historicoChanges: ctx.historicoData.changes,
       workflowVersion: ctx.workflow.version,
@@ -39,6 +40,8 @@ export const renderPlanoStep: StepRenderer = (ctx) => (
       planActionRiskOptions: ctx.planActionRiskOptions,
       planActionDescription: ctx.planActionDescription,
       setPlanActionDescription: ctx.setPlanActionDescription,
+      planActionPriority: ctx.planActionPriority,
+      setPlanActionPriority: ctx.setPlanActionPriority,
       persistedOptionsByRowId: ctx.persistedOptionsByRowId,
       setPersistedOptionsByRowId: ctx.setPersistedOptionsByRowId,
       handleSavePlanActionModal: ctx.generalActions.handleSavePlanActionModal,
