@@ -31,11 +31,11 @@ describe("materializeEffectivePlanRow", () => {
 
     const materialized = materializeEffectivePlanRow(row, {
       calculatedPlanActionVigencia: "01/01/2026 - 31/12/2026",
-      defaultResponsibleActionName: "Empresa Exemplo",
+      defaultResponsibleActionName: "Grupo Econômico Exemplo",
     });
 
     expect(materialized.prazoAcao).toBe("30/06/2026");
-    expect(materialized.responsavelAcao).toBe("Empresa Exemplo");
+    expect(materialized.responsavelAcao).toBe("Grupo Econômico Exemplo");
     expect(materialized.acompanhamento).toBe(DEFAULT_PLAN_ACOMPANHAMENTO);
     expect(materialized.afericaoResultado).toBe(
       DEFAULT_PLAN_AFERICAO_RESULTADO

@@ -465,8 +465,8 @@ export function usePgrEtapaDerived({
     [planAction.vigencia, historicoData.changes]
   );
   const defaultResponsibleActionName = useMemo(
-    () => String(inicioDraft.companyName || "").trim(),
-    [inicioDraft.companyName]
+    () => String(dadosCadastrais.empresaGrupo || inicioDraft.companyName || "").trim(),
+    [dadosCadastrais.empresaGrupo, inicioDraft.companyName]
   );
 
   const rawPlanTableRows = useMemo<PlanTableRow[]>(
