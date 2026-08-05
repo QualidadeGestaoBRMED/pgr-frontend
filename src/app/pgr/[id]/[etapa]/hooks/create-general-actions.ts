@@ -199,7 +199,7 @@ type GeneralActionsContext = {
     allGhesDescribed: boolean;
   };
   helpers: {
-    handleAdvanceApiSync: (nextCompleted: number) => void;
+    handleAdvanceApiSync: (nextCompleted: number) => Promise<void>;
     persistStateNow: () => Promise<void>;
   };
 };
@@ -1459,7 +1459,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     }
     const nextCompleted = Math.max(completedSteps, currentIndex + 1);
     setCompletedSteps(nextCompleted);
-    handleAdvanceApiSync(nextCompleted);
+    await handleAdvanceApiSync(nextCompleted);
     if (nextStep) {
       router.push(`/pgr/${params.id}/${nextStep.id}`);
     }

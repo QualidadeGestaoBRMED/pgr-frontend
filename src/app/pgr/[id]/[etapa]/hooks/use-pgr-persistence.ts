@@ -34,22 +34,12 @@ import {
   normalizePdfLayoutState,
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
-
-const stableSerialize = (value: unknown): string => {
-  if (value === null || value === undefined) return "null";
-  if (typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
-  }
-
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, entryValue]) => entryValue !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right));
-
-  return `{${entries
-    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableSerialize(entryValue)}`)
-    .join(",")}}`;
-};
+import {
+  createPersistPayloadSnapshot,
+  selectSafeQueuedPersistPayload,
+  type PersistPayloadSnapshot,
+} from "../state/step-persistence";
+import { getCachedRiskCatalog } from "../state/risk-catalog-cache";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -83,6 +73,11 @@ type PersistPayload = {
   currentRiskGheId: string;
   pdfLayout: PdfLayoutState;
   workflow: Workflow;
+};
+
+type PendingPersistPayload = {
+  payload: PersistPayload;
+  snapshot: PersistPayloadSnapshot<PersistPayload>;
 };
 
 type BackendStateResponse = Partial<{
@@ -194,6 +189,7 @@ type UsePgrPersistenceContext = {
     saveTimerRef: MutableRefObject<number | null>;
     lastCompletedSyncRef: MutableRefObject<number | null>;
   };
+  getRuntimeCachedStateFn: (pgrId: string) => PersistedPgrState | null;
   setRuntimeCachedStateFn: (pgrId: string, state: PersistedPgrState) => void;
 };
 
@@ -212,6 +208,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     setters,
     state,
     refs,
+    getRuntimeCachedStateFn,
     setRuntimeCachedStateFn,
   } = ctx;
 
@@ -276,12 +273,15 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const { saveTimerRef } = refs;
   const skipInitialPersistRef = useRef(true);
   const skipPostHydrationPersistsRef = useRef(0);
-  const pendingPersistPayloadRef = useRef<PersistPayload | null>(null);
+  const pendingPersistPayloadRef = useRef<PendingPersistPayload | null>(null);
   const functionInclusionReadOnlyRef = useRef(false);
   functionInclusionReadOnlyRef.current = Boolean(
     functionInclusionElaboration.readOnly
   );
-  const lastPersistedSignatureRef = useRef<string | null>(null);
+  const lastPersistedSnapshotRef =
+    useRef<PersistPayloadSnapshot<PersistPayload> | null>(null);
+  const lastEnqueuedSnapshotRef =
+    useRef<PersistPayloadSnapshot<PersistPayload> | null>(null);
   const latestRiskGheGroupsRef = useRef<RiskGheGroup[]>(riskGheGroups);
   const prevImmediatePersistRefs = useRef<{
     riskGheGroups: RiskGheGroup[];
@@ -375,23 +375,39 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   });
 
   const persistPayload = useCallback(
-    (payload: PersistPayload) => {
+    (
+      payload: PersistPayload,
+      providedSnapshot?: PersistPayloadSnapshot<PersistPayload>
+    ) => {
       if (functionInclusionReadOnlyRef.current) {
         pendingPersistPayloadRef.current = null;
         return Promise.resolve();
       }
-      const payloadSignature = stableSerialize(payload);
-      if (lastPersistedSignatureRef.current === payloadSignature) {
+      const snapshot =
+        providedSnapshot ?? createPersistPayloadSnapshot(payload);
+      const matchesConfirmed =
+        lastPersistedSnapshotRef.current?.signature === snapshot.signature;
+      const matchesEnqueued =
+        lastEnqueuedSnapshotRef.current?.signature === snapshot.signature;
+      if (matchesConfirmed && matchesEnqueued) {
         pendingPersistPayloadRef.current = null;
         return Promise.resolve();
       }
 
-      pendingPersistPayloadRef.current = payload;
-      return putPgrState(params.id, payload)
+      const pending = { payload, snapshot };
+      pendingPersistPayloadRef.current = pending;
+      const changedPayload = selectSafeQueuedPersistPayload(
+        lastPersistedSnapshotRef.current,
+        lastEnqueuedSnapshotRef.current,
+        payload,
+        snapshot
+      );
+      lastEnqueuedSnapshotRef.current = snapshot;
+      return putPgrState(params.id, changedPayload)
         .then((result) => {
           // result === null => save pausado por conflito; não atualiza cache.
           if (result === null) return;
-          lastPersistedSignatureRef.current = payloadSignature;
+          lastPersistedSnapshotRef.current = snapshot;
           setRuntimeCachedStateFn(
             params.id,
             buildRuntimeCacheState({
@@ -423,7 +439,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           );
         })
         .finally(() => {
-          if (pendingPersistPayloadRef.current === payload) {
+          if (pendingPersistPayloadRef.current === pending) {
             pendingPersistPayloadRef.current = null;
           }
         });
@@ -434,32 +450,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   useEffect(() => {
     let active = true;
     let retryTimer: number | null = null;
-    // Catálogo servido do cache do backend (sem refresh=1, sem polling de 60s).
-    // O catálogo só muda em import de admin, que invalida o cache no servidor —
-    // então abrir o card sempre reflete o catálogo vigente sem reconstruir os
-    // ~2,4 MB a cada abertura (era o que estourava a memória / causava 502).
+    // O cache compartilhado evita baixar novamente os ~2,4 MB ao trocar de
+    // etapa. O backend também mantém seu cache e o invalida após importação.
     const loadRiskCatalogs = async () => {
       try {
-        const data = await apiGet<RiskCatalogPayload>(`/api/catalogs/risk?ts=${Date.now()}`);
+        const data = await getCachedRiskCatalog(() =>
+          apiGet<RiskCatalogPayload>("/api/catalogs/risk")
+        );
         if (!active) return;
-        const hasMatrixData =
-          Array.isArray(data.riskMatrix?.qualitative) &&
-          data.riskMatrix.qualitative.length > 0 &&
-          Array.isArray(data.riskMatrix?.quantitative) &&
-          data.riskMatrix.quantitative.length > 0;
-
-        const hasCatalogData =
-          (Array.isArray(data.riskAgents) && data.riskAgents.length > 0) ||
-          hasMatrixData;
-
-        if (!hasCatalogData) {
-          setRiskCatalogs(null);
-          retryTimer = window.setTimeout(() => {
-            void loadRiskCatalogs();
-          }, 15000);
-          return;
-        }
-
         setRiskCatalogs(data);
       } catch {
         if (!active) return;
@@ -528,11 +526,26 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
     const loadState = async () => {
       try {
-        const state = await apiGet<BackendStateResponse>(`/api/v1/frontend/pgr/${params.id}/state`);
+        const cachedState = getRuntimeCachedStateFn(params.id);
+        const state: BackendStateResponse = cachedState
+          ? {
+              ...cachedState,
+              meta: {
+                pgrId: params.id,
+                progressPercent: cachedState.progressPercent,
+              },
+              historico: cachedState.historicoData,
+              functions: cachedState.functionsData,
+            }
+          : await apiGet<BackendStateResponse>(
+              `/api/v1/frontend/pgr/${params.id}/state`
+            );
         if (!active) return;
 
         // Prime o token de lock otimista com a versão recém-carregada.
-        replaceKnownUpdatedAt(params.id, state.updatedAt);
+        if (!cachedState) {
+          replaceKnownUpdatedAt(params.id, state.updatedAt);
+        }
 
         const rawCompleted = Number(state.completedSteps);
         const normalizedCompleted = Number.isFinite(rawCompleted)
@@ -865,7 +878,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         });
         skipPostHydrationPersistsRef.current = 2;
 
-        lastPersistedSignatureRef.current = stableSerialize({
+        const hydratedPersistPayload: PersistPayload = {
           completedSteps: normalizedCompleted,
           meta: {
             pgrId: params.id,
@@ -892,7 +905,10 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
           currentRiskGheId: loadedCurrentRiskGheId,
           pdfLayout: loadedPdfLayout,
           workflow: loadedWorkflow,
-        });
+        };
+        lastPersistedSnapshotRef.current =
+          createPersistPayloadSnapshot(hydratedPersistPayload);
+        lastEnqueuedSnapshotRef.current = lastPersistedSnapshotRef.current;
 
         setRuntimeCachedStateFn(
           params.id,
@@ -936,7 +952,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     };
     // Recarrega estado apenas ao trocar de card (ou quando cache expira).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id, shouldHydrateFromApi]);
+  }, [getRuntimeCachedStateFn, params.id, shouldHydrateFromApi]);
 
   useEffect(() => {
     if (isStateLoading) return;
@@ -1048,13 +1064,17 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       workflow,
     };
 
-    const payloadSignature = stableSerialize(payload);
-    if (lastPersistedSignatureRef.current === payloadSignature) {
+    const snapshot = createPersistPayloadSnapshot(payload);
+    const matchesConfirmed =
+      lastPersistedSnapshotRef.current?.signature === snapshot.signature;
+    const matchesEnqueued =
+      lastEnqueuedSnapshotRef.current?.signature === snapshot.signature;
+    if (matchesConfirmed && matchesEnqueued) {
       pendingPersistPayloadRef.current = null;
       return;
     }
 
-    pendingPersistPayloadRef.current = payload;
+    pendingPersistPayloadRef.current = { payload, snapshot };
     const shouldPersistImmediately =
       prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups ||
       prevImmediatePersistRefs.current.removedPlanRiskKeys !== removedPlanRiskKeys ||
@@ -1071,12 +1091,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     };
 
     if (shouldPersistImmediately) {
-      void persistPayload(payload).catch(() => {});
+      void persistPayload(payload, snapshot).catch(() => {});
       return;
     }
 
     saveTimerRef.current = window.setTimeout(() => {
-      void persistPayload(payload).catch(() => {});
+      void persistPayload(payload, snapshot).catch(() => {});
       saveTimerRef.current = null;
     }, 600);
 
@@ -1119,13 +1139,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
   useEffect(() => {
     return () => {
-      const pendingPayload = pendingPersistPayloadRef.current;
-      if (!pendingPayload) return;
+      const pending = pendingPersistPayloadRef.current;
+      if (!pending) return;
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      void persistPayload(pendingPayload).catch(() => {});
+      void persistPayload(pending.payload, pending.snapshot).catch(() => {});
     };
   }, [persistPayload, saveTimerRef]);
 
@@ -1138,12 +1158,15 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
+      const pending = pendingPersistPayloadRef.current;
       const payloadToPersist =
-        args?.payloadOverride ??
-        pendingPersistPayloadRef.current ??
-        args?.buildFallbackPayload?.();
+        args?.payloadOverride ?? pending?.payload ?? args?.buildFallbackPayload?.();
       if (!payloadToPersist) return;
-      await persistPayload(payloadToPersist);
+      const snapshot =
+        args?.payloadOverride || !pending
+          ? createPersistPayloadSnapshot(payloadToPersist)
+          : pending.snapshot;
+      await persistPayload(payloadToPersist, snapshot);
     },
     [persistPayload, saveTimerRef]
   );

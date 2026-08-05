@@ -102,7 +102,10 @@ async function runPutPgrState<T extends StateResponse>(
     expectedUpdatedAt: getKnownUpdatedAt(pgrId) ?? undefined,
   };
   try {
-    const res = await apiPut<T>(`/api/v1/frontend/pgr/${pgrId}/state`, body);
+    const res = await apiPut<T>(
+      `/api/v1/frontend/pgr/${pgrId}/state?compact=true`,
+      body
+    );
     setKnownUpdatedAt(pgrId, res?.updatedAt);
     onSaveErrorHandler?.(false);
     return res;

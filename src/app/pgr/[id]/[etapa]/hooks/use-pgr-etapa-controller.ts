@@ -31,7 +31,7 @@ import { areStringArraysEqual } from "./use-risk-catalog-helpers";
 import { usePgrEtapaState } from "./use-pgr-etapa-state";
 import { usePgrEtapaDerived } from "./use-pgr-etapa-derived";
 import { useCycleTimeTracker } from "./use-cycle-time-tracker";
-import { setRuntimeCachedState } from "../state/runtime-cache";
+import { getRuntimeCachedState, setRuntimeCachedState } from "../state/runtime-cache";
 import {
   putPgrState,
   setKnownUpdatedAt,
@@ -662,6 +662,7 @@ export function usePgrEtapaController({
       saveTimerRef: refs.saveTimerRef,
       lastCompletedSyncRef: refs.lastCompletedSyncRef,
     },
+    getRuntimeCachedStateFn: getRuntimeCachedState,
     setRuntimeCachedStateFn: setRuntimeCachedState,
   });
 
@@ -709,18 +710,29 @@ export function usePgrEtapaController({
     state.workflow.version,
   ]);
 
-  const handleAdvanceApiSync = useCallback((nextCompleted: number) => {
+  const handleAdvanceApiSync = useCallback(async (nextCompleted: number) => {
     if (state.functionInclusionElaboration.readOnly) return;
-    void putPgrState(params.id, {
-      completedSteps: nextCompleted,
-      meta: {
-        pgrId: params.id,
-        progressPercent: weightedProgressPercent,
-      },
-    }).catch(() => {
+    try {
+      const result = await putPgrState(params.id, {
+        completedSteps: nextCompleted,
+        meta: {
+          pgrId: params.id,
+          progressPercent: weightedProgressPercent,
+        },
+      });
+      if (result === null) return;
+      const cachedState = getRuntimeCachedState(params.id);
+      if (cachedState) {
+        setRuntimeCachedState(params.id, {
+          ...cachedState,
+          completedSteps: nextCompleted,
+          progressPercent: weightedProgressPercent,
+        });
+      }
+    } catch {
       // Sem bloqueio de navegação em caso de falha de rede.
       // Conflito (409) já é tratado pelo funil putPgrState.
-    });
+    }
   }, [
     params.id,
     state.functionInclusionElaboration.readOnly,
@@ -1515,6 +1527,13 @@ export function usePgrEtapaController({
   }, [setters, state.progressPercent, weightedProgressPercent]);
 
   useEffect(() => {
+    // Este dado só é exibido no step Início. O controller é compartilhado por
+    // todas as rotas do wizard, então sem este guard cada troca de etapa fazia
+    // uma consulta redundante ao Card e às notificações da empresa.
+    if (step.id !== "inicio") {
+      setLastFunctionInclusion(null);
+      return;
+    }
     let active = true;
     apiGet<{
       found: boolean;
@@ -1540,7 +1559,7 @@ export function usePgrEtapaController({
     return () => {
       active = false;
     };
-  }, [params.id]);
+  }, [params.id, step.id]);
 
   useEffect(() => {
     if (state.isStateLoading) return;
@@ -1558,7 +1577,7 @@ export function usePgrEtapaController({
     }
     if (contiguousDone > state.completedSteps) {
       setters.setCompletedSteps(contiguousDone);
-      handleAdvanceApiSync(contiguousDone);
+      void handleAdvanceApiSync(contiguousDone);
     }
   }, [
     derived.stepStatusById,
