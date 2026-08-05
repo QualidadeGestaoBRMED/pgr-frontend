@@ -76,7 +76,7 @@ export function FunctionInclusionRequestsModal({
               >
                 {isResolveMode
                   ? "Verificação das solicitações"
-                  : "Inclusões de função pendentes"}
+                  : "Solicitaçẽos pendentes"}
               </h2>
               <p
                 id="function-inclusion-confirmation-description"
