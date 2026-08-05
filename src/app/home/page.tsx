@@ -9,7 +9,15 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { FunctionInclusionRequestsModal } from "@/components/function-inclusion-requests-modal";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 import { getFunctionInclusionDeadlineAlert } from "./function-inclusion-deadline";
@@ -310,7 +318,19 @@ function HomePgrCard({
   );
 }
 
-export default function PgrsPage() {
+function HomePageFallback() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto w-full max-w-[1480px] px-4 pb-16 pt-8 sm:px-6 lg:px-1">
+        <div className="mt-12 h-12 w-full max-w-2xl animate-pulse rounded-[10px] bg-muted" />
+        <div className="mt-8 h-px w-full bg-border" />
+        <p className="mt-8 text-sm text-muted-foreground">Carregando PGRs...</p>
+      </div>
+    </div>
+  );
+}
+
+function PgrsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -1232,5 +1252,13 @@ export default function PgrsPage() {
         resolving={resolvingCompanyId !== null}
       />
     </div>
+  );
+}
+
+export default function PgrsPage() {
+  return (
+    <Suspense fallback={<HomePageFallback />}>
+      <PgrsPageContent />
+    </Suspense>
   );
 }
