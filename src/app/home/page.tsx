@@ -77,7 +77,7 @@ type FunctionInclusionAlert = {
   requests: Array<{
     notificationId: string;
     requestNumber: string;
-    functionName: string;
+    prazoSeguranca: string;
   }>;
 };
 
@@ -88,6 +88,7 @@ type FrontendNotification = {
   source?: string;
   companyId?: number | null;
   requestNumber?: string | number | null;
+  prazoSeguranca?: string | number | null;
   functionInclusionElaboration?: {
     active?: boolean;
     responsibleName?: string | null;
@@ -468,13 +469,12 @@ export default function PgrsPage() {
         if (!notificationId) continue;
         const match = /Empresa:\s*([^·]+)/.exec(item.description || "");
         const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
-        const functionMatch = /Função:\s*([^·]+)/.exec(item.description || "");
-        const functionName = functionMatch ? functionMatch[1].trim() : "";
         const requestNumber = String(item.requestNumber ?? "").trim();
+        const prazoSeguranca = String(item.prazoSeguranca ?? "").trim();
         const request = {
           notificationId,
           requestNumber,
-          functionName,
+          prazoSeguranca,
         };
         const elaboration = {
           active: Boolean(item.functionInclusionElaboration?.active),
@@ -1170,14 +1170,14 @@ export default function PgrsPage() {
                     id="function-inclusion-confirmation-title"
                     className="text-[19px] font-semibold text-foreground"
                   >
-                    Resolver inclusões de função
+                    Verificação das solicitações
                   </h2>
                   <p
                     id="function-inclusion-confirmation-description"
                     className="mt-2 text-[13px] leading-5 text-muted-foreground"
                   >
-                    Selecione somente as solicitações que já foram incluídas e
-                    salvas no PGR de{" "}
+                    Nessa etapa você irá conseguir visualizar as informações do numero
+                    da solicitação da empresa: {" "}
                     <strong className="text-foreground">
                       {functionInclusionToResolve.companyLabel}
                     </strong>
@@ -1219,6 +1219,11 @@ export default function PgrsPage() {
                           <span className="font-semibold">
                             {request.requestNumber || request.notificationId}
                           </span>
+                          {request.prazoSeguranca ? (
+                            <span className="text-[11px] text-muted-foreground">
+                              Prazo de segurança: {request.prazoSeguranca}
+                            </span>
+                          ) : null}
                         </span>
                       </label>
                     );
@@ -1227,12 +1232,16 @@ export default function PgrsPage() {
               </div>
 
               <div className="mt-5 rounded-[12px] border border-warning/40 bg-warning/15 px-4 py-3">
-                <p className="text-[13px] leading-5 text-foreground">
-                  Finalizar selecionadas mantém as demais solicitações abertas.
-                  Finalizar todas encerra todas as pendências desta empresa e
-                  remove o acesso temporário de usuários que não são
-                  proprietários.
-                </p>
+                <ul className="space-y-1.5 text-[13px] leading-5 text-foreground">
+                  <li>
+                    <strong className="font-semibold">Finalizar selecionadas:</strong>{" "}
+                    Finaliza somente as solicitações marcadas e mantém as demais em aberto.
+                  </li>
+                  <li>
+                    <strong className="font-semibold">Finalizar todas:</strong>{" "}
+                    Encerra todas as pendências desta empresa.
+                  </li>
+                </ul>
               </div>
 
               <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
