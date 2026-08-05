@@ -532,6 +532,65 @@ export function usePgrEtapaController({
     resolvedBy: string;
     resolvedAt: string;
   } | null>(null);
+
+  // Solicitações de inclusão de função pendentes da empresa deste PGR,
+  // mostradas em modo consulta pelo botão flutuante — ver
+  // FunctionInclusionRequestsModal. A resolução em si (marcar como
+  // incluída) só acontece na Home, nunca aqui dentro do editor.
+  const [functionInclusionRequests, setFunctionInclusionRequests] = useState<
+    Array<{
+      notificationId: string;
+      requestNumber: string;
+      prazoSeguranca: string;
+      dataSolicitacao: string;
+    }>
+  >([]);
+  const [functionInclusionDialogOpen, setFunctionInclusionDialogOpen] = useState(false);
+  // Empresa a resolver após finalizar um PGR via PIPEFY_PUBLISH (anexo +
+  // movimentação de fase) com inclusão de função pendente -- ver o aviso
+  // em finalizeDocument, mais abaixo.
+  const [
+    functionInclusionFinalizedNoticeCompanyId,
+    setFunctionInclusionFinalizedNoticeCompanyId,
+  ] = useState<number | null>(null);
+
+  const loadFunctionInclusionRequestsForCompany = useCallback(async () => {
+    const companyId = state.cardMeta.companyId;
+    if (companyId == null) return;
+    try {
+      const payload = await apiGet<{
+        notifications: Array<{
+          id?: string;
+          source?: string;
+          companyId?: number | null;
+          requestNumber?: string | number | null;
+          prazoSeguranca?: string | number | null;
+          dataSolicitacao?: string | number | null;
+        }>;
+      }>("/api/v1/frontend/notifications/function-inclusion");
+      const requests = (payload.notifications || [])
+        .filter(
+          (item) =>
+            item.source === "function_inclusion_process" && item.companyId === companyId
+        )
+        .map((item) => ({
+          notificationId: String(item.id || "").trim(),
+          requestNumber: String(item.requestNumber ?? "").trim(),
+          prazoSeguranca: String(item.prazoSeguranca ?? "").trim(),
+          dataSolicitacao: String(item.dataSolicitacao ?? "").trim(),
+        }))
+        .filter((request) => request.notificationId);
+      setFunctionInclusionRequests(requests);
+    } catch {
+      setFunctionInclusionRequests([]);
+    }
+  }, [state.cardMeta.companyId]);
+
+  const handleOpenFunctionInclusionViewer = useCallback(async () => {
+    await loadFunctionInclusionRequestsForCompany();
+    setFunctionInclusionDialogOpen(true);
+  }, [loadFunctionInclusionRequestsForCompany]);
+
   const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
     params,
     shouldHydrateFromApi,
@@ -909,6 +968,41 @@ export function usePgrEtapaController({
         if (finalizedState?.historico) {
           setters.setHistoricoData(finalizedState.historico);
         }
+        if (
+          (isFunctionInclusionContext || state.functionInclusionPending) &&
+          state.cardMeta.companyId != null
+        ) {
+          // Duas situações legítimas disparam isto: (1) PGR já finalizado
+          // antes, reaberto especificamente pra tratar uma inclusão de função
+          // pendente (isFunctionInclusionContext, quando confiável), e (2) PGR
+          // ainda em elaboração cuja empresa tem inclusão pendente — nesse
+          // caso a própria tela já avisa que a inclusão "deve ser tratada
+          // durante esta elaboração" (ver FunctionInclusionBanner), então
+          // finalizar pela primeira vez também deve dar este aviso.
+          // isFunctionInclusionContext só é confiável quando o usuário chegou
+          // aqui via "Ver PGR desta empresa" (?functionInclusion=1) ou é um
+          // delegado sem acesso global — um dono/admin finalizando direto,
+          // sem passar por aquele fluxo, nunca setaria esse contexto. Por
+          // isso o gatilho real é functionInclusionPending: reflete se a
+          // empresa deste PGR tem inclusão de função pendente agora, o mesmo
+          // sinal que já mostra o banner e o botão flutuante, independente
+          // de como o usuário navegou até aqui.
+          if (startedState.finalizationMode === "LOCK_ONLY") {
+            // Reabertura pontual de um card já DONE, sem anexo/movimentação
+            // no Pipefy — a solicitação já deveria estar concluída no Portal
+            // de Serviços, então redireciona direto pro Home, que abre o
+            // modal de resolução sozinho ao detectar o parâmetro.
+            router.push(
+              `/home?resolveFunctionInclusionCompanyId=${state.cardMeta.companyId}`
+            );
+          } else {
+            // PIPEFY_PUBLISH: anexo e movimentação de fase ainda vão rolar no
+            // Pipefy, e o Portal de Serviços provavelmente ainda não deu
+            // baixa nessa solicitação — navegar sozinho pro Home aqui seria
+            // prematuro. Só avisa; o técnico decide quando ir.
+            setFunctionInclusionFinalizedNoticeCompanyId(state.cardMeta.companyId);
+          }
+        }
       };
 
       if (startedState.finalizationMode === "LOCK_ONLY") {
@@ -1005,6 +1099,10 @@ export function usePgrEtapaController({
     setters,
     state.historicoData,
     state.inicioDraft,
+    state.cardMeta.companyId,
+    state.functionInclusionPending,
+    isFunctionInclusionContext,
+    router,
   ]);
 
   const handleCancelFinalization = useCallback(async () => {
@@ -1699,6 +1797,28 @@ export function usePgrEtapaController({
       startedBy: state.workflow.finalization?.startedBy ?? null,
       isCancelling: isCancellingFinalization,
       onCancel: handleCancelFinalization,
+    },
+    functionInclusionRequestsDialog: {
+      open: functionInclusionDialogOpen,
+      mode: "view" as const,
+      companyLabel: state.inicioDraft.companyName || "",
+      requests: functionInclusionRequests,
+      onClose: () => setFunctionInclusionDialogOpen(false),
+    },
+    functionInclusionFinalizedNotice: {
+      open: functionInclusionFinalizedNoticeCompanyId != null,
+      onClose: () => setFunctionInclusionFinalizedNoticeCompanyId(null),
+      onGoToHome: () => {
+        const companyId = functionInclusionFinalizedNoticeCompanyId;
+        setFunctionInclusionFinalizedNoticeCompanyId(null);
+        if (companyId != null) {
+          router.push(`/home?resolveFunctionInclusionCompanyId=${companyId}`);
+        }
+      },
+    },
+    functionInclusionPendingButton: {
+      visible: Boolean(state.functionInclusionPending),
+      onOpen: () => void handleOpenFunctionInclusionViewer(),
     },
     shellProps: {
       pgrId: params.id,

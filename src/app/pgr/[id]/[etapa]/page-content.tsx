@@ -23,6 +23,9 @@ import {
 } from "./steps/function-inclusion-banner-visibility";
 import { PreviousVersionDialog } from "./steps/previous-version-dialog";
 import { FinalizationLockDialog } from "./steps/finalization-lock-dialog";
+import { FunctionInclusionRequestsModal } from "@/components/function-inclusion-requests-modal";
+import { FunctionInclusionPendingButton } from "@/components/function-inclusion-pending-button";
+import { FunctionInclusionFinalizedNoticeDialog } from "./steps/function-inclusion-finalized-notice-dialog";
 import { usePgrEtapaController } from "./hooks/use-pgr-etapa-controller";
 
 const EDITABLE_TARGET_SELECTOR = [
@@ -51,6 +54,9 @@ export default function PgrEtapaPage({
     saveError,
     previousImportDialog,
     finalizationLock,
+    functionInclusionRequestsDialog,
+    functionInclusionPendingButton,
+    functionInclusionFinalizedNotice,
     shellProps,
     bodyCtx,
     footerProps,
@@ -193,6 +199,22 @@ export default function PgrEtapaPage({
         importing={previousImportDialog.importing}
         error={previousImportDialog.error}
         onImport={previousImportDialog.onImport}
+      />
+      <FunctionInclusionPendingButton
+        visible={functionInclusionPendingButton.visible}
+        onOpen={functionInclusionPendingButton.onOpen}
+      />
+      <FunctionInclusionRequestsModal
+        open={functionInclusionRequestsDialog.open}
+        mode={functionInclusionRequestsDialog.mode}
+        companyLabel={functionInclusionRequestsDialog.companyLabel}
+        requests={functionInclusionRequestsDialog.requests}
+        onClose={functionInclusionRequestsDialog.onClose}
+      />
+      <FunctionInclusionFinalizedNoticeDialog
+        open={functionInclusionFinalizedNotice.open}
+        onClose={functionInclusionFinalizedNotice.onClose}
+        onGoToHome={functionInclusionFinalizedNotice.onGoToHome}
       />
     </PgrShell>
   );

@@ -1,15 +1,15 @@
 "use client";
 
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   Search,
 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
+import { FunctionInclusionRequestsModal } from "@/components/function-inclusion-requests-modal";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 
 type HomeCard = {
@@ -78,6 +78,7 @@ type FunctionInclusionAlert = {
     notificationId: string;
     requestNumber: string;
     prazoSeguranca: string;
+    dataSolicitacao: string;
   }>;
 };
 
@@ -89,6 +90,7 @@ type FrontendNotification = {
   companyId?: number | null;
   requestNumber?: string | number | null;
   prazoSeguranca?: string | number | null;
+  dataSolicitacao?: string | number | null;
   functionInclusionElaboration?: {
     active?: boolean;
     responsibleName?: string | null;
@@ -308,6 +310,7 @@ function HomePgrCard({
 
 export default function PgrsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [homeData, setHomeData] = useState<HomeData>(emptyData);
   const [loading, setLoading] = useState(true);
@@ -471,10 +474,12 @@ export default function PgrsPage() {
         const companyLabel = match ? match[1].trim() : `Empresa #${item.companyId}`;
         const requestNumber = String(item.requestNumber ?? "").trim();
         const prazoSeguranca = String(item.prazoSeguranca ?? "").trim();
+        const dataSolicitacao = String(item.dataSolicitacao ?? "").trim();
         const request = {
           notificationId,
           requestNumber,
           prazoSeguranca,
+          dataSolicitacao,
         };
         const elaboration = {
           active: Boolean(item.functionInclusionElaboration?.active),
@@ -539,6 +544,26 @@ export default function PgrsPage() {
       window.removeEventListener("focus", tick);
     };
   }, [loadFunctionInclusionAlerts]);
+
+  useEffect(() => {
+    // Redirect vindo do editor de PGR logo após finalizar uma inclusão de
+    // função (ver handleFinalizePgr): em vez de abrir o modal de resolução
+    // ali mesmo, redireciona pra cá com a empresa já sinalizada, e a Home
+    // abre o modal sozinha assim que a lista de pendências carregar.
+    const rawCompanyId = searchParams?.get("resolveFunctionInclusionCompanyId");
+    if (!rawCompanyId) return;
+    const companyId = Number(rawCompanyId);
+    if (!Number.isFinite(companyId)) return;
+    const alert = functionInclusionAlerts.find((item) => item.companyId === companyId);
+    if (!alert) return;
+    setSelectedFunctionInclusionIds([]);
+    setFunctionInclusionToResolve({
+      companyId: alert.companyId,
+      companyLabel: alert.companyLabel,
+      requests: alert.requests,
+    });
+    router.replace("/home");
+  }, [searchParams, functionInclusionAlerts, router]);
 
   // A listagem padrão da Home só traz cards em sync_status ativo
   // (IN_PROGRESS/REJECTED). Quando o usuário filtra por empresa a partir do
@@ -707,6 +732,7 @@ export default function PgrsPage() {
         const result = await apiPost<{
           resolvedCount: number;
           remainingCount: number;
+          blocked?: Array<{ id: string; requestNumber: string | null }>;
         }>("/api/v1/frontend/notifications/function-inclusion/resolve", {
           companyId,
           resolveAll: options.resolveAll,
@@ -727,6 +753,18 @@ export default function PgrsPage() {
         await loadFunctionInclusionAlerts();
         setFunctionInclusionToResolve(null);
         setSelectedFunctionInclusionIds([]);
+        if (result.blocked && result.blocked.length > 0 && typeof window !== "undefined") {
+          const labels = result.blocked.map(
+            (item) => item.requestNumber || item.id
+          );
+          window.alert(
+            `${result.blocked.length === 1 ? "A solicitação" : "As solicitações"} ${labels.join(", ")} ainda não ${
+              result.blocked.length === 1 ? "foi finalizada" : "foram finalizadas"
+            } no Portal de Serviços e não ${
+              result.blocked.length === 1 ? "foi resolvida" : "foram resolvidas"
+            } aqui. Finalize no Portal de Serviços primeiro.`
+          );
+        }
       } catch {
         if (typeof window !== "undefined") {
           window.alert("Não foi possível marcar como incluída agora. Tente novamente.");
@@ -1144,170 +1182,35 @@ export default function PgrsPage() {
         ) : null}
       </div>
 
-      {functionInclusionToResolve ? (
-        <div
-          className="fixed inset-0 z-50"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="function-inclusion-confirmation-title"
-          aria-describedby="function-inclusion-confirmation-description"
-        >
-          <button
-            type="button"
-            aria-label="Fechar confirmação"
-            className="absolute inset-0 cursor-default bg-black/55"
-            disabled={resolvingCompanyId !== null}
-            onClick={() => setFunctionInclusionToResolve(null)}
-          />
-          <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
-            <div className="w-full max-w-[620px] rounded-[16px] border border-border bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning text-warning-foreground">
-                  <AlertTriangle className="h-5 w-5" />
-                </span>
-                <div>
-                  <h2
-                    id="function-inclusion-confirmation-title"
-                    className="text-[19px] font-semibold text-foreground"
-                  >
-                    Verificação das solicitações
-                  </h2>
-                  <p
-                    id="function-inclusion-confirmation-description"
-                    className="mt-2 text-[13px] leading-5 text-muted-foreground"
-                  >
-                    Nessa etapa você irá conseguir visualizar as informações do numero
-                    da solicitação da empresa: {" "}
-                    <strong className="text-foreground">
-                      {functionInclusionToResolve.companyLabel}
-                    </strong>
-                    .
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[12px] border border-border bg-background px-4 py-4">
-                <p className="text-[13px] font-semibold text-foreground">
-                  Solicitações Nº:
-                </p>
-                <div className="mt-3 flex max-h-[240px] flex-wrap gap-2 overflow-y-auto">
-                  {functionInclusionToResolve.requests.map((request) => {
-                    const checked = selectedFunctionInclusionIds.includes(
-                      request.notificationId
-                    );
-                    return (
-                      <label
-                        key={request.notificationId}
-                        className="flex cursor-pointer items-center gap-2 rounded-[9px] border border-border bg-card px-3 py-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={resolvingCompanyId !== null}
-                          onChange={() =>
-                            setSelectedFunctionInclusionIds((current) =>
-                              checked
-                                ? current.filter(
-                                    (item) => item !== request.notificationId
-                                  )
-                                : [...current, request.notificationId]
-                            )
-                          }
-                          className="h-4 w-4 accent-primary"
-                        />
-                        <span className="flex flex-col text-[13px] text-foreground">
-                          <span className="font-semibold">
-                            {request.requestNumber || request.notificationId}
-                          </span>
-                          {request.prazoSeguranca ? (
-                            <span className="text-[11px] text-muted-foreground">
-                              Prazo de segurança: {request.prazoSeguranca}
-                            </span>
-                          ) : null}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[12px] border border-warning/40 bg-warning/15 px-4 py-3">
-                <ul className="space-y-1.5 text-[13px] leading-5 text-foreground">
-                  <li>
-                    <strong className="font-semibold">Finalizar selecionadas:</strong>{" "}
-                    Finaliza somente as solicitações marcadas e mantém as demais em aberto.
-                  </li>
-                  <li>
-                    <strong className="font-semibold">Finalizar todas:</strong>{" "}
-                    Encerra todas as pendências desta empresa.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-                <button
-                  type="button"
-                  autoFocus
-                  disabled={resolvingCompanyId !== null}
-                  onClick={() => setFunctionInclusionToResolve(null)}
-                  className={
-                    resolvingCompanyId !== null
-                      ? "btn-disabled px-4 py-2 text-[14px]"
-                      : "btn-secondary px-4 py-2 text-[14px]"
-                  }
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    resolvingCompanyId !== null ||
-                    selectedFunctionInclusionIds.length === 0
-                  }
-                  onClick={() =>
-                    void resolveFunctionInclusion(
-                      functionInclusionToResolve.companyId,
-                      {
-                        resolveAll: false,
-                        notificationIds: selectedFunctionInclusionIds,
-                      }
-                    )
-                  }
-                  className={
-                    resolvingCompanyId !== null ||
-                    selectedFunctionInclusionIds.length === 0
-                      ? "btn-disabled px-4 py-2 text-[14px]"
-                      : "btn-primary px-4 py-2 text-[14px]"
-                  }
-                >
-                  {resolvingCompanyId !== null
-                    ? "Finalizando..."
-                    : "Finalizar selecionadas"}
-                </button>
-                <button
-                  type="button"
-                  disabled={resolvingCompanyId !== null}
-                  onClick={() =>
-                    void resolveFunctionInclusion(
-                      functionInclusionToResolve.companyId,
-                      { resolveAll: true }
-                    )
-                  }
-                  className={
-                    resolvingCompanyId !== null
-                      ? "btn-disabled px-4 py-2 text-[14px]"
-                      : "btn-secondary px-4 py-2 text-[14px]"
-                  }
-                >
-                  {resolvingCompanyId !== null
-                    ? "Finalizando..."
-                    : "Finalizar todas"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <FunctionInclusionRequestsModal
+        open={functionInclusionToResolve !== null}
+        mode="resolve"
+        companyLabel={functionInclusionToResolve?.companyLabel ?? ""}
+        requests={functionInclusionToResolve?.requests ?? []}
+        onClose={() => setFunctionInclusionToResolve(null)}
+        selectedIds={selectedFunctionInclusionIds}
+        onToggleSelected={(notificationId) =>
+          setSelectedFunctionInclusionIds((current) =>
+            current.includes(notificationId)
+              ? current.filter((item) => item !== notificationId)
+              : [...current, notificationId]
+          )
+        }
+        onResolveSelected={() => {
+          if (!functionInclusionToResolve) return;
+          void resolveFunctionInclusion(functionInclusionToResolve.companyId, {
+            resolveAll: false,
+            notificationIds: selectedFunctionInclusionIds,
+          });
+        }}
+        onResolveAll={() => {
+          if (!functionInclusionToResolve) return;
+          void resolveFunctionInclusion(functionInclusionToResolve.companyId, {
+            resolveAll: true,
+          });
+        }}
+        resolving={resolvingCompanyId !== null}
+      />
     </div>
   );
 }
