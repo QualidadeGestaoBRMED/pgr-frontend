@@ -900,8 +900,8 @@ export default function PgrsPage() {
                         className="inline-flex min-h-9 items-center justify-center rounded-md border border-primary bg-transparent px-3 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
                       >
                         {resolvingCompanyId === alert.companyId
-                          ? "Marcando..."
-                          : "Marcar como incluída"}
+                          ? "Finalizando..."
+                          : "Verificar solicitações"}
                       </button>
                       </div>
                       </div>
@@ -990,7 +990,9 @@ export default function PgrsPage() {
         ) : null}
 
         <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {(showSeparatedResults ? currentCards : filteredCards).map((card) => (
+          {(showSeparatedResults ? currentCards : filteredCards).map((card) => {
+            const finalized = isFinalizedCard(card);
+            return (
             <div
               key={card.id}
               role="button"
@@ -1025,7 +1027,11 @@ export default function PgrsPage() {
                   ) : null}
                   <ServicePortalBadge card={card} />
                 </div>
-                {card.syncStatus === "REJECTED" ? (
+                {finalized ? (
+                  <span className="inline-flex shrink-0 items-center rounded-full border border-success-foreground/20 bg-success px-3 py-1 text-[12px] font-semibold text-success-foreground">
+                    Finalizado
+                  </span>
+                ) : card.syncStatus === "REJECTED" ? (
                   <span className="inline-flex shrink-0 items-center rounded-full border border-[#d7263d]/20 bg-[#fff1f2] px-3 py-1 text-[12px] font-semibold text-[#b42318]">
                     Rejeitado
                   </span>
@@ -1047,6 +1053,14 @@ export default function PgrsPage() {
                   <span>Criado em:</span>
                   <span className="font-medium text-foreground">{card.createdAt}</span>
                 </div>
+                {formatFinalizedAt(card.finalizedAt) ? (
+                  <div className="flex items-center justify-between">
+                    <span>Finalizado em:</span>
+                    <span className="font-medium text-foreground">
+                      {formatFinalizedAt(card.finalizedAt)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between">
                   <span>Responsável:</span>
                   <span className="font-medium text-foreground">{card.owner}</span>
@@ -1076,7 +1090,8 @@ export default function PgrsPage() {
                 </div>
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {isDefaultListing && hasMoreCards ? (
@@ -1204,11 +1219,6 @@ export default function PgrsPage() {
                           <span className="font-semibold">
                             {request.requestNumber || request.notificationId}
                           </span>
-                          {request.functionName ? (
-                            <span className="text-[11px] text-muted-foreground">
-                              {request.functionName}
-                            </span>
-                          ) : null}
                         </span>
                       </label>
                     );
