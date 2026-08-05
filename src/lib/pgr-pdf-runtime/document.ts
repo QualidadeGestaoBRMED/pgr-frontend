@@ -1418,8 +1418,8 @@ function buildNarrativeCoreAndAnnexIndex(
         body: (() => {
           const rows: TableCell[][] = [
             [tealHeaderCell("Anexo"), tealHeaderCell("Título"), tealHeaderCell("Data da Inclusão")],
-            [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.generatedDate)],
-            [bodyCell("B"), bodyCell("PLANO DE AÇÃO"), bodyCell(snapshot.meta.generatedDate)],
+            [bodyCell("A"), bodyCell("INVENTÁRIO DE RISCOS OCUPACIONAIS"), bodyCell(snapshot.meta.firstInclusionDate)],
+            [bodyCell("B"), bodyCell("PLANO DE AÇÃO"), bodyCell(snapshot.meta.firstInclusionDate)],
           ];
 
           let nextCharCode = "C".charCodeAt(0);

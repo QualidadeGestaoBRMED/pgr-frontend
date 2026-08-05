@@ -48,6 +48,7 @@ export type RuntimeSnapshot = {
   meta: {
     pgrId: string;
     generatedDate: string;
+    firstInclusionDate: string;
     anl: string;
     revisionReason: string;
   };
@@ -317,6 +318,13 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
       (item: { alteracao: string; motivo: string; data: string }) =>
         item.alteracao || item.motivo || item.data
     );
+  // Data da Inclusão dos Anexos A/B (Índice de Anexos): fixa na data da
+  // primeira linha do quadro de histórico (Elaboração inicial), nunca no
+  // momento da geração -- ao contrário de generatedDate, que muda a cada
+  // vez que o documento é gerado de novo.
+  const firstInclusionDate = historicoChanges.length
+    ? formatHistoryDate(historicoChanges[0]?.date, generatedDate)
+    : generatedDate;
 
   const responsavelElaboracaoNome =
     sanitizeText(dados.responsavelPgrNome) || sanitizeText(inicio.responsible);
@@ -577,6 +585,7 @@ export function buildRuntimeSnapshot(payload: any): RuntimeSnapshot {
     meta: {
       pgrId: sanitizeText(payload?.meta?.pgrId) || sanitizeText(inicio.pipefyCardId),
       generatedDate,
+      firstInclusionDate,
       anl: resolveAnlValue(payload, historico),
       revisionReason: extractRevisionReason(historico),
     },
