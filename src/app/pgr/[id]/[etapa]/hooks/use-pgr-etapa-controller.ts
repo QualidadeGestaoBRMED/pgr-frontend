@@ -1392,6 +1392,30 @@ export function usePgrEtapaController({
     [params.id, setters]
   );
 
+  // Também dedicado (não autosave genérico): permite somar um registro de
+  // alteração já finalizado enquanto o documento está destravado/em edição,
+  // sem depender de "Editar nova versão" (que só reabre um documento já
+  // travado) — cobre o caso de duas demandas externas com datas de
+  // solicitação distintas na mesma sessão de edição.
+  const handleAddHistoricoRow = useCallback(async () => {
+    try {
+      const updatedState = await apiPost<{
+        historico: HistoricoData;
+        updatedAt?: string;
+      }>(`/api/v1/frontend/pgr/${params.id}/historico/add-row`, {});
+      setKnownUpdatedAt(params.id, updatedState.updatedAt);
+      setters.setHistoricoData(updatedState.historico);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível adicionar um novo registro de alteração agora.";
+      if (typeof window !== "undefined") {
+        window.alert(message);
+      }
+    }
+  }, [params.id, setters]);
+
   const handleResetInicioData = useCallback(() => {
     if (state.workflow.isLocked) return;
     setters.setInicioDraft(initialInicioDraft);
@@ -1978,6 +2002,7 @@ export function usePgrEtapaController({
       handleEditCurrentFinalizedVersion,
       handleHistoricoChangeField,
       handleHistoricoDeleteRow,
+      handleAddHistoricoRow,
       handleResetInicioData,
       handleResetDadosData,
       handleResetDescricaoData,

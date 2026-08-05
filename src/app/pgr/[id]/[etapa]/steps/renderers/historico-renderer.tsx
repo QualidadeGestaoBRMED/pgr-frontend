@@ -14,5 +14,6 @@ export const renderHistoricoStep: StepRenderer = (ctx) => (
     onEditCurrentFinalizedVersion={ctx.handleEditCurrentFinalizedVersion}
     onChangeField={ctx.handleHistoricoChangeField}
     onDeleteRow={ctx.handleHistoricoDeleteRow}
+    onAddRow={ctx.handleAddHistoricoRow}
   />
 );

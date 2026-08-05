@@ -1,4 +1,4 @@
-import { ChevronDown, Download, LoaderCircle, PencilLine, Search, Trash2 } from "lucide-react";
+import { ChevronDown, Download, LoaderCircle, PencilLine, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 // Fases de retorno interno (sem categorias de motivo próprias, ao contrário
@@ -48,6 +48,7 @@ type PgrHistoricoPanelProps = {
     value: string
   ) => void;
   onDeleteRow: (changeId: string) => void;
+  onAddRow: () => void | Promise<void>;
 };
 
 export function PgrHistoricoPanel({
@@ -62,8 +63,10 @@ export function PgrHistoricoPanel({
   onEditCurrentFinalizedVersion,
   onChangeField,
   onDeleteRow,
+  onAddRow,
 }: PgrHistoricoPanelProps) {
   const [hasStartedNewVersion, setHasStartedNewVersion] = useState(false);
+  const [isAddingRow, setIsAddingRow] = useState(false);
   const [openReasonSelectRowId, setOpenReasonSelectRowId] = useState<string | null>(null);
   const [reasonQuery, setReasonQuery] = useState("");
   const [isRejectionReasonModalOpen, setIsRejectionReasonModalOpen] = useState(false);
@@ -386,9 +389,35 @@ export function PgrHistoricoPanel({
       </section>
 
       <section className="rounded-[14px] bg-card px-6 py-6 shadow-[0px_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-border/60">
-        <h2 className="text-[16px] font-semibold text-foreground">
-          Registro de Alterações
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[16px] font-semibold text-foreground">
+            Registro de Alterações
+          </h2>
+          {!workflow.isLocked ? (
+            <button
+              type="button"
+              onClick={async () => {
+                if (isAddingRow) return;
+                setIsAddingRow(true);
+                try {
+                  await onAddRow();
+                } finally {
+                  setIsAddingRow(false);
+                }
+              }}
+              disabled={isAddingRow}
+              title="Adiciona mais um registro de alteração já finalizado, sem precisar finalizar o documento antes — útil quando duas demandas externas com datas de solicitação diferentes exigem dois registros distintos."
+              className={
+                isAddingRow
+                  ? "btn-disabled px-3 py-2 text-[13px]"
+                  : "btn-outline px-3 py-2 text-[13px]"
+              }
+            >
+              <Plus className="h-4 w-4" />
+              {isAddingRow ? "Adicionando..." : "Adicionar registro de alteração"}
+            </button>
+          ) : null}
+        </div>
         <div className="mt-4 overflow-x-auto overflow-y-visible">
           <div className="min-w-[980px]">
             <div className="grid grid-cols-[2.35fr_0.65fr_0.65fr_2.45fr_1fr_1fr_44px] gap-4 border-b border-border pb-3 text-[13px] font-medium text-muted-foreground">
