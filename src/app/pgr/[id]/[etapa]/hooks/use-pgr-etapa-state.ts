@@ -179,6 +179,40 @@ export function usePgrEtapaState({
   const [lastGheNotice, setLastGheNotice] = useState<null | { from: string; to: string }>(
     null
   );
+  const previousStepIndexRef = useRef(currentIndex);
+
+  useEffect(() => {
+    if (previousStepIndexRef.current === currentIndex) return;
+    previousStepIndexRef.current = currentIndex;
+
+    // O state de negócio permanece vivo entre etapas. Limpamos apenas o que
+    // antes desaparecia naturalmente com o unmount: modais, filtros, seleção
+    // temporária, edição inline e estado de drag-and-drop.
+    setExcelImportFeedback(null);
+    setIsPreviewModalOpen(false);
+    setSearchTerm("");
+    setIsPlanActionModalOpen(false);
+    setPlanActionScope("risk");
+    setPlanActionGheId("");
+    setPlanActionRiskId("");
+    setPlanActionDescription("");
+    setPlanActionPriority("Média");
+    setEditingMedidasId(null);
+    setEditingMedidasValue("");
+    setPlanTablePage(1);
+    setDraggedAnexoId(null);
+    setDragOverAnexoId(null);
+    setSelectedLeftIds([]);
+    setSelectedRightIds([]);
+    setIsGheModalOpen(false);
+    setIsInfoModalOpen(false);
+    setInfoModalError("");
+    setInfoModalMode("next");
+    setGheSearch("");
+    setGheFilterId("all");
+    setIsGheListView(false);
+    setLastGheNotice(null);
+  }, [currentIndex]);
 
   useEffect(() => {
     setShouldHydrateFromApi(true);

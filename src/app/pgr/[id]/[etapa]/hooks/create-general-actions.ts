@@ -189,7 +189,7 @@ type GeneralActionsContext = {
     completedSteps: number;
     currentIndex: number;
     nextStep: { id: string } | null;
-    router: { push: (href: string) => void };
+    navigateToStep: (stepId: string) => void;
     historicoData: PersistedPgrState["historicoData"];
     anexos: AnexoItem[];
     dragOverAnexoId: string | null;
@@ -255,7 +255,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     completedSteps,
     currentIndex,
     nextStep,
-    router,
+    navigateToStep,
     historicoData,
     anexos,
     dragOverAnexoId,
@@ -1443,26 +1443,23 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
     });
   };
 
-  const handleAdvance = async () => {
+  const handleAdvance = () => {
     if (ctx.current.stepId === "descricao" && !ctx.current.allGhesDescribed) return;
-    try {
-      await persistStateNow();
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar os dados antes de avançar.";
-      if (typeof window !== "undefined") {
-        window.alert(message);
-      }
-      return;
-    }
+    // O controller agora vive no layout persistente do PGR. Inicia o flush
+    // antes da navegação, mas não bloqueia a troca visual de etapa: a fila
+    // única mantém este save e os próximos na ordem, e o state local continua
+    // montado caso a rede falhe.
+    const saveBeforeAdvance = persistStateNow();
     const nextCompleted = Math.max(completedSteps, currentIndex + 1);
     setCompletedSteps(nextCompleted);
-    await handleAdvanceApiSync(nextCompleted);
     if (nextStep) {
-      router.push(`/pgr/${params.id}/${nextStep.id}`);
+      navigateToStep(nextStep.id);
     }
+    void saveBeforeAdvance
+      .then(() => handleAdvanceApiSync(nextCompleted))
+      .catch(() => {
+        // O funil de save já exibe o banner persistente de erro/conflito.
+      });
   };
 
   const handleAddExtraField = (

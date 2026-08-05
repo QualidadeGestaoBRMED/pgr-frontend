@@ -16,6 +16,7 @@ import { PgrStepBody } from "./steps/pgr-step-body";
 import { StepFooterActions } from "./steps/step-footer-actions";
 import { SaveConflictDialog } from "./steps/save-conflict-dialog";
 import { SaveErrorBanner } from "./steps/save-error-banner";
+import { SaveStatusIndicator } from "./steps/save-status-indicator";
 import { FunctionInclusionBanner } from "./steps/function-inclusion-banner";
 import {
   shouldShowFunctionInclusionBanner,
@@ -46,12 +47,15 @@ const isEditableTarget = (target: EventTarget | null) =>
 
 export default function PgrEtapaPage({
   params,
+  onNavigateStep,
 }: {
   params: { id: string; etapa: string };
+  onNavigateStep?: (stepId: string) => void;
 }) {
   const {
     conflict,
     saveError,
+    saveStatus,
     previousImportDialog,
     finalizationLock,
     functionInclusionRequestsDialog,
@@ -62,6 +66,7 @@ export default function PgrEtapaPage({
     footerProps,
   } = usePgrEtapaController({
     params,
+    onNavigateStep,
   });
   const readOnlyContentRef = useRef<HTMLDivElement>(null);
   const [editAttempted, setEditAttempted] = useState(false);
@@ -96,6 +101,16 @@ export default function PgrEtapaPage({
     const timeoutId = window.setTimeout(() => setEditAttempted(false), 5000);
     return () => window.clearTimeout(timeoutId);
   }, [editAttempted]);
+
+  useEffect(() => {
+    if (!saveStatus.hasUnsavedChanges) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveStatus.hasUnsavedChanges]);
 
   const blockPointerEdit = (event: PointerEvent<HTMLDivElement>) => {
     if (!contentReadOnly || !isEditableTarget(event.target)) return;
@@ -191,6 +206,11 @@ export default function PgrEtapaPage({
         onDismiss={conflict.onDismiss}
       />
       <SaveErrorBanner active={saveError} />
+      <SaveStatusIndicator
+        ready={saveStatus.isReady}
+        saving={saveStatus.isSaving}
+        hidden={saveError || conflict.open}
+      />
       <PreviousVersionDialog
         open={previousImportDialog.open}
         companyName={previousImportDialog.companyName}

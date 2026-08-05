@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { apiGet } from "@/lib/api";
 import { putPgrState, replaceKnownUpdatedAt } from "../state/state-version";
 import { pgrSteps } from "@/app/pgr/steps";
@@ -274,6 +274,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
   const skipInitialPersistRef = useRef(true);
   const skipPostHydrationPersistsRef = useRef(0);
   const pendingPersistPayloadRef = useRef<PendingPersistPayload | null>(null);
+  const [hasPendingPersist, setHasPendingPersist] = useState(false);
   const functionInclusionReadOnlyRef = useRef(false);
   functionInclusionReadOnlyRef.current = Boolean(
     functionInclusionElaboration.readOnly
@@ -381,6 +382,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     ) => {
       if (functionInclusionReadOnlyRef.current) {
         pendingPersistPayloadRef.current = null;
+        setHasPendingPersist(false);
         return Promise.resolve();
       }
       const snapshot =
@@ -391,11 +393,13 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         lastEnqueuedSnapshotRef.current?.signature === snapshot.signature;
       if (matchesConfirmed && matchesEnqueued) {
         pendingPersistPayloadRef.current = null;
+        setHasPendingPersist(false);
         return Promise.resolve();
       }
 
       const pending = { payload, snapshot };
       pendingPersistPayloadRef.current = pending;
+      setHasPendingPersist(true);
       const changedPayload = selectSafeQueuedPersistPayload(
         lastPersistedSnapshotRef.current,
         lastEnqueuedSnapshotRef.current,
@@ -441,6 +445,7 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
         .finally(() => {
           if (pendingPersistPayloadRef.current === pending) {
             pendingPersistPayloadRef.current = null;
+            setHasPendingPersist(false);
           }
         });
     },
@@ -991,15 +996,25 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
     if (isStateLoading) return;
     if (functionInclusionElaboration.readOnly) {
       pendingPersistPayloadRef.current = null;
+      setHasPendingPersist(false);
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
       return;
     }
-    if (workflow.isLocked) return;
+    if (workflow.isLocked) {
+      pendingPersistPayloadRef.current = null;
+      setHasPendingPersist(false);
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      return;
+    }
     if (workflow.finalization?.active) {
       pendingPersistPayloadRef.current = null;
+      setHasPendingPersist(false);
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
@@ -1071,10 +1086,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       lastEnqueuedSnapshotRef.current?.signature === snapshot.signature;
     if (matchesConfirmed && matchesEnqueued) {
       pendingPersistPayloadRef.current = null;
+      setHasPendingPersist(false);
       return;
     }
 
     pendingPersistPayloadRef.current = { payload, snapshot };
+    setHasPendingPersist(true);
     const shouldPersistImmediately =
       prevImmediatePersistRefs.current.riskGheGroups !== riskGheGroups ||
       prevImmediatePersistRefs.current.removedPlanRiskKeys !== removedPlanRiskKeys ||
@@ -1177,10 +1194,12 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       saveTimerRef.current = null;
     }
     pendingPersistPayloadRef.current = null;
+    setHasPendingPersist(false);
   }, [saveTimerRef]);
 
   return {
     persistLatestStateNow,
     cancelPendingPersist,
+    hasPendingPersist,
   };
 }

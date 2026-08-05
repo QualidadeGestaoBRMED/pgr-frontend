@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -11,6 +12,7 @@ import { FunctionInclusionRequestsModal } from "@/components/function-inclusion-
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
+import { getFunctionInclusionDeadlineAlert } from "./function-inclusion-deadline";
 
 type HomeCard = {
   id: string;
@@ -851,6 +853,9 @@ export default function PgrsPage() {
                   const check = functionInclusionChecks[alert.companyId] || {
                     status: "idle",
                   };
+                  const deadlineAlert = getFunctionInclusionDeadlineAlert(
+                    alert.requests.map((request) => request.prazoSeguranca)
+                  );
                   return (
                     <Fragment key={alert.companyId}>
                       {sectionTitle ? (
@@ -862,10 +867,25 @@ export default function PgrsPage() {
                         className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/60 bg-background/40 px-4 py-3 dark:border-white/10 dark:bg-[#173446]"
                       >
                       <div>
-                        <p className="text-[13px] font-medium text-foreground dark:text-white">
-                          {alert.companyLabel}
-                          {alert.count > 1 ? ` · ${alert.count} funções` : ""}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[13px] font-medium text-foreground dark:text-white">
+                            {alert.companyLabel}
+                            {alert.count > 1 ? ` · ${alert.count} funções` : ""}
+                          </p>
+                          {deadlineAlert ? (
+                            <span
+                              title={`${deadlineAlert.label} · Prazo segurança: ${deadlineAlert.deadline}`}
+                              aria-label={`${deadlineAlert.label}. Prazo segurança: ${deadlineAlert.deadline}`}
+                              className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                                deadlineAlert.severity === "danger"
+                                  ? "border-danger-foreground/30 bg-danger text-danger-foreground"
+                                  : "border-warning-foreground/25 bg-warning text-warning-foreground"
+                              }`}
+                            >
+                              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                          ) : null}
+                        </div>
                         {alert.requestNumbers.length > 0 ? (
                           <p className="mt-1 text-[12px] font-medium text-muted-foreground dark:text-white/70">
                             {alert.requestNumbers.length === 1

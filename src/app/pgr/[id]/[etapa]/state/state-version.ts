@@ -17,6 +17,8 @@ const knownUpdatedAtByPgr = new Map<string, string>();
 // nem sobrescrever a versão mais nova de quem assumiu o documento.
 let savingPaused = false;
 let onConflictHandler: (() => void) | null = null;
+let pendingSaveOperations = 0;
+let onSaveActivityHandler: ((isSaving: boolean) => void) | null = null;
 
 // Qualquer erro de save que NÃO seja 409 (rede, 400, 500, payload grande
 // demais etc.) sempre foi engolido em silêncio pelos callers — o usuário
@@ -29,6 +31,22 @@ export function setSaveErrorHandler(
   fn: ((hasError: boolean) => void) | null
 ): void {
   onSaveErrorHandler = fn;
+}
+
+export function setSaveActivityHandler(
+  fn: ((isSaving: boolean) => void) | null
+): void {
+  onSaveActivityHandler = fn;
+  fn?.(pendingSaveOperations > 0);
+}
+
+function trackSaveActivity<T>(operation: Promise<T>): Promise<T> {
+  pendingSaveOperations += 1;
+  onSaveActivityHandler?.(true);
+  return operation.finally(() => {
+    pendingSaveOperations = Math.max(0, pendingSaveOperations - 1);
+    onSaveActivityHandler?.(pendingSaveOperations > 0);
+  });
 }
 
 export function getKnownUpdatedAt(pgrId: string): string | null {
@@ -133,11 +151,12 @@ export async function runInSaveChain<T extends StateResponse>(
   task: () => Promise<T>
 ): Promise<T> {
   const previous = saveChainByPgr.get(pgrId) ?? Promise.resolve();
-  const result = previous.catch(() => undefined).then(async () => {
+  const operation = previous.catch(() => undefined).then(async () => {
     const res = await task();
     setKnownUpdatedAt(pgrId, res?.updatedAt);
     return res;
   });
+  const result = trackSaveActivity(operation);
   saveChainByPgr.set(
     pgrId,
     result.catch(() => undefined)
@@ -164,9 +183,10 @@ export function putPgrState<T extends StateResponse = StateResponse>(
   const previous = saveChainByPgr.get(pgrId) ?? Promise.resolve();
   // Encadeia após o save anterior (ignorando o resultado/erro dele) para
   // garantir ordem e token atualizado. O resultado real volta em `result`.
-  const result = previous
+  const operation = previous
     .catch(() => undefined)
     .then(() => runPutPgrState<T>(pgrId, payload));
+  const result = trackSaveActivity(operation);
   // A cadeia nunca rejeita, senão um erro de save trava a fila inteira.
   saveChainByPgr.set(
     pgrId,

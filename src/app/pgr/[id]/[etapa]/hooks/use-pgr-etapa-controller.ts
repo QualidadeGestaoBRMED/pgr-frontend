@@ -37,6 +37,7 @@ import {
   setKnownUpdatedAt,
   setConflictHandler,
   setSaveErrorHandler,
+  setSaveActivityHandler,
   resumeSaving,
   clearKnownUpdatedAt,
 } from "../state/state-version";
@@ -410,8 +411,10 @@ async function waitForPipefyAttachJobCompletion(
 
 export function usePgrEtapaController({
   params,
+  onNavigateStep,
 }: {
   params: { id: string; etapa: string };
+  onNavigateStep?: (stepId: string) => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -428,6 +431,17 @@ export function usePgrEtapaController({
   const prevStep = currentIndex > 0 ? pgrSteps[currentIndex - 1] : null;
   const nextStep =
     currentIndex < pgrSteps.length - 1 ? pgrSteps[currentIndex + 1] : null;
+
+  const navigateToStep = useCallback(
+    (stepId: string) => {
+      if (onNavigateStep) {
+        onNavigateStep(stepId);
+        return;
+      }
+      router.push(`/pgr/${params.id}/${stepId}`, { scroll: false });
+    },
+    [onNavigateStep, params.id, router]
+  );
 
   const { shouldHydrateFromApi, state, setters, refs, actions, ui } = usePgrEtapaState({
     paramsId: params.id,
@@ -480,6 +494,8 @@ export function usePgrEtapaController({
   // antes era engolido em silêncio pelo autosave; isso já causou perda real
   // de horas de edição em produção (usuário achando que estava salvando).
   const [saveError, setSaveError] = useState(false);
+  const [isSaveQueueActive, setIsSaveQueueActive] = useState(false);
+  const retrySaveAfterConflictRef = useRef<() => void>(() => {});
   const [isCancellingFinalization, setIsCancellingFinalization] = useState(false);
   const finalizationAttemptRef = useRef(0);
   useEffect(() => {
@@ -489,9 +505,11 @@ export function usePgrEtapaController({
     resumeSaving();
     setConflictHandler(() => setSaveConflict(true));
     setSaveErrorHandler(setSaveError);
+    setSaveActivityHandler(setIsSaveQueueActive);
     return () => {
       setConflictHandler(null);
       setSaveErrorHandler(null);
+      setSaveActivityHandler(null);
     };
   }, []);
   const reloadAfterConflict = useCallback(() => {
@@ -507,6 +525,7 @@ export function usePgrEtapaController({
     clearKnownUpdatedAt(params.id);
     resumeSaving();
     setSaveConflict(false);
+    retrySaveAfterConflictRef.current();
   }, [params.id]);
 
   // PGR anterior finalizado da mesma empresa disponível para importação.
@@ -591,7 +610,7 @@ export function usePgrEtapaController({
     setFunctionInclusionDialogOpen(true);
   }, [loadFunctionInclusionRequestsForCompany]);
 
-  const { persistLatestStateNow, cancelPendingPersist } = usePgrPersistence({
+  const { persistLatestStateNow, cancelPendingPersist, hasPendingPersist } = usePgrPersistence({
     params,
     shouldHydrateFromApi,
     defaultHistorico,
@@ -800,6 +819,15 @@ export function usePgrEtapaController({
     },
     [buildStatePayload, persistLatestStateNow]
   );
+  retrySaveAfterConflictRef.current = () => {
+    // Após um 409, o estado do servidor pode ter qualquer combinação de
+    // campos da outra pessoa. Reenvia o snapshot completo local para cumprir
+    // a escolha explícita de sobrescrever, sem calcular delta contra uma
+    // baseline que deixou de ser válida.
+    void putPgrState(params.id, buildStatePayload()).catch(() => {
+      // O handler global mantém o aviso de alterações não salvas visível.
+    });
+  };
 
   const rejectionReasonFromQuery = useMemo(
     () => String(searchParams?.get("rejectionReason") || "").trim(),
@@ -1688,7 +1716,7 @@ export function usePgrEtapaController({
       completedSteps: state.completedSteps,
       currentIndex,
       nextStep,
-      router,
+      navigateToStep,
       historicoData: state.historicoData,
       anexos: state.anexos,
       dragOverAnexoId: state.dragOverAnexoId,
@@ -1823,6 +1851,12 @@ export function usePgrEtapaController({
       onDismiss: dismissSaveConflict,
     },
     saveError,
+    saveStatus: {
+      isReady: !state.isStateLoading,
+      isSaving: hasPendingPersist || isSaveQueueActive,
+      hasUnsavedChanges:
+        hasPendingPersist || isSaveQueueActive || saveError || saveConflict,
+    },
     previousImportDialog: {
       open: previousImport !== null && !isFunctionInclusionContext,
       companyName: previousImport?.companyName ?? "",
@@ -1872,7 +1906,7 @@ export function usePgrEtapaController({
       stepStatusById: derived.displayStepStatusById,
       accessibleStepIds,
       onNavigateStep: (stepId: PgrStepId) =>
-        router.push(`/pgr/${params.id}/${stepId}`),
+        navigateToStep(stepId),
       cycleTimeMs: cycleTime.cycleTotalMs,
       cycleSessionStartedAtMs: cycleTime.activeSessionStartedAtMs,
     },
@@ -2041,7 +2075,7 @@ export function usePgrEtapaController({
       prevStepId: prevStep?.id ?? null,
       nextStepId: nextStep?.id ?? null,
       workflowIsLocked: state.workflow.isLocked,
-      onNavigateStep: (stepId: string) => router.push(`/pgr/${params.id}/${stepId}`),
+      onNavigateStep: navigateToStep,
       onAdvance: generalActions.handleAdvance,
       onCreateNextGhe: descricaoInteractions.handleCreateNextGhe,
       onOpenInfoForAdvance: descricaoInteractions.handleOpenInfoForAdvance,

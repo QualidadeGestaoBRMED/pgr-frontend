@@ -106,6 +106,20 @@ export function PgrShell({
                 <Link
                   href={`/pgr/${pgrId}/${step.id}`}
                   scroll={false}
+                  onClick={(event) => {
+                    if (
+                      !onNavigateStep ||
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    ) {
+                      return;
+                    }
+                    event.preventDefault();
+                    onNavigateStep(step.id);
+                  }}
                   className={`flex w-full min-w-0 items-start gap-3 rounded-[10px] px-3 py-3 transition-colors ${rowClasses}`}
                 >
                   <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center">

@@ -33,6 +33,7 @@ describe("step schemas", () => {
       unitName: "Unidade 1",
       cnpj: "04.252.011/0001-10",
       responsible: "Maria",
+      responsibleRole: "",
       email: "maria@empresa.com",
       notes: "",
     };
