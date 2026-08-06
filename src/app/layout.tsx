@@ -12,11 +12,8 @@ export const metadata: Metadata = {
   description: "Login",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [
-      { url: "/favicon.ico", type: "image/x-icon", sizes: "any" },
-      { url: "/logo_metadado.png", type: "image/png" },
-    ],
-    shortcut: "/favicon.ico",
+    icon: [{ url: "/icon-192.png", type: "image/png", sizes: "192x192" }],
+    shortcut: "/icon-192.png",
     apple: "/apple-touch-icon.png",
   },
   appleWebApp: {

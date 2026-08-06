@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 const SITE_TITLE = "PGR Web";
-const FAVICON_HREF = "/favicon.ico";
+const FAVICON_HREF = "/icon-192.png";
 
 function restoreSiteIdentity() {
   if (document.title !== SITE_TITLE) {
@@ -16,7 +16,7 @@ function restoreSiteIdentity() {
   );
   const icon = existingIcon ?? document.createElement("link");
   icon.rel = "icon";
-  icon.type = "image/x-icon";
+  icon.type = "image/png";
   icon.href = FAVICON_HREF;
   icon.dataset.pgrSiteIcon = "true";
   if (!existingIcon) {
