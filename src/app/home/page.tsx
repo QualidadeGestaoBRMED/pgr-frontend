@@ -29,7 +29,7 @@ type HomeCard = {
   syncStatus?: string | null;
   isFinalized?: boolean;
   finalizedAt?: string | null;
-  status: { label: string; bg: string; text: string; dot: string };
+  status: { label: string; statusKey: string };
   createdAt: string;
   owner: string;
   responsible?: string | null;
@@ -263,10 +263,7 @@ function HomePgrCard({
       <div className="space-y-3 text-[14px] text-muted-foreground">
         <div className="flex items-center justify-between gap-3">
           <span>Status:</span>
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] ${card.status.bg} ${card.status.text}`}
-          >
-            <span className={`h-2 w-2 rounded-full ${card.status.dot}`} />
+          <span className="text-right font-medium text-foreground">
             {card.status.label}
           </span>
         </div>
@@ -1120,10 +1117,7 @@ function PgrsPageContent() {
               <div className="space-y-3 text-[14px] text-muted-foreground">
                 <div className="flex items-center justify-between">
                   <span>Status:</span>
-                  <span
-                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] ${card.status.bg} ${card.status.text}`}
-                  >
-                    <span className={`h-2 w-2 rounded-full ${card.status.dot}`} />
+                  <span className="text-right font-medium text-foreground">
                     {card.status.label}
                   </span>
                 </div>
