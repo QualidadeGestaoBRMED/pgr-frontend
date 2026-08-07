@@ -136,19 +136,8 @@ function normalizeHomeData(data: HomeData): HomeData {
     ...data,
     cards: (data.cards || []).map((card) => {
       const rawCard = card as Record<string, unknown>;
-      const pgrWebLocked = Boolean(card.isFinalized);
       return {
         ...card,
-        status: pgrWebLocked
-          ? {
-              ...card.status,
-              label: "Aguardando finalização",
-              bg: "bg-[#cfe0f5]",
-              text: "text-black",
-              dot: "bg-[#3d78a3]",
-            }
-          : card.status,
-        finalizedAt: pgrWebLocked ? null : card.finalizedAt,
         owner:
           pickFirstText([
             card.owner,
