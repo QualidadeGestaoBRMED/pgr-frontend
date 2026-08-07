@@ -248,7 +248,7 @@ function HomePgrCard({
           ) : null}
           <ServicePortalBadge card={card} />
         </div>
-        {finalized ? (
+        {finalized && card.status.label === "Concluído" ? (
           <span className="inline-flex shrink-0 items-center rounded-full border border-success-foreground/20 bg-success px-3 py-1 text-[12px] font-semibold text-success-foreground">
             Finalizado
           </span>
@@ -1105,7 +1105,7 @@ function PgrsPageContent() {
                   ) : null}
                   <ServicePortalBadge card={card} />
                 </div>
-                {finalized ? (
+                {finalized && card.status.label === "Concluído" ? (
                   <span className="inline-flex shrink-0 items-center rounded-full border border-success-foreground/20 bg-success px-3 py-1 text-[12px] font-semibold text-success-foreground">
                     Finalizado
                   </span>
