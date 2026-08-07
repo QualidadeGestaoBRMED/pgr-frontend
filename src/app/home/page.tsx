@@ -218,7 +218,6 @@ function HomePgrCard({
   onOpen: () => void;
 }) {
   const finalized = isFinalizedCard(card);
-  const concluded = card.syncStatus === "DONE";
   const finalizedAt = formatFinalizedAt(card.finalizedAt);
 
   return (
@@ -249,7 +248,7 @@ function HomePgrCard({
           ) : null}
           <ServicePortalBadge card={card} />
         </div>
-        {finalized && concluded ? (
+        {finalized ? (
           <span className="inline-flex shrink-0 items-center rounded-full border border-success-foreground/20 bg-success px-3 py-1 text-[12px] font-semibold text-success-foreground">
             Finalizado
           </span>
@@ -1071,7 +1070,6 @@ function PgrsPageContent() {
         <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {(showSeparatedResults ? currentCards : filteredCards).map((card) => {
             const finalized = isFinalizedCard(card);
-            const concluded = card.syncStatus === "DONE";
             return (
             <div
               key={card.id}
@@ -1107,7 +1105,7 @@ function PgrsPageContent() {
                   ) : null}
                   <ServicePortalBadge card={card} />
                 </div>
-                {finalized && concluded ? (
+                {finalized ? (
                   <span className="inline-flex shrink-0 items-center rounded-full border border-success-foreground/20 bg-success px-3 py-1 text-[12px] font-semibold text-success-foreground">
                     Finalizado
                   </span>
