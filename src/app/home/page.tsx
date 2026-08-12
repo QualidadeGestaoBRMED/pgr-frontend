@@ -74,6 +74,16 @@ type HomeData = {
 // de quem tem mais que isso.
 const HOME_PAGE_SIZE = 30;
 
+// A busca avançada (search=... no backend) tinha a mesma armadilha que a
+// listagem padrão já teve: page_size=200 numa tacada só, forçando o pior
+// caso de carga (Exists() de estado finalizado + joins de empresa/usuário)
+// pra até 200 registros de uma vez. Pesquisar por "finalizados" varre o
+// maior subconjunto de cards, então era o caso mais lento -- derrubava o
+// health check do Render (worker sync único, sem margem pra segurar a
+// requisição). Mesma solução da listagem padrão: página menor + scroll
+// infinito, buscando mais conforme o usuário rola.
+const SEARCH_PAGE_SIZE = 50;
+
 type FunctionInclusionAlert = {
   companyId: number;
   companyLabel: string;
@@ -337,6 +347,9 @@ function PgrsPageContent() {
   const [searchCards, setSearchCards] = useState<HomeCard[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchLoadingMore, setSearchLoadingMore] = useState(false);
+  const [hasMoreSearchCards, setHasMoreSearchCards] = useState(false);
+  const searchPageRef = useRef(1);
   const [functionInclusionAlerts, setFunctionInclusionAlerts] = useState<
     FunctionInclusionAlert[]
   >([]);
@@ -626,18 +639,23 @@ function PgrsPageContent() {
     let active = true;
     setSearchCards(null);
     setSearchError(null);
+    setHasMoreSearchCards(false);
     const timeoutId = window.setTimeout(() => {
       setSearchLoading(true);
       apiGet<HomeData>(
-        `/api/v1/frontend/home?page_size=200&search=${encodeURIComponent(query)}`
+        `/api/v1/frontend/home?page_size=${SEARCH_PAGE_SIZE}&page=1&search=${encodeURIComponent(query)}`
       )
         .then((data) => {
           if (!active) return;
-          setSearchCards(normalizeHomeData(data).cards);
+          const normalized = normalizeHomeData(data);
+          searchPageRef.current = 1;
+          setSearchCards(normalized.cards);
+          setHasMoreSearchCards((normalized.pagination?.totalPages ?? 1) > 1);
         })
         .catch((error) => {
           if (!active) return;
           setSearchCards([]);
+          setHasMoreSearchCards(false);
           setSearchError(
             error instanceof Error
               ? `Falha ao pesquisar PGRs: ${error.message}`
@@ -654,6 +672,33 @@ function PgrsPageContent() {
       window.clearTimeout(timeoutId);
     };
   }, [companyFilter, homeData.canUseAdvancedSearch, searchQuery]);
+
+  // Mesmo padrão de scroll infinito da listagem padrão (loadMoreCards),
+  // aplicado à busca: cada rolagem busca só a próxima página de 50 em vez
+  // de tudo de uma vez.
+  const loadMoreSearchCards = useCallback(async () => {
+    if (searchLoadingMore || !hasMoreSearchCards) return;
+    const query = searchQuery.trim();
+    if (!query) return;
+    setSearchLoadingMore(true);
+    const nextPage = searchPageRef.current + 1;
+    try {
+      const data = await apiGet<HomeData>(
+        `/api/v1/frontend/home?page_size=${SEARCH_PAGE_SIZE}&page=${nextPage}&search=${encodeURIComponent(query)}`
+      );
+      const normalized = normalizeHomeData(data);
+      searchPageRef.current = nextPage;
+      setSearchCards((prev) => [...(prev ?? []), ...normalized.cards]);
+      setHasMoreSearchCards(nextPage < (normalized.pagination?.totalPages ?? nextPage));
+    } catch {
+      // Falha pontual ao buscar mais uma página: mantém o que já carregou e
+      // deixa o usuário tentar de novo rolando a lista.
+    } finally {
+      setSearchLoadingMore(false);
+    }
+  }, [hasMoreSearchCards, searchLoadingMore, searchQuery]);
+
+  const searchSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const filteredCards = useMemo(() => {
     const query = normalizeSearchText(searchQuery);
@@ -690,6 +735,24 @@ function PgrsPageContent() {
   const showSeparatedResults = Boolean(
     homeData.canUseAdvancedSearch && searchQuery.trim() && !companyFilter
   );
+
+  useEffect(() => {
+    if (!showSeparatedResults || !hasMoreSearchCards) return;
+    const node = searchSentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMoreSearchCards();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [showSeparatedResults, hasMoreSearchCards, loadMoreSearchCards]);
+
   const currentCards = useMemo(
     () => filteredCards.filter((card) => !isFinalizedCard(card)),
     [filteredCards]
@@ -1213,6 +1276,16 @@ function PgrsPageContent() {
               </p>
             )}
           </section>
+        ) : null}
+
+        {showSeparatedResults && hasMoreSearchCards ? (
+          <div ref={searchSentinelRef} className="mt-6 flex justify-center py-4">
+            {searchLoadingMore ? (
+              <p className="text-[13px] text-muted-foreground">
+                Carregando mais resultados...
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
