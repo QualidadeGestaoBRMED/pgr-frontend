@@ -82,8 +82,9 @@ type ExternalJobStartResponse = {
 };
 
 type PipefyAttachJobStartResponse = {
-  job_id: string;
+  job_id?: string;
   status: string;
+  skipped?: boolean;
 };
 
 type PreviousPgrResponse = {
@@ -361,7 +362,7 @@ async function startPipefyAttachJob(args: {
   xlsxBlob: Blob;
   pdfFilename: string;
   xlsxFilename: string;
-}): Promise<string> {
+}): Promise<string | null> {
   const formData = new FormData();
   formData.append("pdf_file", args.pdfBlob, args.pdfFilename);
   formData.append("xlsx_file", args.xlsxBlob, args.xlsxFilename);
@@ -372,6 +373,11 @@ async function startPipefyAttachJob(args: {
     `/api/v1/frontend/pgr/${args.pgrId}/pipefy/attach-files-and-mark/start`,
     formData
   );
+  if (response?.skipped) {
+    // Card fora das fases de Segurança do Trabalho monitoradas -- não é
+    // erro, só não há anexo a fazer; a finalização segue sem aviso.
+    return null;
+  }
   const jobId = extractJobId(response);
   if (!jobId) {
     throw new Error("API não retornou job_id para o anexo no Pipefy.");
@@ -1105,17 +1111,19 @@ export function usePgrEtapaController({
         pdfFilename: fileBase + ".pdf",
         xlsxFilename: fileBase + ".xlsx",
       });
-      setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
-      try {
-        await waitForPipefyAttachJobCompletion(
-          params.id,
-          pipefyAttachJobId,
-          () => finalizationAttemptRef.current !== attempt
-        );
-      } finally {
-        setters.setHeavyGenerationWaitMessage(null);
+      if (pipefyAttachJobId) {
+        setters.setHeavyGenerationWaitMessage(PIPEFY_ATTACH_WAIT_MESSAGE);
+        try {
+          await waitForPipefyAttachJobCompletion(
+            params.id,
+            pipefyAttachJobId,
+            () => finalizationAttemptRef.current !== attempt
+          );
+        } finally {
+          setters.setHeavyGenerationWaitMessage(null);
+        }
+        assertAttemptActive();
       }
-      assertAttemptActive();
 
       await finalizeDocument();
     } catch (error) {
