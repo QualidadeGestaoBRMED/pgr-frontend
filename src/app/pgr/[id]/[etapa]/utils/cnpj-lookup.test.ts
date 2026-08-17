@@ -53,3 +53,36 @@ describe("mapCnpjLookupToRegistration", () => {
     });
   });
 });
+
+describe("mapCnpjLookupToRegistration address normalization", () => {
+  it("normalizes the uppercase address the BrasilAPI returns", () => {
+    // Sintoma relatado: após o sync os campos chegavam ao formulário em CAIXA
+    // ALTA e o CEP sem máscara, só ganhando formato quando o usuário editava.
+    const registration = mapCnpjLookupToRegistration(
+      {
+        logradouro: "AVENIDA DAS NACOES UNIDAS",
+        bairro: "VILA GERTRUDES",
+        municipio: "SAO PAULO",
+        uf: "sp",
+        cep: "01001000",
+      },
+      null
+    );
+
+    expect(registration.endereco).toBe("Avenida das Nacoes Unidas");
+    expect(registration.bairro).toBe("Vila Gertrudes");
+    expect(registration.cidade).toBe("Sao Paulo");
+    expect(registration.estado).toBe("SP");
+    expect(registration.cep).toBe("01001-000");
+  });
+
+  it("keeps connectives lowercase, matching the backend normalizer", () => {
+    const registration = mapCnpjLookupToRegistration(
+      { logradouro: "RUA DAS FLORES", municipio: "RIO DE JANEIRO" },
+      null
+    );
+
+    expect(registration.endereco).toBe("Rua das Flores");
+    expect(registration.cidade).toBe("Rio de Janeiro");
+  });
+});

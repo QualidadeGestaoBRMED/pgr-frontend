@@ -35,6 +35,46 @@ export const maskCep = (value: string) => {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
 
+// Espelha br_lookup.ADDRESS_LOWERCASE_WORDS / format_address_text no backend.
+// A duplicação existe porque o lookup manual de CNPJ recebe o payload cru da
+// BrasilAPI (tudo em caixa alta) direto no cliente, sem passar pelo funil do
+// backend. Mantenha as duas listas em sincronia.
+const ADDRESS_LOWERCASE_WORDS = new Set([
+  "a",
+  "as",
+  "ao",
+  "aos",
+  "da",
+  "das",
+  "de",
+  "do",
+  "dos",
+  "e",
+  "em",
+  "na",
+  "nas",
+  "no",
+  "nos",
+  "para",
+  "por",
+]);
+
+export const formatAddressText = (value: unknown) => {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (!text) return "";
+
+  let wordIndex = 0;
+  return text
+    .split(/(\s+|-)/)
+    .map((word) => {
+      if (!word || /^\s+$/.test(word) || word === "-") return word;
+      const isLowercaseWord = wordIndex > 0 && ADDRESS_LOWERCASE_WORDS.has(word);
+      wordIndex += 1;
+      return isLowercaseWord ? word : word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join("");
+};
+
 export const maskPhoneBr = (value: string) => {
   const digits = onlyDigits(value).slice(0, 11);
   if (!digits) return "";

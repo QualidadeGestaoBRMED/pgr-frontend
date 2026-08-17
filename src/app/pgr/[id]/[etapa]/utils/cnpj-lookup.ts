@@ -1,4 +1,5 @@
 import {
+  formatAddressText,
   maskCep,
   maskCnpj,
   normalizeRiskGrade,
@@ -39,11 +40,13 @@ export function mapCnpjLookupToRegistration(
     cnae: formatCnae(data.cnae_fiscal),
     atividadePrincipal: text(data.cnae_fiscal_descricao),
     grauRisco: normalizeRiskGrade(text(riskDegree)),
-    endereco: text(data.logradouro),
+    // A BrasilAPI devolve o endereço em caixa alta; normalizar aqui evita que o
+    // formulário mostre "RUA DAS FLORES" e o documento gerado "Rua das Flores".
+    endereco: formatAddressText(data.logradouro),
     numero: text(data.numero),
-    bairro: text(data.bairro),
+    bairro: formatAddressText(data.bairro),
     cep: maskCep(text(data.cep)),
-    cidade: text(data.municipio),
+    cidade: formatAddressText(data.municipio),
     estado: text(data.uf).toUpperCase(),
   };
 }
