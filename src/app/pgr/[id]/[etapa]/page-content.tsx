@@ -216,6 +216,11 @@ export default function PgrEtapaPage({
         companyName={previousImportDialog.companyName}
         finalizedAt={previousImportDialog.finalizedAt}
         attachmentsCount={previousImportDialog.attachmentsCount}
+        candidates={previousImportDialog.candidates}
+        selectedSourcePgrId={previousImportDialog.selectedSourcePgrId}
+        onSelectSource={previousImportDialog.onSelectSource}
+        unavailableNotice={previousImportDialog.unavailableNotice}
+        onDismiss={previousImportDialog.onDismiss}
         importing={previousImportDialog.importing}
         error={previousImportDialog.error}
         onImport={previousImportDialog.onImport}

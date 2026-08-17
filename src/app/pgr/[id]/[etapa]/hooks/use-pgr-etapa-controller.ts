@@ -87,6 +87,17 @@ type PipefyAttachJobStartResponse = {
   skipped?: boolean;
 };
 
+export type PreviousPgrCandidate = {
+  sourcePgrId: string;
+  companyName?: string | null;
+  responsible?: string | null;
+  finalizedAt?: string | null;
+  updatedAt?: string | null;
+  sourceVersion?: number | null;
+  importable?: boolean;
+  blockedReason?: string | null;
+};
+
 type PreviousPgrResponse = {
   available: boolean;
   sourcePgrId?: string | null;
@@ -96,7 +107,25 @@ type PreviousPgrResponse = {
   sourceVersion?: number | null;
   attachmentsCount?: number;
   reason?: string | null;
+  // Do mais antigo para o mais novo; inclui os bloqueados.
+  candidates?: PreviousPgrCandidate[] | null;
 };
+
+// A empresa costuma ter vários PGRs (o mesmo CNPJ aparece em mais de um
+// cadastro do BR NET), então a escolha da fonte é do usuário. Os bloqueados
+// entram na lista desabilitados para explicar a ausência.
+function mapPreviousPgrCandidates(
+  response: PreviousPgrResponse | null | undefined
+): PreviousPgrCandidate[] {
+  return (response?.candidates ?? [])
+    .filter((candidate) => Boolean(candidate?.sourcePgrId))
+    .map((candidate) => ({
+      ...candidate,
+      finalizedAt: formatIsoDateToBr(candidate.finalizedAt),
+      updatedAt: formatIsoDateToBr(candidate.updatedAt),
+      importable: Boolean(candidate.importable),
+    }));
+}
 
 const PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES: Record<string, string> = {
   destination_locked:
@@ -543,7 +572,15 @@ export function usePgrEtapaController({
     companyName: string;
     finalizedAt: string;
     attachmentsCount: number;
+    candidates: PreviousPgrCandidate[];
+    // Preenchido quando não há fonte importável: o modal vira informativo e
+    // passa a ser dispensável (senão a pessoa fica presa nele).
+    unavailableNotice: string | null;
   } | null>(null);
+  // Fonte escolhida no modal. Null = usar a sugestão automática do backend.
+  const [selectedPreviousSourceId, setSelectedPreviousSourceId] = useState<
+    string | null
+  >(null);
   const [isImportingPrevious, setIsImportingPrevious] = useState(false);
   const [previousImportError, setPreviousImportError] = useState<string | null>(
     null
@@ -1305,7 +1342,7 @@ export function usePgrEtapaController({
       // Não deixar um autosave em voo brigar com o import server-side.
       cancelPendingPersist();
       await apiPost(`/api/v1/frontend/pgr/${params.id}/import-previous`, {
-        sourcePgrId: previousImport.sourcePgrId,
+        sourcePgrId: selectedPreviousSourceId || previousImport.sourcePgrId,
       });
       window.location.assign(`/pgr/${params.id}/inicio`);
     } catch (error) {
@@ -1322,6 +1359,7 @@ export function usePgrEtapaController({
     isImportingPrevious,
     params.id,
     previousImport,
+    selectedPreviousSourceId,
   ]);
 
   const handleCheckPreviousPgr = useCallback(async () => {
@@ -1332,13 +1370,24 @@ export function usePgrEtapaController({
       const previous = await apiGet<PreviousPgrResponse>(
         `/api/v1/frontend/pgr/${params.id}/previous-pgr`
       );
-      if (previous?.available && previous.sourcePgrId) {
+      const candidates = mapPreviousPgrCandidates(previous);
+      // Abre o modal também quando NENHUM candidato é importável: é justamente
+      // aí que a pessoa precisa ver quais PGRs existem e por que estão
+      // bloqueados. Antes isso caía no aviso genérico e a lista nunca aparecia.
+      if ((previous?.available && previous.sourcePgrId) || candidates.length) {
         setPreviousImport({
-          sourcePgrId: previous.sourcePgrId,
-          companyName: String(previous.companyName || "").trim(),
-          finalizedAt: formatIsoDateToBr(previous.finalizedAt),
-          attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
+          sourcePgrId: previous?.available ? String(previous.sourcePgrId || "") : "",
+          companyName: String(previous?.companyName || "").trim(),
+          finalizedAt: formatIsoDateToBr(previous?.finalizedAt),
+          attachmentsCount: Math.max(0, Number(previous?.attachmentsCount) || 0),
+          candidates,
+          unavailableNotice: previous?.available
+            ? null
+            : describePreviousPgrUnavailableReason(previous),
         });
+        setSelectedPreviousSourceId(
+          previous?.available ? String(previous.sourcePgrId || "") : ""
+        );
       } else {
         setPreviousPgrCheckNotice(describePreviousPgrUnavailableReason(previous));
       }
@@ -1790,7 +1839,13 @@ export function usePgrEtapaController({
             companyName: String(previous.companyName || "").trim(),
             finalizedAt: formatIsoDateToBr(previous.finalizedAt),
             attachmentsCount: Math.max(0, Number(previous.attachmentsCount) || 0),
+            candidates: mapPreviousPgrCandidates(previous),
+            // Detecção automática ao abrir o card: só abre o modal quando há de
+            // fato o que importar. Abrir um modal informativo sem o usuário ter
+            // pedido seria intrusivo -- na ação explícita do botão, sim.
+            unavailableNotice: null,
           });
+          setSelectedPreviousSourceId(previous.sourcePgrId);
         } else if (previous?.reason === "previous_not_finalized") {
           setPreviousPgrCheckNotice(describePreviousPgrUnavailableReason(previous));
         }
@@ -1870,6 +1925,20 @@ export function usePgrEtapaController({
       companyName: previousImport?.companyName ?? "",
       finalizedAt: previousImport?.finalizedAt ?? "",
       attachmentsCount: previousImport?.attachmentsCount ?? 0,
+      candidates: previousImport?.candidates ?? [],
+      selectedSourcePgrId:
+        selectedPreviousSourceId || previousImport?.sourcePgrId || "",
+      onSelectSource: setSelectedPreviousSourceId,
+      unavailableNotice: previousImport?.unavailableNotice ?? null,
+      // Só é dispensável quando não há o que importar. Havendo fonte válida, a
+      // importação segue sendo o único caminho (o destino não deve ficar vazio).
+      onDismiss: previousImport?.unavailableNotice
+        ? () => {
+            setPreviousPgrCheckNotice(previousImport.unavailableNotice);
+            setPreviousImport(null);
+            setSelectedPreviousSourceId(null);
+          }
+        : null,
       importing: isImportingPrevious,
       error: previousImportError,
       onImport: () => {
