@@ -461,8 +461,10 @@ export function usePgrEtapaDerived({
     [workersByGheId]
   );
   const calculatedPlanActionVigencia = useMemo(
-    () => planAction.vigencia || calculatePlanActionVigencia(historicoData.changes),
-    [planAction.vigencia, historicoData.changes]
+    () =>
+      planAction.vigencia ||
+      calculatePlanActionVigencia(historicoData.changes, planAction.nr),
+    [planAction.vigencia, planAction.nr, historicoData.changes]
   );
   const defaultResponsibleActionName = useMemo(
     () => String(dadosCadastrais.empresaGrupo || inicioDraft.companyName || "").trim(),

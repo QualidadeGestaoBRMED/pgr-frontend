@@ -1,7 +1,20 @@
 import type { HistoricoChange } from "../types";
 
 const DATE_INTERVAL_DIGIT_LIMIT = 16;
-const VIGENCIA_YEARS = 2;
+const DEFAULT_VIGENCIA_YEARS = 2;
+
+// A NR-30 foge do padrão: sua vigência é de 3 anos, não 2.
+const VIGENCIA_YEARS_BY_NR: Record<string, number> = {
+  NR30: 3,
+};
+
+const normalizeNrKey = (value: unknown) =>
+  String(value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+export const getVigenciaYearsForNr = (nr?: unknown) =>
+  VIGENCIA_YEARS_BY_NR[normalizeNrKey(nr)] ?? DEFAULT_VIGENCIA_YEARS;
 
 const extractVersionNumber = (value: unknown) => {
   const match = String(value ?? "").match(/(\d{1,4})/);
@@ -60,8 +73,8 @@ const parseCompleteBrDate = (value: string) => {
   return parsed;
 };
 
-const calculateEndDate = (startDate: Date) => {
-  const endDate = addYearsSafe(startDate, VIGENCIA_YEARS);
+const calculateEndDate = (startDate: Date, nr?: unknown) => {
+  const endDate = addYearsSafe(startDate, getVigenciaYearsForNr(nr));
   endDate.setDate(endDate.getDate() - 1);
   return endDate;
 };
@@ -112,18 +125,32 @@ export const maskVigenciaInterval = (value: string) => {
   return formattedFirstDate;
 };
 
-export const completeVigenciaInterval = (value: string) => {
+export const completeVigenciaInterval = (value: string, nr?: unknown) => {
   const masked = maskVigenciaInterval(value);
   const [firstDate = "", secondDate = ""] = masked.split(/\s*-\s*/, 2);
   const startDate = parseCompleteBrDate(firstDate.trim());
   if (!startDate || secondDate.trim()) {
     return masked;
   }
-  return `${firstDate.trim()} - ${formatBrDate(calculateEndDate(startDate))}`;
+  return `${firstDate.trim()} - ${formatBrDate(calculateEndDate(startDate, nr))}`;
+};
+
+// Reprocessa o intervalo quando a NR muda: preserva a data inicial e recalcula
+// a final com a duração da NR recém-selecionada (3 anos na NR-30, 2 nas demais).
+export const recalculateVigenciaForNr = (value: string, nr?: unknown) => {
+  const masked = maskVigenciaInterval(String(value ?? ""));
+  const [firstDate = ""] = masked.split(/\s*-\s*/, 2);
+  const startDate = parseCompleteBrDate(firstDate.trim());
+  if (!startDate) {
+    // Sem data inicial completa não há o que converter.
+    return masked;
+  }
+  return `${firstDate.trim()} - ${formatBrDate(calculateEndDate(startDate, nr))}`;
 };
 
 export const calculatePlanActionVigencia = (
-  changes: Array<Pick<HistoricoChange, "analysis" | "change" | "date">>
+  changes: Array<Pick<HistoricoChange, "analysis" | "change" | "date">>,
+  nr?: unknown
 ) => {
   const parsedRows = changes
     .map((item) => ({
@@ -147,7 +174,7 @@ export const calculatePlanActionVigencia = (
       item.date.getTime() < earliest.getTime() ? item.date : earliest,
     candidates[0].date
   );
-  const endDate = calculateEndDate(startDate);
+  const endDate = calculateEndDate(startDate, nr);
 
   return `${formatBrDate(startDate)} - ${formatBrDate(endDate)}`;
 };

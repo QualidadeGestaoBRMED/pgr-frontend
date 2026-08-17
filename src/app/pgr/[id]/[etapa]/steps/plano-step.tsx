@@ -8,6 +8,7 @@ import {
     normalizeActionDate,
     toBrDateValue,
 } from "../utils/action-date";
+import {recalculateVigenciaForNr} from "../utils/vigencia";
 
 type PlanoStepProps = {
     ctx: {
@@ -24,7 +25,7 @@ type PlanoStepProps = {
         workflowVersion: number;
         planAction: { nr: string; vigencia: string };
         maskDate: (value: string) => string;
-        completeVigencia: (value: string) => string;
+        completeVigencia: (value: string, nr?: unknown) => string;
         setPlanAction: Dispatch<SetStateAction<{ nr: string; vigencia: string }>>;
         planTableRows: Array<{
             id: string;
@@ -518,7 +519,13 @@ export function PlanoStep({ctx}: PlanoStepProps) {
     };
 
     const handleNrPresetClick = (nr: string) => {
-        setPlanAction((prev) => ({...prev, nr}));
+        // A vigência depende da NR (3 anos na NR-30, 2 nas demais), então a
+        // conversão acontece já na seleção, sem esperar o blur do campo.
+        setPlanAction((prev) => ({
+            ...prev,
+            nr,
+            vigencia: recalculateVigenciaForNr(prev.vigencia, nr),
+        }));
         const presetActions = nrActionPresets[nr] ?? [];
         handleCreateNrPlanRows(nr, presetActions);
     };
@@ -595,7 +602,7 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                             onBlur={() =>
                                 setPlanAction((prev) => ({
                                     ...prev,
-                                    vigencia: completeVigencia(prev.vigencia),
+                                    vigencia: completeVigencia(prev.vigencia, prev.nr),
                                 }))
                             }
                             placeholder="Ex: 10/03/2025 - 10/03/2026"
