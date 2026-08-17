@@ -3,10 +3,26 @@ import type {
   PgrDocxTemplateOption,
 } from "../types";
 
+// Espelho de PGR_TEMPLATE_NR_CODE_BY_SELECTED_NR em
+// src/apps/sst_core/services/pgr_docx_template_resolver.py -- mantenha as duas
+// em sincronia, senão a lista de modelos oferecida aqui divergir do que o
+// backend usa na geração.
+//
+// A NR-29 aponta para NR-01 de propósito (não tem modelo próprio). Antes isto
+// era um `if` que devolvia NR-01 para tudo que não fosse NR-30, o que fazia a
+// NR-18 cair no NR-01 junto.
+const TEMPLATE_NR_CODE_BY_SELECTED_NR: Record<string, string> = {
+  "NR-01": "NR-01",
+  "NR-18": "NR-18",
+  "NR-29": "NR-01",
+  "NR-30": "NR-30",
+};
+
+const FALLBACK_TEMPLATE_NR_CODE = "NR-01";
+
 export function resolveTemplateNrCode(nr: string): string {
   const normalized = String(nr || "").trim().toUpperCase();
-  if (normalized === "NR-30") return "NR-30";
-  return "NR-01";
+  return TEMPLATE_NR_CODE_BY_SELECTED_NR[normalized] ?? FALLBACK_TEMPLATE_NR_CODE;
 }
 
 export function buildPgrDiretrizOptions(
