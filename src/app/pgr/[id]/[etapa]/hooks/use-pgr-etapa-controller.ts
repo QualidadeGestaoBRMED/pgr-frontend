@@ -127,6 +127,11 @@ function mapPreviousPgrCandidates(
     }));
 }
 
+// Mostrado depois de fechar o modal com uma fonte válida disponível: deixa
+// explícito que a importação não foi perdida, só adiada.
+const PREVIOUS_PGR_DISMISSED_NOTICE =
+  'Importação de PGR anterior disponível — clique em "Importar dados de PGR anterior" quando quiser escolher a origem.';
+
 const PREVIOUS_PGR_UNAVAILABLE_REASON_MESSAGES: Record<string, string> = {
   destination_locked:
     "Este PGR já está finalizado e bloqueado para edição — inicie uma nova versão antes de importar.",
@@ -1930,15 +1935,16 @@ export function usePgrEtapaController({
         selectedPreviousSourceId || previousImport?.sourcePgrId || "",
       onSelectSource: setSelectedPreviousSourceId,
       unavailableNotice: previousImport?.unavailableNotice ?? null,
-      // Só é dispensável quando não há o que importar. Havendo fonte válida, a
-      // importação segue sendo o único caminho (o destino não deve ficar vazio).
-      onDismiss: previousImport?.unavailableNotice
-        ? () => {
-            setPreviousPgrCheckNotice(previousImport.unavailableNotice);
-            setPreviousImport(null);
-            setSelectedPreviousSourceId(null);
-          }
-        : null,
+      // Sempre dispensável, inclusive quando a detecção automática abriu o modal
+      // com uma fonte válida: preencher do zero é uma escolha legítima, e o
+      // botão "Importar dados de PGR anterior" reabre a qualquer momento.
+      onDismiss: () => {
+        setPreviousPgrCheckNotice(
+          previousImport?.unavailableNotice ?? PREVIOUS_PGR_DISMISSED_NOTICE
+        );
+        setPreviousImport(null);
+        setSelectedPreviousSourceId(null);
+      },
       importing: isImportingPrevious,
       error: previousImportError,
       onImport: () => {

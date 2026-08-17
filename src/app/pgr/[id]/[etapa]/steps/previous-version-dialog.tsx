@@ -32,7 +32,6 @@ type PreviousVersionDialogProps = {
   onSelectSource: (sourcePgrId: string) => void;
   // Preenchido quando nenhum candidato é importável.
   unavailableNotice: string | null;
-  // Só existe no caso informativo; com fonte válida a importação é obrigatória.
   onDismiss: (() => void) | null;
   importing: boolean;
   error: string | null;
@@ -40,13 +39,22 @@ type PreviousVersionDialogProps = {
 };
 
 /**
- * Aviso de PGR anterior disponível.
+ * Seleção de PGR anterior para importar.
  *
  * Aparece ao abrir um card novo (recém-sincronizado com o Pipefy) quando a
- * mesma empresa já possui um PGR finalizado guardado na plataforma. É sempre
- * o mesmo documento, só muda a revisão — não há opção de começar do zero: o
- * único caminho é confirmar a importação dos dados da versão anterior (dados
- * cadastrais, funções, GHEs, riscos, plano de ação e anexos).
+ * mesma unidade já tem PGR na plataforma, e também no clique explícito em
+ * "Importar dados de PGR anterior". Importar herda dados cadastrais, funções,
+ * GHEs, riscos, plano de ação e anexos, abrindo a próxima revisão.
+ *
+ * Três estados:
+ *
+ * - vários candidatos: lista para escolher, do mais antigo para o mais novo;
+ * - candidato único importável: aviso direto, sem lista;
+ * - nenhum importável: informativo, listando os PGRs da unidade e o motivo de
+ *   cada bloqueio.
+ *
+ * Sempre dispensável. Preencher do zero é uma escolha legítima, e fechar não
+ * perde a oferta -- o botão na etapa Início reabre este modal.
  */
 export function PreviousVersionDialog({
   open,
@@ -211,12 +219,14 @@ export function PreviousVersionDialog({
               <button
                 type="button"
                 onClick={onDismiss}
-                className="btn-outline px-3 py-2 text-[13px]"
-                autoFocus
+                disabled={importing}
+                className="btn-outline px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-60"
+                autoFocus={importableCount === 0}
               >
                 Fechar
               </button>
-            ) : (
+            ) : null}
+            {importableCount === 0 ? null : (
               <button
                 type="button"
                 onClick={onImport}
