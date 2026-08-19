@@ -40,6 +40,7 @@ import {
   setSaveActivityHandler,
   resumeSaving,
   clearKnownUpdatedAt,
+  allowEmptyFieldsOnNextSave,
 } from "../state/state-version";
 import { DEFAULT_PDF_LAYOUT_STATE, type PdfLayoutState } from "@/lib/pgr-pdf-runtime/layout";
 
@@ -1537,6 +1538,12 @@ export function usePgrEtapaController({
 
   const handleResetDescricaoData = useCallback(() => {
     if (state.workflow.isLocked) return;
+    // `defaultFunctions` é [], e o backend recusa com 409 qualquer save que
+    // esvazie `functions` -- guarda contra autosave com estado corrompido.
+    // Aqui o esvaziamento é deliberado e já confirmado em modal, então a
+    // próxima gravação declara a intenção. Sem isso o autosave batia 409 em
+    // loop e a limpeza nunca era persistida.
+    allowEmptyFieldsOnNextSave(params.id, ["functions"]);
     setters.setFunctionsData(defaultFunctions);
     setters.setGheGroups(defaultGheGroups);
     setters.setCurrentGheId(defaultGheGroups[0]?.id ?? "ghe-1");
@@ -1559,7 +1566,7 @@ export function usePgrEtapaController({
     setters.setPlanGeneralMeasures([]);
     setters.setPlanActionGheId("");
     setters.setPlanActionRiskId("");
-  }, [setters, state.workflow.isLocked]);
+  }, [params.id, setters, state.workflow.isLocked]);
 
   const handleResetCaracterizacaoData = useCallback(() => {
     if (state.workflow.isLocked) return;

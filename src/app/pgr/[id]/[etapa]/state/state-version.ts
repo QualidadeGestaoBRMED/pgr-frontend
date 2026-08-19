@@ -12,6 +12,30 @@ import { apiPut, ApiError } from "@/lib/api";
 
 const knownUpdatedAtByPgr = new Map<string, string>();
 
+// Campos de lista que a PRÓXIMA gravação deste PGR pode esvaziar.
+//
+// O backend recusa com 409 qualquer save que zere gheGroups, riskGheGroups,
+// functions ou anexos -- guarda contra autosave com estado local corrompido,
+// que já apagou conteúdo irrecuperável em produção. Só que "Limpar dados da
+// etapa" é deliberado: o handleResetDescricaoData zera `functions`, e sem
+// declarar a intenção o save era recusado para sempre.
+//
+// Fica aqui, e não no payload montado pelos hooks, porque a limpeza só mexe no
+// estado do React -- quem grava é o autosave que vem depois.
+const pendingAllowEmptyFieldsByPgr = new Map<string, Set<string>>();
+
+export function allowEmptyFieldsOnNextSave(
+  pgrId: string,
+  fields: readonly string[]
+): void {
+  const pending = pendingAllowEmptyFieldsByPgr.get(pgrId) ?? new Set<string>();
+  for (const field of fields) {
+    const normalized = String(field || "").trim();
+    if (normalized) pending.add(normalized);
+  }
+  if (pending.size) pendingAllowEmptyFieldsByPgr.set(pgrId, pending);
+}
+
 // Quando um save bate 409, pausamos toda gravação até o usuário recarregar.
 // Assim a pessoa pode continuar editando localmente sem martelar o servidor
 // nem sobrescrever a versão mais nova de quem assumiu o documento.
@@ -115,9 +139,12 @@ async function runPutPgrState<T extends StateResponse>(
   if (savingPaused) {
     return null;
   }
+  const expectedUpdatedAt = getKnownUpdatedAt(pgrId) ?? undefined;
+  const allowEmpty = pendingAllowEmptyFieldsByPgr.get(pgrId);
   const body = {
     ...payload,
-    expectedUpdatedAt: getKnownUpdatedAt(pgrId) ?? undefined,
+    expectedUpdatedAt,
+    allowEmptyFields: allowEmpty?.size ? [...allowEmpty] : undefined,
   };
   try {
     const res = await apiPut<T>(
@@ -125,12 +152,29 @@ async function runPutPgrState<T extends StateResponse>(
       body
     );
     setKnownUpdatedAt(pgrId, res?.updatedAt);
+    // Só descarta a intenção depois de gravar: um erro de rede no meio não
+    // pode fazer a limpeza perder a permissão e voltar a bater 409. Depois do
+    // sucesso o servidor já está com a lista vazia, então a guarda não dispara
+    // mais nos autosaves seguintes.
+    pendingAllowEmptyFieldsByPgr.delete(pgrId);
     onSaveErrorHandler?.(false);
     return res;
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
-      savingPaused = true;
-      onConflictHandler?.();
+      if (expectedUpdatedAt) {
+        savingPaused = true;
+        onConflictHandler?.();
+      } else {
+        // 409 sem expectedUpdatedAt não pode ser lost update: o backend só
+        // compara versão quando o token vai no corpo. É outra recusa (guarda
+        // de campo que não pode ser esvaziado, histórico vazio etc.). Abrir o
+        // diálogo de conflito aqui criava loop infinito: "Continuar editando"
+        // limpa o token e repete a MESMA gravação, recusada pelo mesmo motivo,
+        // e o modal reabria sem fim. Vai para o banner de erro, que mostra que
+        // as alterações não foram salvas, e as gravações seguem ativas para uma
+        // correção poder passar.
+        onSaveErrorHandler?.(true);
+      }
     } else {
       onSaveErrorHandler?.(true);
     }
