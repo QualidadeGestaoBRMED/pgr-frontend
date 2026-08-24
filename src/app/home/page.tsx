@@ -21,6 +21,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api";
 import { getFunctionInclusionDeadlineAlert } from "./function-inclusion-deadline";
+import { describeFunctionInclusionRequestNumbers } from "./function-inclusion-request-summary";
 
 type HomeCard = {
   id: string;
@@ -936,6 +937,8 @@ function PgrsPageContent() {
                   const deadlineAlert = getFunctionInclusionDeadlineAlert(
                     alert.requests.map((request) => request.prazoSeguranca)
                   );
+                  const requestNumbersSummary =
+                    describeFunctionInclusionRequestNumbers(alert.requestNumbers);
                   return (
                     <Fragment key={alert.companyId}>
                       {sectionTitle ? (
@@ -966,11 +969,9 @@ function PgrsPageContent() {
                             </span>
                           ) : null}
                         </div>
-                        {alert.requestNumbers.length > 0 ? (
+                        {requestNumbersSummary ? (
                           <p className="mt-1 text-[12px] font-medium text-muted-foreground dark:text-white/70">
-                            {alert.requestNumbers.length === 1
-                              ? `Solicitação nº ${alert.requestNumbers[0]}`
-                              : `Solicitações nº ${alert.requestNumbers.join(", ")}`}
+                            {requestNumbersSummary}
                           </p>
                         ) : null}
                         {alert.elaboration.active ? (
