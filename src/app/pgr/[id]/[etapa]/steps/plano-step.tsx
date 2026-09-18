@@ -9,6 +9,11 @@ import {
     toBrDateValue,
 } from "../utils/action-date";
 import {recalculateVigenciaForNr} from "../utils/vigencia";
+import {
+    normalizeText,
+    parseMultiTextValues,
+    toMultiTextValue,
+} from "../utils/multi-text-values";
 
 type PlanoStepProps = {
     ctx: {
@@ -162,20 +167,8 @@ export function PlanoStep({ctx}: PlanoStepProps) {
         ],
     };
 
-    const normalizeText = (value: string) =>
-        value
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
-
-    const parseMultiTextValues = (value: string) =>
-        value
-            .split(/[\n,;]+/)
-            .map((item) => item.trim())
-            .filter(Boolean);
-
-    const toMultiTextValue = (values: string[]) =>
-        Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).join(", ");
+    // `parseMultiTextValues` precisa das medidas conhecidas do risco para
+    // remontar valor legado unido por v\u00edrgula -- ver utils/multi-text-values.
 
     const {
         inputBaseClass,
@@ -280,7 +273,10 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             const updates: Record<string, string[]> = {};
             planTableRows.forEach((row) => {
                 if (focusedRowId === row.id) return;
-                const currentMedidas = parseMultiTextValues(row.medidasPrevencao || "");
+                const currentMedidas = parseMultiTextValues(row.medidasPrevencao || "", [
+                    ...getActionDescriptionOptions(row.tipoAgente, row.descricaoAgente, ""),
+                    ...(prev[row.id] || []),
+                ]);
                 if (currentMedidas.length > 0) {
                     const existing = prev[row.id] || [];
                     const hasNew = currentMedidas.some((m) => !existing.includes(m));
@@ -294,7 +290,12 @@ export function PlanoStep({ctx}: PlanoStepProps) {
             }
             return prev;
         });
-    }, [planTableRows, focusedRowId, setPersistedOptionsByRowId]);
+    }, [
+        planTableRows,
+        focusedRowId,
+        setPersistedOptionsByRowId,
+        getActionDescriptionOptions,
+    ]);
 
     useEffect(() => {
         const nextAutoPrazoByRowId: Record<string, string> = {};
@@ -730,11 +731,15 @@ export function PlanoStep({ctx}: PlanoStepProps) {
                                                         row.descricaoAgente,
                                                         ""
                                                     );
-                                                    const selectedMedidas = parseMultiTextValues(
-                                                        row.medidasPrevencao || ""
-                                                    );
                                                     const persisted = persistedOptionsByRowId[row.id] || [];
-                                                    
+                                                    // As opções conhecidas do risco remontam valor legado
+                                                    // unido por vírgula, incluindo nome de medida que tem
+                                                    // vírgula (ex. "TESTANDO ISSO DAQUI 1,2,3").
+                                                    const selectedMedidas = parseMultiTextValues(
+                                                        row.medidasPrevencao || "",
+                                                        [...medidasOptions, ...persisted]
+                                                    );
+
                                                     const mergedMedidasOptions = Array.from(
                                                         new Set([...medidasOptions, ...persisted, ...selectedMedidas])
                                                     );

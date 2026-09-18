@@ -25,6 +25,11 @@ import {
   buildGheFunctionSummary,
   type GheFunctionSummaryGroup,
 } from "../utils/ghe-function-table";
+import {
+  MULTI_VALUE_SEPARATOR,
+  normalizeText,
+  parseMultiTextValues as parseCommaSeparatedValues,
+} from "../utils/multi-text-values";
 import type { CaracterizacaoStepCtx } from "./renderers/caracterizacao-renderer";
 
 type CaracterizacaoStepProps = {
@@ -90,12 +95,6 @@ const normalizeMultiTextValue = (value: string | string[] | undefined | null) =>
   return "";
 };
 
-const normalizeText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
 const getRiskDescriptionKey = (tipoAgente: string, descricaoAgente: string) => {
   const normalizedTipoAgente = normalizeText(String(tipoAgente || "").trim());
   const normalizedDescricaoAgente = normalizeText(String(descricaoAgente || "").trim());
@@ -137,79 +136,6 @@ const stripTrailingMeasuredUnits = (value: string, measuredUnits: string[]) =>
     (acc, measuredUnit) => stripTrailingMeasuredUnit(acc, measuredUnit),
     value
   );
-const MULTI_VALUE_SEPARATOR = "; ";
-
-const buildOptionLookup = (options: string[]) =>
-  new Map(
-    options
-      .map((option) => String(option || "").trim())
-      .filter(Boolean)
-      .map((option) => [normalizeText(option), option] as const)
-  );
-
-const tryParseLegacyCommaList = (
-  rawValue: string,
-  availableOptions: string[]
-) => {
-  const normalizedRaw = rawValue.trim();
-  if (!normalizedRaw.includes(",")) return null;
-
-  const optionLookup = buildOptionLookup(availableOptions);
-  if (!optionLookup.size) return null;
-
-  const directMatch = optionLookup.get(normalizeText(normalizedRaw));
-  if (directMatch) return [directMatch];
-
-  const chunks = normalizedRaw
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (chunks.length <= 1) return null;
-
-  const parsed: string[] = [];
-  let cursor = 0;
-  while (cursor < chunks.length) {
-    let matched: string | null = null;
-    let matchedSize = 0;
-
-    for (let size = chunks.length - cursor; size >= 1; size -= 1) {
-      const candidate = chunks.slice(cursor, cursor + size).join(", ").trim();
-      const optionMatch = optionLookup.get(normalizeText(candidate));
-      if (!optionMatch) continue;
-      matched = optionMatch;
-      matchedSize = size;
-      break;
-    }
-
-    if (!matched || matchedSize === 0) return null;
-    parsed.push(matched);
-    cursor += matchedSize;
-  }
-
-  return parsed.length ? parsed : null;
-};
-
-const parseCommaSeparatedValues = (
-  value: string | undefined | null,
-  availableOptions: string[] = []
-) => {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) return [];
-
-  if (/[;\n]/.test(rawValue)) {
-    return rawValue
-      .split(/[;\n]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  const legacyParsed = tryParseLegacyCommaList(rawValue, availableOptions);
-  if (legacyParsed) return legacyParsed;
-
-  return [rawValue];
-};
-
 const AWAITING_QUANTITATIVE_EVALUATION_VALUE = "Aguardando Avaliação Quantitativa";
 const NOT_APPLICABLE_VALUE = "N/A";
 
