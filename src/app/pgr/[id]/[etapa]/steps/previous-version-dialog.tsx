@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment, useEffect, useState } from "react";
 import { ExternalLink, History } from "lucide-react";
 
 // O pgr_id É o id do card no Pipefy (Card.pipefy_id), então serve de deep link.
@@ -20,6 +21,7 @@ export type PreviousVersionCandidate = {
   updatedAt?: string | null;
   importable?: boolean;
   blockedReason?: string | null;
+  otherUnit?: boolean;
 };
 
 type PreviousVersionDialogProps = {
@@ -53,6 +55,12 @@ type PreviousVersionDialogProps = {
  * - nenhum importável: informativo, listando os PGRs da unidade e o motivo de
  *   cada bloqueio.
  *
+ * PGRs do mesmo CNPJ com outro nome de unidade vêm por último, marcados como
+ * outra unidade. O nome é digitado no card e a mesma obra às vezes chega com
+ * nomes diferentes, mas também pode ser outra obra de verdade: importar um
+ * deles exige confirmar que é o mesmo estabelecimento. A detecção automática
+ * nunca os sugere.
+ *
  * Sempre dispensável. Preencher do zero é uma escolha legítima, e fechar não
  * perde a oferta -- o botão na etapa Início reabre este modal.
  */
@@ -70,15 +78,43 @@ export function PreviousVersionDialog({
   error,
   onImport,
 }: PreviousVersionDialogProps) {
+  // Guarda QUAL fonte foi confirmada: trocar a seleção desfaz a confirmação.
+  const [confirmedOtherUnitId, setConfirmedOtherUnitId] = useState<
+    string | null
+  >(null);
+  // O componente continua montado com o modal fechado: reabrir não pode
+  // herdar a confirmação dada antes.
+  useEffect(() => {
+    if (!open) setConfirmedOtherUnitId(null);
+  }, [open]);
+
   if (!open) return null;
 
   const importableCount = candidates.filter(
     (candidate) => candidate.importable
   ).length;
+  const sameUnitImportableCount = candidates.filter(
+    (candidate) => candidate.importable && !candidate.otherUnit
+  ).length;
+  const onlyOtherUnits = importableCount > 0 && sameUnitImportableCount === 0;
   // Lista quando há escolha a fazer OU quando nada é importável -- nesse caso a
-  // lista é a explicação de por que não há origem disponível.
-  const showPicker = candidates.length > 1 || importableCount === 0;
+  // lista é a explicação de por que não há origem disponível. Outra unidade
+  // sempre vai para a lista, onde o aviso dela aparece.
+  const showPicker =
+    candidates.length > 1 ||
+    importableCount === 0 ||
+    candidates.some((candidate) => candidate.otherUnit);
   const hasSelection = Boolean(selectedSourcePgrId);
+  const selectedCandidate = candidates.find(
+    (candidate) => candidate.sourcePgrId === selectedSourcePgrId
+  );
+  const needsOtherUnitConfirmation = Boolean(selectedCandidate?.otherUnit);
+  const otherUnitConfirmed =
+    needsOtherUnitConfirmation && confirmedOtherUnitId === selectedSourcePgrId;
+  const canImport =
+    hasSelection && (!needsOtherUnitConfirmation || otherUnitConfirmed);
+  const firstOtherUnitId = candidates.find((candidate) => candidate.otherUnit)
+    ?.sourcePgrId;
 
   return (
     <div className="fixed inset-0 z-50" role="alertdialog" aria-modal="true">
@@ -97,14 +133,22 @@ export function PreviousVersionDialog({
               <h3 className="text-[18px] font-semibold text-foreground">
                 {importableCount === 0
                   ? "Nenhum PGR anterior está disponível para importar"
-                  : showPicker
-                    ? "Selecione o PGR anterior para importar"
-                    : "Encontramos um PGR anterior desta empresa"}
+                  : onlyOtherUnits
+                    ? "Nenhum PGR anterior desta unidade"
+                    : showPicker
+                      ? "Selecione o PGR anterior para importar"
+                      : "Encontramos um PGR anterior desta empresa"}
               </h3>
               {importableCount === 0 ? (
                 <p className="mt-1 text-[13px] text-muted-foreground">
                   {unavailableNotice ||
                     "Os PGRs abaixo são desta mesma empresa, mas nenhum pode servir de origem agora."}
+                </p>
+              ) : onlyOtherUnits ? (
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  Há PGR finalizado com o mesmo CNPJ, mas registrado com outro
+                  nome de unidade/obra. Só importe se for o mesmo
+                  estabelecimento; se não for, preencha este PGR do zero.
                 </p>
               ) : showPicker ? (
                 <p className="mt-1 text-[13px] text-muted-foreground">
@@ -151,68 +195,102 @@ export function PreviousVersionDialog({
                 const date = candidate.finalizedAt || candidate.updatedAt || "";
                 const cardUrl = pipefyCardUrl(candidate.sourcePgrId);
                 return (
-                  <li
-                    key={candidate.sourcePgrId}
-                    className={`flex items-start gap-2 rounded-[10px] border px-3 py-2.5 transition-colors ${
-                      importable
-                        ? selected
-                          ? "border-primary/60 bg-primary/10"
-                          : "border-border/70 hover:bg-muted/60"
-                        : "border-border/50 bg-muted/40 opacity-70"
-                    }`}
-                  >
-                    {/* O link do Pipefy fica FORA do label: um <a> aninhado em
-                        label ativa o rádio junto ao clique. */}
-                    <label
-                      className={`flex min-w-0 flex-1 items-start gap-3 ${
-                        importable ? "cursor-pointer" : "cursor-not-allowed"
+                  <Fragment key={candidate.sourcePgrId}>
+                    {candidate.sourcePgrId === firstOtherUnitId ? (
+                      <li className="px-1 pt-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Outras unidades do mesmo CNPJ
+                      </li>
+                    ) : null}
+                    <li
+                      className={`flex items-start gap-2 rounded-[10px] border px-3 py-2.5 transition-colors ${
+                        importable
+                          ? selected
+                            ? "border-primary/60 bg-primary/10"
+                            : "border-border/70 hover:bg-muted/60"
+                          : "border-border/50 bg-muted/40 opacity-70"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        name="previous-pgr-source"
-                        className="mt-1"
-                        value={candidate.sourcePgrId}
-                        checked={selected}
-                        disabled={!importable || importing}
-                        onChange={() => onSelectSource(candidate.sourcePgrId)}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium text-foreground">
-                          {candidate.companyName || "Empresa não identificada"}
-                        </span>
-                        <span className="mt-0.5 block text-[12px] text-muted-foreground">
-                          {candidate.responsible || "responsável não informado"}
-                          {date ? ` · ${date}` : ""}
-                        </span>
-                        {!importable ? (
-                          <span className="mt-1 block text-[12px] font-medium text-muted-foreground">
-                            Aguardando finalização — precisa ser finalizado antes
-                            de servir como origem.
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                    {cardUrl ? (
-                      <a
-                        href={cardUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={`Abrir o card ${candidate.sourcePgrId} no Pipefy`}
-                        className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                      {/* O link do Pipefy fica FORA do label: um <a> aninhado em
+                          label ativa o rádio junto ao clique. */}
+                      <label
+                        className={`flex min-w-0 flex-1 items-start gap-3 ${
+                          importable ? "cursor-pointer" : "cursor-not-allowed"
+                        }`}
                       >
-                        {candidate.sourcePgrId}
-                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                      </a>
-                    ) : (
-                      <span className="mt-0.5 shrink-0 px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground">
-                        {candidate.sourcePgrId}
-                      </span>
-                    )}
-                  </li>
+                        <input
+                          type="radio"
+                          name="previous-pgr-source"
+                          className="mt-1"
+                          value={candidate.sourcePgrId}
+                          checked={selected}
+                          disabled={!importable || importing}
+                          onChange={() => onSelectSource(candidate.sourcePgrId)}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium text-foreground">
+                            {candidate.companyName || "Empresa não identificada"}
+                          </span>
+                          <span className="mt-0.5 block text-[12px] text-muted-foreground">
+                            {candidate.responsible || "responsável não informado"}
+                            {date ? ` · ${date}` : ""}
+                          </span>
+                          {!importable ? (
+                            <span className="mt-1 block text-[12px] font-medium text-muted-foreground">
+                              Aguardando finalização — precisa ser finalizado antes
+                              de servir como origem.
+                            </span>
+                          ) : candidate.otherUnit ? (
+                            <span className="mt-1 block text-[12px] font-medium text-warning-foreground">
+                              Outro nome de unidade — confira se é o mesmo
+                              estabelecimento antes de importar.
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                      {cardUrl ? (
+                        <a
+                          href={cardUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Abrir o card ${candidate.sourcePgrId} no Pipefy`}
+                          className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        >
+                          {candidate.sourcePgrId}
+                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                        </a>
+                      ) : (
+                        <span className="mt-0.5 shrink-0 px-1.5 py-0.5 font-mono text-[12px] text-muted-foreground">
+                          {candidate.sourcePgrId}
+                        </span>
+                      )}
+                    </li>
+                  </Fragment>
                 );
               })}
             </ul>
+          ) : null}
+          {needsOtherUnitConfirmation ? (
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-[10px] border border-warning-foreground/30 bg-warning/15 px-3 py-2.5 text-[13px] text-foreground">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={otherUnitConfirmed}
+                disabled={importing}
+                onChange={(event) =>
+                  setConfirmedOtherUnitId(
+                    event.target.checked ? selectedSourcePgrId : null
+                  )
+                }
+              />
+              <span>
+                Confirmo que{" "}
+                <strong>
+                  {selectedCandidate?.companyName || selectedSourcePgrId}
+                </strong>{" "}
+                é o mesmo estabelecimento deste PGR, apesar do nome de unidade
+                diferente.
+              </span>
+            </label>
           ) : null}
           <div className="mt-5 flex justify-end gap-2">
             {onDismiss ? (
@@ -230,7 +308,7 @@ export function PreviousVersionDialog({
               <button
                 type="button"
                 onClick={onImport}
-                disabled={importing || !hasSelection}
+                disabled={importing || !canImport}
                 className="btn-primary px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-60"
                 autoFocus
               >

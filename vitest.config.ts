@@ -7,6 +7,11 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  // O tsconfig do Next usa jsx "preserve", que o Vite não sabe transformar:
+  // sem isso, nenhum teste consegue importar um componente .tsx.
+  oxc: {
+    jsx: { runtime: "automatic" },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

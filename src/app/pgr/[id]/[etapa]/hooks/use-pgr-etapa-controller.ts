@@ -97,6 +97,8 @@ export type PreviousPgrCandidate = {
   sourceVersion?: number | null;
   importable?: boolean;
   blockedReason?: string | null;
+  // Mesmo CNPJ, nome de unidade diferente: só importa com confirmação.
+  otherUnit?: boolean;
 };
 
 type PreviousPgrResponse = {
@@ -125,6 +127,7 @@ function mapPreviousPgrCandidates(
       finalizedAt: formatIsoDateToBr(candidate.finalizedAt),
       updatedAt: formatIsoDateToBr(candidate.updatedAt),
       importable: Boolean(candidate.importable),
+      otherUnit: Boolean(candidate.otherUnit),
     }));
 }
 
@@ -1347,8 +1350,14 @@ export function usePgrEtapaController({
     try {
       // Não deixar um autosave em voo brigar com o import server-side.
       cancelPendingPersist();
+      const sourcePgrId = selectedPreviousSourceId || previousImport.sourcePgrId;
+      // O modal só libera o botão para outra unidade depois da confirmação.
+      const allowOtherUnit = previousImport.candidates.some(
+        (candidate) => candidate.sourcePgrId === sourcePgrId && candidate.otherUnit
+      );
       await apiPost(`/api/v1/frontend/pgr/${params.id}/import-previous`, {
-        sourcePgrId: selectedPreviousSourceId || previousImport.sourcePgrId,
+        sourcePgrId,
+        allowOtherUnit,
       });
       window.location.assign(`/pgr/${params.id}/inicio`);
     } catch (error) {
