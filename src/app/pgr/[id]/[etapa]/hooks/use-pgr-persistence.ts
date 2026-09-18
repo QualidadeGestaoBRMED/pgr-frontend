@@ -272,7 +272,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
 
   const { saveTimerRef } = refs;
   const skipInitialPersistRef = useRef(true);
-  const skipPostHydrationPersistsRef = useRef(0);
   const pendingPersistPayloadRef = useRef<PendingPersistPayload | null>(null);
   const [hasPendingPersist, setHasPendingPersist] = useState(false);
   const functionInclusionReadOnlyRef = useRef(false);
@@ -881,7 +880,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
               : null,
           readOnly: Boolean(state.functionInclusionElaboration?.readOnly),
         });
-        skipPostHydrationPersistsRef.current = 2;
 
         const hydratedPersistPayload: PersistPayload = {
           completedSteps: normalizedCompleted,
@@ -1032,17 +1030,6 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       return;
     }
 
-    if (skipPostHydrationPersistsRef.current > 0) {
-      skipPostHydrationPersistsRef.current -= 1;
-      prevImmediatePersistRefs.current = {
-        riskGheGroups,
-        removedPlanRiskKeys,
-        planGeneralMeasures,
-        anexoDiretrizTemplateId,
-      };
-      return;
-    }
-
     if (saveTimerRef.current) {
       window.clearTimeout(saveTimerRef.current);
     }
@@ -1079,6 +1066,14 @@ export function usePgrPersistence(ctx: UsePgrPersistenceContext) {
       workflow,
     };
 
+    // Esta comparação é a única guarda contra o save redundante que as
+    // re-execuções pós-hidratação provocam: a hidratação grava o snapshot dela
+    // em `lastPersistedSnapshotRef`/`lastEnqueuedSnapshotRef`, então rodar de
+    // novo com o mesmo conteúdo cai aqui e para. Não troque isso por um
+    // contador de execuções a pular -- havia um (`skipPostHydrationPersistsRef
+    // = 2`) e ele engolia as duas primeiras mudanças **reais** quando o PGR não
+    // disparava normalizações suficientes depois de carregar, fazendo a edição
+    // do analista sumir sem nenhum PUT.
     const snapshot = createPersistPayloadSnapshot(payload);
     const matchesConfirmed =
       lastPersistedSnapshotRef.current?.signature === snapshot.signature;
