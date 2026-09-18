@@ -251,6 +251,30 @@ const withCurrentValue = (options: string[], currentValue: string) => {
   return [...options, safeCurrentValue];
 };
 
+/**
+ * Opções da coluna "Medidas de prevenção" do Plano de Ação.
+ *
+ * A célula nasce com `risk.medidasControle` -- catálogo de Medidas de Controle,
+ * ver `medidasPrevencaoPlano ?? medidasControle` em `use-pgr-etapa-derived.ts` --
+ * mas o dropdown lista o catálogo de Descrições de Ações. Sem somar os dois, o
+ * valor que chega pré-preenchido não aparece entre as próprias opções da lista.
+ * As ações vêm primeiro por serem o catálogo próprio do Plano.
+ */
+export const buildPlanMeasureOptions = (
+  criteria: Array<{
+    actionDescriptionValues: string[];
+    controlMeasureValues: string[];
+  }>,
+  currentValue: string
+) =>
+  withCurrentValue(
+    uniqueNonEmptyValues([
+      ...criteria.flatMap((item) => item.actionDescriptionValues),
+      ...criteria.flatMap((item) => item.controlMeasureValues),
+    ]),
+    currentValue
+  );
+
 const buildCatalogValuesByAgent = (
   items: Array<{ name: string; agent: number } | { name: string; agent: string }>
 ) => {
@@ -842,15 +866,11 @@ export function useRiskCatalogHelpers(riskCatalogs: RiskCatalogPayload | null) {
   );
 
   const getActionDescriptionOptions = useCallback(
-    (tipoAgente: string, descricaoAgente: string, currentValue: string) => {
-      const optionsFromCriteria = uniqueNonEmptyValues(
-        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente).map(
-          (item) => item.actionDescriptionValues
-        )
-        .flat()
-      );
-      return optionsFromCriteria;
-    },
+    (tipoAgente: string, descricaoAgente: string, currentValue: string) =>
+      buildPlanMeasureOptions(
+        resolveTechnicalCriteriaOptions(tipoAgente, descricaoAgente),
+        currentValue
+      ),
     [resolveTechnicalCriteriaOptions]
   );
 
