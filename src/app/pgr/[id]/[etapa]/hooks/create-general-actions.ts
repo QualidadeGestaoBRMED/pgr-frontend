@@ -48,7 +48,7 @@ import {
   buildPlanActionGeneralMeasureRow,
   parseExtraPlanActionRiskId,
 } from "../utils/plan-actions";
-import { mapCnpjLookupToRegistration } from "../utils/cnpj-lookup";
+import { keepManualValue, mapCnpjLookupToRegistration } from "../utils/cnpj-lookup";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -519,7 +519,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             index === itemIndex
               ? {
                   ...establishment,
-                  nome: registration.nomeFantasia || establishment.nome,
+                  nome: keepManualValue(establishment.nome, registration.nomeFantasia),
                   razaoSocial: registration.razaoSocial || establishment.razaoSocial,
                   cnae: registration.cnae || establishment.cnae,
                   atividadePrincipal:
@@ -547,7 +547,10 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           index === itemIndex
             ? {
                 ...contractor,
-                nomeFantasia: registration.nomeFantasia || contractor.nomeFantasia,
+                nomeFantasia: keepManualValue(
+                  contractor.nomeFantasia,
+                  registration.nomeFantasia
+                ),
                 razaoSocial: registration.razaoSocial || contractor.razaoSocial,
                 cnae: registration.cnae || contractor.cnae,
                 atividadePrincipal:
