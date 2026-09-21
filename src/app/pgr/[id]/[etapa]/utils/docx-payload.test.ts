@@ -875,4 +875,81 @@ describe("docx payload mapping", () => {
     expect(payload.caracterizacao.ghes[1]?.estruturaDuplicada).toBe(true);
     expect(payload.caracterizacao.ghes[1]?.estruturaDuplicadaCom).toEqual(["GHE 1"]);
   });
+
+  it("keeps a zero headcount instead of falling back to the empty placeholder", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        functions: [
+          { id: "fn-1", setor: "Administração", funcao: "Auxiliar", descricao: "Apoia" },
+          { id: "fn-2", setor: "Operacional", funcao: "Soldador", descricao: "Solda" },
+          { id: "fn-3", setor: "Operacional", funcao: "Pintor", descricao: "Pinta" },
+        ],
+        gheGroups: [
+          {
+            id: "ghe-1",
+            name: "GHE 1",
+            info: { processo: "", observacoes: "", ambiente: "" },
+            items: [
+              { functionId: "fn-1", funcionarios: 0 },
+              { functionId: "fn-2", funcionarios: "0" },
+              { functionId: "fn-3", funcionarios: "" },
+            ],
+          },
+        ],
+      },
+    });
+
+    const funcoes = payload.descricao.ghes[0]?.funcoes ?? [];
+    const headcountByFunction = Object.fromEntries(
+      funcoes.map((item) => [item.funcao, item.numeroFuncionarios])
+    );
+
+    expect(headcountByFunction["Auxiliar"]).toBe("0");
+    expect(headcountByFunction["Soldador"]).toBe("0");
+    expect(headcountByFunction["Pintor"]).toBe("");
+    expect(payload.program.totalEmployees).toBe(0);
+  });
+
+  it("keeps a zero headcount coming from the legacy nested shape", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        descricao: {
+          ghes: [
+            {
+              id: "g-1",
+              nome: "GHE 1",
+              processo: "",
+              observacoes: "",
+              ambiente: "",
+              funcoes: [
+                {
+                  setor: "Administração",
+                  funcao: "Auxiliar",
+                  descricaoAtividades: "Apoia",
+                  numeroFuncionarios: 0,
+                },
+                {
+                  setor: "Operacional",
+                  funcao: "Soldador",
+                  descricaoAtividades: "Solda",
+                  numeroFuncionarios: "0",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      payload.descricao.ghes[0]?.funcoes.map((item) => item.numeroFuncionarios)
+    ).toEqual(["0", "0"]);
+    expect(payload.program.totalEmployees).toBe(0);
+  });
 });
