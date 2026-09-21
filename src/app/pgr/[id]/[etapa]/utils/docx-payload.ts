@@ -635,6 +635,12 @@ export function buildPgrDocxPayload(input: {
   const planoItensGeraisFallback = Array.isArray(input.planGeneralMeasures)
     ? input.planGeneralMeasures
         .filter((item) => String(item.descricao || "").trim().length > 0)
+        // Mesmo corte de prioridade da tela: medida geral com prioridade Baixa
+        // não entra no plano. Sem prioridade declarada vale o padrão "Média",
+        // que é o caso das ações padrão de cada template de NR.
+        .filter((item) =>
+          isModerateOrHigherPriority(normalizePriorityText(item.prioridade) || "Média")
+        )
         // As ações padrão do template da NR vêm antes das criadas à mão, igual
         // à ordem que a tela do Plano de Ação mostra.
         .map((item, index) => ({ item, index }))

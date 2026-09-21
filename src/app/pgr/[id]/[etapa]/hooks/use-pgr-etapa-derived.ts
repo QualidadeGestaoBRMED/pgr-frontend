@@ -40,8 +40,8 @@ import {
 import {
   getPlanRowOrderRank,
   isManualPlanActionId,
+  isModerateOrHigherPriority,
   normalizePriorityText,
-  shouldKeepPlanRow,
 } from "../utils/plan-priority";
 import { calculateAutomaticActionDueDate } from "../utils/action-date";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
@@ -66,8 +66,8 @@ export type PlanTableRow = {
   afericaoResultado?: string;
   groupTargets?: Array<{ gheId: string; riskId: string }>;
   isCustomPlanRow?: boolean;
-  // Ação de Medidas Gerais criada à mão no modal do Plano de Ação -- não passa
-  // pelo filtro de prioridade e sai depois das ações padrão do template.
+  // Ação de Medidas Gerais criada à mão no modal do Plano de Ação -- sai depois
+  // das ações padrão do template.
   isManualPlanAction?: boolean;
   hasPlanSnapshot?: boolean;
 };
@@ -637,7 +637,7 @@ export function usePgrEtapaDerived({
   const rawPlanTableRowsForPlan = useMemo<PlanTableRow[]>(
     () =>
       rawPlanTableRows.filter((row) =>
-        shouldKeepPlanRow(getPlanPriorityText(row), Boolean(row.isManualPlanAction))
+        isModerateOrHigherPriority(getPlanPriorityText(row))
       ),
     [rawPlanTableRows]
   );

@@ -953,7 +953,7 @@ describe("docx payload mapping", () => {
     expect(payload.program.totalEmployees).toBe(0);
   });
 
-  it("puts manual general measures after the NR template ones and keeps their priority", () => {
+  it("puts manual general measures after the NR template ones and drops the low-priority ones", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1309722312",
       generatedAt: "2026-03-19T12:00:00Z",
@@ -964,6 +964,13 @@ describe("docx payload mapping", () => {
             id: "plan-action-1758480000000-a1b2c3",
             nr: "NR-01",
             descricao: "Revisar o checklist interno",
+            gheName: "GHE 1",
+            prioridade: "Alta",
+          },
+          {
+            id: "plan-action-1758480000000-d4e5f6",
+            nr: "NR-01",
+            descricao: "Ação manual de prioridade baixa",
             gheName: "GHE 1",
             prioridade: "Baixa",
           },
@@ -983,7 +990,7 @@ describe("docx payload mapping", () => {
     ]);
     expect(payload.planoAcao.itens.map((item) => item.prioridade)).toEqual([
       "Média",
-      "Baixa",
+      "Alta",
     ]);
   });
 });

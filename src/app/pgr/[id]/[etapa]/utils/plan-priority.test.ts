@@ -5,7 +5,6 @@ import {
   isManualPlanActionId,
   isModerateOrHigherPriority,
   normalizePriorityText,
-  shouldKeepPlanRow,
 } from "./plan-priority";
 
 describe("plan priority utils", () => {
@@ -25,20 +24,12 @@ describe("plan priority utils", () => {
   });
 });
 
-describe("manual plan actions", () => {
+describe("plan row ordering", () => {
   it("recognises the id of an action created in the plan modal", () => {
     expect(isManualPlanActionId("plan-action-1758480000000-a1b2c3")).toBe(true);
     expect(isManualPlanActionId("nr-general-nr-01-1758480000000-1")).toBe(false);
     expect(isManualPlanActionId("")).toBe(false);
     expect(isManualPlanActionId(undefined)).toBe(false);
-  });
-
-  it("keeps a manual action with low priority and still drops the automatic one", () => {
-    expect(shouldKeepPlanRow("Baixa", true)).toBe(true);
-    expect(shouldKeepPlanRow("Baixa", false)).toBe(false);
-    expect(shouldKeepPlanRow("Risco Irrelevante", false)).toBe(false);
-    expect(shouldKeepPlanRow("Alta", false)).toBe(true);
-    expect(shouldKeepPlanRow("", true)).toBe(true);
   });
 
   it("sorts template general measures before manual ones, and risks last", () => {
