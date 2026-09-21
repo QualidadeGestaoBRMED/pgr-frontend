@@ -38,8 +38,10 @@ import {
   calculatePlanActionPriority,
 } from "../utils/plan-actions";
 import {
-  isModerateOrHigherPriority,
+  getPlanRowOrderRank,
+  isManualPlanActionId,
   normalizePriorityText,
+  shouldKeepPlanRow,
 } from "../utils/plan-priority";
 import { calculateAutomaticActionDueDate } from "../utils/action-date";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
@@ -64,6 +66,9 @@ export type PlanTableRow = {
   afericaoResultado?: string;
   groupTargets?: Array<{ gheId: string; riskId: string }>;
   isCustomPlanRow?: boolean;
+  // Ação de Medidas Gerais criada à mão no modal do Plano de Ação -- não passa
+  // pelo filtro de prioridade e sai depois das ações padrão do template.
+  isManualPlanAction?: boolean;
   hasPlanSnapshot?: boolean;
 };
 const PLAN_ALL_GHE_ID = "__plan_all_ghes__";
@@ -605,6 +610,7 @@ export function usePgrEtapaDerived({
             acompanhamento: item.acompanhamento || "",
             afericaoResultado: item.afericaoResultado || "",
             isCustomPlanRow: true,
+            isManualPlanAction: isManualPlanActionId(item.id),
           },
           {
             calculatedPlanActionVigencia,
@@ -631,7 +637,7 @@ export function usePgrEtapaDerived({
   const rawPlanTableRowsForPlan = useMemo<PlanTableRow[]>(
     () =>
       rawPlanTableRows.filter((row) =>
-        isModerateOrHigherPriority(getPlanPriorityText(row))
+        shouldKeepPlanRow(getPlanPriorityText(row), Boolean(row.isManualPlanAction))
       ),
     [rawPlanTableRows]
   );
@@ -691,9 +697,15 @@ export function usePgrEtapaDerived({
     return groupedRows
       .map((row, index) => ({ row, index }))
       .sort((a, b) => {
-        const aPriority = isGeneralMeasuresPlanRow(a.row) ? 0 : 1;
-        const bPriority = isGeneralMeasuresPlanRow(b.row) ? 0 : 1;
-        if (aPriority !== bPriority) return aPriority - bPriority;
+        const aRank = getPlanRowOrderRank({
+          isGeneralMeasure: isGeneralMeasuresPlanRow(a.row),
+          isManualAction: Boolean(a.row.isManualPlanAction),
+        });
+        const bRank = getPlanRowOrderRank({
+          isGeneralMeasure: isGeneralMeasuresPlanRow(b.row),
+          isManualAction: Boolean(b.row.isManualPlanAction),
+        });
+        if (aRank !== bRank) return aRank - bRank;
         return a.index - b.index;
       })
       .map(({ row }) => row);

@@ -952,4 +952,38 @@ describe("docx payload mapping", () => {
     ).toEqual(["0", "0"]);
     expect(payload.program.totalEmployees).toBe(0);
   });
+
+  it("puts manual general measures after the NR template ones and keeps their priority", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planGeneralMeasures: [
+          {
+            id: "plan-action-1758480000000-a1b2c3",
+            nr: "NR-01",
+            descricao: "Revisar o checklist interno",
+            gheName: "GHE 1",
+            prioridade: "Baixa",
+          },
+          {
+            id: "nr-general-nr-01-1758480000000-1",
+            nr: "NR-01",
+            descricao: "Ação padrão do template",
+            gheName: "Todos os GHEs",
+          },
+        ],
+      },
+    });
+
+    expect(payload.planoAcao.itens.map((item) => item.medida)).toEqual([
+      "Ação padrão do template",
+      "Revisar o checklist interno",
+    ]);
+    expect(payload.planoAcao.itens.map((item) => item.prioridade)).toEqual([
+      "Média",
+      "Baixa",
+    ]);
+  });
 });

@@ -16,6 +16,8 @@ import {
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
 import {
+  getPlanRowOrderRank,
+  isManualPlanActionId,
   isModerateOrHigherPriority,
   normalizePriorityText,
 } from "./plan-priority";
@@ -633,10 +635,25 @@ export function buildPgrDocxPayload(input: {
   const planoItensGeraisFallback = Array.isArray(input.planGeneralMeasures)
     ? input.planGeneralMeasures
         .filter((item) => String(item.descricao || "").trim().length > 0)
-        .map((item) => ({
+        // As ações padrão do template da NR vêm antes das criadas à mão, igual
+        // à ordem que a tela do Plano de Ação mostra.
+        .map((item, index) => ({ item, index }))
+        .sort((first, second) => {
+          const firstRank = getPlanRowOrderRank({
+            isGeneralMeasure: true,
+            isManualAction: isManualPlanActionId(first.item.id),
+          });
+          const secondRank = getPlanRowOrderRank({
+            isGeneralMeasure: true,
+            isManualAction: isManualPlanActionId(second.item.id),
+          });
+          if (firstRank !== secondRank) return firstRank - secondRank;
+          return first.index - second.index;
+        })
+        .map(({ item }) => ({
           ghe: item.gheName || "Todos os GHEs",
           risco: "Medidas Gerais",
-          prioridade: "Média",
+          prioridade: normalizePriorityText(item.prioridade) || "Média",
           classificacao: "Risco Moderado",
           medida: item.descricao,
           medidas: item.descricao,
@@ -979,6 +996,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
             targetGheIds: Array.isArray(item?.targetGheIds)
               ? item.targetGheIds.map((id) => String(id || "").trim()).filter(Boolean)
               : [],
+            prioridade: String(item?.prioridade || "").trim(),
             tipoMedida: String(item?.tipoMedida || "").trim(),
             prazoAcao: String(item?.prazoAcao || "").trim(),
             responsavelAcao: String(item?.responsavelAcao || "").trim(),

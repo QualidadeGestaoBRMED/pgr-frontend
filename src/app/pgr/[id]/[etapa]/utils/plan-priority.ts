@@ -31,3 +31,40 @@ export const isModerateOrHigherPriority = (value: unknown) => {
     normalized.includes("critic")
   );
 };
+
+// Uma linha de Medidas Gerais pode ter duas origens (ver
+// buildPlanActionGeneralMeasureRow e handleCreateNrPlanRows): a ação padrão do
+// template da NR nasce com id "nr-general-", e a ação que o analista cria no
+// modal do Plano de Ação -- escopos "Todos os GHEs" e "GHE específico" --
+// nasce com id "plan-action-".
+const MANUAL_PLAN_ACTION_ID_PREFIX = "plan-action-";
+
+export const isManualPlanActionId = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .startsWith(MANUAL_PLAN_ACTION_ID_PREFIX);
+
+// O filtro de prioridade existe para o que o sistema gera sozinho a partir da
+// classificação do risco: risco Baixo não vira ação. Ação criada à mão é
+// escolha do analista -- se ele marcou Baixa, ela precisa aparecer na tela e no
+// documento.
+export const shouldKeepPlanRow = (priority: unknown, isManualAction: boolean) =>
+  isManualAction || isModerateOrHigherPriority(priority);
+
+// Ordem do plano: Medidas Gerais primeiro (as padrão do template antes das
+// criadas à mão) e depois as linhas de risco.
+export const PLAN_ROW_ORDER = {
+  templateGeneralMeasure: 0,
+  manualGeneralMeasure: 1,
+  risk: 2,
+} as const;
+
+export const getPlanRowOrderRank = (options: {
+  isGeneralMeasure: boolean;
+  isManualAction: boolean;
+}) => {
+  if (!options.isGeneralMeasure) return PLAN_ROW_ORDER.risk;
+  return options.isManualAction
+    ? PLAN_ROW_ORDER.manualGeneralMeasure
+    : PLAN_ROW_ORDER.templateGeneralMeasure;
+};
