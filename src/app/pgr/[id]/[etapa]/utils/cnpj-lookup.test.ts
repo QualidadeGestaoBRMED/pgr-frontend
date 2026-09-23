@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapCnpjLookupToRegistration } from "./cnpj-lookup";
+import { keepManualValue, mapCnpjLookupToRegistration } from "./cnpj-lookup";
 
 describe("mapCnpjLookupToRegistration", () => {
   it("maps and formats all registration fields returned by the CNPJ lookup", () => {
@@ -84,5 +84,24 @@ describe("mapCnpjLookupToRegistration address normalization", () => {
 
     expect(registration.endereco).toBe("Rua das Flores");
     expect(registration.cidade).toBe("Rio de Janeiro");
+  });
+});
+
+describe("keepManualValue", () => {
+  it("keeps the name the analyst typed for the establishment", () => {
+    // Sintoma relatado (#16): o Nome do Estabelecimento era apagado pelo Nome
+    // Fantasia assim que o analista saía do campo de CNPJ.
+    expect(keepManualValue("Filial Sul", "EMPRESA EXEMPLO")).toBe("Filial Sul");
+  });
+
+  it("falls back to the lookup value when the field is still empty", () => {
+    expect(keepManualValue("", "Empresa Exemplo")).toBe("Empresa Exemplo");
+    expect(keepManualValue("   ", "Empresa Exemplo")).toBe("Empresa Exemplo");
+    expect(keepManualValue(undefined, "Empresa Exemplo")).toBe("Empresa Exemplo");
+  });
+
+  it("returns an empty string when neither side has a value", () => {
+    expect(keepManualValue("", "")).toBe("");
+    expect(keepManualValue(null, undefined)).toBe("");
   });
 });

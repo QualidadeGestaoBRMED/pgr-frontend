@@ -16,6 +16,8 @@ import {
   type PdfLayoutState,
 } from "@/lib/pgr-pdf-runtime/layout";
 import {
+  getPlanRowOrderRank,
+  isManualPlanActionId,
   isModerateOrHigherPriority,
   normalizePriorityText,
 } from "./plan-priority";
@@ -504,7 +506,7 @@ export function buildPgrDocxPayload(input: {
           setor: fn?.setor || "",
           funcao: fn?.funcao || "",
           descricaoAtividades: fn?.descricao || "",
-          numeroFuncionarios: item.funcionarios || "",
+          numeroFuncionarios: _asText(item.funcionarios),
         };
       })
       .sort(compareActivityFunctions),
@@ -633,10 +635,31 @@ export function buildPgrDocxPayload(input: {
   const planoItensGeraisFallback = Array.isArray(input.planGeneralMeasures)
     ? input.planGeneralMeasures
         .filter((item) => String(item.descricao || "").trim().length > 0)
-        .map((item) => ({
+        // Mesmo corte de prioridade da tela: medida geral com prioridade Baixa
+        // não entra no plano. Sem prioridade declarada vale o padrão "Média",
+        // que é o caso das ações padrão de cada template de NR.
+        .filter((item) =>
+          isModerateOrHigherPriority(normalizePriorityText(item.prioridade) || "Média")
+        )
+        // As ações padrão do template da NR vêm antes das criadas à mão, igual
+        // à ordem que a tela do Plano de Ação mostra.
+        .map((item, index) => ({ item, index }))
+        .sort((first, second) => {
+          const firstRank = getPlanRowOrderRank({
+            isGeneralMeasure: true,
+            isManualAction: isManualPlanActionId(first.item.id),
+          });
+          const secondRank = getPlanRowOrderRank({
+            isGeneralMeasure: true,
+            isManualAction: isManualPlanActionId(second.item.id),
+          });
+          if (firstRank !== secondRank) return firstRank - secondRank;
+          return first.index - second.index;
+        })
+        .map(({ item }) => ({
           ghe: item.gheName || "Todos os GHEs",
           risco: "Medidas Gerais",
-          prioridade: "Média",
+          prioridade: normalizePriorityText(item.prioridade) || "Média",
           classificacao: "Risco Moderado",
           medida: item.descricao,
           medidas: item.descricao,
@@ -750,7 +773,7 @@ export function buildPgrDocxPayload(input: {
     (groupTotal, ghe) =>
       groupTotal +
       ghe.funcoes.reduce((funcTotal, funcao) => {
-        const digits = String(funcao.numeroFuncionarios || "").replace(/\D+/g, "");
+        const digits = _asText(funcao.numeroFuncionarios).replace(/\D+/g, "");
         return funcTotal + Number.parseInt(digits || "0", 10);
       }, 0),
     0
@@ -865,7 +888,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
       }
       return {
         functionId,
-        funcionarios: String(fn?.numeroFuncionarios || ""),
+        funcionarios: _asText(fn?.numeroFuncionarios),
       };
     });
 
@@ -979,6 +1002,7 @@ export function buildPgrDocxPayloadFromBackendState(input: {
             targetGheIds: Array.isArray(item?.targetGheIds)
               ? item.targetGheIds.map((id) => String(id || "").trim()).filter(Boolean)
               : [],
+            prioridade: String(item?.prioridade || "").trim(),
             tipoMedida: String(item?.tipoMedida || "").trim(),
             prazoAcao: String(item?.prazoAcao || "").trim(),
             responsavelAcao: String(item?.responsavelAcao || "").trim(),

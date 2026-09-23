@@ -875,4 +875,122 @@ describe("docx payload mapping", () => {
     expect(payload.caracterizacao.ghes[1]?.estruturaDuplicada).toBe(true);
     expect(payload.caracterizacao.ghes[1]?.estruturaDuplicadaCom).toEqual(["GHE 1"]);
   });
+
+  it("keeps a zero headcount instead of falling back to the empty placeholder", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        functions: [
+          { id: "fn-1", setor: "Administração", funcao: "Auxiliar", descricao: "Apoia" },
+          { id: "fn-2", setor: "Operacional", funcao: "Soldador", descricao: "Solda" },
+          { id: "fn-3", setor: "Operacional", funcao: "Pintor", descricao: "Pinta" },
+        ],
+        gheGroups: [
+          {
+            id: "ghe-1",
+            name: "GHE 1",
+            info: { processo: "", observacoes: "", ambiente: "" },
+            items: [
+              { functionId: "fn-1", funcionarios: 0 },
+              { functionId: "fn-2", funcionarios: "0" },
+              { functionId: "fn-3", funcionarios: "" },
+            ],
+          },
+        ],
+      },
+    });
+
+    const funcoes = payload.descricao.ghes[0]?.funcoes ?? [];
+    const headcountByFunction = Object.fromEntries(
+      funcoes.map((item) => [item.funcao, item.numeroFuncionarios])
+    );
+
+    expect(headcountByFunction["Auxiliar"]).toBe("0");
+    expect(headcountByFunction["Soldador"]).toBe("0");
+    expect(headcountByFunction["Pintor"]).toBe("");
+    expect(payload.program.totalEmployees).toBe(0);
+  });
+
+  it("keeps a zero headcount coming from the legacy nested shape", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        descricao: {
+          ghes: [
+            {
+              id: "g-1",
+              nome: "GHE 1",
+              processo: "",
+              observacoes: "",
+              ambiente: "",
+              funcoes: [
+                {
+                  setor: "Administração",
+                  funcao: "Auxiliar",
+                  descricaoAtividades: "Apoia",
+                  numeroFuncionarios: 0,
+                },
+                {
+                  setor: "Operacional",
+                  funcao: "Soldador",
+                  descricaoAtividades: "Solda",
+                  numeroFuncionarios: "0",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      payload.descricao.ghes[0]?.funcoes.map((item) => item.numeroFuncionarios)
+    ).toEqual(["0", "0"]);
+    expect(payload.program.totalEmployees).toBe(0);
+  });
+
+  it("puts manual general measures after the NR template ones and drops the low-priority ones", () => {
+    const payload = buildPgrDocxPayloadFromBackendState({
+      pgrId: "1309722312",
+      generatedAt: "2026-03-19T12:00:00Z",
+      totalSteps: 8,
+      backendState: {
+        planGeneralMeasures: [
+          {
+            id: "plan-action-1758480000000-a1b2c3",
+            nr: "NR-01",
+            descricao: "Revisar o checklist interno",
+            gheName: "GHE 1",
+            prioridade: "Alta",
+          },
+          {
+            id: "plan-action-1758480000000-d4e5f6",
+            nr: "NR-01",
+            descricao: "Ação manual de prioridade baixa",
+            gheName: "GHE 1",
+            prioridade: "Baixa",
+          },
+          {
+            id: "nr-general-nr-01-1758480000000-1",
+            nr: "NR-01",
+            descricao: "Ação padrão do template",
+            gheName: "Todos os GHEs",
+          },
+        ],
+      },
+    });
+
+    expect(payload.planoAcao.itens.map((item) => item.medida)).toEqual([
+      "Ação padrão do template",
+      "Revisar o checklist interno",
+    ]);
+    expect(payload.planoAcao.itens.map((item) => item.prioridade)).toEqual([
+      "Média",
+      "Alta",
+    ]);
+  });
 });

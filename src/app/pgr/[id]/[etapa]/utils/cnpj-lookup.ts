@@ -50,3 +50,12 @@ export function mapCnpjLookupToRegistration(
     estado: text(data.uf).toUpperCase(),
   };
 }
+
+// O Nome Fantasia da Receita não pode apagar o rótulo que o analista escolheu
+// para o estabelecimento/contratante ("Matriz", "Filial Sul"): a consulta roda
+// no blur do CNPJ, inclusive quando o CNPJ nem mudou, e sobrescrevia o que
+// tinha acabado de ser digitado. Só os campos autorais entram aqui -- endereço,
+// CNAE, atividade e grau de risco continuam vindo da consulta, senão corrigir
+// um CNPJ errado deixaria os dados do CNPJ anterior no formulário.
+export const keepManualValue = (currentValue: unknown, lookupValue: unknown) =>
+  text(currentValue) || text(lookupValue);
