@@ -111,6 +111,10 @@ export type RiskGheGroup = {
 };
 
 export type HistoryEntry = {
+  // A exclusao de funcao tira o item da lista mestra alem de desassocia-lo do
+  // GHE; sem guardar a lista aqui, o desfazer devolvia so a associacao e a
+  // linha ficava contada mas invisivel na grade.
+  functionsData: PgrFunction[];
   gheGroups: GheGroup[];
   currentGheId: string;
   selectedLeftIds: string[];

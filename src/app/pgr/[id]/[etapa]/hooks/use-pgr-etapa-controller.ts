@@ -1920,6 +1920,7 @@ export function usePgrEtapaController({
 
   useHistoryUndo({
     setHistory: setters.setHistory,
+    setFunctionsData: setters.setFunctionsData,
     setGheGroups: setters.setGheGroups,
     setCurrentGheId: setters.setCurrentGheId,
     setSelectedLeftIds: setters.setSelectedLeftIds,

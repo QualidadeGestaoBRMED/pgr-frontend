@@ -1,8 +1,9 @@
 import { useCallback, useEffect } from "react";
-import type { GheGroup, HistoryEntry, RiskGheGroup } from "../types";
+import type { GheGroup, HistoryEntry, PgrFunction, RiskGheGroup } from "../types";
 
 type UseHistoryUndoArgs = {
   setHistory: React.Dispatch<React.SetStateAction<HistoryEntry[]>>;
+  setFunctionsData: React.Dispatch<React.SetStateAction<PgrFunction[]>>;
   setGheGroups: React.Dispatch<React.SetStateAction<GheGroup[]>>;
   setCurrentGheId: React.Dispatch<React.SetStateAction<string>>;
   setSelectedLeftIds: React.Dispatch<React.SetStateAction<string[]>>;
@@ -13,6 +14,7 @@ type UseHistoryUndoArgs = {
 
 export function useHistoryUndo({
   setHistory,
+  setFunctionsData,
   setGheGroups,
   setCurrentGheId,
   setSelectedLeftIds,
@@ -24,6 +26,7 @@ export function useHistoryUndo({
     setHistory((prev) => {
       if (!prev.length) return prev;
       const last = prev[prev.length - 1];
+      setFunctionsData(last.functionsData);
       setGheGroups(last.gheGroups);
       setCurrentGheId(last.currentGheId);
       setSelectedLeftIds(last.selectedLeftIds);
@@ -35,6 +38,7 @@ export function useHistoryUndo({
   }, [
     setCurrentGheId,
     setCurrentRiskGheId,
+    setFunctionsData,
     setGheGroups,
     setHistory,
     setRiskGheGroups,

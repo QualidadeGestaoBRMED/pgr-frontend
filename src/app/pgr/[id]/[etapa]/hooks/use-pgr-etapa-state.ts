@@ -225,6 +225,7 @@ export function usePgrEtapaState({
   const pushHistory = useCallback(() => {
     setHistory((prev) => {
       const entry: HistoryEntry = {
+        functionsData: [...functionsData],
         gheGroups: cloneGheGroups(gheGroups),
         currentGheId,
         selectedLeftIds: [...selectedLeftIds],
@@ -238,6 +239,7 @@ export function usePgrEtapaState({
   }, [
     currentGheId,
     currentRiskGheId,
+    functionsData,
     gheGroups,
     riskGheGroups,
     selectedLeftIds,
