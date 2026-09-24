@@ -28,6 +28,10 @@ describe("plan priority utils", () => {
 describe("plan row ordering", () => {
   it("recognises the id of an action created in the plan modal", () => {
     expect(isManualPlanActionId("plan-action-1758480000000-a1b2c3")).toBe(true);
+    // id como a linha da tabela do plano o entrega ao backend
+    expect(
+      isManualPlanActionId("plan-general-plan-action-1758480000000-a1b2c3")
+    ).toBe(true);
     expect(isManualPlanActionId("nr-general-nr-01-1758480000000-1")).toBe(false);
     expect(isManualPlanActionId("")).toBe(false);
     expect(isManualPlanActionId(undefined)).toBe(false);
