@@ -18,6 +18,7 @@ import {
 import {
   getPlanRowOrderRank,
   isManualPlanActionId,
+  shouldKeepPlanRowPriority,
   isModerateOrHigherPriority,
   normalizePriorityText,
 } from "./plan-priority";
@@ -636,10 +637,14 @@ export function buildPgrDocxPayload(input: {
     ? input.planGeneralMeasures
         .filter((item) => String(item.descricao || "").trim().length > 0)
         // Mesmo corte de prioridade da tela: medida geral com prioridade Baixa
-        // não entra no plano. Sem prioridade declarada vale o padrão "Média",
-        // que é o caso das ações padrão de cada template de NR.
+        // não entra no plano, salvo quando foi criada à mão no modal. Sem
+        // prioridade declarada vale o padrão "Média", que é o caso das ações
+        // padrão de cada template de NR.
         .filter((item) =>
-          isModerateOrHigherPriority(normalizePriorityText(item.prioridade) || "Média")
+          shouldKeepPlanRowPriority({
+            priority: normalizePriorityText(item.prioridade) || "Média",
+            isManualAction: isManualPlanActionId(item.id),
+          })
         )
         // As ações padrão do template da NR vêm antes das criadas à mão, igual
         // à ordem que a tela do Plano de Ação mostra.

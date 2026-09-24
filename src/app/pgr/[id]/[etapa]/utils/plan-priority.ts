@@ -52,6 +52,16 @@ export const PLAN_ROW_ORDER = {
   risk: 2,
 } as const;
 
+// A ação criada à mão no modal do Plano de Ação -- escopos "Todos os GHEs" e
+// "GHE específico" -- vale com qualquer prioridade, inclusive Baixa: ali a
+// prioridade é uma escolha explícita do analista, não o resultado da
+// classificação do risco. O corte moderado-ou-superior continua valendo para
+// todo o resto do plano.
+export const shouldKeepPlanRowPriority = (options: {
+  priority: unknown;
+  isManualAction: boolean;
+}) => options.isManualAction || isModerateOrHigherPriority(options.priority);
+
 export const getPlanRowOrderRank = (options: {
   isGeneralMeasure: boolean;
   isManualAction: boolean;

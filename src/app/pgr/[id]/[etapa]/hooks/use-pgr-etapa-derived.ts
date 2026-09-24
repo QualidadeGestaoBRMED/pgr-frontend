@@ -40,6 +40,7 @@ import {
 import {
   getPlanRowOrderRank,
   isManualPlanActionId,
+  shouldKeepPlanRowPriority,
   isModerateOrHigherPriority,
   normalizePriorityText,
 } from "../utils/plan-priority";
@@ -637,7 +638,10 @@ export function usePgrEtapaDerived({
   const rawPlanTableRowsForPlan = useMemo<PlanTableRow[]>(
     () =>
       rawPlanTableRows.filter((row) =>
-        isModerateOrHigherPriority(getPlanPriorityText(row))
+        shouldKeepPlanRowPriority({
+          priority: getPlanPriorityText(row),
+          isManualAction: Boolean(row.isManualPlanAction),
+        })
       ),
     [rawPlanTableRows]
   );
