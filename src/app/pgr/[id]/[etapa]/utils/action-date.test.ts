@@ -28,6 +28,18 @@ describe("action date helpers", () => {
         prioridade: "Prioridade Média",
       })
     ).toBe("30/06/2026");
+    expect(
+      calculateAutomaticActionDueDate({
+        vigencia: "01/01/2026 - 31/12/2027",
+        prioridade: "Baixa",
+      })
+    ).toBe("01/01/2027");
+    expect(
+      calculateAutomaticActionDueDate({
+        vigencia: "01/01/2026 - 31/12/2027",
+        prioridade: "Risco Irrelevante",
+      })
+    ).toBe("");
   });
 
   it("does not fall back to risk classification when calculating due dates", () => {

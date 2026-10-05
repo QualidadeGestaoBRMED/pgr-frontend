@@ -77,6 +77,7 @@ export const getActionDueDaysByPriority = (prioridade: string) => {
   if (text.includes("imediat") || text.includes("critic")) return 30;
   if (text.includes("alt")) return 90;
   if (text.includes("media") || text.includes("moderad")) return 180;
+  if (text.includes("baix")) return 365;
   return null;
 };
 
