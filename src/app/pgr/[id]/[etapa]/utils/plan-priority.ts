@@ -39,10 +39,14 @@ export const isModerateOrHigherPriority = (value: unknown) => {
 // nasce com id "plan-action-". A distinção define a ordem das duas no plano.
 const MANUAL_PLAN_ACTION_ID_PREFIX = "plan-action-";
 
+// A linha da tabela do Plano de Ação embrulha o id da medida geral
+// (`plan-general-<id>`, ver use-pgr-etapa-derived), e é esse id embrulhado que
+// chega ao backend. Por isso a busca é pelo prefixo em qualquer posição, e não
+// só no início.
 export const isManualPlanActionId = (value: unknown) =>
   String(value ?? "")
     .trim()
-    .startsWith(MANUAL_PLAN_ACTION_ID_PREFIX);
+    .includes(MANUAL_PLAN_ACTION_ID_PREFIX);
 
 // Ordem do plano: Medidas Gerais primeiro (as padrão do template antes das
 // criadas à mão) e depois as linhas de risco.
@@ -51,6 +55,16 @@ export const PLAN_ROW_ORDER = {
   manualGeneralMeasure: 1,
   risk: 2,
 } as const;
+
+// A ação criada à mão no modal do Plano de Ação -- escopos "Todos os GHEs" e
+// "GHE específico" -- vale com qualquer prioridade, inclusive Baixa: ali a
+// prioridade é uma escolha explícita do analista, não o resultado da
+// classificação do risco. O corte moderado-ou-superior continua valendo para
+// todo o resto do plano.
+export const shouldKeepPlanRowPriority = (options: {
+  priority: unknown;
+  isManualAction: boolean;
+}) => options.isManualAction || isModerateOrHigherPriority(options.priority);
 
 export const getPlanRowOrderRank = (options: {
   isGeneralMeasure: boolean;

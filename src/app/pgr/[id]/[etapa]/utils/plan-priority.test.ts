@@ -5,6 +5,7 @@ import {
   isManualPlanActionId,
   isModerateOrHigherPriority,
   normalizePriorityText,
+  shouldKeepPlanRowPriority,
 } from "./plan-priority";
 
 describe("plan priority utils", () => {
@@ -27,6 +28,10 @@ describe("plan priority utils", () => {
 describe("plan row ordering", () => {
   it("recognises the id of an action created in the plan modal", () => {
     expect(isManualPlanActionId("plan-action-1758480000000-a1b2c3")).toBe(true);
+    // id como a linha da tabela do plano o entrega ao backend
+    expect(
+      isManualPlanActionId("plan-general-plan-action-1758480000000-a1b2c3")
+    ).toBe(true);
     expect(isManualPlanActionId("nr-general-nr-01-1758480000000-1")).toBe(false);
     expect(isManualPlanActionId("")).toBe(false);
     expect(isManualPlanActionId(undefined)).toBe(false);
@@ -39,5 +44,22 @@ describe("plan row ordering", () => {
     expect(rank(true, false)).toBeLessThan(rank(true, true));
     expect(rank(true, true)).toBeLessThan(rank(false, false));
     expect(rank(false, true)).toBe(rank(false, false));
+  });
+});
+
+describe("low priority in the action plan", () => {
+  it("keeps a low priority only when the action was created by hand", () => {
+    const keep = (priority: string, isManualAction: boolean) =>
+      shouldKeepPlanRowPriority({ priority, isManualAction });
+
+    // criada a mao no modal: a prioridade e escolha do analista
+    expect(keep("Baixa", true)).toBe(true);
+    // derivada da classificacao do risco ou acao padrao do template
+    expect(keep("Baixa", false)).toBe(false);
+    expect(keep("Risco Irrelevante", false)).toBe(false);
+    // o corte nao muda para as demais prioridades
+    expect(keep("Média", false)).toBe(true);
+    expect(keep("Alta", false)).toBe(true);
+    expect(keep("Imediata", true)).toBe(true);
   });
 });

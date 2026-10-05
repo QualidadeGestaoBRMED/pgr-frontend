@@ -953,7 +953,7 @@ describe("docx payload mapping", () => {
     expect(payload.program.totalEmployees).toBe(0);
   });
 
-  it("puts manual general measures after the NR template ones and drops the low-priority ones", () => {
+  it("puts manual general measures after the NR template ones and keeps a low priority only when it was chosen by hand", () => {
     const payload = buildPgrDocxPayloadFromBackendState({
       pgrId: "1309722312",
       generatedAt: "2026-03-19T12:00:00Z",
@@ -980,17 +980,28 @@ describe("docx payload mapping", () => {
             descricao: "Ação padrão do template",
             gheName: "Todos os GHEs",
           },
+          {
+            id: "nr-general-nr-01-1758480000000-2",
+            nr: "NR-01",
+            descricao: "Ação padrão de prioridade baixa",
+            gheName: "Todos os GHEs",
+            prioridade: "Baixa",
+          },
         ],
       },
     });
 
+    // A ação padrão do template com prioridade Baixa continua fora; a criada à
+    // mão no modal entra, depois das ações padrão.
     expect(payload.planoAcao.itens.map((item) => item.medida)).toEqual([
       "Ação padrão do template",
       "Revisar o checklist interno",
+      "Ação manual de prioridade baixa",
     ]);
     expect(payload.planoAcao.itens.map((item) => item.prioridade)).toEqual([
       "Média",
       "Alta",
+      "Baixa",
     ]);
   });
 });
