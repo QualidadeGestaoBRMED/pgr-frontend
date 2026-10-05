@@ -49,6 +49,7 @@ import {
   parseExtraPlanActionRiskId,
 } from "../utils/plan-actions";
 import { keepManualValue, mapCnpjLookupToRegistration } from "../utils/cnpj-lookup";
+import { mergeSyncedDadosCadastrais, selectSyncedDados } from "../utils/pipefy-sync-merge";
 
 type CardMeta = PersistedPgrState["cardMeta"];
 type ExtraField = PersistedPgrState["extraEstabelecimentoFields"][number];
@@ -978,6 +979,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             responsibleId: number | null;
           };
           updatedAt?: string;
+          syncedFields?: string[];
         }>(`/api/v1/frontend/pgr/${params.id}/sync-pipefy`)
       );
       const rawInicioDraft = (response?.inicioDraft || {}) as Record<string, unknown>;
@@ -998,28 +1000,26 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
         ...normalizedInicioDraft,
         syncedAt: normalizedInicioDraft.syncedAt ?? null,
       }));
-      const responseDados = (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>;
+      const hasSyncedFields = Array.isArray(response.syncedFields);
+      const responseDados = selectSyncedDados(
+        (response.dadosCadastrais || {}) as Partial<DadosCadastraisDraft>,
+        response.syncedFields
+      );
       const fallbackCompany =
         String(responseDados.empresaNome || "").trim() ||
         String(responseDados.empresaRazaoSocial || "").trim() ||
         String(normalizedInicioDraft.companyName || "").trim() ||
         String(rawInicioDraft.companyName || "").trim();
-      // A sincronizacao do Pipefy so conhece os campos basicos do card (empresa,
-      // CNPJ etc.) -- ela nunca envia responsaveisCoordenacaoTecnica e outros
-      // dados preenchidos manualmente na etapa de Dados Cadastrais. Partir de
-      // `prevDadosCadastrais` (em vez de `initialDadosCadastrais`) preserva o
-      // que o usuario ja cadastrou; sem isso, toda re-sincronizacao (inclusive
-      // a automatica ao reabrir o PGR) apagava o Responsavel pela Coordenacao
-      // Tecnica de volta para o valor em branco.
       setDadosCadastrais((prevDadosCadastrais) =>
-        syncLegacyDados({
-          ...initialDadosCadastrais,
-          ...prevDadosCadastrais,
-          ...responseDados,
-          empresaRazaoSocial:
-            String(responseDados.empresaRazaoSocial || "").trim() || fallbackCompany,
-          empresaNome: String(responseDados.empresaNome || "").trim() || fallbackCompany,
-        })
+        syncLegacyDados(
+          mergeSyncedDadosCadastrais({
+            initial: initialDadosCadastrais,
+            prev: prevDadosCadastrais,
+            syncedDados: responseDados,
+            hasSyncedFields,
+            fallbackCompany,
+          })
+        )
       );
       if (fallbackCompany) {
         setHistoricoData((prev) => ({
