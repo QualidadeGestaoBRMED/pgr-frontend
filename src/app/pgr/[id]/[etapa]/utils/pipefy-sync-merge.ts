@@ -21,6 +21,30 @@ export function selectSyncedDados(
 }
 
 /**
+ * Campo do card (`cardSourcedFields`) manda: a origem sobrescreve a tela. O
+ * resto de `syncedFields` foi preenchido agora pelo lookup da Receita, que no
+ * backend só cobre campo vazio da cópia do banco -- aqui ele também só cobre
+ * campo vazio da tela, senão o que o usuário digitou e o autosave ainda não
+ * gravou era trocado pelo dado da Receita. Backend sem `cardSourcedFields`
+ * mantém o comportamento anterior (tudo sobrescreve).
+ */
+export function keepScreenValuesOverLookupFills(
+  syncedDados: Partial<DadosCadastraisDraft>,
+  prev: DadosCadastraisDraft,
+  cardSourcedFields: unknown
+): Partial<DadosCadastraisDraft> {
+  if (!Array.isArray(cardSourcedFields)) return syncedDados;
+  const fromCard = new Set(cardSourcedFields.filter((key) => typeof key === "string"));
+  return Object.fromEntries(
+    Object.entries(syncedDados).filter(([key]) => {
+      if (fromCard.has(key)) return true;
+      const current = prev[key as keyof DadosCadastraisDraft];
+      return typeof current !== "string" || !current.trim();
+    })
+  ) as Partial<DadosCadastraisDraft>;
+}
+
+/**
  * Contratantes e estabelecimentos não vêm em `syncedFields` como lista, só
  * como escalares (contratanteCnpj, estabelecimentoNome, campos do lookup da
  * Receita). Na sincronização legada a lista ganha do escalar, então eles têm
@@ -80,13 +104,16 @@ export function mergeSyncedDadosCadastrais({
   syncedDados,
   hasSyncedFields,
   fallbackCompany,
+  cardSourcedFields,
 }: {
   initial: DadosCadastraisDraft;
   prev: DadosCadastraisDraft;
   syncedDados: Partial<DadosCadastraisDraft>;
   hasSyncedFields: boolean;
   fallbackCompany: string;
+  cardSourcedFields?: unknown;
 }): DadosCadastraisDraft {
+  syncedDados = keepScreenValuesOverLookupFills(syncedDados, prev, cardSourcedFields);
   const merged: DadosCadastraisDraft = {
     ...initial,
     ...prev,

@@ -980,6 +980,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
           };
           updatedAt?: string;
           syncedFields?: string[];
+          cardSourcedFields?: string[];
         }>(`/api/v1/frontend/pgr/${params.id}/sync-pipefy`)
       );
       const rawInicioDraft = (response?.inicioDraft || {}) as Record<string, unknown>;
@@ -1018,6 +1019,7 @@ export function createGeneralActions(ctx: GeneralActionsContext) {
             syncedDados: responseDados,
             hasSyncedFields,
             fallbackCompany,
+            cardSourcedFields: response.cardSourcedFields,
           })
         )
       );

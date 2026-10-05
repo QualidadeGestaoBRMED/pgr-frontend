@@ -23,6 +23,7 @@ const FULL_RESPONSE: Partial<DadosCadastraisDraft> = {
 const runSync = (
   prev: DadosCadastraisDraft,
   syncedFields: unknown,
+  cardSourcedFields?: unknown,
   fallbackCompany = "Empresa do Card"
 ) =>
   syncLegacy(
@@ -32,6 +33,7 @@ const runSync = (
       syncedDados: selectSyncedDados(FULL_RESPONSE, syncedFields),
       hasSyncedFields: Array.isArray(syncedFields),
       fallbackCompany,
+      cardSourcedFields,
     })
   );
 
@@ -83,5 +85,22 @@ describe("pipefy sync merge", () => {
     const result = runSync(syncLegacy({ ...initialDadosCadastrais }), undefined);
     expect(result.empresaCidade).toBe("Cidade Antiga");
     expect(result.empresaRazaoSocial).toBe("Razao Antiga do Banco");
+  });
+
+  it("does not let a Receita fill replace what the user typed, but card fields win", () => {
+    const typed = syncLegacy({
+      ...initialDadosCadastrais,
+      empresaRazaoSocial: "Razao Digitada",
+      empresaCidade: "",
+      empresaNome: "Nome Digitado",
+    });
+    const result = runSync(
+      typed,
+      ["empresaNome", "empresaRazaoSocial", "empresaCidade"],
+      ["empresaNome"]
+    );
+    expect(result.empresaRazaoSocial).toBe("Razao Digitada");
+    expect(result.empresaCidade).toBe("Cidade Antiga");
+    expect(result.empresaNome).toBe("Empresa do Card");
   });
 });
