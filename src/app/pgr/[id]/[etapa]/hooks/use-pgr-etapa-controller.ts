@@ -19,6 +19,7 @@ import { buildPersistedPlanActionItems } from "../utils/plan-action-items";
 import { computeWeightedProgressPercent } from "../utils/progress";
 import { calculatePlanActionVigencia } from "../utils/vigencia";
 import { parsePendingReviewFocus } from "../utils/pending-review";
+import { clearGheFunctionAssignments } from "../utils/descricao-reset";
 import {
   buildPgrExportFileBase,
   sortHistoricoChanges,
@@ -1577,6 +1578,30 @@ export function usePgrEtapaController({
     setters.setPlanActionRiskId("");
   }, [params.id, setters, state.workflow.isLocked]);
 
+  // Variante estreita do "Limpar dados da etapa" desta etapa.
+  //
+  // Relatado em produção: a pessoa queria trocar só as funções de um documento
+  // grande e manter os GHEs e os riscos já caracterizados. Usou o botão de
+  // limpar a etapa e perdeu tudo -- handleResetDescricaoData zera `gheGroups`,
+  // e o efeito que deriva `riskGheGroups` de `gheGroups` (use-pgr-persistence)
+  // reconstrói a caracterização a partir da lista vazia, levando junto os
+  // riscos. Aqui a limpeza para na lista mestra de funções e nas associações
+  // de cada GHE: os GHEs, suas descrições, os riscos e o plano ficam intactos.
+  const handleResetDescricaoFunctions = useCallback(() => {
+    if (state.workflow.isLocked) return;
+    // Mesmo motivo do reset completo: `functions` fica [] e o backend recusa
+    // com 409 qualquer autosave que esvazie a lista sem intenção declarada.
+    allowEmptyFieldsOnNextSave(params.id, ["functions"]);
+    // Empilha antes de limpar para o Ctrl+Z da etapa devolver as funções.
+    actions.pushHistory();
+    setters.setFunctionsData(defaultFunctions);
+    setters.setGheGroups(clearGheFunctionAssignments);
+    setters.setSelectedLeftIds([]);
+    setters.setSelectedRightIds([]);
+    setters.setSearchTerm("");
+    setters.setExcelImportFeedback(null);
+  }, [actions, params.id, setters, state.workflow.isLocked]);
+
   const handleResetCaracterizacaoData = useCallback(() => {
     if (state.workflow.isLocked) return;
     setters.setRiskGheGroups(defaultRiskGheGroups);
@@ -2159,6 +2184,7 @@ export function usePgrEtapaController({
       handleResetInicioData,
       handleResetDadosData,
       handleResetDescricaoData,
+      handleResetDescricaoFunctions,
       handleResetCaracterizacaoData,
       handleResetPlanoData,
       generalActions,

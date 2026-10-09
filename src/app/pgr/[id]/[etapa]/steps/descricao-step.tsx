@@ -109,12 +109,16 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   );
   const [isExcelImportErrorModalOpen, setIsExcelImportErrorModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  // Começa em "functions" de propósito: é a opção que não destrói nada
+  // fora desta etapa. Quem quiser o reset completo precisa escolher.
+  const [resetScope, setResetScope] = useState<"functions" | "all">("functions");
   const [, setTouchedInfoFields] = useState<Partial<
     Record<RequiredGheInfoField, boolean>
   >>({});
 
   const {
     handleResetDescricaoData,
+    handleResetDescricaoFunctions,
     currentGheName,
     lastGheNotice,
     searchTerm,
@@ -704,7 +708,10 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
           </div>
           <button
             type="button"
-            onClick={() => setIsResetModalOpen(true)}
+            onClick={() => {
+              setResetScope("functions");
+              setIsResetModalOpen(true);
+            }}
             className="btn-outline border-danger-foreground/40 px-4 text-danger-foreground hover:bg-danger"
           >
             Limpar dados da etapa
@@ -2215,13 +2222,68 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/55" />
               <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
-                <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                <div className="w-full max-w-lg rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
                   <h3 className="text-[18px] font-semibold text-foreground">
                     Confirmar limpeza
                   </h3>
                   <p className="mt-2 text-[13px] text-muted-foreground">
-                    Todos os dados preenchidos serão removidos. Deseja continuar?
+                    Escolha o que deve ser removido desta etapa.
                   </p>
+                  <div className="mt-4 space-y-2">
+                    <label
+                      className={`flex cursor-pointer items-start gap-3 rounded-[10px] border px-3 py-2.5 transition-colors ${
+                        resetScope === "functions"
+                          ? "border-primary/60 bg-primary/10"
+                          : "border-border/70 hover:bg-muted/60"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="descricao-reset-scope"
+                        className="mt-1"
+                        value="functions"
+                        checked={resetScope === "functions"}
+                        onChange={() => setResetScope("functions")}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-medium text-foreground">
+                          Apenas as funções
+                        </span>
+                        <span className="mt-0.5 block text-[12px] text-muted-foreground">
+                          Remove a lista de funções e as associações com os GHEs.
+                          Os GHEs, suas descrições, os riscos da caracterização e
+                          o plano de ação continuam como estão.
+                        </span>
+                      </span>
+                    </label>
+                    <label
+                      className={`flex cursor-pointer items-start gap-3 rounded-[10px] border px-3 py-2.5 transition-colors ${
+                        resetScope === "all"
+                          ? "border-danger-foreground/60 bg-danger"
+                          : "border-border/70 hover:bg-muted/60"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="descricao-reset-scope"
+                        className="mt-1"
+                        value="all"
+                        checked={resetScope === "all"}
+                        onChange={() => setResetScope("all")}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-medium text-foreground">
+                          Toda a etapa (funções e GHEs)
+                        </span>
+                        <span className="mt-0.5 block text-[12px] font-medium text-danger-foreground">
+                          A caracterização de riscos é montada a partir destes
+                          GHEs: apagar os GHEs apaga também os riscos já
+                          cadastrados e o plano de ação. Não dá para desfazer
+                          depois de salvar.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
                   <div className="mt-6 flex items-center justify-end gap-3">
                     <button
                       type="button"
@@ -2233,12 +2295,18 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        handleResetDescricaoData();
+                        if (resetScope === "all") {
+                          handleResetDescricaoData();
+                        } else {
+                          handleResetDescricaoFunctions();
+                        }
                         setIsResetModalOpen(false);
                       }}
                       className="btn-primary px-5"
                     >
-                      Confirmar limpeza
+                      {resetScope === "all"
+                        ? "Limpar toda a etapa"
+                        : "Limpar apenas as funções"}
                     </button>
                   </div>
                 </div>
