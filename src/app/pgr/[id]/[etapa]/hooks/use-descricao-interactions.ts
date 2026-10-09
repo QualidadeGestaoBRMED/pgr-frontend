@@ -442,34 +442,11 @@ export function useDescricaoInteractions({
     setIsInfoModalOpen(true);
   };
 
-  const handleConfirmInfoModal = () => {
-    if (!isGheInfoComplete(currentGhe)) {
-      setInfoModalError(
-        "Preencha Processo, Observações e Ambiente para considerar este GHE descrito."
-      );
-      return;
-    }
-    setInfoModalError("");
-
-    if (infoModalMode === "advance") {
-      setIsInfoModalOpen(false);
-      handleAdvance();
-      return;
-    }
-
-    if (infoModalMode === "next-existing") {
-      if (!nextExistingGhe) return;
-      setCurrentGheId(nextExistingGhe.id);
-      setCurrentRiskGheId(nextExistingGhe.id);
-      setLastGheNotice({ from: currentGheName, to: nextExistingGhe.name });
-      setSelectedLeftIds([]);
-      setSelectedRightIds([]);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setIsInfoModalOpen(false);
-      return;
-    }
-
-    if (!canCreateNextGhe) return;
+  // Cria o próximo GHE vazio e o torna o atual. Usado ao confirmar a descrição
+  // ("Salvar e ir para o próximo GHE") e pelo botão "Novo GHE", que cria sem
+  // exigir a descrição nem funções no GHE atual -- a descrição continua sendo
+  // cobrada para avançar a etapa.
+  const createNextGhe = () => {
     pushHistory();
     // gheGroups.length + 1 sozinho reaproveita um id já usado quando algum
     // GHE do meio da lista foi excluído (o array encolhe, mas os ids
@@ -503,7 +480,42 @@ export function useDescricaoInteractions({
     setSelectedLeftIds([]);
     setSelectedRightIds([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleConfirmInfoModal = () => {
+    if (!isGheInfoComplete(currentGhe)) {
+      setInfoModalError(
+        "Preencha Processo, Observações e Ambiente para considerar este GHE descrito."
+      );
+      return;
+    }
+    setInfoModalError("");
+
+    if (infoModalMode === "advance") {
+      setIsInfoModalOpen(false);
+      handleAdvance();
+      return;
+    }
+
+    if (infoModalMode === "next-existing") {
+      if (!nextExistingGhe) return;
+      setCurrentGheId(nextExistingGhe.id);
+      setCurrentRiskGheId(nextExistingGhe.id);
+      setLastGheNotice({ from: currentGheName, to: nextExistingGhe.name });
+      setSelectedLeftIds([]);
+      setSelectedRightIds([]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setIsInfoModalOpen(false);
+      return;
+    }
+
+    if (!canCreateNextGhe) return;
+    createNextGhe();
     setIsInfoModalOpen(false);
+  };
+
+  const handleCreateEmptyGhe = () => {
+    createNextGhe();
   };
 
   const handleSelectGhe = (id: string) => {
@@ -793,6 +805,7 @@ export function useDescricaoInteractions({
     handleDeleteSelected,
     handleEditSelected,
     handleCreateNextGhe,
+    handleCreateEmptyGhe,
     handleRenameCurrentGhe,
     handleDeleteCurrentGhe,
     handleDeleteCurrentGheAndFunctions,

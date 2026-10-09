@@ -36,6 +36,7 @@ export const buildDescricaoStepCtx = (ctx: Parameters<StepRenderer>[0]) => ({
   deleteFunction: ctx.descricaoInteractions.handleDeleteSelected,
   handleRemoveSelected: ctx.descricaoInteractions.handleRemoveSelected,
   handleCreateNextGhe: ctx.descricaoInteractions.handleCreateNextGhe,
+  handleCreateEmptyGhe: ctx.descricaoInteractions.handleCreateEmptyGhe,
   handleRenameCurrentGhe: ctx.descricaoInteractions.handleRenameCurrentGhe,
   handleDeleteCurrentGhe: ctx.descricaoInteractions.handleDeleteCurrentGhe,
   handleDeleteCurrentGheAndFunctions:

@@ -4,6 +4,9 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Download,
   FileSpreadsheet,
   MinusCircle,
   Pencil,
@@ -12,10 +15,22 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { SearchableSelect } from "./searchable-select";
 import type { DescricaoStepCtx } from "./renderers/descricao-renderer";
 import type { PgrFunction } from "../types";
+import {
+  DESCRICAO_IMPORT_GUIDES,
+  downloadDescricaoImportTemplate,
+  type DescricaoImportMode,
+} from "../utils/descricao-import";
 import {
   calculateGheQuantity,
   calculateGheQuantityPercentage,
@@ -76,6 +91,35 @@ function sliceGroupedFunctions(groups: DescricaoGroup[], maxItems: number): Desc
   return sliced;
 }
 
+type AutoGrowTextareaProps = {
+  value: string;
+  onChange: (value: string) => void;
+  className: string;
+  placeholder: string;
+};
+
+// Campo de edição que cresce com o texto: Setor, Função e Descrição longos
+// ficavam cortados num input de uma linha.
+function AutoGrowTextarea({ value, onChange, className, placeholder }: AutoGrowTextareaProps) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={`${className} resize-none overflow-hidden leading-snug`}
+      placeholder={placeholder}
+    />
+  );
+}
+
 export function DescricaoStep({ ctx }: DescricaoStepProps) {
   const [isManualFunctionModalOpen, setIsManualFunctionModalOpen] = useState(false);
   const [manualSetor, setManualSetor] = useState("");
@@ -92,6 +136,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     Record<string, { setor: string; funcao: string; descricao: string }>
   >({});
   const [editingFeedback, setEditingFeedback] = useState("");
+  // Linhas mostradas por inteiro (sem truncar função e descrição). Clicar no
+  // texto ou no botão de seta alterna; vale para as duas listas.
+  const [expandedFunctionIds, setExpandedFunctionIds] = useState<string[]>([]);
+  const toggleExpandedFunction = (id: string) =>
+    setExpandedFunctionIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   const [isEditingGheName, setIsEditingGheName] = useState(false);
   const [editingGheName, setEditingGheName] = useState("");
   const [gheNameFeedback, setGheNameFeedback] = useState("");
@@ -104,9 +155,8 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
   }>(null);
   const [isDeleteSelectedModalOpen, setIsDeleteSelectedModalOpen] = useState(false);
   const [isExcelImportTypeModalOpen, setIsExcelImportTypeModalOpen] = useState(false);
-  const [excelImportMode, setExcelImportMode] = useState<"total-geral" | "planilha-ativos">(
-    "total-geral"
-  );
+  const [excelImportMode, setExcelImportMode] = useState<DescricaoImportMode>("total-geral");
+  const [templateDownloadError, setTemplateDownloadError] = useState("");
   const [isExcelImportErrorModalOpen, setIsExcelImportErrorModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   // Começa em "functions" de propósito: é a opção que não destrói nada
@@ -151,6 +201,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     deleteFunction,
     handleRemoveSelected,
     handleCreateNextGhe,
+    handleCreateEmptyGhe,
     handleRenameCurrentGhe,
     handleDeleteCurrentGhe,
     handleDeleteCurrentGheAndFunctions,
@@ -199,16 +250,19 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
     setIsExcelImportTypeModalOpen(true);
   };
 
-  const handleImportTotalGeral = () => {
-    setExcelImportMode("total-geral");
+  const handleImportByMode = (mode: DescricaoImportMode) => {
+    setExcelImportMode(mode);
     setIsExcelImportTypeModalOpen(false);
     importExcelInputRef.current?.click();
   };
 
-  const handleImportPlanilhaAtivos = () => {
-    setExcelImportMode("planilha-ativos");
-    setIsExcelImportTypeModalOpen(false);
-    importExcelInputRef.current?.click();
+  const handleDownloadImportTemplate = async (mode: DescricaoImportMode) => {
+    setTemplateDownloadError("");
+    try {
+      await downloadDescricaoImportTemplate(mode);
+    } catch {
+      setTemplateDownloadError("Não foi possível gerar a planilha modelo. Tente novamente.");
+    }
   };
 
   const addInlineEdit = (functionIds: string[]) => {
@@ -836,6 +890,15 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                 </button>
                 <button
                   type="button"
+                  onClick={handleCreateEmptyGhe}
+                  className="btn-outline px-4"
+                  title="Cria um GHE vazio sem exigir a descrição do GHE atual"
+                >
+                  <Plus className="h-4 w-4" />
+                  Novo GHE
+                </button>
+                <button
+                  type="button"
                   onClick={openExcelImportTypeModal}
                   disabled={isImportingExcel}
                   className={isImportingExcel ? "btn-disabled px-4" : "btn-primary px-4"}
@@ -936,6 +999,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                         <div className="space-y-2 text-[13px] text-foreground/80">
                           {group.items.map((funcao: PgrFunction) => {
                             const isEditingRow = editingFunctionIds.includes(funcao.id);
+                            const isExpandedRow = expandedFunctionIds.includes(funcao.id);
                             const draft = editingDrafts[funcao.id] ?? {
                               setor: funcao.setor || "",
                               funcao: funcao.funcao || "",
@@ -951,10 +1015,10 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                                   handleDragStartLeft(event, funcao.id)
                                 }
                                 onDragEnd={handleDragLeave}
-                                className={`grid gap-2 rounded-[8px] px-2 py-1 transition hover:bg-muted/70 ${
-                                  isEditingRow
-                                    ? "grid-cols-[20px_minmax(0,1fr)_auto] items-start"
-                                    : "grid-cols-[20px_minmax(0,1fr)] items-center cursor-grab"
+                                className={`grid grid-cols-[20px_minmax(0,1fr)_auto] gap-2 rounded-[8px] px-2 py-1 transition hover:bg-muted/70 ${
+                                  isEditingRow || isExpandedRow
+                                    ? "items-start"
+                                    : "items-center cursor-grab"
                                 }`}
                               >
                                 <input
@@ -968,38 +1032,26 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                                 {isEditingRow ? (
                                   <>
                                     <div className="min-w-0 space-y-2">
-                                      <input
+                                      <AutoGrowTextarea
                                         value={draft.setor}
-                                        onChange={(event) =>
-                                          handleDraftFieldChange(
-                                            funcao.id,
-                                            "setor",
-                                            event.target.value
-                                          )
+                                        onChange={(value) =>
+                                          handleDraftFieldChange(funcao.id, "setor", value)
                                         }
                                         className={inputInlineClass}
                                         placeholder="Setor"
                                       />
-                                      <input
+                                      <AutoGrowTextarea
                                         value={draft.funcao}
-                                        onChange={(event) =>
-                                          handleDraftFieldChange(
-                                            funcao.id,
-                                            "funcao",
-                                            event.target.value
-                                          )
+                                        onChange={(value) =>
+                                          handleDraftFieldChange(funcao.id, "funcao", value)
                                         }
                                         className={inputInlineClass}
                                         placeholder="Função"
                                       />
-                                      <input
+                                      <AutoGrowTextarea
                                         value={draft.descricao}
-                                        onChange={(event) =>
-                                          handleDraftFieldChange(
-                                            funcao.id,
-                                            "descricao",
-                                            event.target.value
-                                          )
+                                        onChange={(value) =>
+                                          handleDraftFieldChange(funcao.id, "descricao", value)
                                         }
                                         className={inputInlineClass}
                                         placeholder="Descrição da função"
@@ -1025,13 +1077,55 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                                     </div>
                                   </>
                                 ) : (
-                                  <span
-                                    className="min-w-0"
-                                    style={{ textWrap: "pretty" }}
-                                    title={`${funcao.funcao} - ${funcao.descricao}`}
-                                  >
-                                    {funcao.funcao} - {truncatePreview(funcao.descricao, 90)}
-                                  </span>
+                                  <>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() => toggleExpandedFunction(funcao.id)}
+                                      onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                          event.preventDefault();
+                                          toggleExpandedFunction(funcao.id);
+                                        }
+                                      }}
+                                      className={`min-w-0 cursor-pointer ${
+                                        isExpandedRow ? "whitespace-pre-wrap break-words" : ""
+                                      }`}
+                                      style={{ textWrap: "pretty" }}
+                                      title={
+                                        isExpandedRow
+                                          ? "Clique para minimizar"
+                                          : `${funcao.funcao} - ${funcao.descricao}`
+                                      }
+                                    >
+                                      {isExpandedRow ? (
+                                        <>
+                                          <span className="font-semibold text-foreground">
+                                            {funcao.funcao}
+                                          </span>
+                                          {" - "}
+                                          {funcao.descricao}
+                                        </>
+                                      ) : (
+                                        <>
+                                          {funcao.funcao} - {truncatePreview(funcao.descricao, 90)}
+                                        </>
+                                      )}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandedFunction(funcao.id)}
+                                      className="mt-0.5 text-muted-foreground transition hover:text-primary"
+                                      title={isExpandedRow ? "Minimizar linha" : "Expandir linha"}
+                                      aria-expanded={isExpandedRow}
+                                    >
+                                      {isExpandedRow ? (
+                                        <ChevronUp className="h-4 w-4" />
+                                      ) : (
+                                        <ChevronDown className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             );
@@ -1168,7 +1262,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4 text-[12px] font-semibold text-muted-foreground">
+                <div className="mt-4 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_80px] items-center gap-4 text-[12px] font-semibold text-muted-foreground">
                   <span />
                   <button
                     type="button"
@@ -1212,7 +1306,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                   </button>
                   <span />
                 </div>
-                <div className="mt-2 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4">
+                <div className="mt-2 grid max-w-full grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_80px] items-center gap-4">
                   <Search className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   {(["setor", "funcao", "descricao", "quantitativo"] as const).map(
                     (key) => (
@@ -1247,6 +1341,13 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                       const data = functionMap.get(item.functionId);
                       if (!data) return null;
                       const isEditingRow = editingFunctionIds.includes(item.functionId);
+                      const isExpandedRow = expandedFunctionIds.includes(item.functionId);
+                      const expandOnKey = (event: ReactKeyboardEvent) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          toggleExpandedFunction(item.functionId);
+                        }
+                      };
                       const draft = editingDrafts[item.functionId] ?? {
                         setor: data.setor || "",
                         funcao: data.funcao || "",
@@ -1262,7 +1363,7 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           handleDragStartRight(event, item.functionId)
                         }
                         onDragEnd={handleDragLeave}
-                        className="grid max-w-full cursor-grab grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_56px] items-center gap-4 rounded-[10px] border border-border/60 px-3 py-3 text-[13px] text-foreground/80 transition hover:bg-muted/70"
+                        className="grid max-w-full cursor-grab grid-cols-[20px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_96px_80px] items-center gap-x-4 gap-y-3 rounded-[10px] border border-border/60 px-3 py-3 text-[13px] text-foreground/80 transition hover:bg-muted/70"
                       >
                         <input
                           type="checkbox"
@@ -1272,70 +1373,33 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                           }
                           className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                         />
-                        {isEditingRow ? (
-                          <input
-                            value={draft.setor}
-                            onChange={(event) =>
-                              handleDraftFieldChange(
-                                item.functionId,
-                                "setor",
-                                event.target.value
-                              )
-                            }
-                            className={inputInlineClass}
-                            placeholder="Setor"
-                          />
-                        ) : (
-                          <span
-                            className="min-w-0 whitespace-normal break-words leading-tight font-semibold text-foreground"
-                            style={{ textWrap: "pretty" }}
-                            title={data.setor}
-                          >
-                            {data.setor}
-                          </span>
-                        )}
-                        {isEditingRow ? (
-                          <input
-                            value={draft.funcao}
-                            onChange={(event) =>
-                              handleDraftFieldChange(
-                                item.functionId,
-                                "funcao",
-                                event.target.value
-                              )
-                            }
-                            className={inputInlineClass}
-                            placeholder="Função"
-                          />
-                        ) : (
-                          <span
-                            className="min-w-0 truncate font-medium text-foreground/90"
-                            title={data.funcao}
-                          >
-                            {data.funcao}
-                          </span>
-                        )}
-                        {isEditingRow ? (
-                          <input
-                            value={draft.descricao}
-                            onChange={(event) =>
-                              handleDraftFieldChange(
-                                item.functionId,
-                                "descricao",
-                                event.target.value
-                              )
-                            }
-                            className={inputInlineClass}
-                            placeholder="Descrição da função"
-                          />
-                        ) : (
-                          <span
-                            className="min-w-0 truncate text-muted-foreground"
-                            title={data.descricao}
-                          >
-                            {truncatePreview(data.descricao, 90)}
-                          </span>
-                        )}
+                        <span
+                          className="min-w-0 whitespace-normal break-words leading-tight font-semibold text-foreground"
+                          style={{ textWrap: "pretty" }}
+                          title={data.setor}
+                        >
+                          {data.setor}
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleExpandedFunction(item.functionId)}
+                          onKeyDown={expandOnKey}
+                          className="min-w-0 cursor-pointer truncate font-medium text-foreground/90"
+                          title={isExpandedRow ? "Clique para minimizar" : "Clique para expandir"}
+                        >
+                          {data.funcao}
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleExpandedFunction(item.functionId)}
+                          onKeyDown={expandOnKey}
+                          className="min-w-0 cursor-pointer truncate text-muted-foreground"
+                          title={isExpandedRow ? "Clique para minimizar" : "Clique para expandir"}
+                        >
+                          {truncatePreview(data.descricao, 90)}
+                        </span>
                         <input
                           className={`${miniInputClass} ml-auto justify-self-end`}
                           type="number"
@@ -1395,9 +1459,78 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandedFunction(item.functionId)}
+                                className="text-muted-foreground transition hover:text-primary"
+                                title={isExpandedRow ? "Minimizar linha" : "Expandir linha"}
+                                aria-expanded={isExpandedRow}
+                              >
+                                {isExpandedRow ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </button>
                             </>
                           )}
                         </div>
+                        {isEditingRow ? (
+                          // As colunas da linha são estreitas demais para editar texto
+                          // longo; os campos ocupam a largura toda abaixo da linha.
+                          <div className="col-span-full grid gap-2 sm:grid-cols-2">
+                            <label className="space-y-1 text-[11px] font-semibold text-muted-foreground">
+                              Setor
+                              <AutoGrowTextarea
+                                value={draft.setor}
+                                onChange={(value) =>
+                                  handleDraftFieldChange(item.functionId, "setor", value)
+                                }
+                                className={inputInlineClass}
+                                placeholder="Setor"
+                              />
+                            </label>
+                            <label className="space-y-1 text-[11px] font-semibold text-muted-foreground">
+                              Função
+                              <AutoGrowTextarea
+                                value={draft.funcao}
+                                onChange={(value) =>
+                                  handleDraftFieldChange(item.functionId, "funcao", value)
+                                }
+                                className={inputInlineClass}
+                                placeholder="Função"
+                              />
+                            </label>
+                            <label className="space-y-1 text-[11px] font-semibold text-muted-foreground sm:col-span-2">
+                              Descrição da função
+                              <AutoGrowTextarea
+                                value={draft.descricao}
+                                onChange={(value) =>
+                                  handleDraftFieldChange(item.functionId, "descricao", value)
+                                }
+                                className={inputInlineClass}
+                                placeholder="Descrição da função"
+                              />
+                            </label>
+                          </div>
+                        ) : isExpandedRow ? (
+                          <dl className="col-span-full cursor-auto space-y-2 rounded-[8px] bg-muted/40 px-3 py-2 text-[12px]">
+                            <div>
+                              <dt className="font-semibold text-foreground">Setor</dt>
+                              <dd className="whitespace-pre-wrap break-words">{data.setor}</dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold text-foreground">Função</dt>
+                              <dd className="whitespace-pre-wrap break-words">{data.funcao}</dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold text-foreground">Descrição da Atividade</dt>
+                              <dd className="whitespace-pre-wrap break-words text-muted-foreground">
+                                {data.descricao}
+                              </dd>
+                            </div>
+                          </dl>
+                        ) : null}
                       </div>
                       );
                     })
@@ -2131,34 +2264,90 @@ export function DescricaoStep({ ctx }: DescricaoStepProps) {
             <div className="fixed inset-0 z-50">
               <div className="absolute inset-0 bg-black/55" />
               <div className="relative flex min-h-screen items-center justify-center px-4 py-6">
-                <div className="w-full max-w-md rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
+                <div className="w-full max-w-3xl rounded-[16px] bg-card px-6 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.25)] dark:border dark:border-border/60">
                   <h3 className="text-[18px] font-semibold text-foreground">
-                    Confirmar importação
+                    Importar funções do Excel
                   </h3>
                   <p className="mt-2 text-[13px] text-muted-foreground">
-                    Escolha qual tipo de planilha deseja importar.
+                    Escolha o tipo de planilha. A primeira aba do arquivo é lida e a
+                    primeira linha precisa conter os nomes das colunas.
                   </p>
-                  <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    {(Object.keys(DESCRICAO_IMPORT_GUIDES) as DescricaoImportMode[]).map(
+                      (mode) => {
+                        const guide = DESCRICAO_IMPORT_GUIDES[mode];
+                        return (
+                          <div
+                            key={mode}
+                            className="flex flex-col rounded-[12px] border border-border/70 bg-background/40 px-4 py-4"
+                          >
+                            <p className="text-[15px] font-semibold text-foreground">
+                              {guide.label}
+                            </p>
+                            <p className="mt-1 text-[12px] text-muted-foreground">
+                              {guide.summary}
+                            </p>
+                            <dl className="mt-3 space-y-2 text-[12px]">
+                              <div>
+                                <dt className="font-semibold text-foreground">
+                                  Colunas obrigatórias
+                                </dt>
+                                <dd className="text-muted-foreground">
+                                  {guide.requiredColumns.join(", ")}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-foreground">
+                                  Colunas opcionais
+                                </dt>
+                                <dd className="text-muted-foreground">
+                                  {guide.optionalColumns.join(", ")}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-foreground">Contagem</dt>
+                                <dd className="text-muted-foreground">{guide.countRule}</dd>
+                              </div>
+                            </dl>
+                            <div className="mt-4 flex flex-wrap gap-2 pt-1 md:mt-auto">
+                              <button
+                                type="button"
+                                onClick={() => void handleDownloadImportTemplate(mode)}
+                                className="btn-outline px-3 text-[12px]"
+                              >
+                                <Download className="h-4 w-4" />
+                                Planilha modelo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleImportByMode(mode)}
+                                className="btn-primary px-4 text-[12px]"
+                              >
+                                Importar {guide.label.toLowerCase()}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                  <p className="mt-4 text-[12px] text-muted-foreground">
+                    Na coluna GHE, &quot;1&quot;, &quot;01&quot; e &quot;GHE 1&quot; viram o
+                    mesmo GHE. GHEs que ainda não existem são criados. Funções com Setor e
+                    Função já cadastrados não são duplicadas.
+                  </p>
+                  {templateDownloadError ? (
+                    <p className="mt-2 text-[12px] text-danger-foreground">
+                      {templateDownloadError}
+                    </p>
+                  ) : null}
+                  <div className="mt-6 flex justify-end">
                     <button
                       type="button"
                       onClick={() => setIsExcelImportTypeModalOpen(false)}
                       className="btn-outline px-4"
                     >
                       Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleImportPlanilhaAtivos}
-                      className="btn-outline px-4"
-                    >
-                      Planilha de ativos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleImportTotalGeral}
-                      className="btn-primary px-5"
-                    >
-                      Total geral
                     </button>
                   </div>
                 </div>

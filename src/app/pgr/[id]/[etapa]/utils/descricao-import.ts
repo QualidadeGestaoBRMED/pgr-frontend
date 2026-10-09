@@ -243,3 +243,105 @@ export const parseDescricaoExcel = async (
 
   return { functions, gheGroups, riskGheGroups };
 };
+
+export type DescricaoImportMode = "total-geral" | "planilha-ativos";
+
+type DescricaoImportGuide = {
+  label: string;
+  summary: string;
+  requiredColumns: string[];
+  optionalColumns: string[];
+  countRule: string;
+  templateFileName: string;
+  templateRows: (string | number)[][];
+};
+
+// O que cada importação exige, mostrado no modal antes de escolher o arquivo.
+// As colunas batem com os aliases que parseDescricaoExcel aceita; os modelos
+// são gerados a partir daqui e o teste confere que eles reimportam sem erro.
+export const DESCRICAO_IMPORT_GUIDES: Record<DescricaoImportMode, DescricaoImportGuide> = {
+  "total-geral": {
+    label: "Total geral",
+    summary: "Uma linha por função, já com o total de funcionários.",
+    requiredColumns: ["Setor", "Função", "Descrição da Atividade"],
+    optionalColumns: ["GHE", "Quantitativo"],
+    countRule:
+      "O quantitativo da função é a soma da coluna Quantitativo. Sem a coluna, a função entra com 0.",
+    templateFileName: "modelo-importacao-total-geral.xlsx",
+    templateRows: [
+      ["Setor", "Função", "Descrição da Atividade", "GHE", "Quantitativo"],
+      [
+        "Administrativo",
+        "Assistente Administrativo",
+        "Executa rotinas administrativas, atendimento e controle de documentos.",
+        "GHE 1",
+        3,
+      ],
+      [
+        "Produção",
+        "Operador de Máquinas",
+        "Opera e monitora máquinas da linha de produção.",
+        "GHE 2",
+        5,
+      ],
+    ],
+  },
+  "planilha-ativos": {
+    label: "Planilha de ativos",
+    summary: "Uma linha por funcionário ativo (lista de colaboradores).",
+    requiredColumns: ["Setor", "Função", "Descrição da Atividade"],
+    optionalColumns: ["GHE", "Funcionário"],
+    countRule:
+      "Cada linha conta 1 funcionário; linhas com o mesmo Setor e Função somam. A coluna Quantitativo é ignorada.",
+    templateFileName: "modelo-importacao-planilha-de-ativos.xlsx",
+    templateRows: [
+      ["Funcionário", "Setor", "Função", "Descrição da Atividade", "GHE"],
+      [
+        "Ana Souza",
+        "Administrativo",
+        "Assistente Administrativo",
+        "Executa rotinas administrativas, atendimento e controle de documentos.",
+        "GHE 1",
+      ],
+      [
+        "Bruno Lima",
+        "Administrativo",
+        "Assistente Administrativo",
+        "Executa rotinas administrativas, atendimento e controle de documentos.",
+        "GHE 1",
+      ],
+      [
+        "Carla Dias",
+        "Produção",
+        "Operador de Máquinas",
+        "Opera e monitora máquinas da linha de produção.",
+        "GHE 2",
+      ],
+    ],
+  },
+};
+
+export const buildDescricaoImportTemplate = async (
+  mode: DescricaoImportMode
+): Promise<ArrayBuffer> => {
+  const XLSX = await import("xlsx");
+  const sheet = XLSX.utils.aoa_to_sheet(DESCRICAO_IMPORT_GUIDES[mode].templateRows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, "Funções");
+  return XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+};
+
+export const downloadDescricaoImportTemplate = async (mode: DescricaoImportMode) => {
+  const buffer = await buildDescricaoImportTemplate(mode);
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = DESCRICAO_IMPORT_GUIDES[mode].templateFileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
